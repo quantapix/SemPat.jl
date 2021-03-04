@@ -1,0 +1,29 @@
+
+cd raw/julia
+git clean -xfd
+git reset --hard
+[git checkout v1.5.3]
+make -j 16
+make install prefix=/Users/qpix/clone/qnarre3/Qnarre/usr/new
+
+cd raw
+git clone https://github.com/JuliaInterop/libcxxwrap-julia.git
+cd libcxxwrap-julia
+git clean -xfd
+git reset --hard
+[git checkout v0.8.2]
+mkdir build && build
+cmake -DJulia_EXECUTABLE=/Users/qpix/clone/qnarre3/Qnarre/usr/new/bin/julia ..
+cmake --build . -j 16 --config Release
+cmake --install . --prefix /Users/qpix/clone/qnarre3/Qnarre/usr/new
+
+cd raw
+git clone https://github.com/Z3Prover/z3.git
+cd z3
+git clean -xfd
+git reset --hard
+[git checkout z3-4.8.9]
+mkdir build && cd build
+cmake -DZ3_BUILD_JULIA_BINDINGS=True -DJulia_EXECUTABLE=/Users/qpix/clone/qnarre3/Qnarre/usr/new/bin/julia -DCMAKE_PREFIX_PATH=/Users/qpix/clone/qnarre3/Qnarre/usr/new ..
+cmake --build . -j 16 --config Release
+cmake --install . --prefix /Users/qpix/clone/qnarre3/Qnarre/usr/new

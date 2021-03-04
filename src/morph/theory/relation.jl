@@ -1,0 +1,70 @@
+@signature BicategoryRelations{Ob,Hom} <: HypergraphCategory{Ob,Hom} begin
+  # Logical operations.
+    meet(R::(A → B), S::(A → B))::(A → B) ⊣ (A::Ob, B::Ob)
+    top(A::Ob, B::Ob)::(A → B)
+end
+
+@syntax FreeBicategoryRelations{ObExpr,HomExpr} BicategoryRelations begin
+    otimes(A::Ob, B::Ob) = associate_unit(new(A, B), munit)
+    otimes(R::Hom, S::Hom) = associate(new(R, S))
+    compose(R::Hom, S::Hom) = associate(new(R, S; strict=true))
+    dagger(R::Hom) = distribute_unary(distribute_dagger(involute(new(R))),
+                                    dagger, otimes)
+    meet(R::Hom, S::Hom) = compose(mcopy(dom(R)), otimes(R, S), mmerge(codom(R)))
+    top(A::Ob, B::Ob) = compose(delete(A), create(B))
+end
+
+@signature AbelianBicategoryRelations{Ob,Hom} <: HypergraphCategoryAdditive{Ob,Hom} begin
+  # Second supply of Frobenius monoids.
+    plus(A::Ob)::((A ⊕ A) → A)
+    zero(A::Ob)::(mzero() → A)
+    coplus(A::Ob)::(A → (A ⊕ A))
+    cozero(A::Ob)::(A → mzero())
+
+  # Logical operations.
+    meet(R::(A → B), S::(A → B))::(A → B) ⊣ (A::Ob, B::Ob)
+    top(A::Ob, B::Ob)::(A → B)
+    join(R::(A → B), S::(A → B))::(A → B) ⊣ (A::Ob, B::Ob)
+    bottom(A::Ob, B::Ob)::(A → B)
+end
+
+@syntax FreeAbelianBicategoryRelations{ObExpr,HomExpr} AbelianBicategoryRelations begin
+    oplus(A::Ob, B::Ob) = associate_unit(new(A, B), mzero)
+    oplus(R::Hom, S::Hom) = associate(new(R, S))
+    compose(R::Hom, S::Hom) = associate(new(R, S; strict=true))
+    dagger(R::Hom) = distribute_unary(distribute_dagger(involute(new(R))),
+                                    dagger, oplus)
+    meet(R::Hom, S::Hom) = compose(mcopy(dom(R)), oplus(R, S), mmerge(codom(R)))
+    join(R::Hom, S::Hom) = compose(coplus(dom(R)), oplus(R, S), plus(codom(R)))
+    top(A::Ob, B::Ob) = compose(delete(A), create(B))
+    bottom(A::Ob, B::Ob) = compose(cozero(A), zero(B))
+end
+
+@signature DistributiveBicategoryRelations{Ob,Hom} <:
+    DistributiveMonoidalCategoryWithDiagonals{Ob,Hom} begin
+  # Self-dual dagger compact category.
+    dagger(R::(A → B))::(B → A) ⊣ (A::Ob, B::Ob)
+    dunit(A::Ob)::(munit() → (A ⊗ A))
+    dcounit(A::Ob)::((A ⊗ A) → munit())
+  
+  # Merging and creating (right adjoints of copying and deleting maps).
+    mmerge(A::Ob)::((A ⊗ A) → A)
+    @op (∇) := mmerge
+    create(A::Ob)::(munit() → A)
+    @op (□) := create
+
+  # Co-addition and co-zero (right adjoints of addition and zero maps).
+    coplus(A::Ob)::(A → (A ⊕ A))
+    cozero(A::Ob)::(A → mzero())
+  
+  # The coproduct is automatically a biproduct, due to compact closed structure.
+    pair(R::(A → B), S::(A → C))::(A → (B ⊕ C)) ⊣ (A::Ob, B::Ob, C::Ob)
+    proj1(A::Ob, B::Ob)::((A ⊕ B) → A)
+    proj2(A::Ob, B::Ob)::((A ⊕ B) → B)
+  
+  # Logical operations.
+    meet(R::(A → B), S::(A → B))::(A → B) ⊣ (A::Ob, B::Ob)
+    top(A::Ob, B::Ob)::(A → B)
+    join(R::(A → B), S::(A → B))::(A → B) ⊣ (A::Ob, B::Ob)
+    bottom(A::Ob, B::Ob)::(A → B)
+end
