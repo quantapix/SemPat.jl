@@ -15,14 +15,14 @@ end
 using DataStructures
 
 mutable struct EGraph
-    unionfind::IntDisjointSets
+    unionfind::UnionFind
     memo::Dict{Term,Id} # int32 UInt32?
     classes::Dict{Id,EClass} # Use array?
     dirty_unions::Array{Id}
 end
 
 # Build an empty EGraph
-EGraph() = EGraph(IntDisjointSets(0), Dict(), Dict(), [])
+EGraph() = EGraph(UnionFind(0), Dict(), Dict(), [])
 
 find_root!(e::EGraph, id::Id) = Id(DataStructures.find_root!(e.unionfind, id.id))
 
