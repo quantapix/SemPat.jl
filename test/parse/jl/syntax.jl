@@ -2,7 +2,7 @@
 using Random
 import Base.Meta.ParseError
 module JL
-    using Qnarre.JLParse
+    using SemPats.JLParse
     function parse(s; raise::Bool=true, depwarn::Bool=true, show=true)
         x, p = JLParse.parse(JLParse.Parser(s))
         x0 = Expr(x)

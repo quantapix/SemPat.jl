@@ -255,7 +255,7 @@ const Not = Trait.Not
 end
 @testset_lifted "base3" begin
     @traitfn f_dc(::::Tr1) = 1
-    @lift using Qnarre.Trait
+    @lift using SemPats.Trait
     @lift @traitdef Tr1{X}
     @lift @traitimpl Tr1{Integer}
     @lift @traitfn f_dc(::::Tr1) = 2

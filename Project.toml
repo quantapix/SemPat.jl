@@ -1,14 +1,10 @@
-name = "SemPats.jl"
+name = "SemPats"
 uuid = "b3835d9c-68ef-40fb-b33a-5f0d42ecd675"
 authors = ["Quantapix and contributors"]
 version = "0.1.0"
 
 [deps]
-BinaryBuilder = "12aac903-9f7c-5d81-afc2-d9565ea332ae"
-BinaryBuilderBase = "7f725544-6523-48cd-82d1-3fa08ff4056e"
 CanonicalTraits = "a603d957-0e48-4f86-8fbd-0b7bc66df689"
-Catlab = "134e5e36-593f-5add-ad60-77f754baafbe"
-CxxWrap = "1f15a43c-97ca-5a2a-ae31-89f07a497df4"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 DocumentFormat = "ffa9a821-9c82-50df-894e-fbcef3ed31cd"
 FilePathsBase = "48062228-2e41-5def-b9a4-89aafe57970f"
@@ -26,6 +22,3 @@ Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 SimpleTraits = "699a6c99-e7fa-54fc-8d76-47d257e15c1d"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-Z3 = "06b161dc-0161-11ea-0f74-41f836f4024b"
-libcxxwrap_julia_jll = "3eaa8342-bff7-56a5-9981-c04077f7cee7"
-z3_jll = "1bc4e1ec-7839-5212-8f2f-0d16b7bd09bc"

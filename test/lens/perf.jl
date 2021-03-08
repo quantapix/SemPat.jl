@@ -2,7 +2,7 @@ module Perf
 using BenchmarkTools
 using BenchmarkTools: Benchmark, TrialEstimate
 using InteractiveUtils
-using Qnarre.Lens
+using SemPats.Lens
 using StaticArrays
 using Test
 
@@ -72,7 +72,7 @@ function test_ir_lens_vs_hand(lens::Core.CodeInfo, hand::Core.CodeInfo)
     @test uniquecounts(hl) == uniquecounts(hh)
 end
 
-using Qnarre.Lens: Compo
+using SemPats.Lens: Compo
 is_fast_compo_order(x) = true
 is_fast_compo_order(l::Compo{<:Compo,<:Any}) = is_fast_compo_order(l.outer)
 is_fast_compo_order(l::Compo{<:Any,<:Compo}) = false

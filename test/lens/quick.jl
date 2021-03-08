@@ -1,5 +1,5 @@
 import Base: ==
-import Qnarre.Utils: constrof
+import SemPats.Utils: constrof
 
 @qstruct Wall(width, height)
 

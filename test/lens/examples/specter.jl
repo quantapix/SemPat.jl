@@ -1,8 +1,8 @@
 using Test
-using Qnarre.Lens
+using SemPats.Lens
 
-import Qnarre.Lens: modify, Kind
-using Qnarre.Lens: ByModify, BySet, set_index
+import SemPats.Lens: modify, Kind
+using SemPats.Lens: ByModify, BySet, set_index
 
 function mapvals(f, d)
     Dict(k => f(v) for (k, v) in pairs(d))

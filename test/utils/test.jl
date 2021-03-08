@@ -21,7 +21,7 @@ macro testset_lifted(n, e)
     m = gensym(n)
     __module__.eval(:(module $m
         using Test
-        using Qnarre.Match
+        using SemPats.Match
         $(Symbol("@test_macro_throws")) = $(getfield(TestModule, Symbol("@test_macro_throws")))
         $(es...)
         @testset $n $e

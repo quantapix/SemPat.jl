@@ -1,6 +1,6 @@
 @testset_lifted "quick" begin
-    @lift using Qnarre.Utils: set_props
-    @lift using Qnarre.Match: construct, roottypeof, fieldsof, type_parameters, roottype, tuple_parameters, @d
+    @lift using SemPats.Utils: set_props
+    @lift using SemPats.Match: construct, roottypeof, fieldsof, type_parameters, roottype, tuple_parameters, @d
     @lift abstract type Vehicle end
 
     @lift @qstruct Car{T <: Number,U}(size::T, nwheels::Int=4; manufacturer::U=nothing, brand::String="off-brand") <: Vehicle

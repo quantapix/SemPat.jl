@@ -1,5 +1,5 @@
-using Qnarre.Lens
-using Qnarre.Lens: Indeces, Field, Compo
+using SemPats.Lens
+using SemPats.Lens: Indeces, Field, Compo
 
 struct Lens!{L}
     pure::L
@@ -35,7 +35,7 @@ o = (foo = [1,2,3], bar = :bar)
 set(o, l, 100)
 @test o == (foo = [100,2,3], bar = :bar)
 
-using Qnarre.Lens: make_set, make_lens, make_modify
+using SemPats.Lens: make_set, make_lens, make_modify
 
 macro myreset(ex)
     make_set(Lens!, ex)

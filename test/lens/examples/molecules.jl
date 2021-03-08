@@ -1,4 +1,4 @@
-using Qnarre.Lens
+using SemPats.Lens
 using Test
 
 molecule = (name = "water",

@@ -1,4 +1,4 @@
-module Qnarre
+module SemPats
 
 include("frame.jl")
 include("utils/Utils.jl")

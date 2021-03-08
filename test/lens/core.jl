@@ -1,5 +1,5 @@
-import Qnarre.Utils: constrof, set_props
-using Qnarre.Lens: compose, get_update_op
+import SemPats.Utils: constrof, set_props
+using SemPats.Lens: compose, get_update_op
 using StaticNumbers: StaticNumbers, static
 
 struct T

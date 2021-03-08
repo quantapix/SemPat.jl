@@ -1,5 +1,5 @@
-module M1; using Qnarre.Match end
-module M2; using Qnarre.Match end
+module M1; using SemPats.Match end
+module M2; using SemPats.Match end
 
 module Linq
 select(arr, f) = map(f, arr)

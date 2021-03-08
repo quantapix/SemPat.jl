@@ -194,9 +194,9 @@ end
     @test r == 101
 end
 
-lisp"(import Qnarre)"
+lisp"(import SemPats)"
 @testset "Module import" begin
-    # @test lisp"(Qnarre.Parse.@E_str \"S\")" == E"S"
+    # @test lisp"(SemPats.Parse.@E_str \"S\")" == E"S"
 end
 @testset "include" begin
     # Return value is value of last expression

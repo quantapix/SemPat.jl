@@ -1,7 +1,7 @@
 @testset_lifted "core" begin
     @lift using Polynomials
     @lift using LinearAlgebra
-    @lift using Qnarre.Trait
+    @lift using SemPats.Trait
     @lift @trait Monoid{T} begin
         mempty::Type{T} => T
         (⊕)::[T, T] => T

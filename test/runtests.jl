@@ -1,7 +1,7 @@
 module TestModule
 using Test
 
-using Qnarre.Match
+using SemPats.Match
 include("utils/test.jl")
 
 #=
@@ -17,13 +17,13 @@ include("match/record.jl")
 include("match/quick.jl")
 end
 
-using Qnarre.Trait
+using SemPats.Trait
 @testset "Trait" begin
 include("trait/base.jl")
 include("trait/core.jl")
 end
 
-using Qnarre.Lens
+using SemPats.Lens
 import PerformanceTestTools
 @testset "Lens" begin
 include("lens/base.jl")
@@ -33,28 +33,28 @@ include("lens/quick.jl")
 end
 =#
 
-using Qnarre.Scan
+using SemPats.Scan
 #=
 @testset "Scan" begin
 include("scan/base.jl")
 include("scan/core.jl")
 end
 
-using Qnarre.Parse
+using SemPats.Parse
 @testset "Parse" begin
 include("parse/comb/base.jl")
 include("parse/comb/core.jl")
 include("parse/comb/calc.jl")
 end
 
-using Qnarre.FLParse
+using SemPats.FLParse
 @testset "Lisp" begin
 include("parse/fl/tests.jl")
 end
 =#
 
-using Qnarre.JLParse
-import Qnarre.JLParse: remlineinfo!, span, head, val, Parser, lisp_parse
+using SemPats.JLParse
+import SemPats.JLParse: remlineinfo!, span, head, val, Parser, lisp_parse
 @testset "Julia" begin
 include("parse/jl/core.jl")
 include("parse/jl/syntax.jl")
@@ -62,8 +62,8 @@ include("parse/jl/syntax.jl")
 end
 
 #=
-using Qnarre.Format
-using Qnarre.Format: format, isformatted, Options
+using SemPats.Format
+using SemPats.Format: format, isformatted, Options
 using FilePathsBase
 @testset "Format" begin
 include("format/tests.jl")
@@ -71,7 +71,7 @@ end
 =#
 
 #=
-using Qnarre.Morph
+using SemPats.Morph
 include("morph/base.jl")
 include("morph/syntax.jl")
 include("morph/picture.jl")
