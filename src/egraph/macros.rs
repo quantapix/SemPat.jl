@@ -59,9 +59,6 @@ define_language! {
     }
 }
 ```
-
-[`FromStr`]: std::str::FromStr
-[`Display`]: std::fmt::Display
 **/
 #[macro_export]
 macro_rules! define_language {

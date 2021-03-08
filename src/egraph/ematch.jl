@@ -1,14 +1,3 @@
-# https://www.philipzucker.com/egraph-2/
-# https://github.com/philzook58/EGraphs.jl/blob/main/src/matcher.jl
-# https://www.hpl.hp.com/techreports/2003/HPL-2003-148.pdf
-# TODO support destructuring
-# DONE support type assertions
-
-# ematching seems to be faster without spawning tasks
-
-# we keep a pair of EClass, Any in substitutions because
-# when evaluating dynamic rules we also want to know
-# what was the value of a matched literal
 const Sub = Base.ImmutableDict{Any, Tuple{EClass, Any}}
 
 # https://www.hpl.hp.com/techreports/2003/HPL-2003-148.pdf

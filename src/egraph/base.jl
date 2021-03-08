@@ -1,3 +1,41 @@
+using Base.Meta
+
+iscall(e) = false
+iscall(e::Expr) = isexpr(e, :call)
+
+getfunsym(e::Expr) = iscall(e) ? e.args[1] : e.head
+getfunsym(e) = e
+
+setfunsym!(e::Expr, s) = iscall(e) ? (e.args[1] = s) : (e.head = s)
+setfunsym!(e, s) = s
+
+getfunargs(e::Expr) = e.args[(iscall(e) ? 2 : 1):end]
+
+getfunargs(e) = []
+
+function setfunargs!(e::Expr, args::Vector)
+    e.args[(iscall(e) ? 2 : 1):end] = args
+end
+setfunargs!(e, args) = []
+
+istree(e::Expr) = true
+istree(a) = false
+
+macro matcher(te)
+  if Meta.isexpr(te, :block) # @matcher begine rules... end
+  te = rmlines(te)
+      t = compile_theory(Vector{Rule}(te.args .|> Rule), __module__)
+  else
+      if !isdefined(__module__, te) error(`theory $theory not found!`) end
+      t = getfield(__module__, te)
+  if t isa Vector{Rule}; t = compile_theory(t, __module__) end
+      if !t isa Function error(`$te is not a valid theory`) end
+  end
+
+t
+# quote (x) -> ($t)(x) end
+end
+
 struct Id
     id::Int
 end

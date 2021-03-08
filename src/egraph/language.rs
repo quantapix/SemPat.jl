@@ -19,9 +19,6 @@ use symbolic_expressions::Sexp;
 /// [`define_language!`] implements these for you.
 ///
 /// See [`SymbolLang`] for quick-and-dirty use cases.
-///
-/// [`FromStr`]: std::str::FromStr
-/// [`Display`]: std::fmt::Display
 #[allow(clippy::len_without_is_empty)]
 pub trait Language: Debug + Clone + Eq + Ord + Hash {
     /// Returns true if this enode matches another enode.
