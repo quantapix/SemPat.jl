@@ -2,8 +2,29 @@ use std::fmt;
 use std::str::FromStr;
 use std::sync::Mutex;
 
-use indexmap::IndexSet;
 use once_cell::sync::Lazy;
+
+#[allow(unused_imports)]
+use crate::*;
+
+pub(crate) type Hasher = fxhash::FxHasher;
+
+pub(crate) type HashMap<K, V> =
+    std::collections::HashMap<K, V, std::hash::BuildHasherDefault<Hasher>>;
+pub(crate) type HashSet<K> = std::collections::HashSet<K, std::hash::BuildHasherDefault<Hasher>>;
+
+pub(crate) type IndexMap<K, V> = indexmap::IndexMap<K, V, std::hash::BuildHasherDefault<Hasher>>;
+pub(crate) type IndexSet<K> = indexmap::IndexSet<K, std::hash::BuildHasherDefault<Hasher>>;
+
+pub(crate) type Instant = instant::Instant;
+pub(crate) type Duration = instant::Duration;
+
+pub(crate) fn concat_vecs<T>(to: &mut Vec<T>, mut from: Vec<T>) {
+    if to.len() < from.len() {
+        std::mem::swap(to, &mut from)
+    }
+    to.extend(from);
+}
 
 static STRINGS: Lazy<Mutex<IndexSet<&'static str>>> = Lazy::new(Default::default);
 
@@ -36,9 +57,6 @@ static STRINGS: Lazy<Mutex<IndexSet<&'static str>>> = Lazy::new(Default::default
 /// assert_ne!(Symbol::from("foo"), Symbol::from("bar"));
 /// ```
 ///
-/// [`Var`]: struct.Var.html
-/// [`Symbol`]: struct.Symbol.html
-/// [`Language`]: trait.Language.html
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Symbol(u32);
 

@@ -3,8 +3,6 @@ EGraph visualization with [GraphViz]
 
 Use the [`Dot`] struct to visualize an [`EGraph`]
 
-[`Dot`]: struct.Dot.html
-[`EGraph`]: struct.EGraph.html
 [GraphViz]: https://graphviz.gitlab.io/
 !*/
 
@@ -19,7 +17,7 @@ use crate::{egraph::EGraph, Analysis, Language};
 A wrapper for an [`EGraph`] that can output [GraphViz] for
 visualization.
 
-The [`EGraph::dot`](struct.EGraph.html#method.dot) method creates `Dot`s.
+The [`EGraph::dot`](EGraph::dot()) method creates `Dot`s.
 
 # Example
 
@@ -50,7 +48,6 @@ rendered improperly due to a deficiency in GraphViz.
 So the example above will render with an from the "+" enode to itself
 instead of to its own eclass.
 
-[`EGraph`]: struct.EGraph.html
 [GraphViz]: https://graphviz.gitlab.io/
 **/
 pub struct Dot<'a, L: Language, N: Analysis<L>> {
@@ -189,10 +186,11 @@ where
 
         for class in self.egraph.classes() {
             for (i_in_class, node) in class.iter().enumerate() {
-                for (arg_i, child) in node.children().iter().enumerate() {
+                let mut arg_i = 0;
+                node.try_for_each(|child| {
                     // write the edge to the child, but clip it to the eclass with lhead
                     let (anchor, label) = edge(arg_i, node.len());
-                    let child_leader = self.egraph.find(*child);
+                    let child_leader = self.egraph.find(child);
 
                     if child_leader == class.id {
                         writeln!(
@@ -209,7 +207,9 @@ where
                             class.id, i_in_class, anchor, child, child_leader, label
                         )?;
                     }
-                }
+                    arg_i += 1;
+                    Ok(())
+                })?;
             }
         }
 

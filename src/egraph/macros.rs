@@ -1,16 +1,19 @@
+#[allow(unused_imports)]
+use crate::*;
+
 /** A macro to easily create a [`Language`].
 
 `define_language` derives `Debug`, `PartialEq`, `Eq`, `PartialOrd`, `Ord`,
 `Hash`, and `Clone` on the given `enum` so it can implement [`Language`].
 The macro also implements
-[`Language::from_op_str`](trait.Language.html#method.from_op_str) and
-[`Language::display_op`](trait.Language.html#method.display_op) for the `enum`
+[`Language::from_op_str`](Language::from_op_str()) and
+[`Language::display_op`](Language::display_op()) for the `enum`
 based on either the data of variants or the provided strings.
 
 The final variant **must have a trailing comma**; this is due to limitations in
 macro parsing.
 
-See [`LanguageChildren`](trait.LanguageChildren.html) for acceptable types of children `Id`s.
+See [`LanguageChildren`] for acceptable types of children `Id`s.
 
 Note that you can always implement [`Language`] yourself by just not using this
 macro.
@@ -57,9 +60,8 @@ define_language! {
 }
 ```
 
-[`FromStr`]: https://doc.rust-lang.org/std/str/trait.FromStr.html
-[`Display`]: https://doc.rust-lang.org/std/fmt/trait.Display.html
-[`Language`]: trait.Language.html
+[`FromStr`]: std::str::FromStr
+[`Display`]: std::fmt::Display
 **/
 #[macro_export]
 macro_rules! define_language {
@@ -72,7 +74,7 @@ macro_rules! define_language {
 #[macro_export]
 macro_rules! __define_language {
     ($(#[$meta:meta])* $vis:vis enum $name:ident {} ->
-     $decl:tt {$($matches:tt)*} $children:tt $children_mut:tt
+     $decl:tt {$($matches:tt)*} $for_each:tt $for_each_mut:tt
      $display_op:tt {$($from_op_str:tt)*}
     ) => {
         $(#[$meta])*
@@ -87,13 +89,13 @@ macro_rules! __define_language {
             }
 
             #[inline]
-            fn children(&self) -> &[Id] {
-                match self $children
+            fn for_each<F: FnMut(Id)>(&self, f: F) {
+                (match self $for_each).iter().copied().for_each(f)
             }
 
             #[inline]
-            fn children_mut(&mut self) -> &mut [Id] {
-                match self $children_mut
+            fn for_each_mut<F: FnMut(&mut Id)>(&mut self, f: F) {
+                (match self $for_each_mut).iter_mut().for_each(f)
             }
 
             fn display_op(&self) -> &dyn ::std::fmt::Display {
@@ -114,7 +116,7 @@ macro_rules! __define_language {
          $string:literal = $variant:ident,
          $($variants:tt)*
      } ->
-     { $($decl:tt)* } { $($matches:tt)* } { $($children:tt)* } { $($children_mut:tt)* }
+     { $($decl:tt)* } { $($matches:tt)* } { $($for_each:tt)* } { $($for_each_mut:tt)* }
      { $($display_op:tt)* } { $($from_op_str:tt)* }
     ) => {
         $crate::__define_language!(
@@ -122,8 +124,8 @@ macro_rules! __define_language {
             { $($variants)* } ->
             { $($decl)*          $variant, }
             { $($matches)*       ($name::$variant, $name::$variant) => true, }
-            { $($children)*      $name::$variant => &[], }
-            { $($children_mut)*  $name::$variant => &mut [], }
+            { $($for_each)*      $name::$variant => &[], }
+            { $($for_each_mut)*  $name::$variant => &mut [], }
             { $($display_op)*    $name::$variant => &$string, }
             { $($from_op_str)*   ($string, v) if v.is_empty() => Ok($name::$variant), }
         );
@@ -134,7 +136,7 @@ macro_rules! __define_language {
          $string:literal = $variant:ident ($ids:ty),
          $($variants:tt)*
      } ->
-     { $($decl:tt)* } { $($matches:tt)* } { $($children:tt)* } { $($children_mut:tt)* }
+     { $($decl:tt)* } { $($matches:tt)* } { $($for_each:tt)* } { $($for_each_mut:tt)* }
      { $($display_op:tt)* } { $($from_op_str:tt)* }
     ) => {
         $crate::__define_language!(
@@ -142,8 +144,8 @@ macro_rules! __define_language {
             { $($variants)* } ->
             { $($decl)*          $variant($ids), }
             { $($matches)*       ($name::$variant(l), $name::$variant(r)) => $crate::LanguageChildren::len(l) == $crate::LanguageChildren::len(r), }
-            { $($children)*      $name::$variant(ids) => $crate::LanguageChildren::as_slice(ids), }
-            { $($children_mut)*  $name::$variant(ids) => $crate::LanguageChildren::as_mut_slice(ids), }
+            { $($for_each)*      $name::$variant(ids) => $crate::LanguageChildren::as_slice(ids), }
+            { $($for_each_mut)*  $name::$variant(ids) => $crate::LanguageChildren::as_mut_slice(ids), }
             { $($display_op)*    $name::$variant(..) => &$string, }
             { $($from_op_str)*   (s, v) if s == $string && <$ids as $crate::LanguageChildren>::can_be_length(v.len()) => {
                 let ids = <$ids as $crate::LanguageChildren>::from_vec(v);
@@ -157,7 +159,7 @@ macro_rules! __define_language {
          $variant:ident ($data:ty),
          $($variants:tt)*
      } ->
-     { $($decl:tt)* } { $($matches:tt)* } { $($children:tt)* } { $($children_mut:tt)* }
+     { $($decl:tt)* } { $($matches:tt)* } { $($for_each:tt)* } { $($for_each_mut:tt)* }
      { $($display_op:tt)* } { $($from_op_str:tt)* }
     ) => {
         $crate::__define_language!(
@@ -165,8 +167,8 @@ macro_rules! __define_language {
             { $($variants)* } ->
             { $($decl)*          $variant($data), }
             { $($matches)*       ($name::$variant(data1), $name::$variant(data2)) => data1 == data2, }
-            { $($children)*      $name::$variant(_data) => &[], }
-            { $($children_mut)*  $name::$variant(_data) => &mut [], }
+            { $($for_each)*      $name::$variant(_data) => &[], }
+            { $($for_each_mut)*  $name::$variant(_data) => &mut [], }
             { $($display_op)*    $name::$variant(data) => data, }
             { $($from_op_str)*   (s, v) if s.parse::<$data>().is_ok() && v.is_empty() => Ok($name::$variant(s.parse().unwrap())), }
         );
@@ -177,7 +179,7 @@ macro_rules! __define_language {
          $variant:ident ($data:ty, $ids:ty),
          $($variants:tt)*
      } ->
-     { $($decl:tt)* } { $($matches:tt)* } { $($children:tt)* } { $($children_mut:tt)* }
+     { $($decl:tt)* } { $($matches:tt)* } { $($for_each:tt)* } { $($for_each_mut:tt)* }
      { $($display_op:tt)* } { $($from_op_str:tt)* }
     ) => {
         $crate::__define_language!(
@@ -185,8 +187,8 @@ macro_rules! __define_language {
             { $($variants)* } ->
             { $($decl)*          $variant($data, $ids), }
             { $($matches)*       ($name::$variant(d1, l), $name::$variant(d2, r)) => d1 == d2 && $crate::LanguageChildren::len(l) == $crate::LanguageChildren::len(r), }
-            { $($children)*      $name::$variant(_, ids) => $crate::LanguageChildren::as_slice(ids), }
-            { $($children_mut)*  $name::$variant(_, ids) => $crate::LanguageChildren::as_mut_slice(ids), }
+            { $($for_each)*      $name::$variant(_, ids) => $crate::LanguageChildren::as_slice(ids), }
+            { $($for_each_mut)*  $name::$variant(_, ids) => $crate::LanguageChildren::as_mut_slice(ids), }
             { $($display_op)*    $name::$variant(data, _) => data, }
             { $($from_op_str)*   (s, v) if s.parse::<$data>().is_ok() && <$ids as $crate::LanguageChildren>::can_be_length(v.len()) => {
                 let data = s.parse::<$data>().unwrap();
@@ -202,12 +204,12 @@ macro_rules! __define_language {
 The `rewrite!` macro greatly simplifies creating simple, purely
 syntactic rewrites while also allowing more complex ones.
 
-This panics if [`Rewrite::new`](struct.Rewrite.html#method.new) fails.
+This panics if [`Rewrite::new`](Rewrite::new()) fails.
 
 The simplest form `rewrite!(a; b => c)` creates a [`Rewrite`]
 with name `a`, [`Searcher`] `b`, and [`Applier`] `c`.
 Note that in the `b` and `c` position, the macro only accepts a single
-token tree (see the [macros reference][macros] for more info).
+token tree (see the [macros reference][macro] for more info).
 In short, that means you should pass in an identifier, literal, or
 something surrounded by parentheses or braces.
 
@@ -272,12 +274,6 @@ fn is_not_zero(var: &'static str) -> impl Fn(&mut EGraph, Id, &Subst) -> bool {
 }
 ```
 
-[`Searcher`]: trait.Searcher.html
-[`Applier`]: trait.Applier.html
-[`Condition`]: trait.Condition.html
-[`ConditionalApplier`]: struct.ConditionalApplier.html
-[`Rewrite`]: struct.Rewrite.html
-[`Pattern`]: struct.Pattern.html
 [macro]: https://doc.rust-lang.org/stable/reference/macros-by-example.html#metavariables
 **/
 #[macro_export]

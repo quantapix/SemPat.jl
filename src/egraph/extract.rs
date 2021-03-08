@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
-use std::collections::HashMap;
 use std::fmt::Debug;
 
+use crate::util::HashMap;
 use crate::{Analysis, EClass, EGraph, Id, Language, RecExpr};
 
 /** Extracting a single [`RecExpr`] from an [`EGraph`].
@@ -36,8 +36,6 @@ assert_eq!(best_cost, 1);
 assert_eq!(best, "10".parse().unwrap());
 ```
 
-[`RecExpr`]: struct.RecExpr.html
-[`EGraph`]: struct.EGraph.html
 **/
 pub struct Extractor<'a, CF: CostFunction<L>, L: Language, N: Analysis<L>> {
     cost_function: CF,
@@ -78,10 +76,6 @@ assert_eq!(AstSize.cost_rec(&e), 4);
 assert_eq!(AstDepth.cost_rec(&e), 2);
 ```
 
-[`AstSize`]: struct.AstSize.html
-[`AstDepth`]: struct.AstDepth.html
-[`Extractor`]: struct.Extractor.html
-[`EGraph`]: struct.EGraph.html
 **/
 pub trait CostFunction<L: Language> {
     /// The `Cost` type. It only requires `PartialOrd` so you can use
@@ -103,7 +97,6 @@ pub trait CostFunction<L: Language> {
     /// As provided, this just recursively calls `cost` all the way
     /// down the [`RecExpr`].
     ///
-    /// [`RecExpr`]: struct.RecExpr.html
     fn cost_rec(&mut self, expr: &RecExpr<L>) -> Self::Cost {
         let mut costs: HashMap<Id, Self::Cost> = HashMap::default();
         for (i, node) in expr.as_ref().iter().enumerate() {
@@ -123,7 +116,6 @@ let e: RecExpr<SymbolLang> = "(do_it foo bar baz)".parse().unwrap();
 assert_eq!(AstSize.cost_rec(&e), 4);
 ```
 
-[`CostFunction`]: trait.CostFunction.html
 **/
 pub struct AstSize;
 impl<L: Language> CostFunction<L> for AstSize {
@@ -144,7 +136,6 @@ let e: RecExpr<SymbolLang> = "(do_it foo bar baz)".parse().unwrap();
 assert_eq!(AstDepth.cost_rec(&e), 2);
 ```
 
-[`CostFunction`]: trait.CostFunction.html
 **/
 pub struct AstDepth;
 impl<L: Language> CostFunction<L> for AstDepth {
@@ -233,8 +224,8 @@ where
 
     fn node_total_cost(&mut self, node: &L) -> Option<CF::Cost> {
         let eg = &self.egraph;
-        let has_cost = |&id| self.costs.contains_key(&eg.find(id));
-        if node.children().iter().all(has_cost) {
+        let has_cost = |id| self.costs.contains_key(&eg.find(id));
+        if node.all(has_cost) {
             let costs = &self.costs;
             let cost_f = |id| costs[&eg.find(id)].0.clone();
             Some(self.cost_function.cost(&node, cost_f))

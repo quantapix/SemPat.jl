@@ -1,9 +1,9 @@
-use std::convert::TryFrom;
 use std::fmt::{self, Debug, Display};
 use std::hash::Hash;
 use std::ops::{Index, IndexMut};
+use std::{cmp::Ordering, convert::TryFrom};
 
-use crate::{EGraph, Id, Symbol};
+use crate::*;
 
 use symbolic_expressions::Sexp;
 
@@ -13,45 +13,42 @@ use symbolic_expressions::Sexp;
 /// a [`Language`].
 ///
 /// Note that the default implementations of
-/// [`from_op_str`](trait.Language.html#method.from_op_str) and
-/// [`display_op`](trait.Language.html#method.display_op) panic. You
+/// [`from_op_str`](Language::from_op_str()) and
+/// [`display_op`](Language::display_op()) panic. You
 /// should override them if you want to parse or pretty-print expressions.
 /// [`define_language!`] implements these for you.
 ///
-/// See [`SymbolLang`](struct.SymbolLang.html) for quick-and-dirty use cases.
+/// See [`SymbolLang`] for quick-and-dirty use cases.
 ///
-/// [`define_language!`]: macro.define_language.html
-/// [`Language`]: trait.Language.html
-/// [`EGraph`]: struct.EGraph.html
-/// [`FromStr`]: https://doc.rust-lang.org/std/str/trait.FromStr.html
-/// [`Display`]: https://doc.rust-lang.org/std/fmt/trait.Display.html
+/// [`FromStr`]: std::str::FromStr
+/// [`Display`]: std::fmt::Display
 #[allow(clippy::len_without_is_empty)]
 pub trait Language: Debug + Clone + Eq + Ord + Hash {
     /// Returns true if this enode matches another enode.
     /// This should only consider the operator, not the children `Id`s.
     fn matches(&self, other: &Self) -> bool;
 
-    /// Return a slice of the children `Id`s.
-    fn children(&self) -> &[Id];
-
-    /// Return a mutable slice of the children `Id`s.
-    fn children_mut(&mut self) -> &mut [Id];
-
     /// Runs a given function on each child `Id`.
-    fn for_each<F: FnMut(Id)>(&self, f: F) {
-        self.children().iter().copied().for_each(f)
-    }
+    fn for_each<F: FnMut(Id)>(&self, f: F);
 
     /// Runs a given function on each child `Id`, allowing mutation of that `Id`.
-    fn for_each_mut<F: FnMut(&mut Id)>(&mut self, f: F) {
-        self.children_mut().iter_mut().for_each(f)
+    fn for_each_mut<F: FnMut(&mut Id)>(&mut self, f: F);
+
+    /// Runs a falliable function on each child, stopping if the function returns
+    /// an error.
+    fn try_for_each<E, F>(&self, mut f: F) -> Result<(), E>
+    where
+        F: FnMut(Id) -> Result<(), E>,
+        E: Clone,
+    {
+        self.fold(Ok(()), |res, id| res.and_then(|_| f(id)))
     }
 
     /// Returns something that will print the operator.
     ///
     /// Default implementation panics, so make sure to implement this if you
     /// want to print `Language` elements.
-    /// The [`define_language!`](macro.define_language.html) macro will
+    /// The [`define_language!`] macro will
     /// implement this for you.
     fn display_op(&self) -> &dyn Display {
         unimplemented!("display_op not implemented")
@@ -62,7 +59,7 @@ pub trait Language: Debug + Clone + Eq + Ord + Hash {
     ///
     /// Default implementation panics, so make sure to implement this if you
     /// want to parse `Language` elements.
-    /// The [`define_language!`](macro.define_language.html) macro will
+    /// The [`define_language!`] macro will
     /// implement this for you.
     #[allow(unused_variables)]
     fn from_op_str(op_str: &str, children: Vec<Id>) -> Result<Self, String> {
@@ -74,12 +71,12 @@ pub trait Language: Debug + Clone + Eq + Ord + Hash {
     /// The default implementation uses `fold` to accumulate the number of
     /// children.
     fn len(&self) -> usize {
-        self.children().len()
+        self.fold(0, |len, _| len + 1)
     }
 
     /// Returns true if this enode has no children.
     fn is_leaf(&self) -> bool {
-        self.children().is_empty()
+        self.all(|_| false)
     }
 
     /// Runs a given function to replace the children.
@@ -102,6 +99,18 @@ pub trait Language: Debug + Clone + Eq + Ord + Hash {
         let mut acc = init;
         self.for_each(|id| acc = f(acc.clone(), id));
         acc
+    }
+
+    /// Returns true if the predicate is true on all children.
+    /// Does not short circuit.
+    fn all<F: FnMut(Id) -> bool>(&self, mut f: F) -> bool {
+        self.fold(true, |acc, id| acc && f(id))
+    }
+
+    /// Returns true if the predicate is true on any children.
+    /// Does not short circuit.
+    fn any<F: FnMut(Id) -> bool>(&self, mut f: F) -> bool {
+        self.fold(false, |acc, id| acc || f(id))
     }
 
     /// Make a `RecExpr` converting this enodes children to `RecExpr`s
@@ -144,7 +153,6 @@ pub trait Language: Debug + Clone + Eq + Ord + Hash {
 /// See [`define_language!`] for more details.
 /// You should not have to implement this trait.
 ///
-/// [`define_language!`]: macro.define_language.html
 pub trait LanguageChildren {
     /// Checks if there are no children.
     fn is_empty(&self) -> bool {
@@ -215,12 +223,9 @@ impl LanguageChildren for Id {
 /// elements that come before it in the list.
 ///
 /// If the `serde-1` feature is enabled, this implements
-/// [`serde::Serialize`][ser].
+/// [`serde::Serialize`][https://docs.rs/serde/latest/serde/trait.Serialize.html].
 ///
-/// [`RecExpr`]: struct.RecExpr.html
-/// [`Language`]: trait.Language.html
-/// [ser]: https://docs.rs/serde/latest/serde/trait.Serialize.html
-/// [pretty]: struct.RecExpr.html#method.pretty
+/// [pretty]: RecExpr::pretty()
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RecExpr<L> {
     nodes: Vec<L>,
@@ -260,9 +265,7 @@ impl<L: Language> RecExpr<L> {
     /// The enode's children `Id`s must refer to elements already in this list.
     pub fn add(&mut self, node: L) -> Id {
         debug_assert!(
-            node.children()
-                .iter()
-                .all(|&id| usize::from(id) < self.nodes.len()),
+            node.all(|id| usize::from(id) < self.nodes.len()),
             "node {:?} has children not in this expr: {:?}",
             node,
             self
@@ -439,8 +442,8 @@ struct ConstantFolding;
 impl Analysis<SimpleMath> for ConstantFolding {
     type Data = Option<i32>;
 
-    fn merge(&self, to: &mut Self::Data, from: Self::Data) -> bool {
-        egg::merge_if_different(to, to.or(from))
+    fn merge(&self, to: &mut Self::Data, from: Self::Data) -> Option<std::cmp::Ordering> {
+        Some(egg::merge_max(to, from))
     }
 
     fn make(egraph: &EGraph<SimpleMath, Self>, enode: &SimpleMath) -> Self::Data {
@@ -476,21 +479,17 @@ let just_foo = runner.egraph.add_expr(&"foo".parse().unwrap());
 assert_eq!(runner.egraph.find(runner.roots[0]), runner.egraph.find(just_foo));
 ```
 
-[`Analysis`]: trait.Analysis.html
-[`EClass`]: struct.EClass.html
-[`ENode`]: struct.ENode.html
-[`math.rs`]: https://github.com/mwillsey/egg/blob/master/tests/math.rs
-[`prop.rs`]: https://github.com/mwillsey/egg/blob/master/tests/prop.rs
+[`math.rs`]: https://github.com/egraphs-good/egg/blob/main/tests/math.rs
+[`prop.rs`]: https://github.com/egraphs-good/egg/blob/main/tests/prop.rs
 */
 
 pub trait Analysis<L: Language>: Sized {
-    /// The per-[`EClass`](struct.EClass.html) data for this analysis.
+    /// The per-[`EClass`] data for this analysis.
     type Data: Debug;
 
     /// Makes a new [`Analysis`] for a given enode
     /// [`Analysis`].
     ///
-    /// [`Analysis`]: trait.Analysis.html
     fn make(egraph: &EGraph<L, Self>, enode: &L) -> Self::Data;
 
     /// An optional hook that allows inspection before a [`union`] occurs.
@@ -500,52 +499,58 @@ pub trait Analysis<L: Language>: Sized {
     /// `pre_union` is called _a lot_, so doing anything significant
     /// (like printing) will cause things to slow down.
     ///
-    /// [`union`]: struct.EGraph.html#method.union
+    /// [`union`]: EGraph::union()
     #[allow(unused_variables)]
     fn pre_union(egraph: &EGraph<L, Self>, id1: Id, id2: Id) {}
 
     /// Defines how to merge two `Data`s when their containing
-    /// [`EClass`]es merge. Returns whether `to` is changed.
+    /// [`EClass`]es merge.
     ///
-    /// [`EClass`]: struct.EClass.html
-    fn merge(&self, to: &mut Self::Data, from: Self::Data) -> bool;
+    /// Only called when the two datas are unordered in the lattice.
+    ///
+    /// This must respect the partial ordering of `a` with respect to `b`:
+    /// - if `a < b`, then `a` should be assigned to `b`.
+    /// - if `a > b`, then `a` should be unmodified.
+    /// - if `a == b`, then `a` should be unmodified.
+    /// - if they cannot be compared, then `a` should be modifed.
+    fn merge(&self, a: &mut Self::Data, b: Self::Data) -> Option<Ordering>;
 
     /// A hook that allows the modification of the
-    /// [`EGraph`](struct.EGraph.html)
+    /// [`EGraph`]
     ///
     /// By default this does nothing.
     #[allow(unused_variables)]
     fn modify(egraph: &mut EGraph<L, Self>, id: Id) {}
 }
 
-/// Replace the first with second value if they are different returning whether
-/// or not something was done.
-///
-/// Useful for implementing
-/// [`Analysis::merge`](trait.Analysis.html#tymethod.merge).
-///
-/// ```
-/// # use egg::*;
-/// let mut x = 6;
-/// assert!(!merge_if_different(&mut x, 6));
-/// assert!(merge_if_different(&mut x, 7));
-/// assert_eq!(x, 7);
-/// ```
-pub fn merge_if_different<D: PartialEq>(to: &mut D, new: D) -> bool {
-    if *to == new {
-        false
-    } else {
-        *to = new;
-        true
-    }
-}
-
 impl<L: Language> Analysis<L> for () {
     type Data = ();
     fn make(_egraph: &EGraph<L, Self>, _enode: &L) -> Self::Data {}
-    fn merge(&self, _to: &mut Self::Data, _from: Self::Data) -> bool {
-        false
+    fn merge(&self, _: &mut Self::Data, _: Self::Data) -> Option<Ordering> {
+        Some(Ordering::Equal)
     }
+}
+
+/// A utility for implementing [`Analysis::merge`]
+/// when the `Data` type has a total ordering.
+/// This will take the maximum of the two values.
+pub fn merge_max<T: Ord>(to: &mut T, from: T) -> Ordering {
+    let cmp = (*to).cmp(&from);
+    if cmp == Ordering::Less {
+        *to = from;
+    }
+    cmp
+}
+
+/// A utility for implementing [`Analysis::merge`]
+/// when the `Data` type has a total ordering.
+/// This will take the minimum of the two values.
+pub fn merge_min<T: Ord>(to: &mut T, from: T) -> Ordering {
+    let cmp = (*to).cmp(&from).reverse();
+    if cmp == Ordering::Less {
+        *to = from;
+    }
+    cmp
 }
 
 /// A simple language used for testing.
@@ -575,14 +580,6 @@ impl Language for SymbolLang {
         self.op == other.op && self.len() == other.len()
     }
 
-    fn children(&self) -> &[Id] {
-        &self.children
-    }
-
-    fn children_mut(&mut self) -> &mut [Id] {
-        &mut self.children
-    }
-
     fn display_op(&self) -> &dyn Display {
         &self.op
     }
@@ -592,5 +589,13 @@ impl Language for SymbolLang {
             op: op_str.into(),
             children,
         })
+    }
+
+    fn for_each<F: FnMut(Id)>(&self, f: F) {
+        self.children.iter().copied().for_each(f)
+    }
+
+    fn for_each_mut<F: FnMut(&mut Id)>(&mut self, f: F) {
+        self.children.iter_mut().for_each(f)
     }
 }
