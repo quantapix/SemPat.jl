@@ -2,9 +2,10 @@
 cd raw/julia
 git clean -xfd
 git reset --hard
-[git checkout v1.5.3]
-make -j 16
-make install prefix=/Users/qpix/clone/qnarre3/Qnarre/usr/new
+[git checkout v1.6]
+make O=../../out/julia configure
+make -j $(nproc)
+make install prefix=/home/qpix/clone/...
 
 cd raw
 git clone https://github.com/JuliaInterop/libcxxwrap-julia.git
