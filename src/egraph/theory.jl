@@ -2,7 +2,7 @@
 
 macro theory(e)
     e = macroexpand(__module__, e)
-    e = rmlines(e)
+    e = rm_lines(e)
     if isexpr(e, :block)
         Vector{Rule}(e.args .|> x -> Rule(x; mod=__module__))
     else

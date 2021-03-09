@@ -6,12 +6,10 @@ using RuntimeGeneratedFunctions
 RuntimeGeneratedFunctions.init(@__MODULE__)
 
 import ..Rule
-import ..iscall
-import ..istree
-import ..getfunsym
-import ..getfunargs
-import ..setfunsym!
-import ..setfunargs!
+import ..get_funsym
+import ..get_funargs
+import ..set_funsym!
+import ..set_funargs!
 
 
 using ..Util

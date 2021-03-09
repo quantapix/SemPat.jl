@@ -78,13 +78,13 @@ function add!(G::EGraph, n)::EClass
     @debug(n, " not found in H")
     id = push!(G.U) # create new singleton eclass
     !haskey(G.parents, id) && (G.parents[id] = [])
-    getfunargs(n) .|> x -> addparent!(G, x.id, (n, id))
+    get_funargs(n) .|> x -> addparent!(G, x.id, (n, id))
 
     G.H[n] = id
     G.M[id] = [n]
 
     # cache the eclass for the symbol for faster matching
-    sym = getfunsym(n)
+    sym = get_funsym(n)
     if !haskey(G.symcache, sym)
         G.symcache[sym] = []
     end
@@ -260,7 +260,7 @@ function reachable(g::EGraph, id::Int64; hist=Int64[])
     hist = hist ∪ [id]
     for n ∈ g.M[id]
         if n isa Expr
-            for child_eclass ∈ getfunargs(n)
+            for child_eclass ∈ get_funargs(n)
                 c_id = child_eclass.id
                 if c_id ∉ hist
                     hist = hist ∪ reachable(g, c_id; hist=hist)

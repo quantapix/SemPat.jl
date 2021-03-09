@@ -97,7 +97,7 @@ end
 function gettheory(var, mod; compile=true)
 	t = nothing
     if Meta.isexpr(var, :block) # @matcher begine rules... end
-		t = rmlines(macroexpand(mod, var)).args .|> Rule
+		t = rm_lines(macroexpand(mod, var)).args .|> Rule
 	else
 		t = mod.eval(var)
 	end

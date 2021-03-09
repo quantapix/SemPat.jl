@@ -24,12 +24,10 @@ export options
 
 # TODO document this interface
 include("expr_abstraction.jl")
-export iscall
-export istree
-export getfunsym
-export getfunargs
-export setfunsym!
-export setfunargs!
+export get_funsym
+export get_funargs
+export set_funsym!
+export set_funargs!
 
 include("Util/Util.jl")
 using .Util

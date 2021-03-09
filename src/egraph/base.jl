@@ -1,38 +1,17 @@
 using Base.Meta
 
-iscall(e) = false
-iscall(e::Expr) = isexpr(e, :call)
-
-getfunsym(e::Expr) = iscall(e) ? e.args[1] : e.head
-getfunsym(e) = e
-
-setfunsym!(e::Expr, s) = iscall(e) ? (e.args[1] = s) : (e.head = s)
-setfunsym!(e, s) = s
-
-getfunargs(e::Expr) = e.args[(iscall(e) ? 2 : 1):end]
-
-getfunargs(e) = []
-
-function setfunargs!(e::Expr, args::Vector)
-    e.args[(iscall(e) ? 2 : 1):end] = args
-end
-setfunargs!(e, args) = []
-
-istree(e::Expr) = true
-istree(a) = false
 
 macro matcher(te)
-  if Meta.isexpr(te, :block) # @matcher begine rules... end
-  te = rmlines(te)
-      t = compile_theory(Vector{Rule}(te.args .|> Rule), __module__)
-  else
-      if !isdefined(__module__, te) error(`theory $theory not found!`) end
-      t = getfield(__module__, te)
-  if t isa Vector{Rule}; t = compile_theory(t, __module__) end
-      if !t isa Function error(`$te is not a valid theory`) end
-  end
-
-t
+    if Meta.isexpr(te, :block) # @matcher begine rules... end
+        te = rm_lines(te)
+        t = compile_theory(Vector{Rule}(te.args .|> Rule), __module__)
+    else
+        if !isdefined(__module__, te) error(`theory $theory not found!`) end
+        t = getfield(__module__, te)
+        if t isa Vector{Rule}; t = compile_theory(t, __module__) end
+        if !t isa Function error(`$te is not a valid theory`) end
+    end
+    t
 # quote (x) -> ($t)(x) end
 end
 
@@ -82,7 +61,7 @@ end
 
 function Base.push!(e::EGraph, t::Term)
     id = find_class!(e, t) # also canonicalizes t
-    if id == nothing # term not in egraph. Make new class and put in graph
+    if id === nothing
         id = Id(push!(e.unionfind))
         cls = EClass([t], [])
         for child in t.args # set parent pointers

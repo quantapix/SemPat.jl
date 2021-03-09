@@ -7,10 +7,9 @@ import ..@log
 using .Schedulers
 
 function inst(pat, sub::Sub)
-    # TODO interface istree
     if haskey(sub, pat)
         (eclass, lit) = sub[pat]
-        lit != nothing ? lit : eclass
+        lit !== nothing ? lit : eclass
     else
         pat
     end
@@ -45,8 +44,8 @@ function eqsat_step!(egraph::EGraph, theory::Vector{Rule};
         # the eclasses where the outermost funcall appears!
 
         # outermost symbol in lhs
-        sym = getfunsym(rule.left)
-        if istree(rule.left)
+        sym = get_funsym(rule.left)
+        if is_expr(rule.left)
             ids = get(egraph.symcache, sym, [])
         else
             ids = keys(egraph.M)
@@ -60,7 +59,7 @@ function eqsat_step!(egraph::EGraph, theory::Vector{Rule};
         end
 
         if rule.mode == :equational
-            sym = getfunsym(rule.right)
+            sym = get_funsym(rule.right)
             ids = get(egraph.symcache, sym, [])
             for id ∈ ids
                 for sub in ematch(egraph, rule.right, id, EMPTY_DICT)
@@ -109,7 +108,7 @@ function eqsat_step!(egraph::EGraph, theory::Vector{Rule};
             (params, f) = rule.right_fun[mod]
             actual_params = map(params) do x
                 (eclass, literal) = sub[x]
-                literal != nothing ? literal : eclass
+                literal !== nothing ? literal : eclass
             end
             new = f(egraph, actual_params...)
             rc = addexpr!(egraph, new)

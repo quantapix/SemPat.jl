@@ -9,7 +9,7 @@ end
 Check if an expr is an enode ⟺ all args are e-classes
 """
 function isenode(e::Expr)
-    return all(x -> x isa EClass, getfunargs(e))
+    return all(x -> x isa EClass, get_funargs(e))
 end
 # literals are enodes
 isenode(x::EClass) = false
@@ -25,7 +25,7 @@ iscanonical(U::UnionFind, e::EClass) = find_root!(U, e.id) == e.id
 function canonicalize(U::UnionFind, n::Expr)
     @assert isenode(n)
     ne = copy(n)
-    setfunargs!(ne, [EClass(find_root!(U, x.id)) for x ∈ getfunargs(ne)])
+    set_funargs!(ne, [EClass(find_root!(U, x.id)) for x ∈ get_funargs(ne)])
     @debug("canonicalized ", n, " to ", ne)
     return ne
 end
@@ -33,7 +33,7 @@ end
 # canonicalize in place
 function canonicalize!(U::UnionFind, n::Expr)
     @assert isenode(n)
-    setfunargs!(n, [EClass(find_root!(U, x.id)) for x ∈ getfunargs(n)])
+    set_funargs!(n, [EClass(find_root!(U, x.id)) for x ∈ get_funargs(n)])
     @debug("canonicalized ", n)
     return n
 end

@@ -97,7 +97,7 @@ function resyntax(e)
             setfield!(x_, :f_, v_) => :($x.$f = $v)
             getindex(x_, i__) => :($x[$(i...)])
             tuple(xs__) => :($(xs...),)
-            adjoint(x_) => :($x')
+            adjoint(x_) => :($x)
             _ => x
         end
     end

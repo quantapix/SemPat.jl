@@ -3,7 +3,7 @@ A basic cost function, where the computed cost is the size
 (number of children) of the current expression.
 """
 astsize(n) = 1
-astsize(n::Expr) = 1 + length(n.args) - (iscall(n) ? 1 : 0)
+astsize(n::Expr) = 1 + length(n.args) - (is_call(n) ? 1 : 0)
 
 """
 A basic cost function, where the computed cost is the size
@@ -33,7 +33,7 @@ make(a::ExtractionAnalysis, n) = (n, a.costfun(n))
 function make(an::ExtractionAnalysis, n::Expr)
     ncost = an.costfun(n)
 
-    for child_eclass ∈ getfunargs(n)
+    for child_eclass ∈ get_funargs(n)
         !haskey(an, child_eclass) && return (n, Inf)
         if haskey(an, child_eclass) && an[child_eclass] != nothing
             ncost += last(an[child_eclass])
@@ -61,7 +61,7 @@ function rec_extract(G::EGraph, an::ExtractionAnalysis, id::Int64)
     (!(cn isa Expr) || ck == Inf) && return cn
 
     expr = copy(cn)
-    setfunargs!(expr, getfunargs(expr) .|> a -> rec_extract(G, an, a.id))
+    set_funargs!(expr, get_funargs(expr) .|> a -> rec_extract(G, an, a.id))
     return expr
 end
 

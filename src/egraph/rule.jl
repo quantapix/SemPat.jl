@@ -64,10 +64,10 @@ Rule(:(a::Number * b::Number |> a*b))
 ```
 """
 function Rule(e::Expr; mod::Module=@__MODULE__)
-    e = rmlines(copy(e))
+    e = rm_lines(copy(e))
     mode = :undef
-    mode = getfunsym(e)
-    l, r = e.args[iscall(e) ? (2:3) : (1:2)]
+    mode = get_funsym(e)
+    l, r = e.args[is_call(e) ? (2:3) : (1:2)]
 
     right_fun = nothing
 
@@ -85,7 +85,7 @@ function Rule(e::Expr; mod::Module=@__MODULE__)
     l = df_walk(x -> eval_types_in_assertions(x, mod), l; skip_call=true)
     mode == :dynamic && (right_fun = Dict(mod => genrhsfun(l, r, mod)))
 
-    e.args[iscall(e) ? 2 : 1] = l
+    e.args[is_call(e) ? 2 : 1] = l
     return Rule(l, r, e, mode, right_fun)
 end
 
