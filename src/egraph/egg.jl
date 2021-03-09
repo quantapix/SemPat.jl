@@ -91,7 +91,7 @@ function add!(G::EGraph, n)::EClass
     push!(G.symcache[sym], id)
 
     # make analyses for new enode
-    for analysis ∈ G.analyses
+    for analysis in G.analyses
         if !islazy(analysis)
             analysis[id] = make(analysis, n)
             modify!(analysis, id)
@@ -160,7 +160,7 @@ function Base.merge!(G::EGraph, a::Int64, b::Int64)::Int64
         G.root = to
     end
 
-    for analysis ∈ G.analyses
+    for analysis in G.analyses
         if haskey(analysis, from) && haskey(analysis, to)
             analysis[to] = join(analysis, analysis[from], analysis[to])
             delete!(analysis, from)
@@ -184,14 +184,14 @@ for more details.
 """
 function rebuild!(egraph::EGraph)
     while !isempty(egraph.dirty)
-        todo = unique([find(egraph, id) for id ∈ egraph.dirty])
+        todo = unique([find(egraph, id) for id in egraph.dirty])
         empty!(egraph.dirty)
         foreach(todo) do x
             repair!(egraph, x)
         end
     end
 
-    for (sym, ids) ∈ egraph.symcache
+    for (sym, ids) in egraph.symcache
         egraph.symcache[sym] = unique(ids .|> x -> find(egraph, x))
     end
 
@@ -204,7 +204,7 @@ function repair!(G::EGraph, id::Int64)
     id = find(G, id)
     @debug "repairing " id
 
-    for (p_enode, p_eclass) ∈ G.parents[id]
+    for (p_enode, p_eclass) in G.parents[id]
         # old_id = G.H[p_enode]
         # delete!(G.M, old_id)
         delete!(G.H, p_enode)
@@ -216,7 +216,7 @@ function repair!(G::EGraph, id::Int64)
 
     new_parents = OrderedDict{Any,Int64}()
 
-    for (p_enode, p_eclass) ∈ G.parents[id]
+    for (p_enode, p_eclass) in G.parents[id]
         canonicalize!(G.U, p_enode)
         # deduplicate parents
         if haskey(new_parents, p_enode)
@@ -227,14 +227,11 @@ function repair!(G::EGraph, id::Int64)
     end
     G.parents[id] = collect(new_parents) .|> Tuple
     @debug "updated parents " id G.parents[id]
-
-
-    # Analysis invariant maintenance
-    for an ∈ G.analyses
+    for an in G.analyses
         haskey(an, id) && modify!(an, id)
         # modify!(an, id)
         id = find(G, id)
-        for (p_enode, p_eclass) ∈ G.parents[id]
+        for (p_enode, p_eclass) in G.parents[id]
             # p_eclass = find(G, p_eclass)
             if !islazy(an) && !haskey(an, p_eclass)
                 an[p_eclass] = make(an, p_enode)
@@ -250,24 +247,17 @@ function repair!(G::EGraph, id::Int64)
     end
 end
 
-
-"""
-Recursive function that traverses an [`EGraph`](@ref) and
-returns a vector of all reachable e-classes from a given e-class id.
-"""
 function reachable(g::EGraph, id::Int64; hist=Int64[])
     id = find(g, id)
     hist = hist ∪ [id]
-    for n ∈ g.M[id]
+    for n in g.M[id]
         if n isa Expr
-            for child_eclass ∈ get_funargs(n)
+            for child_eclass in get_funargs(n)
                 c_id = child_eclass.id
-                if c_id ∉ hist
-                    hist = hist ∪ reachable(g, c_id; hist=hist)
+                if !(c_id in hist); hist = hist ∪ reachable(g, c_id; hist=hist)
                 end
             end
         end
     end
-
-    return hist
+    hist
 end

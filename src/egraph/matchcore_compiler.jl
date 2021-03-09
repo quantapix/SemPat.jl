@@ -1,99 +1,59 @@
-# core mechanism of extending Taine Zhao's @thautwarm 's MatchCore pattern matching.
-
 using MatchCore
 
-
-## compile (quote) left and right hands of a rule
-# escape symbols to create MLStyle compatible patterns
-
-# compile left hand of rule
-# if it's the first time seeing v, add it to the "seen symbols" Set
-# insert a :& expression only if v has not been seen before
-function c_left(v::Symbol, s)
-    if Base.isbinaryoperator(v) return v end
-    (v ∉ s ? (push!(s, v); v) : amp(v)) |> dollar
+function c_left(s::Symbol, ss)
+    if Base.isbinaryoperator(s) return s end
+    (!(s in ss) ? (push!(ss, s); s) : amp(s)) |> dollar
 end
-c_left(v::Expr, s) = v.head ∈ add_dollar ? dollar(v) : v
-# support symbol literals in left hand
-c_left(v::QuoteNode, s) = v.value isa Symbol ? dollar(v) : v
-c_left(v, s) = v # ignore other types
+c_left(e::Expr, _) = e.head in add_dollar ? dollar(e) : e
+c_left(n::QuoteNode, _) = n.value isa Symbol ? dollar(n) : n
+c_left(x, _) = x
 
-c_right(v::Symbol) = Base.isbinaryoperator(v) ? v : dollar(v)
-function c_right(v::Expr)
-    v.head ∈ add_dollar ? dollar(v) : v
-end
-c_right(v::QuoteNode) = v.value isa Symbol ? v.value : v
-c_right(v) = v #ignore other types
+c_right(s::Symbol) = Base.isbinaryoperator(s) ? s : dollar(s)
+c_right(e::Expr) = e.head in add_dollar ? dollar(e) : e
+c_right(n::QuoteNode) = n.value isa Symbol ? n.value : n
+c_right(x) = x
 
-# add dollar in front of the expressions with those symbols as head
 const add_dollar = [:(::), :(...)]
-# don't walk down on these symbols
-const skips = [:(::), :(...)]
+  const skips = [:(::), :(...)]
 
-# Compile rules from Metatheory format to MatchCore format
 function compile_rule(rule::Rule)::Expr
     le = df_walk(c_left, rule.left, Vector{Symbol}(); skip=skips, skip_call=true) |> quot
-
-    if rule.mode == :dynamic # regular pattern matching
-        # right side not quoted! needed to evaluate expressions in right hand.
-        re = rule.right
+    if rule.mode == :dynamic; re = rule.right
     elseif rule.mode == :rewrite || rule.mode == :equational
-		# right side is quoted, symbolic replacement
         re = df_walk(c_right, rule.right; skip=skips, skip_call=true) |> quot
 	else
         error(`rule "$e" is not in valid form.\n`)
     end
-
-    return :($le => $re)
+    :($le => $re)
 end
 
-# catch-all for reductions
 const identity_axiom = :($(quot(dollar(:i))) => i)
-
-# TODO analyse theory before compiling. Identify associativity and commutativity
-# and other loop-creating problems. Generate a pattern matching block with the
-# correct rule order and expansions for associativity and distributivity
-# import Iterators: flatten
 
 function theory_block(t::Vector{Rule})
 	tn = Vector{Expr}()
-
-	for r ∈ t
+	for r in t
 		push!(tn, compile_rule(r))
 		if r.mode == :equational
 			mirrored = Rule(r.right, r.left, r.expr, r.mode, nothing)
 			push!(tn, compile_rule(mirrored))
 		end
 	end
-
 	block(tn..., identity_axiom)
 end
 
-"""
-Compile a theory to a closure that does the pattern matching job
-Returns a RuntimeGeneratedFunction, which does not use eval and
-is as fast as a regular Julia anonymous function 🔥
-"""
 function compile_theory(theory::Vector{Rule}, mod::Module; __source__=LineNumberNode(0))
-    # generate an unique parameter name
     parameter = Meta.gensym(:reducing_expression)
     block = theory_block(theory)
-
     matching = MatchCore.gen_match(parameter, block, __source__, mod)
     matching = MatchCore.AbstractPatterns.init_cfg(matching)
-
     ex = :(($parameter) -> $matching)
     closure_generator(mod, ex)
 end
 
-"""
-Compile a theory at runtime to a closure that does the pattern matching job
-"""
 macro compile_theory(theory)
     gettheory(theory, __module__)
 end
 
-# Retrieve a theory from a module at compile time. Not exported
 function gettheory(var, mod; compile=true)
 	t = nothing
     if Meta.isexpr(var, :block) # @matcher begine rules... end
@@ -101,10 +61,7 @@ function gettheory(var, mod; compile=true)
 	else
 		t = mod.eval(var)
 	end
-
-	if compile && !(t isa Function)
-		t = compile_theory(t, mod)
+	if compile && !(t isa Function); t = compile_theory(t, mod)
 	end
-
-	return t
+	t
 end

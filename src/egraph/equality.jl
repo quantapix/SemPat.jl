@@ -11,7 +11,7 @@ function areequal(G::EGraph, t::Vector{Rule}, exprs...;
     if length(exprs) == 1; return true end
 
     ids = []
-    for i ∈ exprs
+    for i in exprs
         ec = addexpr!(G, i)
         push!(ids, ec.id)
     end

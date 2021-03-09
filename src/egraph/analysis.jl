@@ -4,7 +4,7 @@ An [`EGraph`](@ref) can only contain one analysis of type
 `AnType`.
 """
 function addanalysis!(g::EGraph, AnType::Type{<:AbstractAnalysis}, args...; lazy=false)
-    for i ∈ g.analyses
+    for i in g.analyses
         typeof(i) isa AnType && return nothing
     end
     analysis = AnType(g, args...)
@@ -26,7 +26,7 @@ function analyze!(g::EGraph, analysis::AbstractAnalysis, ids::Vector{Int64})
     while did_something
         did_something = false
 
-        for id ∈ ids
+        for id in ids
             id = find(g, id)
             pass = make_pass(g, analysis, id)
             # pass = make_pass(G, analysis, find(G,id))
@@ -44,7 +44,7 @@ function analyze!(g::EGraph, analysis::AbstractAnalysis, ids::Vector{Int64})
 
     rebuild!(g)
 
-    for id ∈ ids
+    for id in ids
         id = find(g, id)
         if !haskey(analysis, id)
             display(g.M); println()
@@ -62,7 +62,7 @@ analyze!(g::EGraph, an::AbstractAnalysis, id::Int64) =
 function make_pass(g::EGraph, analysis::AbstractAnalysis, id::Int64)
     class = g.M[id]
     # FIXME this check breaks things. wtf
-    # for n ∈ class
+    # for n in class
     #     if n isa Expr
     #         start = Meta.isexpr(n, :call) ? 2 : 1
     #         # if !all(x -> haskey(analysis, find(g, x.id)), n.args[start:end])
@@ -76,7 +76,7 @@ function make_pass(g::EGraph, analysis::AbstractAnalysis, id::Int64)
 
     joined = make(analysis, class[1])
 
-    for n ∈ class
+    for n in class
         datum = make(analysis, n)
         # println(datum)
         joined = join(analysis, joined, datum)

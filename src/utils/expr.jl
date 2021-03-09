@@ -65,9 +65,8 @@ amp(x) = Expr(:&, x)
 dollar(x) = Expr(:$, x)
 block(xs...) = Expr(:block, xs...)
 
-#=
+#= 
 macro q(x)
     esc(Expr(:quote, rm_lines!(x)))
 end
-export @q
-=#
+export @q =#

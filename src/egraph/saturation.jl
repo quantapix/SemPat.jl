@@ -32,7 +32,7 @@ function eqsat_step!(egraph::EGraph, theory::Vector{Rule};
 
     readstep!(scheduler)
 
-    for rule ∈ theory
+    for rule in theory
         # don't apply banned rules
         shouldskip(scheduler, rule) && continue
 
@@ -51,7 +51,7 @@ function eqsat_step!(egraph::EGraph, theory::Vector{Rule};
             ids = keys(egraph.M)
         end
 
-        for id ∈ ids
+        for id in ids
             for sub in ematch(egraph, rule.left, id, EMPTY_DICT)
                 # display(sub); println()
                 !isempty(sub) && push!(matches, (rule, sub, id))
@@ -61,7 +61,7 @@ function eqsat_step!(egraph::EGraph, theory::Vector{Rule};
         if rule.mode == :equational
             sym = get_funsym(rule.right)
             ids = get(egraph.symcache, sym, [])
-            for id ∈ ids
+            for id in ids
                 for sub in ematch(egraph, rule.right, id, EMPTY_DICT)
                     # display(sub); println()
                     !isempty(sub) && push!(matches, (rule, sub, id))
@@ -82,10 +82,10 @@ function eqsat_step!(egraph::EGraph, theory::Vector{Rule};
     skipped = 0
 
 
-    for match ∈ mmm
+    for match in mmm
         (rule, sub, id) = match
 
-        # if (match ∈ match_hist)
+        # if (match in match_hist)
         #     skipped += 1
         #     # println("already matched")
         #     continue
@@ -146,7 +146,7 @@ function saturate!(egraph::EGraph, theory::Vector{Rule};
     curr_iter = 0
 
     # prepare the dynamic rules in this module
-    for rule ∈ theory
+    for rule in theory
         if rule.mode == :dynamic && !haskey(rule.right_fun, mod)
             rule.right_fun[mod] = genrhsfun(rule.left, rule.right, mod)
         end

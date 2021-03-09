@@ -71,11 +71,11 @@ function Rule(e::Expr; mod::Module=@__MODULE__)
 
     right_fun = nothing
 
-    if mode ∈ dynamic_syms # right hand execution, dynamic rules in egg
+    if mode in dynamic_syms # right hand execution, dynamic rules in egg
         mode = :dynamic
-    elseif mode ∈ rewrite_syms # right side is quoted, symbolic replacement
+    elseif mode in rewrite_syms # right side is quoted, symbolic replacement
         mode = :rewrite
-    elseif mode ∈ equational_syms # right side is quoted, symbolic replacement
+    elseif mode in equational_syms # right side is quoted, symbolic replacement
         mode = :equational
     else
         error(`rule "$e" is not in valid form.\n`)

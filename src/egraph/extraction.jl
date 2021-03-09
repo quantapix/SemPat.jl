@@ -33,7 +33,7 @@ make(a::ExtractionAnalysis, n) = (n, a.costfun(n))
 function make(an::ExtractionAnalysis, n::Expr)
     ncost = an.costfun(n)
 
-    for child_eclass ∈ get_funargs(n)
+    for child_eclass in get_funargs(n)
         !haskey(an, child_eclass) && return (n, Inf)
         if haskey(an, child_eclass) && an[child_eclass] != nothing
             ncost += last(an[child_eclass])
@@ -71,7 +71,7 @@ with the smallest computed cost from an [`EGraph`](@ref)
 """
 function extract!(G::EGraph, extran::ExtractionAnalysis)
     islazy(extran) && analyze!(G, extran, G.root)
-    !(extran ∈ G.analyses) && error("Extraction analysis is not associated to EGraph")
+    !(extran in G.analyses) && error("Extraction analysis is not associated to EGraph")
     rec_extract(G, extran, G.root)
 end
 

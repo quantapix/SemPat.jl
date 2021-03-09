@@ -61,7 +61,7 @@ cleanast(ex) = rm_lines(ex) |>
 
 
 function df_walk!(f, e, f_args...; skip=Vector{Symbol}(), skip_call=false)
-    if !(e isa Expr) || e.head ∈ skip; return f(e, f_args...)
+    if !(e isa Expr) || e.head in skip; return f(e, f_args...)
     end
     start = 1
     if skip_call && isexpr(e, :call); start = 2 end
@@ -71,7 +71,7 @@ function df_walk!(f, e, f_args...; skip=Vector{Symbol}(), skip_call=false)
 end
 
 function df_walk(f, e, f_args...; skip=Vector{Symbol}(), skip_call=false)
-    if !(e isa Expr) || e.head ∈ skip; return f(e, f_args...)
+    if !(e isa Expr) || e.head in skip; return f(e, f_args...)
     end
     start = 1
     if skip_call && isexpr(e, :call); start = 2
@@ -83,7 +83,7 @@ function df_walk(f, e, f_args...; skip=Vector{Symbol}(), skip_call=false)
 end
 
 function bf_walk!(f, e, f_args...; skip=Vector{Symbol}(), skip_call=false)
-    if !(e isa Expr) || e.head ∈ skip; return f(e, f_args...)
+    if !(e isa Expr) || e.head in skip; return f(e, f_args...)
     end
     e = f(e, f_args...)
     if !(e isa Expr) return e end
@@ -96,7 +96,7 @@ function bf_walk!(f, e, f_args...; skip=Vector{Symbol}(), skip_call=false)
 end
 
 function bf_walk(f, e, f_args...; skip=Vector{Symbol}(), skip_call=false)
-    if !(e isa Expr) || e.head ∈ skip; return f(e, f_args...)
+    if !(e isa Expr) || e.head in skip; return f(e, f_args...)
     end
     ne = copy(e)
     ne = f(e, f_args...)

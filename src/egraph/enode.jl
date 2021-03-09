@@ -25,7 +25,7 @@ iscanonical(U::UnionFind, e::EClass) = find_root!(U, e.id) == e.id
 function canonicalize(U::UnionFind, n::Expr)
     @assert isenode(n)
     ne = copy(n)
-    set_funargs!(ne, [EClass(find_root!(U, x.id)) for x ∈ get_funargs(ne)])
+    set_funargs!(ne, [EClass(find_root!(U, x.id)) for x in get_funargs(ne)])
     @debug("canonicalized ", n, " to ", ne)
     return ne
 end
@@ -33,7 +33,7 @@ end
 # canonicalize in place
 function canonicalize!(U::UnionFind, n::Expr)
     @assert isenode(n)
-    set_funargs!(n, [EClass(find_root!(U, x.id)) for x ∈ get_funargs(n)])
+    set_funargs!(n, [EClass(find_root!(U, x.id)) for x in get_funargs(n)])
     @debug("canonicalized ", n)
     return n
 end
