@@ -1,9 +1,18 @@
 module EGraphs
 
-include("../docstrings.jl")
-
 using RuntimeGeneratedFunctions
 RuntimeGeneratedFunctions.init(@__MODULE__)
+
+options = Dict{Symbol, Any}(
+    :verbose => false,
+    :printiter => false,
+)
+
+macro log(args...)
+    quote options[:verbose] && @info($(args...)) end |> esc
+end
+
+export options
 
 import ..Rule
 import ..get_funsym

@@ -44,16 +44,6 @@ and
 [sound]: https://itinerarium.github.io/phoneme-synthesis/?w=/'igraf/
 **/
 #[derive(Clone)]
-pub struct EGraph<L: Language, N: Analysis<L>> {
-    /// The `Analysis` given when creating this `EGraph`.
-    pub analysis: N,
-    pending: Vec<(L, Id)>,
-    analysis_pending: IndexSet<(L, Id)>,
-    memo: HashMap<L, Id>,
-    unionfind: UnionFind,
-    classes: HashMap<Id, EClass<L, N::Data>>,
-    pub(crate) classes_by_op: HashMap<std::mem::Discriminant<L>, HashSet<Id>>,
-}
 
 impl<L: Language, N: Analysis<L> + Default> Default for EGraph<L, N> {
     fn default() -> Self {
