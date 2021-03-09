@@ -134,7 +134,7 @@ function normalize_nocycle(f, datum, fargs...; callback=() -> ())
         push!(hist, hash(x))
         x = f(x, fargs...)
         callback()
-    end
+end
 x
 end
 export normalize_nocycle

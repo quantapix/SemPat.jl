@@ -3,12 +3,8 @@ module Metatheory
 using RuntimeGeneratedFunctions
 using Base.Meta
 
-include("docstrings.jl")
-
 RuntimeGeneratedFunctions.init(@__MODULE__)
 
-# TODO document options
-# Options
 options = Dict{Symbol, Any}(
     :verbose => false,
     :printiter => false,
@@ -20,9 +16,6 @@ end
 
 export options
 
-
-
-# TODO document this interface
 include("expr_abstraction.jl")
 export get_funsym
 export get_funargs

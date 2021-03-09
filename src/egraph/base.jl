@@ -1,5 +1,14 @@
 using Base.Meta
 
+macro theory(e)
+    e = macroexpand(__module__, e)
+    e = rm_lines(e)
+    if isexpr(e, :block); Vector{Rule}(e.args .|> x -> Rule(x; mod=__module__))
+    else error("theory is not begin a => b; ... end")
+    end
+end
+
+const Theory = Union{Vector{Rule},Function}
 
 macro matcher(te)
     if Meta.isexpr(te, :block) # @matcher begine rules... end

@@ -1,4 +1,4 @@
-const Sub = Base.ImmutableDict{Any, Tuple{EClass, Any}}
+const Sub = Base.ImmutableDict{Any,Tuple{EClass,Any}}
 
 # https://www.hpl.hp.com/techreports/2003/HPL-2003-148.pdf
 # page 48
@@ -37,7 +37,7 @@ end
 
 function ematch(e::EGraph, t, v::Int64, sub::Sub; lit=nothing)::Vector{Sub}
     c = Vector{Sub}()
-    id = find(e,v)
+    id = find(e, v)
     for n in e.M[id]
         if (t isa QuoteNode ? t.value : t) == n
             if haskey(sub, t)
@@ -47,7 +47,7 @@ function ematch(e::EGraph, t, v::Int64, sub::Sub; lit=nothing)::Vector{Sub}
             end
             # union!(c, ematchlist(e, t.args[start:end], n.args[start:end] .|> x -> x.id, sub))
         end
-    end
+end
     return c
 end
 
@@ -55,7 +55,7 @@ end
 function ematch(e::EGraph, t::Expr, v::Int64, sub::Sub; lit=nothing)::Vector{Sub}
     c = Vector{Sub}()
 
-    for n in e.M[find(e,v)]
+    for n in e.M[find(e, v)]
         if isexpr(t, :(::))
             # right hand of type assertion
             # tr = t.args[2]
@@ -85,13 +85,13 @@ function ematch(e::EGraph, t::Expr, v::Int64, sub::Sub; lit=nothing)::Vector{Sub
 
             !(typeof(n) <: typ) && continue
             union!(c, ematch(e, t.args[1], v, sub; lit=n))
-            continue
+        continue
         end
 
         # otherwise ematch on an expr
         (!(n isa Expr) || get_funsym(n) != get_funsym(t)) && continue
         ids = Vector{Int64}(get_funargs(n) .|> x -> x.id)
         union!(c, ematchlist(e, get_funargs(t), ids, sub))
-    end
+end
     return c
 end

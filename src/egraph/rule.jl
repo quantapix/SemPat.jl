@@ -1,9 +1,9 @@
 mutable struct Rule
-    left::Any
-    right::Any
-    expr::Expr # original expression
+    left
+    right
+    expr::Expr
     mode::Symbol # can be :rewrite or :dynamic
-    right_fun::Union{Nothing, Dict{Module, Tuple{Vector{Symbol}, Function}}}
+    right_fun::Union{Nothing,Dict{Module,Tuple{Vector{Symbol},Function}}}
 end
 
 # operator symbols for simple term rewriting
@@ -68,9 +68,7 @@ function Rule(e::Expr; mod::Module=@__MODULE__)
     mode = :undef
     mode = get_funsym(e)
     l, r = e.args[is_call(e) ? (2:3) : (1:2)]
-
     right_fun = nothing
-
     if mode in dynamic_syms # right hand execution, dynamic rules in egg
         mode = :dynamic
     elseif mode in rewrite_syms # right side is quoted, symbolic replacement
@@ -80,11 +78,9 @@ function Rule(e::Expr; mod::Module=@__MODULE__)
     else
         error(`rule "$e" is not in valid form.\n`)
     end
-
     l = interpolate_dollar(l, mod)
     l = df_walk(x -> eval_types_in_assertions(x, mod), l; skip_call=true)
     mode == :dynamic && (right_fun = Dict(mod => genrhsfun(l, r, mod)))
-
     e.args[is_call(e) ? 2 : 1] = l
     return Rule(l, r, e, mode, right_fun)
 end
@@ -93,36 +89,17 @@ macro rule(e)
     Rule(e; mod=__module__)
 end
 
-# string representation of the rule
-function Base.show(io::IO, x::Rule)
-    println(io, "Rule(:(", x.expr, "))")
-end
+Base.show(io::IO, x::Rule) = println(io, "Rule(:(", x.expr, "))")
 
-"""
-Generates a tuple containing the list of formal parameters (`Symbol`s)
-and the [`RuntimeGeneratedFunction`](@ref) corresponding to the right hand
-side of a `:dynamic` [`Rule`](@ref).
-"""
 function genrhsfun(left, right, mod::Module)
-    # remove type assertions in left hand
-    lhs = df_walk( x -> (isexpr(x, :(::)) ? x.args[1] : x), left; skip_call=true )
-
-    # collect variable symbols in left hand
+    lhs = df_walk(x -> (isexpr(x, :(::)) ? x.args[1] : x), left; skip_call=true)
     lhs_vars = Set{Symbol}()
-    df_walk( x -> (if x isa Symbol; push!(lhs_vars, x); end; x), left; skip_call=true )
+    df_walk(x -> (if x isa Symbol; push!(lhs_vars, x); end; x), left; skip_call=true)
     params = Expr(:tuple, :_egraph, lhs_vars...)
-
     ex = :($params -> $right)
     (collect(lhs_vars), closure_generator(mod, ex))
 end
 
-
-# TODO is there anything better than eval to use here?
-"""
-When creating a theory, type assertions in the left hand contain symbols.
-We want to replace the type symbols with the real type values, to fully support
-the subtyping mechanism during pattern matching.
-"""
 function eval_types_in_assertions(x, mod::Module)
     if isexpr(x, :(::))
         !(x.args[1] isa Symbol) && error("Type assertion is not on metavariable")

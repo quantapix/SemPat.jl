@@ -1,4 +1,4 @@
-const MatchesBuf = Vector{Tuple{Rule, Sub, Int64}}
+const MatchesBuf = Vector{Tuple{Rule,Sub,Int64}}
 
 import ..genrhsfun
 import ..options
@@ -18,7 +18,7 @@ end
 function instantiate(p, sub::Sub; skip_assert=false)
     # remove type assertions
     if skip_assert
-        p = df_walk( x -> (isexpr(x, :(::)) ? x.args[1] : x), p; skip_call=true )
+        p = df_walk(x -> (isexpr(x, :(::)) ? x.args[1] : x), p; skip_call=true)
     end
 
     df_walk(inst, p, sub; skip_call=true)
@@ -27,7 +27,7 @@ end
 function eqsat_step!(egraph::EGraph, theory::Vector{Rule};
         scheduler=SimpleScheduler(), mod=@__MODULE__,
         match_hist=MatchesBuf(), sizeout=0)
-    matches=MatchesBuf()
+    matches = MatchesBuf()
     EMPTY_DICT = Sub()
 
     readstep!(scheduler)
@@ -66,7 +66,7 @@ function eqsat_step!(egraph::EGraph, theory::Vector{Rule};
                     # display(sub); println()
                     !isempty(sub) && push!(matches, (rule, sub, id))
                 end
-            end
+    end
         end
     end
 
@@ -102,7 +102,7 @@ function eqsat_step!(egraph::EGraph, theory::Vector{Rule};
             rc = addexpr!(egraph, r)
             merge!(egraph, lc.id, rc.id)
         elseif rule.mode == :dynamic # execute the right hand!
-            l = instantiate(rule.left,sub; skip_assert=true)
+            l = instantiate(rule.left, sub; skip_assert=true)
             lc = addexpr!(egraph, l)
 
             (params, f) = rule.right_fun[mod]
@@ -112,7 +112,7 @@ function eqsat_step!(egraph::EGraph, theory::Vector{Rule};
             end
             new = f(egraph, actual_params...)
             rc = addexpr!(egraph, new)
-            merge!(egraph,lc.id,rc.id)
+            merge!(egraph, lc.id, rc.id)
         else
             error("unsupported rule mode")
         end
@@ -136,7 +136,7 @@ execute the equality saturation algorithm.
 """
 function saturate!(egraph::EGraph, theory::Vector{Rule};
     mod=@__MODULE__,
-    timeout=0, stopwhen=(()->false), sizeout=2^12,
+    timeout=0, stopwhen=(() -> false), sizeout=2^12,
     scheduler::Type{<:AbstractScheduler}=BackoffScheduler)
 
     if timeout == 0
@@ -159,7 +159,7 @@ function saturate!(egraph::EGraph, theory::Vector{Rule};
     match_hist = MatchesBuf()
 
     while true
-        curr_iter+=1
+        curr_iter += 1
         # FIXME log
         # @log "iteration " curr_iter
         options[:printiter] && @info("iteration ", curr_iter)

@@ -13,7 +13,7 @@ Strives to get the largest expression
 astsize_inv(n) = -astsize(n)
 astsize_inv(n::Expr) = -1 * astsize(n)
 
-const CostData = Dict{Int64, Tuple{Any, Number}}
+const CostData = Dict{Int64,Tuple{Any,Number}}
 
 """
 An [`AbstractAnalysis`](@ref) that computes the cost of expression nodes
@@ -32,14 +32,14 @@ make(a::ExtractionAnalysis, n) = (n, a.costfun(n))
 
 function make(an::ExtractionAnalysis, n::Expr)
     ncost = an.costfun(n)
-
+    
     for child_eclass in get_funargs(n)
         !haskey(an, child_eclass) && return (n, Inf)
         if haskey(an, child_eclass) && an[child_eclass] != nothing
             ncost += last(an[child_eclass])
         end
     end
-
+    
     return (n, ncost)
 end
 
@@ -62,7 +62,7 @@ function rec_extract(G::EGraph, an::ExtractionAnalysis, id::Int64)
 
     expr = copy(cn)
     set_funargs!(expr, get_funargs(expr) .|> a -> rec_extract(G, an, a.id))
-    return expr
+return expr
 end
 
 """
