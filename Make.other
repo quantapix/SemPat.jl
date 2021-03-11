@@ -1,0 +1,34 @@
+ROOT=~/other
+REPOS=$(shell find $(ROOT)/* -type d -name .git)
+
+.PHONY: clone pull
+
+clone: 
+	mkdir -p $(ROOT)/eth
+	(cd $(ROOT)/eth || exit; \
+	)
+	mkdir -p $(ROOT)/go
+	(cd $(ROOT)/go || exit; \
+	)
+	mkdir -p $(ROOT)/jl
+	(cd $(ROOT)/jl || exit; \
+		[ -e Catlab.jl ] || git clone https://github.com/AlgebraicJulia/Catlab.jl.git || exit; \
+		[ -e Debugger.jl ] || git clone https://github.com/JuliaDebug/Debugger.jl.git || exit; \
+		[ -e julia ] || git clone https://github.com/JuliaLang/julia.git || exit; \
+		[ -e JuliaInterpreter.jl ] || git clone https://github.com/JuliaDebug/JuliaInterpreter.jl.git || exit; \
+		[ -e OhMyREPL.jl ] || git clone https://github.com/KristofferC/OhMyREPL.jl.git || exit; \
+		[ -e Revise.jl ] || git clone https://github.com/timholy/Revise.jl.git || exit; \
+	)
+	mkdir -p $(ROOT)/py
+	(cd $(ROOT)/py || exit; \
+	)
+	mkdir -p $(ROOT)/rs
+	(cd $(ROOT)/rs || exit; \
+	)
+
+pull: clone
+	for d in $(subst /.git,,$(REPOS)); do \
+		(cd $$d || exit; \
+			git pull; \
+		) \
+	done

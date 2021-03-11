@@ -1,0 +1,23 @@
+OTHER=qblk:~/other
+
+.PHONY: clone all
+
+clone: 
+	mkdir -p raw
+	(cd raw || exit; \
+		[ -e julia ] || git clone $(OTHER)/jl/julia || exit; \
+	)
+
+build: clone
+	mkdir -p out
+	(cd raw/julia || exit; \
+		git checkout master; \
+		git pull; \
+		git checkout release-1.6; \
+		make O=../../out/julia configure; \
+	)
+	(cd out/julia || exit; \
+		cp ../../Make.jl.user Make.user; \
+		make -j $(nproc); \
+		make install prefix=/usr/local; \
+	)
