@@ -2,9 +2,12 @@
 
 OTHER=qblk:~/other
 
-.PHONY: clone all
+.PHONY: clone go jl all
 
 clone: 
+	(cd /usr/local/qpx || exit; \
+		[ -e go ] || git clone -b release-branch.go1.16 --depth 1 $(OTHER)/go/go || exit; \
+	)
 	mkdir -p raw
 	(cd raw || exit; \
 		[ -e julia ] || git clone -b release-1.6 --depth 1 $(OTHER)/jl/julia || exit; \
@@ -12,9 +15,18 @@ clone:
 		[ -e Revise.jl ] || git clone --depth 1 $(OTHER)/jl/Revise.jl || exit; \
 	)
 
-all: clone
+go: clone
+	(cd /usr/local/qpx/go || exit; \
+		git clean -xfd; \
+		git pull; \
+		cd src; \
+		./all.bash; \
+	)
+
+jl: clone
 	(cd raw/julia || exit; \
 		git clean -xfd; \
+		git pull; \
 		cp ../../Make.jl.user Make.user; \
 		make -j $(nproc); \
 		make install prefix=/usr/local/qpx; \

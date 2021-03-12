@@ -9,15 +9,19 @@ clone:
 	)
 	mkdir -p $(ROOT)/go
 	(cd $(ROOT)/go || exit; \
+		[ -e go ] || git clone https://github.com/golang/go.git || exit; \
+		(cd go || exit; \
+			git checkout release-branch.go1.16; \
+		); \
 	)
 	mkdir -p $(ROOT)/jl
 	(cd $(ROOT)/jl || exit; \
-		[ -e Catlab.jl ] || git clone https://github.com/AlgebraicJulia/Catlab.jl.git || exit; \
-		[ -e Debugger.jl ] || git clone https://github.com/JuliaDebug/Debugger.jl.git || exit; \
 		[ -e julia ] || git clone https://github.com/JuliaLang/julia.git || exit; \
 		(cd julia || exit; \
 			git checkout release-1.6; \
 		); \
+		[ -e Catlab.jl ] || git clone https://github.com/AlgebraicJulia/Catlab.jl.git || exit; \
+		[ -e Debugger.jl ] || git clone https://github.com/JuliaDebug/Debugger.jl.git || exit; \
 		[ -e JuliaInterpreter.jl ] || git clone https://github.com/JuliaDebug/JuliaInterpreter.jl.git || exit; \
 		[ -e OhMyREPL.jl ] || git clone https://github.com/KristofferC/OhMyREPL.jl.git || exit; \
 		[ -e Revise.jl ] || git clone https://github.com/timholy/Revise.jl.git || exit; \
