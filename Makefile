@@ -18,7 +18,6 @@ clone:
 
 go: clone
 	(cd /usr/local/qpx/go || exit; \
-		git clean -xfd; \
 		git pull; \
 		cd src; \
 		./all.bash; \
@@ -26,7 +25,6 @@ go: clone
 
 julia: clone
 	(cd raw/julia || exit; \
-		git clean -xfd; \
 		git pull; \
 		cp ../../Make.jl.user Make.user; \
 		make -j $(nproc); \
@@ -35,7 +33,6 @@ julia: clone
 
 rust: clone
 	(cd raw/rust || exit; \
-		git clean -xfd; \
 		git pull; \
 		cp ../../rust.config.toml config.toml; \
 		./x.py build && ./x.py install; \
