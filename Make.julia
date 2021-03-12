@@ -2,16 +2,20 @@
 
 OTHER=qblk:~/other
 
-.PHONY: all
+.PHONY: clone all
 
-all: 
+clone: 
 	mkdir -p raw
-	rm -rf raw/julia
 	(cd raw || exit; \
-		git clone -b release-1.6 --depth 1 $(OTHER)/jl/julia || exit; \
-		(cd julia || exit; \
-			cp ../../Make.jl.user Make.user; \
-			make -j $(nproc); \
-			make install prefix=/usr/local/qpx; \
-		) \
+		[ -e julia ] || git clone -b release-1.6 --depth 1 $(OTHER)/jl/julia || exit; \
+		[ -e OhMyREPL.jl ] || git clone --depth 1 $(OTHER)/jl/OhMyREPL.jl || exit; \
+		[ -e Revise.jl ] || git clone --depth 1 $(OTHER)/jl/Revise.jl || exit; \
+	)
+
+all: clone
+	(cd raw/julia || exit; \
+		git clean -xfd; \
+		cp ../../Make.jl.user Make.user; \
+		make -j $(nproc); \
+		make install prefix=/usr/local/qpx; \
 	)
