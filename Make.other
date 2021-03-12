@@ -31,6 +31,7 @@ clone:
 	)
 	mkdir -p $(ROOT)/rs
 	(cd $(ROOT)/rs || exit; \
+    [ -e rust ] || git clone https://github.com/rust-lang/rust.git || exit; \
 	)
 
 all: clone
