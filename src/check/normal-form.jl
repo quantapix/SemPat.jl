@@ -1,10 +1,3 @@
-################################################################################
-### Normal Form for Lambda-Julia types
-### ----------------------------------------------------------------------------
-### 
-### NOTE. To be included after [AST.jl] and [errors.jl]
-################################################################################
-
 # Uncomment includes below to get better support from an editor 
 #=
 include("../syntax/AST.jl")

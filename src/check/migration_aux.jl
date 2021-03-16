@@ -1,7 +1,3 @@
-################################################################################
-### Auxiliary functions to make Lambda-Julia work on julia 0.6 and julia 0.7
-################################################################################
-
 ## Returns true if it is julia 0.7.*
 lj_julia_dev() :: Bool = VERSION > VersionNumber(0,6,2)
 

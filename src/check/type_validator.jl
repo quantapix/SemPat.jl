@@ -1,27 +1,3 @@
-################################################################################
-### Entry points to Lambda-Julia subtype/typeof/simplify functions
-### ----------------------------------------------------------------------------
-###
-### NOTE. To be included after [errors.jl], [AST.jl], [parsing.jl], 
-###       [decls_load],
-###       [env.jl], [typeof.jl], [subtype_xml.jl], and [simplify.jl]
-################################################################################
-
-# Uncomment includes below to get better support from an editor
-#=
-include("errors.jl")
-include("syntax/AST.jl")
-include("syntax/parsing.jl")
-include("decls_load.jl")
-include("env.jl")
-include("typeof.jl")
-include("subtype_xml.jl")
-include("simplify.jl")
-# =#
-
-
-#####################     Entry points to the library     ######################
-
 function lj_lookup(t :: String)
     lj_lookup(lj_parse_type(t), parsed_base_ty_decls)
 end

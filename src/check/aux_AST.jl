@@ -1,22 +1,3 @@
-################################################################################
-### Auxiliary functions related to AST/TyDecl and some helpers
-### ----------------------------------------------------------------------------
-###
-### NOTE. To be included after [errors.jl], [aux.jl], and [AST.jl]
-################################################################################
-
-# Uncomment includes below to get better support from an editor
-#=
-include("../errors.jl")
-include("aux.jl")
-include("../syntax/AST.jl")
-# =#
-
-################################################################################
-#
-# Lookup for type declaration by type name
-# Throws an exception if the name is not known
-#
 function lj_lookup(t :: TName, tds :: TyDeclCol)
     key = "$(t.qual)::$(t.name)"
     key_orig = key   # source qualified key

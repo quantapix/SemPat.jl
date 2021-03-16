@@ -1,10 +1,3 @@
-################################################################################
-### API for normalization and diagonalization of LJ types
-### ----------------------------------------------------------------------------
-### 
-### NOTE. To be included after [aux.jl], [AST.jl], [parsing.jl]
-################################################################################
-
 # push!(LOAD_PATH, "normalization")
 # normalization on AST types
 # using LJ_NormalForm

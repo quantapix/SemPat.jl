@@ -1,7 +1,3 @@
-################################################################################
-### General auxiliary functions used by Lambda-Julia
-################################################################################
-
 ## Constant to control inclusion of the file
 if !Core.isdefined(:LJ_SRC_FILE_AUX)
   const LJ_SRC_FILE_AUX = "aux/aux.jl"

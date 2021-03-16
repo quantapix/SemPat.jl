@@ -1,18 +1,3 @@
-################################################################################
-### Lambda-Julia
-### ----------------------------------------------------------------------------
-###
-### Main file that loads full LJ and uses a file with type declarations
-### according to the settings ([decls_base_inferred.json] by default).
-###
-### If a file with decls does not exist, an error will be produced by default.
-###
-### Command line arguments:
-### * [-dm N]      sets [decls_mode] (see below)
-### * [-fd <name>] sets [decls_dump_file] (see below)
-### * [-dump true] forces to dump declarations if file with decls doesn't exist 
-################################################################################
-
 if !Core.isdefined(:LJ_MAIN_FILE)
 const LJ_MAIN_FILE = "lj.jl"
 end

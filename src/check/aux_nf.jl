@@ -1,19 +1,3 @@
-################################################################################
-### Aux functions for normalization of AST types
-### ----------------------------------------------------------------------------
-###
-### NOTE. To be included into [normal-form.jl]; uses [errors.jl] and [AST.jl]
-################################################################################
-
-# Uncomment includes below to get better support from an editor
-#=
-include("../syntax/AST.jl")
-include("../errors.jl")
-using DataStructures
-# =#
-
-######################################################## Name Management
-
 ## Dictionary with information about used type variable names
 const UsedVarsDict = Dict{String, Dict{String,Int}}
 

@@ -1,26 +1,3 @@
-################################################################################
-### Subtyping for Lambda-Julia types
-### ----------------------------------------------------------------------------
-###
-### NOTE. To be included after [errors.jl], [aux.jl], [AST.jl], 
-###       [env.jl], [typeof.jl], and [types_utils.jl]
-################################################################################
-
-# Uncomment includes below to get better support from an editor
-#=
-include("errors.jl")
-include("aux/aux.jl")
-include("syntax/AST.jl")
-include("env.jl")
-include("typeof.jl")
-include("types_utils.jl")
-# =#
-
-#####################       Subtyping                 #####################
-
-### search state
-
-# whenever we find an exist right
 
 mutable struct SS
   history :: Vector{Int}

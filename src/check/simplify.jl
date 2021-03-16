@@ -1,24 +1,3 @@
-################################################################################
-### Simplification of Lambda-Julia types
-### ----------------------------------------------------------------------------
-###
-### NOTE. To be included after [AST.jl],
-###       [env.jl], [typeof.jl], and [subtype_xml.jl]
-################################################################################
-
-# Uncomment includes below to get better support from an editor
-#=
-include("syntax/AST.jl")
-include("env.jl")
-include("typeof.jl")
-include("subtype_xml.jl")
-# =#
-
-################################################################################
-#
-# Simplified representation of a union: collapse all pairs subtype:supertype
-# to a supertype
-#
 
 function lj_simplify_union(ts, tds, env)
   if isempty(ts)

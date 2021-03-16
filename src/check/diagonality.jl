@@ -1,17 +1,3 @@
-################################################################################
-### Diagonal rule detection for Normalized Lambda-Julia types
-### ----------------------------------------------------------------------------
-### 
-### NOTE. To be included after [normal-form.jl] and [types-aux.jl]
-################################################################################
-
-# Uncomment includes below to get better support from an editor
-#=
-include("../syntax/AST.jl")
-include("../errors.jl")
-using DataStructures
-# =#
-
 module LJ_Diagonality
 
 using ..lj:

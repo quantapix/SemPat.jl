@@ -1,22 +1,3 @@
-################################################################################
-### Various utilities for working with Lambda-Julia types:
-### is_concrete, lift_union, etc.
-### ----------------------------------------------------------------------------
-###
-### NOTE. To be included after [errors.jl], [aux_AST], [AST.jl],
-###       [env.jl], and [typeof.jl]
-################################################################################
-
-# Uncomment includes below to get better support from an editor
-#=
-include("errors.jl")
-include("aux/aux_AST.jl")
-include("syntax/AST.jl")
-include("env.jl")
-include("typeof.jl")
-# =#
-
-##### is_concrete
 
 function is_concrete(t::ASTBase, tds::TyDeclCol)
   # covers TAny, TSuperUnion, TSuperTuple, TType, TUnionAll, TValue

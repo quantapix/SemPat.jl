@@ -1,21 +1,3 @@
-################################################################################
-### Typeof for Lambda-Julia types
-### ----------------------------------------------------------------------------
-###
-### NOTE. To be included after [errors.jl], [aux_AST.jl], 
-###       [AST.jl], [parsing.jl], and [env.jl]
-################################################################################
-
-# Uncomment includes below to get better support from an editor
-#=
-include("errors.jl")
-include("aux/aux_AST.jl")
-include("syntax/AST.jl")
-include("syntax/parsing.jl")
-include("env.jl")
-# =#
-
-##### Implementation of LambdaJulia's typeof
 
 # (ANY)
 function lj_typeof(t::TAny, ::TyDeclCol, env::Env)

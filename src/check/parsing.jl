@@ -1,19 +1,3 @@
-################################################################################
-### Parser for Lambda-Julia
-### ----------------------------------------------------------------------------
-### 
-### NOTE. To be included after [errors.jl], [aux.jl], and [AST.jl]
-################################################################################
-
-# Uncomment includes below to get better support from an editor
-#=
-include("../errors.jl")
-include("../aux/aux.jl")
-include("AST.jl")
-# =#
-
-#----------------------------------------- Dependencies
-
 dep1 = "JSON"
 if Pkg.installed(dep1) == nothing
   Pkg.add(dep1)

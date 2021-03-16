@@ -1,12 +1,3 @@
-################################################################################
-### Abstract Syntax Tree for Lambda-Julia types,
-### and auxiliary functions
-################################################################################
-
-######################       Core AST types       ######################
-
-# ----------------------------------------- LJ types
-
 # convenient type aliases
 const TVarSym = Symbol # type parameters
 const TNameSym = Symbol # names of types

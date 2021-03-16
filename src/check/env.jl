@@ -1,19 +1,3 @@
-################################################################################
-### Environment for LJ Subtyping
-### ----------------------------------------------------------------------------
-### 
-### NOTE. To be included after [errors.jl], [aux.jl], and [AST.jl]
-################################################################################
-
-# Uncomment includes below to get better support from an editor
-#=
-include("errors.jl")
-include("aux/aux.jl")
-include("syntax/AST.jl")
-# =#
-
-######################################################## Debug
-
 function debug_out(s::String)
   global f_debug_count
   if f_debug

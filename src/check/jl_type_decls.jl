@@ -1,7 +1,3 @@
-################################################################################
-### Dumping and parsing of Julia type declarations
-################################################################################
-
 ## Constant to control inclusion of the file
 if !Core.isdefined(:LJ_SRC_FILE_JL_TYPE_DECLS)
   const LJ_SRC_FILE_JL_TYPE_DECLS = "aux/jl_type_decls.jl"

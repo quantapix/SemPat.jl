@@ -1,16 +1,3 @@
-################################################################################
-### Lambda-Julia module
-### ----------------------------------------------------------------------------
-###
-### Created with the purpose of precompilation
-### Cf. `lj_inc.jl` for details of functionality provided
-###
-### Usage:
-### julia> include("lj.jl")
-### julia> using lj.jl
-###
-################################################################################
-
 __precompile__()
 
 module lj

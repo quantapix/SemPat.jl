@@ -1,21 +1,3 @@
-################################################################################
-### Dumping declarations of Julia types
-### ----------------------------------------------------------------------------
-### 
-### NOTE. This file can be used as a standalone script to dump declarations;
-###       it uses (and includes if necessary) files
-###       [errors.jl], [aux.jl], and [jl_type_decls.jl]
-###
-### By default, the script dumps declarations of types available in [Main]
-###   into a file with the name defined in the variable [fname_decls] if
-###   the variable itself is defined.
-### If [fname_decls] is not defined and no command line arguments are given,
-###   declarations are dumped into [decls_base_inferred.json].
-### If [fname_decls] is not defined and there is a command line argument
-###   [-fd <name>], declarations are dumped into the [<name>] file.
-################################################################################
-
-#----------------------------------------- Dependencies
 
 # Conditional includes to allow for standalone usage
 if !Core.isdefined(:LJ_SRC_FILE_ERRORS) 

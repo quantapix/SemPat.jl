@@ -1,16 +1,3 @@
-################################################################################
-### Loading declarations of Julia types
-### ----------------------------------------------------------------------------
-### 
-### NOTE. To be included after [AST.jl], and [parsing.jl]
-################################################################################
-
-# Uncomment includes below to get better support from an editor
-#=
-include("syntax/AST.jl")
-include("syntax/parsing.jl")
-# =#
-
 using JSON
 
 function create_tydecls(decls_fname :: String)

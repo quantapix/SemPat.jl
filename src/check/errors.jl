@@ -1,7 +1,3 @@
-################################################################################
-### Domain errors of Lambda-Julia
-################################################################################
-
 ## Constant to control inclusion of the file
 if !Core.isdefined(:LJ_SRC_FILE_ERRORS)
   const LJ_SRC_FILE_ERRORS = "errors.jl"
