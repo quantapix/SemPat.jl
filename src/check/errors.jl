@@ -3,14 +3,10 @@ if !Core.isdefined(:LJ_SRC_FILE_ERRORS)
   const LJ_SRC_FILE_ERRORS = "errors.jl"
 end
 
-#----------------------------------------- Logging
-
 function lj_error(s)
   println(STDERR, "\nERROR: ",s)
   throw(ErrorException("lj_error is called: " * s))
 end
-
-#----------------------------------------- Types
 
 abstract type LJErr <: Exception
 end

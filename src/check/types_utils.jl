@@ -34,21 +34,6 @@ function is_concrete(t::TName, tds::TyDeclCol)
   s = (tdt.attr != Abstract() && length(tdt.params) == 0)
 end
 
-################################################################################
-#
-# Returns a union of types calculated via picking one element of first
-# union inside top-level Tuple at a time: 
-#
-#    Tuple{Union{A,B}, Union{B,C}} → 
-#       Union{Tuple{A, Union{C,D}}, Tuple{B, Union{C,D}}}
-#
-# Likewise it lifts unionall it if happens to go before plain unions.
-#
-# Consequtive calls to this routine
-# approach a "disjunctive normal form", i.e. when a type consists of
-# 0 or more top layers of Unions and UnionAlls (in no particular order) 
-# and then a tuple not containing immediate unions in its components.
-#
 function lift_union(t :: TTuple, env::Env)
   for i in 1:length(t.ts)
     if isa(t.ts[i], TUnion) && length(t.ts[i].ts) > 0 # lift finite union
@@ -75,11 +60,6 @@ end
 
 lift_union(t :: ASTBase, env::Env) = t
 
-#
-# Returns the collection of types calculated via picking one element of first
-# union at the top level or inside top-level Tuple constructor at a time
-# Bascially: greedy version of `lift_union` above
-#
 function lift_union_full(t::ASTBase)
   tl = no_union(t)
   if length(tl) == 1

@@ -3,9 +3,6 @@ if !Core.isdefined(:LJ_SRC_FILE_JL_TYPE_DECLS)
   const LJ_SRC_FILE_JL_TYPE_DECLS = "aux/jl_type_decls.jl"
 end
 
-#----------------------------------------- Dependencies
-
-# dependencies
 deps = ["JSON", "DataStructures"]
 
 for d in deps
@@ -13,8 +10,6 @@ for d in deps
       Pkg.add(d)
     end
 end
-
-#----------------------------------------- Module
 
 module LJ_DeclsDumping
 
@@ -24,13 +19,6 @@ export
 
 using DataStructures
 using JSON
-
-######################################################## Dumping Julia Types
-
-########################################## Data types
-
-### Representing type information for storage (in JSON), 
-#      later recover in TyDecl
 
 struct TyVarInfo
     name :: String # :Sym or Symbol("Sym")
@@ -46,10 +34,6 @@ struct TypeInfo
     super  :: String
     str    :: String
 end
-
-########################################## Functions
-
-#----------------------------------------- Dumping types
 
 function dump_ty_decl(t :: Union{DataType, UnionAll})
     #println("tydecl: ", t)
@@ -91,8 +75,6 @@ function lj_dump_subtypes(start::Union{DataType, UnionAll}) :: Vector{TypeInfo}
   typeInfos
 end
 
-#----------------------------------------- Traversing Julia's AST
-
 function get_tyvars(t) :: Vector{TypeVar}
     tyvars = []
     while Core.isdefined(t, :body)
@@ -126,11 +108,8 @@ function get_attr(t)
     end
 end
 
-#----------------------------------------- Other aux functions
-
 replace_hashes(s :: String) = replace(s, '#', "HHHH")
 
-## Converts TypeVar into TyVarInfo, and replaces hashes in names
 function convert_tyvars(tvs :: Vector{TypeVar}) :: Vector{TyVarInfo}
     stvs = []
     for tv in tvs
@@ -162,9 +141,6 @@ function chop_qual(s)
   (name, qual)
 end
 
-######################################################## Parsing TypeInfo
-
-## Parses JSON data and returns a vector of TypeInfos
 function lj_parse_decls_dump_json(tinfos_json) :: Vector{TypeInfo}
     tinfos = TypeInfo[]
     for ti_json in tinfos_json
@@ -200,4 +176,4 @@ function lj_parse_tvarinfo_json(tvarinfo_json) :: TyVarInfo
     TyVarInfo(name, lb, ub)
 end
 
-end # module LJ_DeclsDumping
+end

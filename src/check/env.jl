@@ -9,10 +9,6 @@ function debug_out(s::String)
   end
 end
 
-######################################################## Stats
-
-#
-# Base class for various statistics
 abstract type Stats end
 #
 struct RulesStats <: Stats
@@ -38,9 +34,6 @@ function show(io::IO, rs::RulesStats)
   show_dict_sort_v(io, rs.s)
 end
 
-### state used for flags: counting occurrences, consistency_check_enabled, ...
-##  TODO: the covariant_position and invariant_position counters are not used any-longer
-##        and should be removed.
 struct ST_State <: Stats
   in_consistency_check :: Bool
   occurrence_counting  :: Bool   # for diagonal rule
@@ -74,9 +67,6 @@ function state_set_invariant_position(state::ST_State)
 end
 
 
-######################################################## Env
-### var environment for subtyping
-
 abstract type EnvEntry end
 
 abstract type VEnvTag end
@@ -109,28 +99,6 @@ function show(io::IO, occ::Occurs)
   print(io,string("[",occ.disabled,"|",occ.cov,"|",occ.inv,"]"))
   print(io,"")
 end
-
-# This is incorrect because it does not take into account where
-# variables have been introduced.  An alternative, correct, solution
-# based on barriers is implemented by the increase_occ_alt function
-# below
-
-# function increase_occ(occ::Occurs, state::ST_State)
-#   if state.occurrence_counting && !occ.disabled
-#     if state.covariant_position && !state.invariant_position
-#       return Occurs(false,occ.cov+1, occ.inv)
-#     elseif !state.covariant_position && state.invariant_position
-#       return Occurs(false,occ.cov, occ.inv+1)
-#     elseif !state.covariant_position && !state.invariant_position
-#       return Occurs(false,occ.cov, occ.inv)  # not sure about this
-#     else
-#       lj_error(string("Inconsistent state: ", state))
-#     end
-#   else
-#     return occ
-#   end
-# end
-
 
 
 struct VEnv <: EnvEntry
@@ -179,8 +147,6 @@ function show(io::IO, env::Env)
   map(ee -> print(io,ee), env.curr)
 end
 
-# free variables in a venv
-
 function free_variables(ee::VEnv)
   return lj_flatten(vcat(ee.var.sym, free_variables(ee.lb), free_variables(ee.ub)))
 end
@@ -193,8 +159,6 @@ function free_variables(env::Env)
   return lj_flatten(vcat(map(ee -> free_variables(ee), env.curr),
                       map(ee -> free_variables(ee), env.past)))
 end
-
-# substitutions over environments (for var_left instantiation)
 
 function substitute(ee::EnvBarrier, v::TVar, t::ASTBase)
   return ee
@@ -212,8 +176,6 @@ function substitute(env::Env, v::TVar, t::ASTBase)
   env1 = Env(map(ee -> substitute(ee,v,t), env.curr), map(ee -> substitute(ee,v,t), env.past))
   return env1
 end
-
-### gensym and freshen
 
 # function lj_gensym(a::Union{Env,ASTBase}, v::TVar)
 #   fv = free_variables(a)
@@ -254,8 +216,6 @@ function freshen(env::Env, v::TVar, t::ASTBase)
   debug_out(string("<Freshen>\n<v>",v,"</v>\n<vn>",vn,"</vn>\n</Freshen>"))
   return (vn,t1)
 end
-
-### add entry to env, possibly alpha-renaming if variable clash
 
 function env_conflict(env::Env, v::TVar)
   if v.sym in free_variables(env)
@@ -412,8 +372,6 @@ function env_delete!(env::Env, ::EnvBarrier)
   pop!(env.curr)
 end
 
-
-##### parallel_substitution
 
 function par_substitute(t::ASTBase, ts::Vector{ASTBase}, vs::Vector{Symbol})
   free_vars = free_variables(t) 

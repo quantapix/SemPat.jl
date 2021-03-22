@@ -1,5 +1,3 @@
-# This is a sketch of mapping from implementation-based rules
-# to a paper-based rules for subtyping
 rules_map_unknw = "???"
 rules_map_ = Dict(
     "TName, TName"        => rules_map_unknw,

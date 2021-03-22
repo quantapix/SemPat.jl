@@ -28,3 +28,5 @@ mkdir build && cd build
 cmake -DZ3_BUILD_JULIA_BINDINGS=True -DJulia_EXECUTABLE=/Users/qpix/clone/qnarre3/Qnarre/usr/new/bin/julia -DCMAKE_PREFIX_PATH=/Users/qpix/clone/qnarre3/Qnarre/usr/new ..
 cmake --build . -j 16 --config Release
 cmake --install . --prefix /Users/qpix/clone/qnarre3/Qnarre/usr/new
+
+https://github.com/EleutherAI/gpt-neo.git

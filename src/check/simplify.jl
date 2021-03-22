@@ -57,10 +57,6 @@ end
 
 has_free_vars(t) = length(free_variables(t)) != 0
 
-################################################################################
-#
-#  Simplify representation of a type (as in sec. 3 of the LabdaJulia paper)
-#
 function lj_simplify(t :: ASTBase, :: Any, ::Env)
     #return t
     throw(ErrorException("`lj_simplify` is partial: $(t)"))

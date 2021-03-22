@@ -4,12 +4,6 @@ if Pkg.installed(dep1) == nothing
 end
 eval(Meta.parse("using $(dep1)"))
 
-#----------------------------------------- Code
-
-################       AST conversion utilities       #################
-
-##### Convert Julia's AST to LambdaJulia's one
-#
 if !Core.isdefined(:sym_map) # to avoid annoying warnings
 const sym_map = Dict{Symbol, ASTBase}(
     :Any        => TAny(), :ANY => TAny(),
@@ -116,10 +110,6 @@ function convert_ast(ast :: Expr, vars :: Vector{Symbol} = Symbol[])
     end
 end
 
-#######      Helpers for legacy `convert_tydecl`     #######
-
-# Convert type parameter to a triple (ASTBase, TVar, ASTBase)
-
 # T -> (EmptyUnion, TVarSym, TAny)
 convert_param(v :: Symbol, vars :: Vector{Symbol} = Symbol[]) =
     (EmptyUnion, v, TAny())
@@ -162,13 +152,6 @@ is_decl_bounded(decl_head :: Expr) = decl_head.head === :<:
 is_decl_bounded_non_param(decl_head) =
     isa(decl_head.args[1], Symbol) || decl_head.args[1].head == :.
 
-#######    Legacy `convert_tydecl`   #######
-#
-# NOTE: Below is legacy overcomplicated code for converting
-#       type declarations into TyDecl objects. Now we use JSON as
-#       an input for conversion utility (cf. lj_parse_tydecl_json)
-#
-# Convert a string with a type declaration to TyDecl object:
 function convert_tydecl(td :: Expr)
     @assert (td.head in [:abstract, :type, :struct, :bitstype]) "ERROR: convert_tydecl, unexpected head: $(td)"
     attr = td.head == :abstract ? Abstract() : Concrete()
@@ -205,9 +188,6 @@ function convert_tydecl(td :: Expr)
     TyDecl(Symbol("$(name)"), "", params, super, attr)
 end
 
-##########   Helper functions for converting type info        ##########
-#                   (former type declarations)
-
 function lj_parse_params(tyvars_json)
     tyVars = []
     tyVarNamesSoFar = Symbol[]
@@ -220,8 +200,6 @@ function lj_parse_params(tyvars_json)
     end
     (tyVars, tyVarNamesSoFar)
 end
-
-####################        Entry functions         ###############
 
 # parse a string with a type into our AST
 lj_parse_type(s :: String) = convert_ast(Meta.parse(replace_hashes_not_in_lits(s)))

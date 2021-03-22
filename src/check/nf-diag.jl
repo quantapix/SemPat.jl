@@ -1,36 +1,18 @@
 # push!(LOAD_PATH, "normalization")
 # normalization on AST types
 # using LJ_NormalForm
-include("../normalization/normal-form.jl")
+include("normal-form.jl")
 # marking diagonal variables based on occurrence infos
 # using LJ_Diagonality
-include("../normalization/diagonality.jl")
+include("diagonality.jl")
 # calculating an upper bound of a type
 # using LJ_UpperBound
-include("../normalization/upper-bound.jl")
+include("upper-bound.jl")
 
-# ----------------------------------------- Notes
-
-# * Normalization algorithm [normalize_type(t :: ASTBase) :: ASTBase]
-#   can be found in [normalization/normal-form.jl]
-# 
-# * Marking diagonal variables is done in two steps.
-#   Firstly, variables are marked as diagonal based on their occurences
-#     in [mark_diagonal_vars(t :: ASTBase) :: ASTBase],
-#     which can be found in [normalization/diagonality.jl].
-#   Secondly, using base of type declarations, diagonal variables 
-#     with only concrete lower bounds are kept diagonal
-#     in [lj_unmark_diag(t :: ASTBase, tds :: TyDeclCol) :: ASTBase].
-
-# ----------------------------------------- Entry points
-
-## Parses [s], performes beta-reduction, and normalizes LJ type if possible
 lj_parse_and_normalize_type(s::String, mark_diag::Bool=true,
     tds::TyDeclCol=parsed_base_ty_decls
 )::ASTBase =
     lj_normalize_type(betared(lj_parse_type(s)), mark_diag, tds)
-
-# -------------------- Normalization and Diagonalization
 
 function lj_normalize_type(t::ASTBase, mark_diag::Bool=true,
     tds::TyDeclCol=parsed_base_ty_decls
@@ -49,8 +31,6 @@ function lj_normalize_type(t::ASTBase, mark_diag::Bool=true,
     end
 end
 
-# -------------------- Folding unions of tuples
-
 lj_fold_union_tuple(t::ASTBase)::Tuple{ASTBase,Bool} =
     LJ_NormalForm.lj_fold_union_tuple(t)
 
@@ -59,13 +39,8 @@ lj_fold_union_tuple(t::String)::ASTBase =
         lj_parse_and_normalize_type(t)
     )[1]
 
-# -------------------- Calculating an Upper Bound
-
-## Returns an upper bound of [t] and a flag whether it differs from [t]
 lj_upper_bound(t::ASTBase)::Tuple{ASTBase,Bool} =
     LJ_UpperBound.lj_upper_bound(t)
-
-# -------------------- Unmarking diaginal variables
 
 function lj_unmark_diag(t::ASTBase, tds::TyDeclCol)::ASTBase
     throw(LJErrApplicationException(

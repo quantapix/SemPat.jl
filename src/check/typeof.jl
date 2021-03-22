@@ -160,13 +160,10 @@ function lj_typeof_full(t::ASTBase, tds::TyDeclCol, env::Env)
   end
 end
 
-# Check if we can type given type
 function lj_typeable(t::ASTBase, tds::TyDeclCol, env::Env)
   lj_typeof(t, tds, env)
   true
 end
-
-######################       Auxiliary functions       ######################
 
 function compose_unionalls(n::Int)
   n == 0 ? TDataType() : TUnionAll(compose_unionalls(n-1))

@@ -25,9 +25,6 @@ using ..lj.LJ_Diagonality:
 
 export lj_upper_bound
 
-#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ Upper Bound
-
-## Returns an upper bound of [t] and a flag whether it differs from [t]
 function lj_upper_bound(t :: ASTBase) :: Tuple{ASTBase, Bool}
   ## To make building an upper bound easier, we first want to convert
   ## types such as [Tuple{T,S} where S where T<:S where S]
@@ -37,23 +34,6 @@ function lj_upper_bound(t :: ASTBase) :: Tuple{ASTBase, Bool}
   (oi, u, f) = upper_bound(DiagEnv(), false, t)
   (u, f)
 end
-
-# JB: Algorithm is very similar to occurrence-based marking of diagonal vars.
-# We count occurrences to remove unneccessary wheres.
-# For example, Tuple{T} where T<:U ==> Tuple{U},
-# while Tuple{T,Ref{T}} where T<:U ==> Tuple{U,Ref{T}} where T<:U.
-#
-# Thus, when we are in a non-where type, we simply count occurrences
-#   and return the same type.
-# When we are in a where-type in non-ident mode: 
-#   we check if there are covariant occurrences to substitute
-#   and call substitute_var if so;
-#   then, if there are no invariant occurrences, we remove the where-binding.
-# In ident mode we do nothing besides counting,
-#   because it means that we are inside invariant constructor,
-# If substitution took place, we say true; otherwise we say false in UBresult.
-
-######################################################## Occurrence Info
 
 ## Triple of counters (covariant, invariant, neutral)
 OccurInfo = Tuple{Int,Int,Int}
@@ -95,8 +75,6 @@ function occinfo_join(ois :: Vector{OccurInfoDict}) :: OccurInfoDict
     occinfo
 end
 
-######################################################## Function Signature
-
 ## (occur-info, upper-bound, flag)
 ## where flag == true if upper-bound is different from the source type
 UBResult = Tuple{OccurInfoDict, ASTBase, Bool}
@@ -108,10 +86,6 @@ function upper_bound(gamma :: DiagEnv, ident::Bool, t :: ASTBase) :: UBResult
   throw(LJErrApplicationException("upper_bound(::DiagEnv,::Bool, t::ASTBase) " * 
   "shouldn't be called (t == $(t))"))
 end
-  
-######################################################## Simple Types
-
-#----------------------------------------- Trivia
 
 TTrivialType = Union{TAny, TName, 
     TDataType, TSuperUnion, TSuperTuple, TValue}
@@ -119,11 +93,8 @@ TTrivialType = Union{TAny, TName,
 upper_bound(gamma :: DiagEnv, ident::Bool, t :: TTrivialType) :: UBResult =
     (OccurInfoDict(), t, false)
 
-# TODO: what should be done with t.t?
 upper_bound(gamma :: DiagEnv, ident::Bool, t :: TUnionAll) :: UBResult =
     (OccurInfoDict(), t, false)
-
-#----------------------------------------- Type Variable
 
 function upper_bound(gamma :: DiagEnv, ident::Bool, t :: TVar) :: UBResult
     v = t.sym
@@ -134,8 +105,6 @@ function upper_bound(gamma :: DiagEnv, ident::Bool, t :: TVar) :: UBResult
     occinfo = OccurInfoDict(v => occ)
     (occinfo, t, false)
 end
-
-#----------------------------------------- Tuple
 
 function upper_bound(gamma :: DiagEnv, ident::Bool, t :: TTuple) :: UBResult
     results = UBResult[]
@@ -152,8 +121,6 @@ function upper_bound(gamma :: DiagEnv, ident::Bool, t :: TTuple) :: UBResult
     # nothing can change in a normalized tuple without wheres
     (occinfo, t, false)
 end
-
-#----------------------------------------- Name Application
 
 ## Expects [t] to be name{t1, ..., tn}
 function upper_bound(gamma :: DiagEnv, ident::Bool, t :: TApp) :: UBResult
@@ -173,8 +140,6 @@ function upper_bound(gamma :: DiagEnv, ident::Bool, t :: TApp) :: UBResult
     (occinfo, t, false)
 end
 
-#----------------------------------------- Type{t}
-
 function upper_bound(gamma :: DiagEnv, ident::Bool, t :: TType) :: UBResult
     # create copy of gamma and mark it invariant
     gamma_inv = copy(gamma)
@@ -184,8 +149,6 @@ function upper_bound(gamma :: DiagEnv, ident::Bool, t :: TType) :: UBResult
     # we don't change [t] for it is invariant
     (occinfo, t, false)
 end
-
-######################################################## Where-Type
 
 function upper_bound(gamma :: DiagEnv, ident::Bool, t :: TWhere) :: UBResult
     # create copy of gamma and add new type variable in it
@@ -232,8 +195,6 @@ function upper_bound(gamma :: DiagEnv, ident::Bool, t :: TWhere) :: UBResult
     (occinfo, t_new, changed)
 end
 
-######################################################## Union Type
-
 function upper_bound(gamma :: DiagEnv, ident::Bool, t :: TUnion) :: UBResult
     # Union{}, which is Bottom, is a special case 
     if length(t.ts) == 0
@@ -247,11 +208,6 @@ function upper_bound(gamma :: DiagEnv, ident::Bool, t :: TUnion) :: UBResult
     (occinfo, TUnion(ts), any(map(r -> r[3], results)))
 end
 
-
-#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ Aux Functons
-
-######################################################## Renaming Covariant Vars
-
 ## Make all variables bound in covariant wheres distinct
 make_vars_distinct(t :: ASTBase) = make_vars_distinct(t, UsedVarsDict())
 
@@ -259,8 +215,6 @@ function make_vars_distinct(t :: ASTBase, used_vars :: UsedVarsDict) :: ASTBase
   throw(LJErrApplicationException("make_vars_distinct(t::ASTBase, :: UsedVarsDict) " * 
   "shouldn't be called (t == $(t))"))
 end
-
-#----------------------------------------- Implementation
 
 make_vars_distinct(t :: PrimitiveSimpleType, used_vars :: UsedVarsDict) ::
     PrimitiveSimpleType = t
@@ -304,16 +258,12 @@ function make_vars_distinct(t :: TWhere, used_vars :: UsedVarsDict) :: TWhere
   TWhere(tt, v, lb, ub, t.diag)
 end
 
-######################################################## Covariant Substitution
-
 ## Substitutes covariant occurrences of var [v] with type [dt] in type [t]
 ## NOTE. Assumes that no variable capture can occur
 function substitute_var(v :: TVar, dt :: ASTBase, t :: ASTBase) :: ASTBase
   throw(LJErrApplicationException("substitute_var(::TVar,dt::ASTBase,t::ASTBase) " * 
   "shouldn't be called (t == $(t))"))
 end
-
-#----------------------------------------- Implementation
 
 substitute_var(v :: TVar, dt :: ASTBase, t :: PrimitiveSimpleType) :: PrimitiveSimpleType = t
 
@@ -343,4 +293,4 @@ function substitute_var(v :: TVar, dt :: ASTBase, t :: TWhere) :: TWhere
   TWhere(tt, t.tvar, t.lb, t.ub, t.diag)
 end
 
-end # module LJ_UpperBound
+end

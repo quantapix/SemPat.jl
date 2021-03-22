@@ -3,7 +3,6 @@ const TVarSym = Symbol # type parameters
 const TNameSym = Symbol # names of types
 const TAttrSym = Symbol
 
-##### LambdaJulia's definition of types mirrored by the ASTBase's hierarchy
 abstract type ASTBase end
 
 struct TAny <: ASTBase end
@@ -60,8 +59,6 @@ struct TValue <: ASTBase
     v::String
 end
 
-# ----------------------------------------- LJ Type Declaration
-
 abstract type Attribute end
 struct Abstract <: Attribute end
 struct Concrete <: Attribute end
@@ -79,8 +76,6 @@ struct TyDecl
 end
 
 const TyDeclCol = Dict{String,TyDecl}
-
-# ----------------------------------------- Equality
 
 import Base.==
 
@@ -167,8 +162,6 @@ end
 import Base.hash
 
 hash(td::TyDecl, h::UInt64) = hash("$(td.name)", h)
-
-# ----------------------------------------- Pretty printing
 
 function print_collection(io::IO, xs::Vector, pre_label::String, post_label::String)
     if Core.isdefined(:lj_newlines) && lj_newlines
@@ -356,21 +349,14 @@ function all_variables(t::TType)
 end
 
 
-##### IsKind
-
-# is_kind
 function is_kind(t::ASTBase)
     isa(t, TDataType) || isa(t, TSuperUnion) || isa(t, TUnionAll) || 
   t == TName("TypeofBottom", "Core")
 end
 
-##### Renaming
-
 function rename(t::ASTBase, on::TVar, nn::TVar)
     return substitute(t, on, nn)
 end
-
-##### Substitution
 
 function substitute(t::ASTBase, on::TVar, t1::ASTBase)
     @assert any(tbase -> isa(t, tbase), 
@@ -413,8 +399,6 @@ end
 function substitute(t::TType, on::TVar, t1::ASTBase)
     return TType(substitute(t.t, on, t1))
 end
-
-#######  Beta reduction
 
 betared(t::Union{TName,TAny,TDataType,TUnionAll,TSuperUnion,TSuperTuple,TValue,TVar}) = t
 

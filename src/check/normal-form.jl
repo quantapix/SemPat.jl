@@ -1,11 +1,3 @@
-# Uncomment includes below to get better support from an editor 
-#=
-include("../syntax/AST.jl")
-include("../errors.jl")
-include("../aux/aux.jl")
-using DataStructures
-# =#
-
 module LJ_NormalForm
 
 using ..lj:
@@ -33,30 +25,17 @@ WHERE_IN_TUPLE = false
 
 @assert xor(PULL_BOTTOM, WHERE_IN_TUPLE) "Inconsistent normalization settings about Union{}"
 
-## auxiliary functions
-include("aux_nf.jl")
+include("aux.jl")
 
-#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ Conversion into NF
-
-# to generate new variable names and keep track of already used ones
-# we will maintain a dictionary with base parts of names,
-# e.g. base(T111) == base(T3) == base(T) == T
-
-## Takes LJ AST and returns corresponding normalized type
 lj_normalize_type(t :: ASTBase) :: ASTBase =
     lj_normalize_type(t, UsedVarsDict())
 
-## Takes LJ AST, a list of reserved variable names,
-## and returns corresponding normalized type
 function lj_normalize_type(t :: ASTBase, used_vars :: UsedVarsDict) ::
          ASTBase
     throw(LJErrApplicationException("lj_normalize_type(t::ASTBase,::UsedVarsDict) " * 
     "shouldn't be called (t == $(t))"))
 end
 
-######################################################## Trivia
-
-## Simple cases are covered by return the same value
 lj_normalize_type(t :: PrimitiveSimpleType, used_vars :: UsedVarsDict) ::
     PrimitiveSimpleType = t
 
@@ -67,9 +46,6 @@ lj_normalize_type(t :: TUnionAll, used_vars :: UsedVarsDict) :: TUnionAll =
 
 lj_normalize_type(t :: TType, used_vars :: UsedVarsDict) :: TType =
     TType(lj_normalize_type(t.t, used_vars))
-
-######################################################## TApp
-
 ## name{t1, ..., tn} ==> name{nt1, ..., ntn}
 function lj_normalize_type(t :: TApp, used_vars :: UsedVarsDict) :: TApp
     nt = lj_normalize_type(t.t, used_vars)
@@ -80,8 +56,6 @@ function lj_normalize_type(t :: TApp, used_vars :: UsedVarsDict) :: TApp
     nts :: Vector{ASTBase} = map(t -> lj_normalize_type(t, used_vars), t.ts)
     TApp(nt, nts)
 end
-
-######################################################## Union
 
 function lj_normalize_type(t :: TUnion, used_vars :: UsedVarsDict) :: ASTBase
     n = length(t.ts)
@@ -96,8 +70,6 @@ function lj_normalize_type(t :: TUnion, used_vars :: UsedVarsDict) :: ASTBase
     nts_s :: Vector{Vector{ASTBase}} = map(flatten_union, nts)
     TUnion(vcat(nts_s...))
 end
-
-######################################################## Where
 
 ## (v, lb, ub)
 TVarBoundInfo = Tuple{TVar, ASTBase, ASTBase}
@@ -132,8 +104,6 @@ function move_where_in_union(wt :: ASTBase, bound :: TVarBoundInfo) :: ASTBase
         wt
     end
 end
-
-######################################################## Tuple
 
 function lj_normalize_type(t :: TTuple, used_vars :: UsedVarsDict) :: ASTBase
     n = length(t.ts)
@@ -172,14 +142,6 @@ function lj_normalize_type(t :: TTuple, used_vars :: UsedVarsDict) :: ASTBase
     end
 end
 
-#----------------------------------------- Pull up Where
-
-## Takes a vector of where types [wts] corresponding to [Tuple{wts}]
-## and pulls up where-bounds from [wts],
-## returning a pair [(sts, bounds)],
-## where [sts] is a vector of simple types inside [wts],
-## and [bounds] are all pulled-out bounds, possibly renamed.
-## E.g. [Vector{T} where T, Ref{T} where T] => ([Vector{T}, Ref{T1}], [T,T1])
 function pull_up_where(wts :: Vector{ASTBase}, used_vars :: UsedVarsDict) ::
          Tuple{Vector{ASTBase}, Vector{TVarBoundInfo}}
     sts = ASTBase[]
@@ -193,8 +155,6 @@ function pull_up_where(wts :: Vector{ASTBase}, used_vars :: UsedVarsDict) ::
     (sts, bounds)
 end
 
-## Takes simple type [st] together with where-bounds [bounds]
-## and renames bound variables if necessary
 function freshen_wheres!(st :: ASTBase, bounds :: Vector{TVarBoundInfo},
                          used_vars :: UsedVarsDict) ::
                          Tuple{ASTBase, Vector{TVarBoundInfo}}
@@ -226,10 +186,6 @@ function freshen_wheres!(st :: ASTBase, bounds :: Vector{TVarBoundInfo},
     (st, bounds)
 end
 
-## Takes a where type [wt]
-## and returns its core simple type and a vector of bounds (in reversed order),
-## e.g. Vector{T} where T<:S where S<:Int =>
-##      (Vector{T}, [(S,_,Int), (T,_,S)])
 function extract_where(wt :: TWhere) :: Tuple{ASTBase, Vector{TVarBoundInfo}}
     bounds = TVarBoundInfo[]
     while isa(wt, TWhere)
@@ -240,11 +196,6 @@ function extract_where(wt :: TWhere) :: Tuple{ASTBase, Vector{TVarBoundInfo}}
 end
 extract_where(st :: ASTBase) = (st, TVarBoundInfo[])
 
-#----------------------------------------- Pull up Union
-
-## Takes a vector of normal types [nts] corresponding to [Tuple{nts}]
-## and returns a vector of vectors of where types [{wt1, wt2, ..., wtn}]
-##   corresponding to [Union{Tuple{wt1}, Tuple{wt2}, ..., Tuple{wtn}}]
 function pull_up_union(nts :: Vector{ASTBase}) :: Vector{Vector{ASTBase}}
     # let nts be [Union{Float,Int}, Int, Union{Bool,String}]
     v_wts :: Vector{Vector{ASTBase}} = Vector{ASTBase}[]
@@ -283,24 +234,17 @@ function pull_up_union(nts :: Vector{ASTBase}) :: Vector{Vector{ASTBase}}
     ans
 end
 
-## From vectors in [v_xs]
-## picks corresponding elements with numbers from [is],
-## i.e. returns the vector [v_xs[1][is[1]], v_xs[2][is[2]], ...]
 function select_elems(v_xs :: Vector{Vector{T}}, is :: Vector{Int}) ::
          Vector{T} where T
   @assert (length(v_xs) == length(is)) "select_elems: expects |v_xs|==|is|"
   map(i -> v_xs[i][is[i]], 1:length(is))
 end
 
-#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ Anti-Normalization
-
 function lj_fold_union_tuple(t :: ASTBase) :: Tuple{ASTBase, Bool}
     t1 = pull_up_where_union(t)
     t2 = fold_union_tuple(t1)
     (t2, t1 != t2)
 end
-
-# JB TODO: add environment to keep track of diagonal variables
 
 function fold_union_tuple(t :: ASTBase) :: ASTBase
     throw(LJErrApplicationException("fold_union_tuple(t::ASTBase) " * 
@@ -339,22 +283,6 @@ function fold_union_tuple(t :: TUnion) :: ASTBase
     else
         TUnion(elems)
     end
-    # JB TODO: algorithm for general case
-    #=
-    nonprocessed_tuples = length(tuples)
-    # skip zero-length tuples
-    zero_tuples = filter(tup -> length(tup.ts) == 0, tuples)
-    result_tuples = vcat(result_tuples, zero_tuples)
-    nonprocessed_tuples -= length(zero_tuples)
-    one_tuples = filter(tup -> length(tup.ts) == 1, tuples)
-    tuple_len = 1
-    while nonprocessed_tuples > 0
-        # tuples of a given length
-        tuples_curr = filter(tup -> length(tup.ts) == tuple_len, tuples)
-        nonprocessed_tuples -= tuples_curr
-        tuple_elem = 1
-    end
-    =#
 end
 
 fold_union_tuple(t :: TVar) :: TVar = t
@@ -379,16 +307,8 @@ fold_union_tuple(t :: TUnionAll) :: TUnionAll =
 fold_union_tuple(t :: TType) :: TType =
     TType(fold_union_tuple(t.t))
 
-######################################################## Sorting ASTBase
-
-## for now we use a stupid lexicographical sorting of strings
-
 isless(t1 :: ASTBase, t2 :: ASTBase) = isless(string(t1), string(t2))
 
-######################################################## Pull Where out of Union
-
-## Expects a normalized type as an argument
-## and moves where-binds outside unions
 pull_up_where_union(t :: ASTBase) :: ASTBase =
     pull_up_where_union_impl(lj_make_vars_unique(t))
 
@@ -446,8 +366,6 @@ pull_up_where_union_impl(t :: TUnionAll) :: TUnionAll =
 pull_up_where_union_impl(t :: TType) :: TType =
     TType(pull_up_where_union_impl(t.t))
 
-#----------------------------------------- Extract Where
-
 function extract_where_diag(wt :: TWhere) :: 
     Tuple{ASTBase, Vector{TVarBoundInfoDiag}}
     bounds = TVarBoundInfoDiag[]
@@ -459,4 +377,4 @@ function extract_where_diag(wt :: TWhere) ::
 end
 extract_where_diag(st :: ASTBase) = (st, TVarBoundInfoDiag[])
 
-end # module LJ_NormalForm
+end

@@ -36,10 +36,6 @@ function lj_typeof_ast_entry(tp :: ASTBase)
     lj_typeof(t1, tds1, Env([], []))
 end
 
-##########################################
-# lj_subtype, following the rules of Sec 4
-##########################################
-
 lj_supertype(t1 :: String, t2 :: String) = lj_subtype(t2, t1)
 
 function lj_subtype(t1 :: ASTBase, t2 :: ASTBase, tds :: TyDeclCol = TyDeclCol([]))
@@ -106,10 +102,6 @@ function lj_subtype_ast_entry(t1 :: ASTBase, t2 :: ASTBase, tds1 = parsed_base_t
   return sr
 end
 
-#################################################
-# lj_subtype_revised, following the revised rules
-#################################################
-
 lj_supertype_revised(t1 :: String, t2 :: String) = lj_subtype_revised(t2, t1)
 
 function lj_subtype_revised(t1 :: ASTBase, t2 :: ASTBase, tds :: TyDeclCol = TyDeclCol([]))
@@ -170,34 +162,11 @@ function lj_subtype_ast_entry_revised(t1 :: ASTBase, t2 :: ASTBase, tds1 = parse
 
   sr = lj_subtype_revised(nt1, nt2, tds1)
 
-  # JB: remove check of upper bound
-  #=
-  # maybe we still can prove ub(t1) <: t2
-  if !sr.sub
-    (ub1, ub1_neq_nt1) = lj_upper_bound(nt1)
-
-    if lj_hugetype_errormode && lj_AST_size(ub1) > LJ_MAX_NTYPE_SIZE
-      throw(LJErrTypeTooLarge())
-    end
-
-    # if an upper bound is different from nt1, we run subtyping on it
-    if ub1_neq_nt1
-      nub1 = lj_normalize_type(ub1, true, tds1)
-      sr = lj_subtype(nub1, nt2, tds1)
-    end
-  end
-  =#
-
   if f_debug
     @printf "</check>\n"
   end
   return sr
 end
-
-
-
-
-######################################################## Trivial Subtyping
 
 lj_subtype_trivial(t1::String, t2::String) =
   lj_subtype_trivial(lj_parse_type(t1), lj_parse_type(t2))
