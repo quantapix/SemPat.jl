@@ -25,6 +25,7 @@ clone:
 		[ -e JuliaInterpreter.jl ] || git clone https://github.com/JuliaDebug/JuliaInterpreter.jl.git || exit; \
 		[ -e OhMyREPL.jl ] || git clone https://github.com/KristofferC/OhMyREPL.jl.git || exit; \
 		[ -e Revise.jl ] || git clone https://github.com/timholy/Revise.jl.git || exit; \
+    [ -e julia-vscode ] || git clone https://github.com/julia-vscode/julia-vscode.git || exit; \
 	)
 	mkdir -p $(ROOT)/py
 	(cd $(ROOT)/py || exit; \
@@ -32,6 +33,10 @@ clone:
 	mkdir -p $(ROOT)/rs
 	(cd $(ROOT)/rs || exit; \
     [ -e rust ] || git clone https://github.com/rust-lang/rust.git || exit; \
+	)
+	mkdir -p $(ROOT)/ts
+	(cd $(ROOT)/ts || exit; \
+    [ -e typescript ] || git clone https://github.com/microsoft/TypeScript.git typescript || exit; \
 	)
 
 all: clone

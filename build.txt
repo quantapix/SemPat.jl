@@ -1,11 +1,10 @@
+on qblk:
+  make -f Make.other all
 
-cd raw/julia
-git clean -xfd
-git reset --hard
-[git checkout v1.6]
-make O=../../out/julia configure
-make -j $(nproc)
-make install prefix=/home/qpix/clone/...
+on local:
+  make julia
+
+
 
 cd raw
 git clone https://github.com/JuliaInterop/libcxxwrap-julia.git

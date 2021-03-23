@@ -11,9 +11,11 @@ clone:
 	mkdir -p raw
 	(cd raw || exit; \
 		[ -e julia ] || git clone -b release-1.6 --depth 1 $(OTHER)/jl/julia || exit; \
+		[ -e julia-vscode ] || git clone --depth 1 $(OTHER)/jl/julia-vscode || exit; \
 		[ -e OhMyREPL.jl ] || git clone --depth 1 $(OTHER)/jl/OhMyREPL.jl || exit; \
 		[ -e Revise.jl ] || git clone --depth 1 $(OTHER)/jl/Revise.jl || exit; \
 		[ -e rust ] || git clone --depth 1 $(OTHER)/rs/rust || exit; \
+		[ -e typescript ] || git clone --depth 1 $(OTHER)/ts/typescript || exit; \
 	)
 
 go: clone
@@ -37,4 +39,9 @@ rust: clone
 		cp ../../rust.config.toml config.toml; \
 		./x.py build && ./x.py install; \
 		./x.py install cargo; \
+	)
+
+typescript: clone
+	(cd raw/typescript || exit; \
+		git pull; \
 	)

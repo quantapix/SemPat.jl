@@ -38,14 +38,13 @@ mutable struct EClass
     parents::Array{Tuple{Term,Id}}
 end
 
-#=
+#= 
 pub struct EClass<L, D> {
   pub id: Id,
   pub nodes: Vec<L>,
   pub data: D,
   pub(crate) parents: Vec<(L, Id)>,
-}
-=#
+} =#
 
 using DataStructures
 
@@ -56,7 +55,7 @@ mutable struct EGraph
     dirty_unions::Array{Id}
 end
 
-#=
+#= 
 pub struct EGraph<L: Language, N: Analysis<L>> {
     /// The `Analysis` given when creating this `EGraph`.
     pub analysis: N,
@@ -66,8 +65,7 @@ pub struct EGraph<L: Language, N: Analysis<L>> {
     unionfind: UnionFind,
     classes: HashMap<Id, EClass<L, N::Data>>,
     pub(crate) classes_by_op: HashMap<std::mem::Discriminant<L>, HashSet<Id>>,
-}
-=#
+} =#
 
 EGraph() = EGraph(UnionFind(0), Dict(), Dict(), [])
 
