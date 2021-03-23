@@ -15,7 +15,7 @@ clone:
 		[ -e OhMyREPL.jl ] || git clone --depth 1 $(OTHER)/jl/OhMyREPL.jl || exit; \
 		[ -e Revise.jl ] || git clone --depth 1 $(OTHER)/jl/Revise.jl || exit; \
 		[ -e rust ] || git clone --depth 1 $(OTHER)/rs/rust || exit; \
-		[ -e typescript ] || git clone --depth 1 $(OTHER)/ts/typescript || exit; \
+		[ -e typescript ] || git clone -b v4.2.3 --depth 1 $(OTHER)/ts/typescript || exit; \
 	)
 
 go: clone
@@ -44,4 +44,7 @@ rust: clone
 typescript: clone
 	(cd raw/typescript || exit; \
 		git pull; \
+		npm install -g gulp; \
+		npm ci; \
+		gulp LKG; \
 	)

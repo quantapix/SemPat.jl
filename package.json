@@ -11,18 +11,16 @@
     "@typescript-eslint/eslint-plugin": "",
     "@typescript-eslint/parser": "",
     "eslint-config-prettier": "",
-    "eslint-plugin-jasmine": "",
     "eslint-plugin-node": "",
     "eslint-plugin-prettier": "",
     "eslint": "",
     "jest": "",
     "prettier": "",
     "semver": "",
-    "typescript": "next",
+    "typescript": "",
     "webpack-cli": "",
     "webpack": ""
   },
   "dependencies": {
-    "gulp": ""
   }
 }
