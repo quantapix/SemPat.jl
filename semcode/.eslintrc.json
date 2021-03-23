@@ -47,6 +47,25 @@
     //"@typescript-eslint/restrict-template-expressions": "off",
     "@typescript-eslint/no-unsafe-return": "off",
     "@typescript-eslint/no-unsafe-member-access": "off",
-    "@typescript-eslint/no-unsafe-assignment": "off"
+    "@typescript-eslint/no-unsafe-assignment": "off",
+    "@typescript-eslint/naming-convention": "warn",
+    "@typescript-eslint/semi": "warn"
+  },
+  "rules2": {
+    "no-throw-literal": "warn",
+    "curly": "warn",
+    "prefer-const": "warn",
+    "no-extra-semi": "warn",
+    "no-var": "warn",
+    "quotes": [
+      "warn",
+      "single",
+      {
+        "allowTemplateLiterals": true
+      }
+    ],
+    "indent": ["warn", 4],
+    "semi": ["error", "never"],
+    "eqeqeq": "error"
   }
 }

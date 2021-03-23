@@ -1,0 +1,86 @@
+{
+  "name": "semcode",
+  "displayName": "SemCode",
+  "description": "",
+  "author": "quantapix <quantapix@gmail.com>",
+  "license": "MIT",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.54.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Themes",
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:semcode2.helloWorld"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "semcode.helloWorld",
+        "title": "Hello World"
+      }
+    ],
+    "languages": [
+      {
+        "id": "julia",
+        "aliases": [
+          "Julia",
+          "julia"
+        ],
+        "extensions": [
+          ".jl"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "julia",
+        "scopeName": "source.jl",
+        "path": "./syntaxes/julia.tmLanguage.json"
+      }
+    ],
+    "themes": [
+      {
+        "label": "SemCode",
+        "uiTheme": "vs-dark",
+        "path": "./themes/SemCode-theme.json"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "test-compile": "tsc -p ./",
+    "test-watch": "tsc -watch -p ./",
+    "pretest": "npm run test-compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/glob": "",
+    "@types/mocha": "",
+    "@types/node": "",
+    "@types/vscode": "",
+    "@typescript-eslint/eslint-plugin": "",
+    "@typescript-eslint/parser": "",
+    "eslint-config-prettier": "",
+    "eslint-plugin-node": "",
+    "eslint-plugin-prettier": "",
+    "eslint": "",
+    "glob": "",
+    "mocha": "",
+    "prettier": "",
+    "ts-loader": "",
+    "typescript": "",
+    "vscode-test": "",
+    "webpack-cli": "",
+    "webpack": ""
+  }
+}
