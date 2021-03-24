@@ -87,8 +87,8 @@
     "async-file": "",
     "await-notify": "",
     "child-process-promise": "",
-    "markdown-it-footnote": "",
     "markdown-it": "",
+    "markdown-it-footnote": "",
     "promised-temp": "",
     "uuidv4": "",
     "vscode-debugadapter": "",
@@ -104,13 +104,14 @@
     "@types/node": "",
     "@types/semver": "",
     "@types/vscode": "",
+    "@types/which": "",
     "@typescript-eslint/eslint-plugin": "",
     "@typescript-eslint/parser": "",
     "download": "",
+    "eslint": "",
     "eslint-config-prettier": "",
     "eslint-plugin-node": "",
     "eslint-plugin-prettier": "",
-    "eslint": "",
     "glob": "",
     "mocha": "",
     "prettier": "",
@@ -119,7 +120,7 @@
     "typescript": "",
     "vsce": "",
     "vscode-test": "",
-    "webpack-cli": "",
-    "webpack": ""
+    "webpack": "",
+    "webpack-cli": ""
   }
 }

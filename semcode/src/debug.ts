@@ -6,51 +6,115 @@ import * as vscode from 'vscode';
 import { InitializedEvent, Logger, logger, LoggingDebugSession, StoppedEvent, TerminatedEvent } from 'vscode-debugadapter';
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { createMessageConnection, Disposable, MessageConnection, StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node';
-import { replStartDebugger } from '../interactive/repl';
-import { getCrashReportingPipename } from '../telemetry';
-import { generatePipeName } from '../utils';
-import {
-  notifyTypeDebug,
-  notifyTypeExec,
-  notifyTypeOurFinished,
-  notifyTypeRun,
-  notifyTypeStopped,
-  requestTypeBreakpointLocations,
-  requestTypeContinue,
-  requestTypeDisconnect,
-  requestTypeEvaluate,
-  requestTypeExceptionInfo,
-  requestTypeNext,
-  requestTypeRestartFrame,
-  requestTypeScopes,
-  requestTypeSetBreakpoints,
-  requestTypeSetExceptionBreakpoints,
-  requestTypeSetFunctionBreakpoints,
-  requestTypeSetVariable,
-  requestTypeSource,
-  requestTypeStackTrace,
-  requestTypeStepIn,
-  requestTypeStepInTargets,
-  requestTypeStepOut,
-  requestTypeTerminate,
-  requestTypeThreads,
-  requestTypeVariables,
-} from './debugProtocol';
+import { replStartDebugger } from './repl';
+import { getCrashReportingPipename } from './telemetry';
+import { generatePipeName } from './utils';
+import { NotificationType, RequestType, RequestType0 } from 'vscode-jsonrpc';
+import * as packs from './packs';
+import { getJuliaExePath } from './packs';
+import { registerCommand } from './utils';
 
-/**
- * This interface describes the Julia specific launch attributes
- * (which are not part of the Debug Adapter Protocol).
- * The schema for these attributes lives in the package.json of the Julia extension.
- * The interface should always match this schema.
- */
+interface DisconnectResponseArguments {}
+interface SetBreakpointsResponseArguments {
+  breakpoints: DebugProtocol.Breakpoint[];
+}
+interface StackTraceResponseArguments {
+  stackFrames: DebugProtocol.StackFrame[];
+  totalFrames?: number;
+}
+interface SetExceptionBreakpointsResponseArguments {}
+interface SetFunctionBreakpointsResponseArguments {
+  breakpoints: DebugProtocol.Breakpoint[];
+}
+interface ScopesResponseArguments {
+  scopes: DebugProtocol.Scope[];
+}
+interface SourceResponseArguments {
+  content: string;
+  mimeType?: string;
+}
+interface VariablesResponseArguments {
+  variables: DebugProtocol.Variable[];
+}
+interface ContinueResponseArguments {
+  allThreadsContinued?: boolean;
+}
+interface NextResponseArguments {}
+interface StepInResponseArguments {}
+interface StepInTargetsResponseArguments {
+  targets: DebugProtocol.StepInTarget[];
+}
+interface StepOutResponseArguments {}
+interface EvaluateResponseArguments {
+  result: string;
+  type?: string;
+  presentationHint?: DebugProtocol.VariablePresentationHint;
+  variablesReference: number;
+  namedVariables?: number;
+  indexedVariables?: number;
+  memoryReference?: string;
+}
+interface TerminateResponseArguments {}
+interface ExceptionInfoResponseArguments {
+  exceptionId: string;
+  description?: string;
+  breakMode: DebugProtocol.ExceptionBreakMode;
+  details?: DebugProtocol.ExceptionDetails;
+}
+interface RestartFrameResponseArguments {}
+interface SetVariableResponseArguments {
+  value: string;
+  type?: string;
+  variablesReference?: number;
+  namedVariables?: number;
+  indexedVariables?: number;
+}
+interface StoppedArguments {
+  reason: string;
+  description?: string;
+  threadId?: number;
+  preserveFocusHint?: boolean;
+  text?: string;
+  allThreadsStopped?: boolean;
+}
+interface ThreadsResponseArguments {
+  threads: DebugProtocol.Thread[];
+}
+interface BreakpointLocationsResponseArguments {
+  breakpoints: DebugProtocol.BreakpointLocation[];
+}
+
+export const requestTypeDisconnect = new RequestType<DebugProtocol.DisconnectArguments, DisconnectResponseArguments, void>('disconnect');
+export const requestTypeSetBreakpoints = new RequestType<DebugProtocol.SetBreakpointsArguments, SetBreakpointsResponseArguments, void>('setBreakpoints');
+export const requestTypeSetExceptionBreakpoints = new RequestType<DebugProtocol.SetExceptionBreakpointsArguments, SetExceptionBreakpointsResponseArguments, void>('setExceptionBreakpoints');
+export const requestTypeSetFunctionBreakpoints = new RequestType<DebugProtocol.SetFunctionBreakpointsArguments, SetFunctionBreakpointsResponseArguments, void>('setFunctionBreakpoints');
+export const requestTypeStackTrace = new RequestType<DebugProtocol.StackTraceArguments, StackTraceResponseArguments, void>('stackTrace');
+export const requestTypeScopes = new RequestType<DebugProtocol.ScopesArguments, ScopesResponseArguments, void>('scopes');
+export const requestTypeSource = new RequestType<DebugProtocol.SourceArguments, SourceResponseArguments, void>('source');
+export const requestTypeVariables = new RequestType<DebugProtocol.VariablesArguments, VariablesResponseArguments, void>('variables');
+export const requestTypeContinue = new RequestType<DebugProtocol.ContinueArguments, ContinueResponseArguments, void>('continue');
+export const requestTypeNext = new RequestType<DebugProtocol.NextArguments, NextResponseArguments, void>('next');
+export const requestTypeStepIn = new RequestType<DebugProtocol.StepInArguments, StepInResponseArguments, void>('stepIn');
+export const requestTypeStepInTargets = new RequestType<DebugProtocol.StepInTargetsArguments, StepInTargetsResponseArguments, void>('stepInTargets');
+export const requestTypeStepOut = new RequestType<DebugProtocol.StepOutArguments, StepOutResponseArguments, void>('stepOut');
+export const requestTypeEvaluate = new RequestType<DebugProtocol.EvaluateArguments, EvaluateResponseArguments, void>('evaluate');
+export const requestTypeTerminate = new RequestType<DebugProtocol.TerminateArguments, TerminateResponseArguments, void>('terminate');
+export const requestTypeExceptionInfo = new RequestType<DebugProtocol.ExceptionInfoArguments, ExceptionInfoResponseArguments, void>('exceptionInfo');
+export const requestTypeRestartFrame = new RequestType<DebugProtocol.RestartFrameArguments, RestartFrameResponseArguments, void>('restartFrame');
+export const requestTypeSetVariable = new RequestType<DebugProtocol.SetVariableArguments, SetVariableResponseArguments, void>('setVariable');
+export const requestTypeThreads = new RequestType0<ThreadsResponseArguments, void>('threads');
+export const requestTypeBreakpointLocations = new RequestType<DebugProtocol.BreakpointLocationsArguments, BreakpointLocationsResponseArguments, void>('breakpointLocations');
+export const notifyTypeRun = new NotificationType<{ program: string }>('run');
+export const notifyTypeDebug = new NotificationType<{ stopOnEntry: boolean; program: string }>('debug');
+export const notifyTypeExec = new NotificationType<{ stopOnEntry: boolean; code: string; file: string }>('exec');
+export const notifyTypeOurFinished = new NotificationType<void>('finished');
+export const notifyTypeStopped = new NotificationType<StoppedArguments>('stopped');
+
 interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
-  /** An absolute path to the "program" to debug. */
   program: string;
-  /** Automatically stop target after launch. If not specified, target does not stop. */
   stopOnEntry?: boolean;
   cwd?: string;
   juliaEnv?: string;
-  /** enable logging the Debug Adapter Protocol */
   trace?: boolean;
   args?: string[];
 }
@@ -73,83 +137,40 @@ export class JuliaDebugSession extends LoggingDebugSession {
 
   private _no_need_for_force_kill: boolean = false;
 
-  /**
-   * Creates a new debug adapter that is used for one debug session.
-   * We configure the default implementation of a debug adapter here.
-   */
   public constructor(private context: vscode.ExtensionContext, private juliaPath: string) {
     super('julia-debug.txt');
-
-    // this debugger uses zero-based lines and columns
     this.setDebuggerLinesStartAt1(true);
     this.setDebuggerColumnsStartAt1(true);
   }
 
-  /**
-   * The 'initialize' request is the first request called by the frontend
-   * to interrogate the features the debug adapter provides.
-   */
-  protected async initializeRequest(response: DebugProtocol.InitializeResponse, args: DebugProtocol.InitializeRequestArguments): Promise<void> {
-    // build and return the capabilities of this debug adapter:
-    response.body = response.body || {};
-
-    // the adapter implements the configurationDoneRequest.
-    response.body.supportsConfigurationDoneRequest = true;
-
-    response.body.supportsFunctionBreakpoints = true;
-
-    // make VS Code to use 'evaluate' when hovering over source
-    response.body.supportsEvaluateForHovers = true;
-
-    // make VS Code to show a 'step back' button
-    response.body.supportsStepBack = false;
-
-    // make VS Code to support data breakpoints
-    response.body.supportsDataBreakpoints = false;
-
-    // make VS Code to support completion in REPL
-    response.body.supportsCompletionsRequest = false;
-    // response.body.completionTriggerCharacters = [".", "["];
-
-    // make VS Code to send cancelRequests
-    response.body.supportsCancelRequest = false;
-
-    response.body.supportsTerminateRequest = true;
-
-    // make VS Code send the breakpointLocations request
-    response.body.supportsBreakpointLocationsRequest = false;
-
-    response.body.supportsConditionalBreakpoints = true;
-
-    response.body.supportsHitConditionalBreakpoints = false;
-
-    response.body.supportsLogPoints = false;
-
-    response.body.supportsExceptionInfoRequest = true;
-
-    response.body.supportsRestartFrame = true;
-
-    response.body.supportsSetVariable = true;
-
-    response.body.supportsStepInTargetsRequest = true;
-
-    response.body.exceptionBreakpointFilters = [
+  protected async initializeRequest(r: DebugProtocol.InitializeResponse, _: DebugProtocol.InitializeRequestArguments): Promise<void> {
+    r.body = r.body || {};
+    r.body.supportsConfigurationDoneRequest = true;
+    r.body.supportsFunctionBreakpoints = true;
+    r.body.supportsEvaluateForHovers = true;
+    r.body.supportsStepBack = false;
+    r.body.supportsDataBreakpoints = false;
+    r.body.supportsCompletionsRequest = false;
+    r.body.supportsCancelRequest = false;
+    r.body.supportsTerminateRequest = true;
+    r.body.supportsBreakpointLocationsRequest = false;
+    r.body.supportsConditionalBreakpoints = true;
+    r.body.supportsHitConditionalBreakpoints = false;
+    r.body.supportsLogPoints = false;
+    r.body.supportsExceptionInfoRequest = true;
+    r.body.supportsRestartFrame = true;
+    r.body.supportsSetVariable = true;
+    r.body.supportsStepInTargetsRequest = true;
+    r.body.exceptionBreakpointFilters = [
       { filter: 'compilemode', label: 'Compiled Mode (experimental)', default: false },
       { filter: 'error', label: 'Uncaught Exceptions', default: true },
       { filter: 'throw', label: 'All Exceptions', default: false },
     ];
-
-    this.sendResponse(response);
+    this.sendResponse(r);
   }
 
-  /**
-   * Called at the end of the configuration sequence.
-   * Indicates that all breakpoints etc. have been sent to the DA and that the 'launch' can start.
-   */
   protected configurationDoneRequest(response: DebugProtocol.ConfigurationDoneResponse, args: DebugProtocol.ConfigurationDoneArguments): void {
     super.configurationDoneRequest(response, args);
-
-    // notify the launchRequest that configuration has finished
     this._configurationDone.notify();
   }
 
@@ -161,65 +182,40 @@ export class JuliaDebugSession extends LoggingDebugSession {
   protected async attachRequest(response: DebugProtocol.AttachResponse, args: AttachRequestArguments) {
     this._launchMode = false;
     const pn = generatePipeName(uuid(), 'vsc-jl-dbg');
-
     const connectedPromise = new Subject();
     const serverListeningPromise = new Subject();
-
     const server = net.createServer((socket) => {
       this._connection = createMessageConnection(new StreamMessageReader(socket), new StreamMessageWriter(socket));
-
       this._connection.onNotification(notifyTypeStopped, (params) => this.sendEvent(new StoppedEvent(params.reason, params.threadId, params.text)));
       this._connection.onNotification(notifyTypeOurFinished, () => this.ourFinishedEvent());
-
       this._connection.listen();
-
       connectedPromise.notify();
     });
-
     server.listen(pn, () => {
       serverListeningPromise.notify();
     });
-
     await serverListeningPromise.wait();
-
     replStartDebugger(pn);
-
     await connectedPromise.wait();
-
-    // since this debug adapter can accept configuration requests like 'setBreakpoint' at any time,
-    // we request them early by sending an 'initializeRequest' to the frontend.
-    // The frontend will end the configuration sequence by calling 'configurationDone' request.
     this.sendEvent(new InitializedEvent());
-
-    // wait until configuration has finished (and configurationDoneRequest has been called)
-    // await this._configurationDone.wait(1000);
     await this._configurationDone.wait();
-
     this._connection.sendNotification(notifyTypeExec, { stopOnEntry: args.stopOnEntry, code: args.code, file: args.file });
-
     this.sendResponse(response);
   }
 
   protected async launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments) {
     this._launchMode = true;
-    // make sure to 'Stop' the buffered logging if 'trace' is not set
     logger.setup(args.trace ? Logger.LogLevel.Verbose : Logger.LogLevel.Stop, false);
-
     const connectedPromise = new Subject();
     const serverListeningPromise = new Subject();
     const serverForWrapperPromise = new Subject();
-
     const pn = generatePipeName(uuid(), 'vsc-jl-dbg');
     const pnForWrapper = generatePipeName(uuid(), 'vsc-jl-dbgw');
-
     const server = net.createServer((socket) => {
       this._connection = createMessageConnection(new StreamMessageReader(socket), new StreamMessageWriter(socket));
-
       this._connection.onNotification(notifyTypeStopped, (params) => this.sendEvent(new StoppedEvent(params.reason, params.threadId, params.text)));
       this._connection.onNotification(notifyTypeOurFinished, () => this.ourFinishedEvent());
-
       this._connection.listen();
-
       connectedPromise.notify();
     });
 
@@ -271,18 +267,9 @@ export class JuliaDebugSession extends LoggingDebugSession {
     );
 
     await connectedPromise.wait();
-
-    // since this debug adapter can accept configuration requests like 'setBreakpoint' at any time,
-    // we request them early by sending an 'initializeRequest' to the frontend.
-    // The frontend will end the configuration sequence by calling 'configurationDone' request.
     this.sendEvent(new InitializedEvent());
-
-    // wait until configuration has finished (and configurationDoneRequest has been called)
-    // await this._configurationDone.wait(1000);
     await this._configurationDone.wait();
-
     this._launchedWithoutDebug = args.noDebug;
-
     if (args.noDebug) {
       this._connection.sendNotification(notifyTypeRun, { program: args.program });
     } else {
@@ -313,8 +300,6 @@ export class JuliaDebugSession extends LoggingDebugSession {
 
     this.sendResponse(response);
   }
-
-  // Pure relay below
 
   protected async setVariableRequest(response: DebugProtocol.SetVariableResponse, args: DebugProtocol.SetVariableArguments) {
     try {
@@ -408,5 +393,119 @@ export class JuliaDebugSession extends LoggingDebugSession {
   protected async variablesRequest(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments) {
     response.body = await this._connection.sendRequest(requestTypeVariables, args);
     this.sendResponse(response);
+  }
+}
+
+export class JuliaDebugFeature {
+  constructor(private context: vscode.ExtensionContext) {
+    const provider = new JuliaDebugConfigurationProvider();
+    const factory = new InlineDebugAdapterFactory(this.context);
+
+    this.context.subscriptions.push(
+      vscode.debug.registerDebugConfigurationProvider('julia', provider),
+      vscode.debug.registerDebugAdapterDescriptorFactory('julia', factory),
+      registerCommand('language-julia.debug.getActiveJuliaEnvironment', async (config) => {
+        return await packs.getAbsEnvPath();
+      }),
+      registerCommand('language-julia.runEditorContents', async (resource: vscode.Uri | undefined) => {
+        resource = getActiveUri(resource);
+        if (!resource) {
+          vscode.window.showInformationMessage('No active editor found.');
+          return;
+        }
+        const folder = vscode.workspace.getWorkspaceFolder(resource);
+        if (folder === undefined) {
+          vscode.window.showInformationMessage('File not found in workspace.');
+          return;
+        }
+        const success = await vscode.debug.startDebugging(folder, {
+          type: 'julia',
+          name: 'Run Editor Contents',
+          request: 'launch',
+          program: resource.fsPath,
+          noDebug: true,
+        });
+        if (!success) {
+          vscode.window.showErrorMessage('Could not run editor content in new process.');
+        }
+      }),
+      registerCommand('language-julia.debugEditorContents', async (resource: vscode.Uri | undefined) => {
+        resource = getActiveUri(resource);
+        if (!resource) {
+          vscode.window.showInformationMessage('No active editor found.');
+          return;
+        }
+        const folder = vscode.workspace.getWorkspaceFolder(resource);
+        if (folder === undefined) {
+          vscode.window.showInformationMessage('File not found in workspace.');
+          return;
+        }
+        const success = await vscode.debug.startDebugging(folder, {
+          type: 'julia',
+          name: 'Debug Editor Contents',
+          request: 'launch',
+          program: resource.fsPath,
+        });
+        if (!success) {
+          vscode.window.showErrorMessage('Could not debug editor content in new process.');
+        }
+      })
+    );
+  }
+
+  public dispose() {}
+}
+
+function getActiveUri(uri: vscode.Uri | undefined, editor: vscode.TextEditor | undefined = vscode.window.activeTextEditor) {
+  return uri || (editor ? editor.document.uri : undefined);
+}
+
+export class JuliaDebugConfigurationProvider implements vscode.DebugConfigurationProvider {
+  public resolveDebugConfiguration(folder: vscode.WorkspaceFolder | undefined, config: vscode.DebugConfiguration, token?: vscode.CancellationToken): vscode.ProviderResult<vscode.DebugConfiguration> {
+    if (!config.request) {
+      config.request = 'launch';
+    }
+
+    if (!config.type) {
+      config.type = 'julia';
+    }
+
+    if (!config.name) {
+      config.name = 'Launch Julia';
+    }
+
+    if (!config.program && config.request !== 'attach') {
+      config.program = vscode.window.activeTextEditor.document.fileName;
+    }
+
+    if (!config.internalConsoleOptions) {
+      config.internalConsoleOptions = 'neverOpen';
+    }
+
+    if (!config.stopOnEntry) {
+      config.stopOnEntry = false;
+    }
+
+    if (!config.cwd && config.request !== 'attach') {
+      config.cwd = '${workspaceFolder}';
+    }
+
+    if (!config.juliaEnv && config.request !== 'attach') {
+      config.juliaEnv = '${command:activeJuliaEnvironment}';
+    }
+
+    console.log(config);
+
+    return config;
+  }
+}
+
+class InlineDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory {
+  constructor(private context: vscode.ExtensionContext) {}
+
+  createDebugAdapterDescriptor(_session: vscode.DebugSession): vscode.ProviderResult<vscode.DebugAdapterDescriptor> {
+    return (async () => {
+      return new vscode.DebugAdapterInlineImplementation(<any>new JuliaDebugSession(this.context, await getJuliaExePath()));
+    })();
   }
 }

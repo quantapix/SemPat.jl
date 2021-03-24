@@ -33,13 +33,10 @@ export class REPLTreeDataProvider implements vscode.TreeDataProvider<WorkspaceVa
   async getChildren(node?: WorkspaceVariable) {
     if (node) {
       const children = await g_connection.sendRequest(requestTypeGetLazy, { id: node.id });
-
       const out: WorkspaceVariable[] = [];
-
       for (const c of children) {
         out.push(c);
       }
-
       return out;
     } else {
       return g_replVariables;
@@ -61,7 +58,6 @@ let g_REPLTreeDataProvider: REPLTreeDataProvider = null;
 
 async function updateReplVariables() {
   g_replVariables = await g_connection.sendRequest(requestTypeGetVariables, undefined);
-
   g_REPLTreeDataProvider.refresh();
 }
 
@@ -72,16 +68,13 @@ async function showInVSCode(node: WorkspaceVariable) {
 export function activate(context: vscode.ExtensionContext) {
   g_REPLTreeDataProvider = new REPLTreeDataProvider();
   context.subscriptions.push(
-    // registries
     vscode.window.registerTreeDataProvider('REPLVariables', g_REPLTreeDataProvider),
-    // listeners
-    onInit((connection) => {
-      g_connection = connection;
+    onInit((x) => {
+      g_connection = x;
       updateReplVariables();
     }),
     onFinishEval((_) => updateReplVariables()),
     onExit((e) => clearVariables()),
-    // commands
     registerCommand('language-julia.showInVSCode', showInVSCode)
   );
 }

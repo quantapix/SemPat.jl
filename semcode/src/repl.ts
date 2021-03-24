@@ -8,8 +8,7 @@ import * as vscode from 'vscode';
 import * as rpc from 'vscode-jsonrpc/node';
 import * as vslc from 'vscode-languageclient/node';
 import { onSetLanguageClient } from '../extension';
-import * as jlpkgenv from '../jlpkgenv';
-import { switchEnvToPath } from '../jlpkgenv';
+import { switchEnvToPath } from '../packs';
 import * as packs from '../packs';
 import * as telemetry from '../telemetry';
 import { generatePipeName, getVersionedParamsAtPosition, inferJuliaNumThreads, registerCommand, setContext } from '../utils';
@@ -79,7 +78,7 @@ async function startREPL(preserveFocus: boolean, showTerminal: boolean = true) {
 
     const juliaIsConnectedPromise = startREPLMsgServer(pipename);
     const exepath = await packs.getJuliaExePath();
-    const pkgenvpath = await jlpkgenv.getAbsEnvPath();
+    const pkgenvpath = await packs.getAbsEnvPath();
     if (pkgenvpath === null) {
       const jlarg1 = ['-i', '--banner=no'].concat(vscode.workspace.getConfiguration('julia').get('additionalArgs'));
       g_terminal = vscode.window.createTerminal({
@@ -89,7 +88,7 @@ async function startREPL(preserveFocus: boolean, showTerminal: boolean = true) {
         env: env,
       });
     } else {
-      const env_file_paths = await jlpkgenv.getProjectFilePaths(pkgenvpath);
+      const env_file_paths = await packs.getProjectFilePaths(pkgenvpath);
 
       let sysImageArgs = [];
       if (vscode.workspace.getConfiguration('julia').get('useCustomSysimage') && env_file_paths.sysimage_path && env_file_paths.project_toml_path && env_file_paths.manifest_toml_path) {

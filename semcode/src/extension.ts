@@ -5,11 +5,10 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { LanguageClient, LanguageClientOptions, RevealOutputChannelOn } from 'vscode-languageclient/node';
-import { JuliaDebugFeature } from './debugger/debugFeature';
-import * as documentation from './docbrowser/documentation';
-import { ProfilerResultsProvider } from './interactive/profiler';
-import * as repl from './interactive/repl';
-import * as jlpkgenv from './jlpkgenv';
+import { JuliaDebugFeature } from './debug';
+import * as documentation from './docs';
+import { ProfilerResultsProvider } from './profiler';
+import * as repl from './repl';
 import * as packs from './packs';
 import * as utils from './utils';
 import * as tasks from './tasks';
@@ -23,6 +22,12 @@ let g_watchedEnvironmentFile: string = null;
 let g_startupNotification: vscode.StatusBarItem = null;
 
 export async function activate(ctx: vscode.ExtensionContext) {
+  //console.log('Congratulations, your extension "semcode2" is now active!');
+  //let disposable = vscode.commands.registerCommand('semcode2.helloWorld', () => {
+  //  vscode.window.showInformationMessage('Hello World from SemCode2!');
+  //});
+  //ctx.subscriptions.push(disposable);
+
   if (vscode.extensions.getExtension('julialang.language-julia') && vscode.extensions.getExtension('julialang.language-julia-insider')) {
     vscode.window.showErrorMessage(
       'You have both the Julia Insider and regular Julia extension installed at the same time, which is not supported. Please uninstall or disable one of the two extensions.'
@@ -49,7 +54,6 @@ export async function activate(ctx: vscode.ExtensionContext) {
     tasks.activate(ctx);
     utils.activate(ctx);
     packs.activate(ctx);
-    jlpkgenv.activate(ctx);
     ctx.subscriptions.push(new JuliaDebugFeature(ctx));
     ctx.subscriptions.push(new packs.JuliaPackageDevFeature(ctx));
     g_startupNotification = vscode.window.createStatusBarItem();
@@ -80,7 +84,7 @@ export async function activate(ctx: vscode.ExtensionContext) {
     const api = {
       version: 2,
       async getEnvironment() {
-        return await jlpkgenv.getAbsEnvPath();
+        return await packs.getAbsEnvPath();
       },
       async getJuliaPath() {
         return await packs.getJuliaExePath();
@@ -135,7 +139,7 @@ async function startLanguageServer() {
 
   let jlEnvPath = '';
   try {
-    jlEnvPath = await jlpkgenv.getAbsEnvPath();
+    jlEnvPath = await packs.getAbsEnvPath();
   } catch (e) {
     vscode.window.showErrorMessage('Could not start the Julia language server. Make sure the configuration setting julia.executablePath points to the Julia binary.');
     vscode.window.showErrorMessage(e);
@@ -233,7 +237,7 @@ async function startLanguageServer() {
   if (g_watchedEnvironmentFile) {
     unwatchFile(g_watchedEnvironmentFile);
   }
-  g_watchedEnvironmentFile = (await jlpkgenv.getProjectFilePaths(jlEnvPath)).manifest_toml_path;
+  g_watchedEnvironmentFile = (await packs.getProjectFilePaths(jlEnvPath)).manifest_toml_path;
   if (g_watchedEnvironmentFile) {
     watchFile(g_watchedEnvironmentFile, { interval: 10000 }, (curr, prev) => {
       if (curr.mtime > prev.mtime) {

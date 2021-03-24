@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import * as telemetry from './telemetry';
 import * as vslc from 'vscode-languageclient';
-import { VersionedTextDocumentPositionParams } from './interactive/misc';
+import { VersionedTextDocumentPositionParams } from './misc';
 import { handleNewCrashReportFromException } from './telemetry';
 
 export function constructCommandString(c: string, xs = {}) {

@@ -1,8 +1,8 @@
 import * as markdownit from 'markdown-it';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { withLanguageClient } from '../extension';
-import { constructCommandString, getVersionedParamsAtPosition, registerCommand } from '../utils';
+import { withLanguageClient } from './extension';
+import { constructCommandString, getVersionedParamsAtPosition, registerCommand } from './utils';
 
 function openArgs(href: string) {
   const matches = href.match(/^((\w+\:\/\/)?.+?)(?:\:(\d+))?$/);
