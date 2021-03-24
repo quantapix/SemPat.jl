@@ -2,7 +2,6 @@ import * as fs from 'async-file';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as packs from './packs';
-import * as telemetry from './telemetry';
 import { inferJuliaNumThreads } from './utils';
 
 class JuliaTaskProvider {
@@ -25,20 +24,15 @@ class JuliaTaskProvider {
   }
 
   async provideJuliaTasksForFolder(folder: vscode.WorkspaceFolder) {
-    telemetry.traceEvent('task-provide');
     const emptyTasks: vscode.Task[] = [];
-
     if (folder.uri.scheme !== 'file') {
       return emptyTasks;
     }
     const rootPath = folder.uri.fsPath;
-
     try {
       const result: vscode.Task[] = [];
-
       const jlexepath = await packs.getJuliaExePath();
       const pkgenvpath = await packs.getAbsEnvPath();
-
       if (await fs.exists(path.join(rootPath, 'test', 'runtests.jl'))) {
         const testTask = new vscode.Task(
           { type: 'julia', command: 'test' },

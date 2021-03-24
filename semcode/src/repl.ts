@@ -7,10 +7,9 @@ import { uuid } from 'uuidv4';
 import * as vscode from 'vscode';
 import * as rpc from 'vscode-jsonrpc/node';
 import * as vslc from 'vscode-languageclient/node';
-import { onSetLanguageClient } from '../extension';
-import { switchEnvToPath } from '../packs';
-import * as packs from '../packs';
-import * as telemetry from '../telemetry';
+import { onSetLanguageClient } from './extension';
+import { switchEnvToPath } from './packs';
+import * as packs from './packs';
 import { generatePipeName, getVersionedParamsAtPosition, inferJuliaNumThreads, registerCommand, setContext } from '../utils';
 import { VersionedTextDocumentPositionParams } from './misc';
 import * as modules from './modules';
@@ -28,8 +27,6 @@ let g_terminal: vscode.Terminal = null;
 export let g_connection: rpc.MessageConnection = undefined;
 
 function startREPLCommand() {
-  telemetry.traceEvent('command-startrepl');
-
   startREPL(false);
 }
 
@@ -58,7 +55,7 @@ async function startREPL(preserveFocus: boolean, showTerminal: boolean = true) {
     const pipename = generatePipeName(uuid(), 'vsc-jl-repl');
     const startupPath = path.join(g_context.extensionPath, 'scripts', 'terminalserver', 'terminalserver.jl');
     function getArgs() {
-      const jlarg2 = [startupPath, pipename, telemetry.getCrashReportingPipename()];
+      const jlarg2 = [startupPath, pipename, 'pipe'];
       jlarg2.push(`USE_REVISE=${vscode.workspace.getConfiguration('julia').get('useRevise')}`);
       jlarg2.push(`USE_PLOTPANE=${vscode.workspace.getConfiguration('julia').get('usePlotPane')}`);
       jlarg2.push(`USE_PROGRESS=${vscode.workspace.getConfiguration('julia').get('useProgressFrontend')}`);
@@ -310,12 +307,8 @@ function clearProgress() {
 }
 
 async function executeFile(uri?: vscode.Uri | string) {
-  telemetry.traceEvent('command-executeFile');
-
   const editor = vscode.window.activeTextEditor;
-
   await startREPL(true, false);
-
   let module = 'Main';
   let path = '';
   let code = '';
@@ -376,8 +369,6 @@ async function getBlockRange(params: VersionedTextDocumentPositionParams) {
 }
 
 async function selectJuliaBlock() {
-  telemetry.traceEvent('command-selectCodeBlock');
-
   const editor = vscode.window.activeTextEditor;
   const position = editor.document.validatePosition(editor.selection.start);
   const ret_val = await getBlockRange(getVersionedParamsAtPosition(editor.document, position));
@@ -416,7 +407,6 @@ function validateMoveAndReveal(editor: vscode.TextEditor, startpos: vscode.Posit
 }
 
 async function moveCellDown() {
-  telemetry.traceEvent('command-moveCellDown');
   const ed = vscode.window.activeTextEditor;
   if (ed === undefined) {
     return;
@@ -427,7 +417,6 @@ async function moveCellDown() {
 }
 
 async function moveCellUp() {
-  telemetry.traceEvent('command-moveCellUp');
   const ed = vscode.window.activeTextEditor;
   if (ed === undefined) {
     return;
@@ -448,8 +437,6 @@ function currentCellRange(editor: vscode.TextEditor) {
 }
 
 async function executeCell(shouldMove: boolean = false) {
-  telemetry.traceEvent('command-executeCell');
-
   const ed = vscode.window.activeTextEditor;
   if (ed === undefined) {
     return;
@@ -473,8 +460,6 @@ async function executeCell(shouldMove: boolean = false) {
 }
 
 async function evaluateBlockOrSelection(shouldMove: boolean = false) {
-  telemetry.traceEvent('command-executeCodeBlockOrSelection');
-
   const editor = vscode.window.activeTextEditor;
   if (editor === undefined) {
     return;
@@ -523,8 +508,6 @@ async function evaluateBlockOrSelection(shouldMove: boolean = false) {
 }
 
 async function evaluate(editor: vscode.TextEditor, range: vscode.Range, text: string, module: string) {
-  telemetry.traceEvent('command-evaluate');
-
   const section = vscode.workspace.getConfiguration('julia');
   const resultType: string = section.get('execution.resultType');
   const codeInREPL: boolean = section.get('execution.codeInREPL');
@@ -572,18 +555,12 @@ async function executeCodeCopyPaste(text: string, individualLine: boolean) {
 }
 
 function executeSelectionCopyPaste() {
-  telemetry.traceEvent('command-executeSelectionCopyPaste');
-
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     return;
   }
-
   const selection = editor.selection;
-
   const text = selection.isEmpty ? editor.document.lineAt(selection.start.line).text : editor.document.getText(selection);
-
-  // If no text was selected, try to move the cursor to the end of the next line
   if (selection.isEmpty) {
     for (let line = selection.start.line + 1; line < editor.document.lineCount; line++) {
       if (!editor.document.lineAt(line).isEmptyOrWhitespace) {
@@ -600,10 +577,7 @@ function executeSelectionCopyPaste() {
 const interrupts = [];
 let last_interrupt_index = -1;
 function interrupt() {
-  telemetry.traceEvent('command-interrupt');
-  // always send out internal interrupt
   softInterrupt();
-  // but we'll try sending a SIGINT if more than 3 interrupts were sent in the last second
   last_interrupt_index = (last_interrupt_index + 1) % 5;
   interrupts[last_interrupt_index] = new Date();
   const now = new Date();
@@ -621,7 +595,6 @@ function softInterrupt() {
 }
 
 function signalInterrupt() {
-  telemetry.traceEvent('command-signal-interrupt');
   try {
     if (process.platform !== 'win32') {
       g_terminal.processId.then((pid) => process.kill(pid, 'SIGINT'));
@@ -633,11 +606,7 @@ function signalInterrupt() {
   }
 }
 
-// code execution end
-
 async function cdToHere(uri: vscode.Uri) {
-  telemetry.traceEvent('command-cdHere');
-
   const uriPath = await getDirUriFsPath(uri);
   await startREPL(true, false);
   if (uriPath) {
@@ -650,8 +619,6 @@ async function cdToHere(uri: vscode.Uri) {
 }
 
 async function activateHere(uri: vscode.Uri) {
-  telemetry.traceEvent('command-activateThisEnvironment');
-
   const uriPath = await getDirUriFsPath(uri);
   activatePath(uriPath);
 }

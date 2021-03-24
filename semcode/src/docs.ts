@@ -123,7 +123,6 @@ class DocumentationViewProvider implements vscode.WebviewViewProvider {
   }
 
   async showDocumentation() {
-    // telemetry.traceEvent('command-showdocumentation')
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
       return;
@@ -134,7 +133,7 @@ class DocumentationViewProvider implements vscode.WebviewViewProvider {
       return;
     }
 
-    this.forwardStack = []; // initialize forward page stack for manual search
+    this.forwardStack = [];
     await this.showDocumentationPane();
     const html = this.createWebviewHTML(docAsMD);
     this.setHTML(html);

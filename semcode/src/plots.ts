@@ -1,7 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import * as telemetry from '../telemetry';
-import { registerCommand } from '../utils';
+import { registerCommand } from './utils';
 
 const c_juliaPlotPanelActiveContextKey = 'jlplotpaneFocus';
 const g_plots: Array<string> = new Array<string>();
@@ -37,7 +36,6 @@ function getPlotPaneContent() {
 }
 
 export function showPlotPane() {
-  telemetry.traceEvent('command-showplotpane');
   const plotTitle = g_plots.length > 0 ? `Julia Plots (${g_currentPlotIndex + 1}/${g_plots.length})` : 'Julia Plots (0/0)';
   if (!g_plotPanel) {
     // Otherwise, create a new panel
@@ -86,8 +84,6 @@ function updatePlotPane() {
 }
 
 export function plotPanePrev() {
-  telemetry.traceEvent('command-plotpaneprevious');
-
   if (g_currentPlotIndex > 0) {
     g_currentPlotIndex = g_currentPlotIndex - 1;
     updatePlotPane();
@@ -95,8 +91,6 @@ export function plotPanePrev() {
 }
 
 export function plotPaneNext() {
-  telemetry.traceEvent('command-plotpanenext');
-
   if (g_currentPlotIndex < g_plots.length - 1) {
     g_currentPlotIndex = g_currentPlotIndex + 1;
     updatePlotPane();
@@ -104,8 +98,6 @@ export function plotPaneNext() {
 }
 
 export function plotPaneFirst() {
-  telemetry.traceEvent('command-plotpanefirst');
-
   if (g_plots.length > 0) {
     g_currentPlotIndex = 0;
     updatePlotPane();
@@ -113,7 +105,6 @@ export function plotPaneFirst() {
 }
 
 export function plotPaneLast() {
-  telemetry.traceEvent('command-plotpanelast');
   if (g_plots.length > 0) {
     g_currentPlotIndex = g_plots.length - 1;
     updatePlotPane();
@@ -121,7 +112,6 @@ export function plotPaneLast() {
 }
 
 export function plotPaneDel() {
-  telemetry.traceEvent('command-plotpanedelete');
   if (g_plots.length > 0) {
     g_plots.splice(g_currentPlotIndex, 1);
     if (g_currentPlotIndex > g_plots.length - 1) {
@@ -132,7 +122,6 @@ export function plotPaneDel() {
 }
 
 export function plotPaneDelAll() {
-  telemetry.traceEvent('command-plotpanedeleteall');
   if (g_plots.length > 0) {
     g_plots.splice(0, g_plots.length);
     g_currentPlotIndex = 0;
@@ -140,8 +129,6 @@ export function plotPaneDelAll() {
   }
 }
 
-// wrap a source string with an <img> tag that shows the content
-// scaled to fit the plot pane unless the plot pane is bigger than the image
 function wrap_imagelike(srcstring: string) {
   const html = `
     <html style="padding:0;margin:0;">
@@ -162,13 +149,8 @@ export function displayPlot(params: { kind: string; data: string }) {
     const has_xmlns_attribute = payload.includes('xmlns=');
     let plotPaneContent: string;
     if (has_xmlns_attribute) {
-      // the xmlns attribute has to be present for data:image/svg+xml to work (https://stackoverflow.com/questions/18467982)
-      // encodeURIComponent is needed to replace all special characters from the SVG string
-      // which could break the HTML
       plotPaneContent = wrap_imagelike(`data:image/svg+xml,${encodeURIComponent(payload)}`);
     } else {
-      // otherwise we just show the svg directly as it's not straightforward to scale it
-      // correctly if it's not in an img tag
       plotPaneContent = payload;
     }
 

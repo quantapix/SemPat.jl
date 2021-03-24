@@ -7,7 +7,6 @@ import { InitializedEvent, Logger, logger, LoggingDebugSession, StoppedEvent, Te
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { createMessageConnection, Disposable, MessageConnection, StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node';
 import { replStartDebugger } from './repl';
-import { getCrashReportingPipename } from './telemetry';
 import { generatePipeName } from './utils';
 import { NotificationType, RequestType, RequestType0 } from 'vscode-jsonrpc';
 import * as packs from './packs';
@@ -238,17 +237,7 @@ export class JuliaDebugSession extends LoggingDebugSession {
     this._debuggeeTerminal = vscode.window.createTerminal({
       name: 'Julia Debugger',
       shellPath: this.juliaPath,
-      shellArgs: [
-        '--color=yes',
-        '--startup-file=no',
-        '--history-file=no',
-        join(this.context.extensionPath, 'scripts', 'debugger', 'launch_wrapper.jl'),
-        pn,
-        pnForWrapper,
-        args.cwd,
-        args.juliaEnv,
-        getCrashReportingPipename(),
-      ],
+      shellArgs: ['--color=yes', '--startup-file=no', '--history-file=no', join(this.context.extensionPath, 'scripts', 'debugger', 'launch_wrapper.jl'), pn, pnForWrapper, args.cwd, args.juliaEnv, ''],
       env: {
         JL_ARGS: args.args ? args.args.map((i) => Buffer.from(i).toString('base64')).join(';') : '',
       },

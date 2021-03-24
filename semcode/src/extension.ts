@@ -1,19 +1,18 @@
-import { SeverityLevel } from 'applicationinsights/out/Declarations/Contracts';
-import * as fs from 'async-file';
-import { unwatchFile, watchFile } from 'async-file';
-import * as os from 'os';
-import * as path from 'path';
-import * as vscode from 'vscode';
-import { LanguageClient, LanguageClientOptions, RevealOutputChannelOn } from 'vscode-languageclient/node';
 import { JuliaDebugFeature } from './debug';
-import * as documentation from './docs';
+import { LanguageClient, LanguageClientOptions, RevealOutputChannelOn } from 'vscode-languageclient/node';
 import { ProfilerResultsProvider } from './profiler';
-import * as repl from './repl';
-import * as packs from './packs';
-import * as utils from './utils';
-import * as tasks from './tasks';
-import * as telemetry from './telemetry';
 import { registerCommand } from './utils';
+import { SeverityLevel } from 'applicationinsights/out/Declarations/Contracts';
+import { unwatchFile, watchFile } from 'async-file';
+import * as documentation from './docs';
+import * as fs from 'async-file';
+import * as os from 'os';
+import * as packs from './packs';
+import * as path from 'path';
+import * as repl from './repl';
+import * as tasks from './tasks';
+import * as utils from './utils';
+import * as vscode from 'vscode';
 import * as weave from './weave';
 
 let g_languageClient: LanguageClient = null;
@@ -34,70 +33,46 @@ export async function activate(ctx: vscode.ExtensionContext) {
     );
     return;
   }
-  await telemetry.init(ctx);
-  try {
-    telemetry.traceEvent('activate');
-    telemetry.startLsCrashServer();
-    g_context = ctx;
-    console.log('Activating extension language-julia');
-    ctx.subscriptions.push(vscode.workspace.onDidChangeConfiguration(changeConfig));
-    vscode.languages.setLanguageConfiguration('julia', {
-      indentationRules: {
-        increaseIndentPattern: /^(\s*|.*=\s*|.*@\w*\s*)[\w\s]*(?:["'`][^"'`]*["'`])*[\w\s]*\b(if|while|for|function|macro|(mutable\s+)?struct|abstract\s+type|primitive\s+type|let|quote|try|begin|.*\)\s*do|else|elseif|catch|finally)\b(?!(?:.*\bend\b[^\]]*)|(?:[^\[]*\].*)$).*$/,
-        decreaseIndentPattern: /^\s*(end|else|elseif|catch|finally)\b.*$/,
-      },
-    });
-    await packs.getJuliaExePath();
-    repl.activate(ctx);
-    weave.activate(ctx);
-    documentation.activate(ctx);
-    tasks.activate(ctx);
-    utils.activate(ctx);
-    packs.activate(ctx);
-    ctx.subscriptions.push(new JuliaDebugFeature(ctx));
-    ctx.subscriptions.push(new packs.JuliaPackageDevFeature(ctx));
-    g_startupNotification = vscode.window.createStatusBarItem();
-    ctx.subscriptions.push(g_startupNotification);
-    startLanguageServer();
-    if (vscode.workspace.getConfiguration('julia').get<boolean>('enableTelemetry') === null) {
-      const agree = 'Yes';
-      const disagree = 'No';
-      vscode.window
-        .showInformationMessage(
-          'To help improve the Julia extension, you can allow the development team to collect usage data. Read our [privacy statement](https://github.com/julia-vscode/julia-vscode/wiki/Privacy-Policy) to learn more about how we use usage data. Do you agree to usage data collection?',
-          agree,
-          disagree
-        )
-        .then((choice) => {
-          if (choice === agree) {
-            vscode.workspace.getConfiguration('julia').update('enableTelemetry', true, true);
-          } else if (choice === disagree) {
-            vscode.workspace.getConfiguration('julia').update('enableTelemetry', false, true);
-          }
-        });
-    }
-    ctx.subscriptions.push(
-      registerCommand('language-julia.refreshLanguageServer', refreshLanguageServer),
-      registerCommand('language-julia.restartLanguageServer', restartLanguageServer),
-      vscode.workspace.registerTextDocumentContentProvider('juliavsodeprofilerresults', new ProfilerResultsProvider())
-    );
-    const api = {
-      version: 2,
-      async getEnvironment() {
-        return await packs.getAbsEnvPath();
-      },
-      async getJuliaPath() {
-        return await packs.getJuliaExePath();
-      },
-      getPkgServer() {
-        return vscode.workspace.getConfiguration('julia').get('packageServer');
-      },
-    };
-    return api;
-  } catch (err) {
-    telemetry.handleNewCrashReportFromException(err, 'Extension');
-    throw err;
-  }
+
+  g_context = ctx;
+  console.log('Activating extension language-julia');
+  ctx.subscriptions.push(vscode.workspace.onDidChangeConfiguration(changeConfig));
+  vscode.languages.setLanguageConfiguration('julia', {
+    indentationRules: {
+      increaseIndentPattern: /^(\s*|.*=\s*|.*@\w*\s*)[\w\s]*(?:["'`][^"'`]*["'`])*[\w\s]*\b(if|while|for|function|macro|(mutable\s+)?struct|abstract\s+type|primitive\s+type|let|quote|try|begin|.*\)\s*do|else|elseif|catch|finally)\b(?!(?:.*\bend\b[^\]]*)|(?:[^\[]*\].*)$).*$/,
+      decreaseIndentPattern: /^\s*(end|else|elseif|catch|finally)\b.*$/,
+    },
+  });
+  await packs.getJuliaExePath();
+  repl.activate(ctx);
+  weave.activate(ctx);
+  documentation.activate(ctx);
+  tasks.activate(ctx);
+  utils.activate(ctx);
+  packs.activate(ctx);
+  ctx.subscriptions.push(new JuliaDebugFeature(ctx));
+  ctx.subscriptions.push(new packs.JuliaPackageDevFeature(ctx));
+  g_startupNotification = vscode.window.createStatusBarItem();
+  ctx.subscriptions.push(g_startupNotification);
+  startLanguageServer();
+  ctx.subscriptions.push(
+    registerCommand('language-julia.refreshLanguageServer', refreshLanguageServer),
+    registerCommand('language-julia.restartLanguageServer', restartLanguageServer),
+    vscode.workspace.registerTextDocumentContentProvider('juliavsodeprofilerresults', new ProfilerResultsProvider())
+  );
+  const api = {
+    version: 2,
+    async getEnvironment() {
+      return await packs.getAbsEnvPath();
+    },
+    async getJuliaPath() {
+      return await packs.getJuliaExePath();
+    },
+    getPkgServer() {
+      return vscode.workspace.getConfiguration('julia').get('packageServer');
+    },
+  };
+  return api;
 }
 
 export function deactivate() {}
@@ -151,18 +126,7 @@ async function startLanguageServer() {
   await fs.createDirectory(languageServerDepotPath);
   const oldDepotPath = process.env.JULIA_DEPOT_PATH ? process.env.JULIA_DEPOT_PATH : '';
   const envForLSPath = path.join(g_context.extensionPath, 'scripts', 'environments', 'languageserver');
-  const serverArgsRun = [
-    '--startup-file=no',
-    '--history-file=no',
-    '--depwarn=no',
-    `--project=${envForLSPath}`,
-    'main.jl',
-    jlEnvPath,
-    '--debug=no',
-    telemetry.getCrashReportingPipename(),
-    oldDepotPath,
-    g_context.globalStoragePath,
-  ];
+  const serverArgsRun = ['--startup-file=no', '--history-file=no', '--depwarn=no', `--project=${envForLSPath}`, 'main.jl', jlEnvPath, '--debug=no', 'pipe', oldDepotPath, g_context.globalStoragePath];
   const serverArgsDebug = [
     '--startup-file=no',
     '--history-file=no',
@@ -171,7 +135,7 @@ async function startLanguageServer() {
     'main.jl',
     jlEnvPath,
     '--debug=yes',
-    telemetry.getCrashReportingPipename(),
+    'pipe',
     oldDepotPath,
     g_context.globalStoragePath,
   ];
@@ -202,38 +166,18 @@ async function startLanguageServer() {
     middleware: {
       provideCompletionItem: async (document, position, context, token, next) => {
         const validatedPosition = document.validatePosition(position);
-        if (validatedPosition !== position) {
-          telemetry.traceTrace({
-            message: `Middleware found a change in position in provideCompletionItem. Original ${position.line}:${position.character}, validated ${validatedPosition.line}:${validatedPosition.character}`,
-            severity: SeverityLevel.Error,
-          });
-        }
+        assert(validatedPosition == position);
         return await next(document, position, context, token);
       },
       provideDefinition: async (document, position, token, next) => {
         const validatedPosition = document.validatePosition(position);
-        if (validatedPosition !== position) {
-          telemetry.traceTrace({
-            message: `Middleware found a change in position in provideDefinition. Original ${position.line}:${position.character}, validated ${validatedPosition.line}:${validatedPosition.character}`,
-            severity: SeverityLevel.Error,
-          });
-        }
+        assert(validatedPosition == position);
         return await next(document, position, token);
       },
     },
   };
   const languageClient = new LanguageClient('julia', 'Julia Language Server', serverOptions, clientOptions);
   languageClient.registerProposedFeatures();
-  languageClient.onTelemetry((data: any) => {
-    if (data.command === 'trace_event') {
-      telemetry.traceEvent(data.message);
-    } else if (data.command === 'symserv_crash') {
-      telemetry.traceEvent('symservererror');
-      telemetry.handleNewCrashReport(data.name, data.message, data.stacktrace, 'Symbol Server');
-    } else if (data.command === 'symserv_pkgload_crash') {
-      telemetry.tracePackageLoadError(data.name, data.message);
-    }
-  });
   if (g_watchedEnvironmentFile) {
     unwatchFile(g_watchedEnvironmentFile);
   }

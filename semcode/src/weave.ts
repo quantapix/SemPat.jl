@@ -3,7 +3,6 @@ import { ChildProcess, spawn } from 'child_process';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as packs from './packs';
-import * as telemetry from './telemetry';
 import { registerCommand } from './utils';
 
 const tempfs = require('promised-temp').track();
@@ -93,8 +92,6 @@ async function weave_core(column, selected_format: string = undefined) {
 }
 
 async function open_preview() {
-  telemetry.traceEvent('command-weaveopenpreview');
-
   if (vscode.window.activeTextEditor === undefined) {
     vscode.window.showErrorMessage('Please open a document before you execute the weave command.');
   } else if (vscode.window.activeTextEditor.document.languageId !== 'juliamarkdown') {
@@ -105,8 +102,6 @@ async function open_preview() {
 }
 
 async function open_preview_side() {
-  telemetry.traceEvent('command-weaveopenpreviewside');
-
   if (vscode.window.activeTextEditor === undefined) {
     vscode.window.showErrorMessage('Please open a document before you execute the weave command.');
   } else if (vscode.window.activeTextEditor.document.languageId !== 'juliamarkdown') {
@@ -117,8 +112,6 @@ async function open_preview_side() {
 }
 
 async function save() {
-  telemetry.traceEvent('command-weavesave');
-
   if (vscode.window.activeTextEditor === undefined) {
     vscode.window.showErrorMessage('Please open a document before you execute the weave command.');
   } else if (vscode.window.activeTextEditor.document.languageId !== 'juliamarkdown') {
@@ -149,10 +142,9 @@ async function save() {
   }
 }
 
-export function activate(context: vscode.ExtensionContext) {
-  g_context = context;
-
-  context.subscriptions.push(registerCommand('language-julia.weave-open-preview', open_preview));
-  context.subscriptions.push(registerCommand('language-julia.weave-open-preview-side', open_preview_side));
-  context.subscriptions.push(registerCommand('language-julia.weave-save', save));
+export function activate(c: vscode.ExtensionContext) {
+  g_context = c;
+  c.subscriptions.push(registerCommand('language-julia.weave-open-preview', open_preview));
+  c.subscriptions.push(registerCommand('language-julia.weave-open-preview-side', open_preview_side));
+  c.subscriptions.push(registerCommand('language-julia.weave-save', save));
 }

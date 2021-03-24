@@ -1,9 +1,8 @@
 import * as vscode from 'vscode';
 import * as rpc from 'vscode-jsonrpc';
 import * as vslc from 'vscode-languageclient/node';
-import { onSetLanguageClient } from '../extension';
-import * as telemetry from '../telemetry';
-import { registerCommand } from '../utils';
+import { onSetLanguageClient } from './extension';
+import { registerCommand } from './utils';
 import { VersionedTextDocumentPositionParams } from './misc';
 import { onExit, onInit } from './repl';
 
@@ -42,10 +41,6 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // NOTE:
-  // set module status bar item just right of language mode selector
-  // ref: language selector has priority `100`:
-  // https://github.com/microsoft/vscode/blob/1d268b701376470bc638100fbe17d283404ac559/src/vs/workbench/browser/parts/editor/editorStatus.ts#L534
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
   statusBarItem.command = 'language-julia.chooseModule';
   statusBarItem.tooltip = 'Choose Current Module';
@@ -112,7 +107,6 @@ export async function getModuleForEditor(document: vscode.TextDocument, position
       vscode.window.showErrorMessage(err);
     } else if (languageClient) {
       console.error(err);
-      telemetry.handleNewCrashReportFromException(err, 'Extension');
     }
     return 'Main';
   }
@@ -152,7 +146,7 @@ async function isModuleLoaded(mod: string) {
     return await g_connection.sendRequest(requestTypeIsModuleLoaded, { mod: mod });
   } catch (err) {
     if (g_connection) {
-      telemetry.handleNewCrashReportFromException(err, 'Extension');
+      vscode.window.showErrorMessage(err);
     }
     return false;
   }
@@ -164,7 +158,7 @@ async function chooseModule() {
     possibleModules = await g_connection.sendRequest(requestTypeGetModules, null);
   } catch (err) {
     if (g_connection) {
-      telemetry.handleNewCrashReportFromException(err, 'Extension');
+      vscode.window.showErrorMessage(err);
     } else {
       vscode.window.showInformationMessage('Setting a module requires an active REPL.');
     }

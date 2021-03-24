@@ -98,10 +98,8 @@
   },
   "dependencies": {
     "@traptitech/markdown-it-katex": "",
-    "@types/applicationinsights": "",
     "@types/child-process-promise": "",
     "@types/vscode": "",
-    "applicationinsights": "",
     "async-child-process": "",
     "async-file": "",
     "await-notify": "",

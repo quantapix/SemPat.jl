@@ -4,13 +4,11 @@ import * as vscode from 'vscode';
 import { onDidChangeConfig } from './extension';
 import * as fs from 'async-file';
 import * as path from 'path';
-import * as telemetry from './telemetry';
 import { registerCommand } from './utils';
 import * as child_process from 'child_process';
 import * as os from 'os';
 import * as process from 'process';
 import * as which from 'which';
-import { setCurrentJuliaVersion, traceEvent } from './telemetry';
 import * as vslc from 'vscode-languageclient/node';
 import { onSetLanguageClient } from './extension';
 
@@ -89,7 +87,6 @@ export async function switchEnvToPath(envpath: string, notifyLS: boolean) {
 }
 
 async function changeJuliaEnvironment() {
-  telemetry.traceEvent('changeCurrentEnvironment');
   const optionsEnv: vscode.QuickPickOptions = {
     placeHolder: 'Select environment',
   };
@@ -215,8 +212,6 @@ async function setNewJuliaExePath(p: string) {
       return;
     }
     const v = stdout.trim();
-    setCurrentJuliaVersion(v);
-    traceEvent('configured-new-julia-binary');
   });
 }
 
@@ -289,7 +284,6 @@ export async function getPkgDepotPath() {
 }
 
 async function openPackageDirectoryCommand() {
-  telemetry.traceEvent('command-openpackagedirectory');
   const optionsPackage: vscode.QuickPickOptions = {
     placeHolder: 'Select package',
   };
@@ -345,7 +339,6 @@ export class JuliaPackageDevFeature {
   }
 
   private async tagNewPackageVersion() {
-    telemetry.traceEvent('command-tagnewpackageversion');
     let resultVersion = await vscode.window.showQuickPick(['Next', 'Major', 'Minor', 'Patch', 'Custom'], { placeHolder: 'Please select the version to be tagged.' });
     if (resultVersion === 'Custom') {
       resultVersion = await vscode.window.showInputBox({ prompt: 'Please enter the version number you want to tag.' });
