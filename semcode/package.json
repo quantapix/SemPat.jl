@@ -34,14 +34,32 @@
         "extensions": [
           ".jl"
         ],
+        "firstLine": "^#!\\s*/.*\\bjulia[0-9.-]*\\b",
         "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "juliamarkdown",
+        "aliases": [
+          "Julia Markdown",
+          "juliamarkdown"
+        ],
+        "extensions": [
+          ".jmd"
+        ]
       }
     ],
     "grammars": [
       {
         "language": "julia",
-        "scopeName": "source.jl",
-        "path": "./syntaxes/julia.tmLanguage.json"
+        "scopeName": "source.julia",
+        "path": "./syntaxes/julia.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.inline.cpp": "cpp",
+          "meta.embedded.inline.javascript": "javascript",
+          "meta.embedded.inline.python": "python",
+          "meta.embedded.inline.r": "r",
+          "meta.embedded.inline.sql": "sql"
+        }
       }
     ],
     "themes": [
@@ -75,7 +93,8 @@
     "initialsetup": "npm i && git submodule init && git submodule update",
     "update2latest": "git pull && git submodule init && git submodule update && npm install --no-save && npm run compile && npm run webpack",
     "package": "vsce package",
-    "updatedeps": "npm run compile && node ./out/scripts/updateDeps.js"
+    "updatedeps": "npm run compile && node ./out/scripts/updateDeps.js",
+    "update-grammar": "node ../node_modules/vscode-grammar-updater/bin JuliaEditorSupport/atom-language-julia grammars/julia_vscode.json ./syntaxes/julia.tmLanguage.json"
   },
   "dependencies": {
     "@traptitech/markdown-it-katex": "",
