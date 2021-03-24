@@ -6,7 +6,7 @@
   "license": "MIT",
   "version": "0.0.1",
   "engines": {
-    "vscode": "^1.54.0"
+    "vscode": "1.55.0"
   },
   "categories": [
     "Programming Languages",
@@ -52,7 +52,7 @@
       }
     ]
   },
-  "scripts": {
+  "scripts-old": {
     "vscode:prepublish": "npm run package",
     "compile": "webpack",
     "watch": "webpack --watch",
@@ -60,16 +60,53 @@
     "test-compile": "tsc -p ./",
     "test-watch": "tsc -watch -p ./",
     "pretest": "npm run test-compile && npm run lint",
-    "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js"
+    "lint": "eslint src --ext ts"
+  },
+  "scripts": {
+    "vscode:prepublish": "webpack --mode production",
+    "webpack": "webpack --mode development",
+    "webpack-dev": "webpack --mode development --watch",
+    "eslint": "eslint --ext .ts --fix .",
+    "eslint-dry-run": "eslint --ext .ts --fix-dry-run .",
+    "compile": "tsc -p ./",
+    "compile-dry-run": "tsc -p ./ --noEmit --pretty",
+    "watch": "tsc -watch -p ./",
+    "test": "node ./out/test/runTest.js",
+    "initialsetup": "npm i && git submodule init && git submodule update",
+    "update2latest": "git pull && git submodule init && git submodule update && npm install --no-save && npm run compile && npm run webpack",
+    "package": "vsce package",
+    "updatedeps": "npm run compile && node ./out/scripts/updateDeps.js"
+  },
+  "dependencies": {
+    "@traptitech/markdown-it-katex": "",
+    "@types/applicationinsights": "",
+    "@types/child-process-promise": "",
+    "@types/vscode": "",
+    "applicationinsights": "",
+    "async-child-process": "",
+    "async-file": "",
+    "await-notify": "",
+    "child-process-promise": "",
+    "markdown-it-footnote": "",
+    "markdown-it": "",
+    "promised-temp": "",
+    "uuidv4": "",
+    "vscode-debugadapter": "",
+    "vscode-jsonrpc": "",
+    "vscode-languageclient": "",
+    "which": ""
   },
   "devDependencies": {
+    "@types/download": "",
     "@types/glob": "",
+    "@types/markdown-it": "",
     "@types/mocha": "",
     "@types/node": "",
+    "@types/semver": "",
     "@types/vscode": "",
     "@typescript-eslint/eslint-plugin": "",
     "@typescript-eslint/parser": "",
+    "download": "",
     "eslint-config-prettier": "",
     "eslint-plugin-node": "",
     "eslint-plugin-prettier": "",
@@ -77,8 +114,10 @@
     "glob": "",
     "mocha": "",
     "prettier": "",
+    "semver": "",
     "ts-loader": "",
     "typescript": "",
+    "vsce": "",
     "vscode-test": "",
     "webpack-cli": "",
     "webpack": ""
