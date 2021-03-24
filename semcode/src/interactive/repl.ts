@@ -10,7 +10,7 @@ import * as vslc from 'vscode-languageclient/node';
 import { onSetLanguageClient } from '../extension';
 import * as jlpkgenv from '../jlpkgenv';
 import { switchEnvToPath } from '../jlpkgenv';
-import * as juliaexepath from '../juliaexepath';
+import * as packs from '../packs';
 import * as telemetry from '../telemetry';
 import { generatePipeName, getVersionedParamsAtPosition, inferJuliaNumThreads, registerCommand, setContext } from '../utils';
 import { VersionedTextDocumentPositionParams } from './misc';
@@ -78,7 +78,7 @@ async function startREPL(preserveFocus: boolean, showTerminal: boolean = true) {
     }
 
     const juliaIsConnectedPromise = startREPLMsgServer(pipename);
-    const exepath = await juliaexepath.getJuliaExePath();
+    const exepath = await packs.getJuliaExePath();
     const pkgenvpath = await jlpkgenv.getAbsEnvPath();
     if (pkgenvpath === null) {
       const jlarg1 = ['-i', '--banner=no'].concat(vscode.workspace.getConfiguration('julia').get('additionalArgs'));

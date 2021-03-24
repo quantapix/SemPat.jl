@@ -5,8 +5,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import * as vslc from 'vscode-languageclient/node';
 import { onSetLanguageClient } from './extension';
-import * as juliaexepath from './juliaexepath';
-import * as packagepath from './packagepath';
+import * as packs from './packs';
 import * as telemetry from './telemetry';
 import { registerCommand } from './utils';
 
@@ -65,7 +64,7 @@ export async function switchEnvToPath(envpath: string, notifyLS: boolean) {
         ? vscode.workspace.workspaceFolders[0].uri.fsPath.charAt(0).toUpperCase() + vscode.workspace.workspaceFolders[0].uri.fsPath.slice(1)
         : vscode.workspace.workspaceFolders[0].uri.fsPath;
 
-    const jlexepath = await juliaexepath.getJuliaExePath();
+    const jlexepath = await packs.getJuliaExePath();
     const res = await exec(
       `"${jlexepath}" --project=${g_path_of_current_environment} --startup-file=no --history-file=no -e "using Pkg; println(in(ARGS[1], VERSION>=VersionNumber(1,1,0) ? realpath.(filter(i->i!==nothing && isdir(i), getproperty.(values(Pkg.Types.Context().env.manifest), :path))) : realpath.(filter(i->i!=nothing && isdir(i), map(i->get(i[1], string(:path), nothing), values(Pkg.Types.Context().env.manifest)))) ))" "${case_adjusted}"`
     );
@@ -97,7 +96,7 @@ async function changeJuliaEnvironment() {
     placeHolder: 'Select environment',
   };
 
-  const depotPaths = await packagepath.getPkgDepotPath();
+  const depotPaths = await packs.getPkgDepotPath();
   const projectNames = ['JuliaProject.toml', 'Project.toml'];
   const homeDir = os.homedir();
 
@@ -176,7 +175,7 @@ async function getDefaultEnvPath() {
       }
     }
 
-    const jlexepath = await juliaexepath.getJuliaExePath();
+    const jlexepath = await packs.getJuliaExePath();
     const res = await exec(`"${jlexepath}" --startup-file=no --history-file=no -e "using Pkg; println(dirname(Pkg.Types.Context().env.project_file))"`);
     g_path_of_default_environment = res.stdout.trim();
   }

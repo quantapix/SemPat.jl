@@ -1,53 +1,35 @@
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import * as telemetry from './telemetry';
 import * as vslc from 'vscode-languageclient';
 import { VersionedTextDocumentPositionParams } from './interactive/misc';
 import { handleNewCrashReportFromException } from './telemetry';
 
-export function constructCommandString(cmd: string, args: any = {}) {
-  return `command:${cmd}?${encodeURIComponent(JSON.stringify(args))}`;
+export function constructCommandString(c: string, xs = {}) {
+  return `command:${c}?${encodeURIComponent(JSON.stringify(xs))}`;
 }
 
-export function getVersionedParamsAtPosition(document: vscode.TextDocument, position: vscode.Position): VersionedTextDocumentPositionParams {
+export function getVersionedParamsAtPosition(d: vscode.TextDocument, p: vscode.Position): VersionedTextDocumentPositionParams {
   return {
-    textDocument: vslc.TextDocumentIdentifier.create(document.uri.toString()),
-    version: document.version,
-    position,
+    textDocument: vslc.TextDocumentIdentifier.create(d.uri.toString()),
+    version: d.version,
+    position: p,
   };
 }
 
-export function setContext(contextKey: string, state: boolean) {
-  vscode.commands.executeCommand('setContext', contextKey, state);
+export function setContext(k: string, v: boolean) {
+  vscode.commands.executeCommand('setContext', k, v);
 }
 
-export function generatePipeName(pid: string, name: string) {
-  if (process.platform === 'win32') {
-    return '\\\\.\\pipe\\' + name + '-' + pid;
-  } else {
-    return path.join(os.tmpdir(), name + '-' + pid);
-  }
+export function generatePipeName(pid: string, n: string) {
+  if (process.platform === 'win32') return '\\\\.\\pipe\\' + n + '-' + pid;
+  else return path.join(os.tmpdir(), n + '-' + pid);
 }
 
-/**
- * Decides the final value to set the `JULIA_NUM_THREADS` environment variable to
- * given the `julia.NumThreads` configuration
- *
- * @remarks
- * The logic is:
- *
- * - if `julia.NumThreads` has a value, we return that, no matter what.
- *
- * - otherwise, if an env var `JULIA_NUM_THREADS` exists, we return that.
- *
- * - otherwise, we return an empty string as the value
- *
- * @returns A string to set the value of `JULIA_NUM_THREADS`
- */
 export function inferJuliaNumThreads(): string {
   const config: number | undefined = vscode.workspace.getConfiguration('julia').get('NumThreads') ?? undefined;
   const env: string | undefined = process.env['JULIA_NUM_THREADS'];
-
   if (config !== undefined) {
     return config.toString();
   } else if (env !== undefined) {
@@ -57,18 +39,34 @@ export function inferJuliaNumThreads(): string {
   }
 }
 
-/**
- * Same as `vscode.commands.registerCommand`, but with added middleware.
- * Currently sends any uncaught errors in the command to crash reporting.
- */
-export function registerCommand(cmd: string, f) {
-  const fWrapped = (...args) => {
+export function registerCommand(c: string, f: any) {
+  const ff = (...xs: any) => {
     try {
-      return f(...args);
-    } catch (err) {
-      handleNewCrashReportFromException(err, 'Extension');
-      throw err;
+      return f(...xs);
+    } catch (e) {
+      handleNewCrashReportFromException(e, 'Extension');
+      throw e;
     }
   };
-  return vscode.commands.registerCommand(cmd, fWrapped);
+  return vscode.commands.registerCommand(c, ff);
+}
+
+export function activate(c: vscode.ExtensionContext) {
+  c.subscriptions.push(registerCommand('language-julia.applytextedit', applyTextEdit));
+  c.subscriptions.push(registerCommand('language-julia.toggleLinter', toggleLinter));
+}
+
+function applyTextEdit(x: any) {
+  telemetry.traceEvent('command-applytextedit');
+  const we = new vscode.WorkspaceEdit();
+  for (const e of x.documentChanges[0].edits) {
+    we.replace(x.documentChanges[0].textDocument.uri, new vscode.Range(e.range.start.line, e.range.start.character, e.range.end.line, e.range.end.character), e.newText);
+  }
+  vscode.workspace.applyEdit(we);
+}
+
+function toggleLinter() {
+  telemetry.traceEvent('command-togglelinter');
+  const cval = vscode.workspace.getConfiguration('julia').get('lint.run', false);
+  vscode.workspace.getConfiguration('julia').update('lint.run', !cval, true);
 }

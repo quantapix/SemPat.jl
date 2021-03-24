@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as jlpkgenv from '../jlpkgenv';
-import { getJuliaExePath } from '../juliaexepath';
+import { getJuliaExePath } from '../packs';
 import { registerCommand } from '../utils';
 import { JuliaDebugSession } from './juliaDebug';
 

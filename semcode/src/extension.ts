@@ -10,11 +10,8 @@ import * as documentation from './docbrowser/documentation';
 import { ProfilerResultsProvider } from './interactive/profiler';
 import * as repl from './interactive/repl';
 import * as jlpkgenv from './jlpkgenv';
-import * as juliaexepath from './juliaexepath';
-import * as openpackagedirectory from './openpackagedirectory';
-import { JuliaPackageDevFeature } from './packagedevtools';
-import * as packagepath from './packagepath';
-import * as smallcommands from './smallcommands';
+import * as packs from './packs';
+import * as utils from './utils';
 import * as tasks from './tasks';
 import * as telemetry from './telemetry';
 import { registerCommand } from './utils';
@@ -45,18 +42,16 @@ export async function activate(ctx: vscode.ExtensionContext) {
         decreaseIndentPattern: /^\s*(end|else|elseif|catch|finally)\b.*$/,
       },
     });
-    juliaexepath.activate(ctx);
-    await juliaexepath.getJuliaExePath();
+    await packs.getJuliaExePath();
     repl.activate(ctx);
     weave.activate(ctx);
     documentation.activate(ctx);
     tasks.activate(ctx);
-    smallcommands.activate(ctx);
-    packagepath.activate(ctx);
-    openpackagedirectory.activate(ctx);
+    utils.activate(ctx);
+    packs.activate(ctx);
     jlpkgenv.activate(ctx);
     ctx.subscriptions.push(new JuliaDebugFeature(ctx));
-    ctx.subscriptions.push(new JuliaPackageDevFeature(ctx));
+    ctx.subscriptions.push(new packs.JuliaPackageDevFeature(ctx));
     g_startupNotification = vscode.window.createStatusBarItem();
     ctx.subscriptions.push(g_startupNotification);
     startLanguageServer();
@@ -88,7 +83,7 @@ export async function activate(ctx: vscode.ExtensionContext) {
         return await jlpkgenv.getAbsEnvPath();
       },
       async getJuliaPath() {
-        return await juliaexepath.getJuliaExePath();
+        return await packs.getJuliaExePath();
       },
       getPkgServer() {
         return vscode.workspace.getConfiguration('julia').get('packageServer');
@@ -186,7 +181,7 @@ async function startLanguageServer() {
     },
   };
 
-  const jlexepath = await juliaexepath.getJuliaExePath();
+  const jlexepath = await packs.getJuliaExePath();
 
   const serverOptions = {
     run: { command: jlexepath, args: serverArgsRun, options: spawnOptions },

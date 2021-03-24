@@ -2,7 +2,7 @@ import * as fs from 'async-file';
 import { ChildProcess, spawn } from 'child_process';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import * as juliaexepath from './juliaexepath';
+import * as packs from './packs';
 import * as telemetry from './telemetry';
 import { registerCommand } from './utils';
 
@@ -48,7 +48,7 @@ async function weave_core(column, selected_format: string = undefined) {
     } catch (e) {}
   }
 
-  const jlexepath = await juliaexepath.getJuliaExePath();
+  const jlexepath = await packs.getJuliaExePath();
 
   if (g_weaveNextChildProcess === null) {
     g_weaveNextChildProcess = spawn(jlexepath, [path.join(g_context.extensionPath, 'scripts', 'weave', 'run_weave.jl')]);
