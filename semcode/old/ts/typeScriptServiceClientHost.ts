@@ -104,7 +104,7 @@ export default class TypeScriptServiceClientHost extends Disposable {
 
     import('./languageFeatures/updatePathsOnRename').then((module) => this._register(module.register(this.client, this.fileConfigurationManager, (uri) => this.handles(uri))));
 
-    import('./languageFeatures/workspaceSymbols').then((module) => this._register(module.register(this.client, allModeIds)));
+    import('../../src/providers/workspaceSymbols').then((module) => this._register(module.register(this.client, allModeIds)));
 
     this.client.ensureServiceStarted();
     this.client.onReady(() => {

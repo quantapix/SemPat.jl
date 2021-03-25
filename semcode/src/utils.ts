@@ -8,11 +8,40 @@ import * as vsc from 'vscode';
 import * as vslc from 'vscode-languageclient';
 import type * as Proto from './protocol';
 
+export const empty = Object.freeze([]);
+
+export function isWeb(): boolean {
+  return false;
+}
+
+export function equals<T>(a: ReadonlyArray<T>, b: ReadonlyArray<T>, f: (a: T, b: T) => boolean = (a, b) => a === b): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  return a.every((x, i) => f(x, b[i]));
+}
+
+export function flatten<T>(a: ReadonlyArray<T>[]): T[] {
+  return Array.prototype.concat.apply([], a);
+}
+
+export function coalesce<T>(a: ReadonlyArray<T | undefined>): T[] {
+  return <T[]>a.filter((e) => !!e);
+}
+
 export function startSpinner(m: string) {
   vsc.window.setStatusBarMessage(`Rust: $(settings-gear~spin) ${m}`);
 }
 export function stopSpinner(m?: string) {
   vsc.window.setStatusBarMessage(m ? `Rust: ${m}` : 'Rust');
+}
+
+export function parseKindModifier(ms: string): Set<string> {
+  return new Set(ms.split(/,|\s+/g));
+}
+
+export interface DocumentSelector {
+  readonly syntax: readonly vsc.DocumentFilter[];
+  readonly semantic: readonly vsc.DocumentFilter[];
 }
 
 export class Observable<T> {

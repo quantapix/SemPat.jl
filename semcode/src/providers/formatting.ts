@@ -2,7 +2,6 @@ import * as vsc from 'vscode';
 import type * as Proto from '../protocol';
 import { ServiceClient } from '../service';
 import { condRegistration, requireConfig } from '../registration';
-import { DocumentSelector } from '../utils/documentSelector';
 import * as qu from '../utils';
 import FileConfigurationManager from './fileConfigurationManager';
 
@@ -42,7 +41,7 @@ class FormattingProvider implements vsc.DocumentRangeFormattingEditProvider, vsc
   }
 }
 
-export function register(s: DocumentSelector, modeId: string, c: ServiceClient, m: FileConfigurationManager) {
+export function register(s: qu.DocumentSelector, modeId: string, c: ServiceClient, m: FileConfigurationManager) {
   return condRegistration([requireConfig(modeId, 'format.enable')], () => {
     const p = new FormattingProvider(c, m);
     return vsc.Disposable.from(vsc.languages.registerOnTypeFormattingEditProvider(s.syntax, p, ';', '}', '\n'), vsc.languages.registerDocumentRangeFormattingEditProvider(s.syntax, p));

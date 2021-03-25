@@ -2,7 +2,6 @@ import * as vsc from 'vscode';
 import type * as Proto from '../protocol';
 import { ClientCap, ServiceClient, ServerType } from '../service';
 import { condRegistration, requireSomeCap } from '../registration';
-import { DocumentSelector } from '../../old/ts/utils/documentSelector';
 import { markdownDocumentation } from '../../old/ts/utils/previewer';
 import * as qu from '../utils';
 
@@ -31,7 +30,7 @@ class HoverProvider implements vsc.HoverProvider {
   }
 }
 
-export function register(s: DocumentSelector, c: ServiceClient): vsc.Disposable {
+export function register(s: qu.DocumentSelector, c: ServiceClient): vsc.Disposable {
   return condRegistration([requireSomeCap(c, ClientCap.EnhancedSyntax, ClientCap.Semantic)], () => {
     return vsc.languages.registerHoverProvider(s.syntax, new HoverProvider(c));
   });

@@ -2,9 +2,7 @@ import * as vsc from 'vscode';
 import type * as Proto from '../protocol';
 import { ServiceClient } from '../service';
 import API from '../../old/ts/utils/api';
-import { coalesce } from '../../old/ts/utils/arrays';
 import { condRegistration, requireMinVer } from '../registration';
-import { DocumentSelector } from '../../old/ts/utils/documentSelector';
 import * as qu from '../utils';
 
 class FoldingProvider implements vsc.FoldingRangeProvider {
@@ -17,7 +15,7 @@ class FoldingProvider implements vsc.FoldingRangeProvider {
     const xs: Proto.FileRequestArgs = { file: f };
     const y = await this.client.execute('getOutliningSpans', xs, t);
     if (y.type !== 'response' || !y.body) return;
-    return coalesce(y.body.map((s) => this.convertOutliningSpan(s, d)));
+    return qu.coalesce(y.body.map((s) => this.convertOutliningSpan(s, d)));
   }
 
   private convertOutliningSpan(s: Proto.OutliningSpan, d: vsc.TextDocument): vsc.FoldingRange | undefined {
@@ -56,7 +54,7 @@ class FoldingProvider implements vsc.FoldingRangeProvider {
   }
 }
 
-export function register(s: DocumentSelector, c: ServiceClient): vsc.Disposable {
+export function register(s: qu.DocumentSelector, c: ServiceClient): vsc.Disposable {
   return condRegistration([requireMinVer(c, FoldingProvider.minVer)], () => {
     return vsc.languages.registerFoldingRangeProvider(s.syntax, new FoldingProvider(c));
   });
