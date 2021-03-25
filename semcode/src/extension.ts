@@ -1,5 +1,5 @@
 import { JuliaDebugFeature } from './debug';
-import { LanguageClient, LanguageClientOptions, RevealOutputChannelOn } from 'vscode-languageclient/node';
+import { LanguageClient, LanguageClientOptions, RevealOutputChannelOn, State } from 'vscode-languageclient/node';
 import { unwatchFile, watchFile } from 'async-file';
 import * as documentation from './docs';
 import * as fs from 'async-file';
@@ -10,15 +10,12 @@ import * as repl from './repl';
 import * as tasks from './tasks';
 import * as qu from './utils';
 import * as vsc from 'vscode';
-import * as weave from './weave';
 
 import { RLSConfiguration } from './configuration';
 import * as rls from './rls';
 import * as rustAnalyzer from './rustAnalyzer';
 import { rustupUpdate } from './rustup';
 import { activateTaskProvider, Execution, runRlsCommand } from './tasks';
-import { Observable } from './utils/observable';
-import { nearestParentWorkspace } from './utils/workspace';
 
 export interface Api {
   activeWorkspace: typeof activeWorkspace;
@@ -80,7 +77,7 @@ const workspaces: Map<string, ClientWorkspace> = new Map();
 function clientWorkspaceForUri(uri: vsc.Uri, opts?: { initializeIfMissing: boolean }): ClientWorkspace | undefined {
   const r = vsc.workspace.getWorkspaceFolder(uri);
   if (!r) return;
-  const f = nearestParentWorkspace(r, uri.fsPath);
+  const f = qu.nearestParentWorkspace(r, uri.fsPath);
   if (!f) return undefined;
   const existing = workspaces.get(f.uri.toString());
   if (!existing && opts && opts.initializeIfMissing) {
@@ -94,20 +91,20 @@ function clientWorkspaceForUri(uri: vsc.Uri, opts?: { initializeIfMissing: boole
 export type WorkspaceProgress = { state: 'progress'; message: string } | { state: 'ready' | 'standby' };
 
 export class ClientWorkspace {
-  public readonly folder: WorkspaceFolder;
+  public readonly folder: vsc.WorkspaceFolder;
   private readonly config: RLSConfiguration;
   private lc: LanguageClient | null = null;
-  private disposables: Disposable[];
-  private _progress: Observable<WorkspaceProgress>;
+  private disposables: vsc.Disposable[];
+  private _progress: qu.Observable<WorkspaceProgress>;
   get progress() {
     return this._progress;
   }
 
-  constructor(folder: WorkspaceFolder) {
+  constructor(folder: vsc.WorkspaceFolder) {
     this.config = RLSConfiguration.loadFromWorkspace(folder.uri.fsPath);
     this.folder = folder;
     this.disposables = [];
-    this._progress = new Observable<WorkspaceProgress>({ state: 'standby' });
+    this._progress = new qu.Observable<WorkspaceProgress>({ state: 'standby' });
   }
 
   public async autoStart() {
@@ -129,8 +126,8 @@ export class ClientWorkspace {
       rustAnalyzer: this.config.rustAnalyzer,
     });
     client.onDidChangeState(({ newState }) => {
-      if (newState === lc.State.Starting) this._progress.value = { state: 'progress', message: 'Starting' };
-      if (newState === lc.State.Stopped) this._progress.value = { state: 'standby' };
+      if (newState === State.Starting) this._progress.value = { state: 'progress', message: 'Starting' };
+      if (newState === State.Stopped) this._progress.value = { state: 'standby' };
     });
     setupProgress(client, this._progress);
     this.disposables.push(activateTaskProvider(this.folder));
@@ -150,8 +147,8 @@ export class ClientWorkspace {
     return this.start();
   }
 
-  public runRlsCommand(cmd: Execution) {
-    return runRlsCommand(this.folder, cmd);
+  public runRlsCommand(e: Execution) {
+    return runRlsCommand(this.folder, e);
   }
 
   public rustupUpdate() {
@@ -159,7 +156,7 @@ export class ClientWorkspace {
   }
 }
 
-const activeWorkspace = new Observable<ClientWorkspace | null>(null);
+const activeWorkspace = new qu.Observable<ClientWorkspace | null>(null);
 
 function registerCommands(): vsc.Disposable[] {
   return [
@@ -245,7 +242,6 @@ export async function activate(ctx: vsc.ExtensionContext) {
   });
   await packs.getJuliaExePath();
   repl.activate(ctx);
-  weave.activate(ctx);
   documentation.activate(ctx);
   tasks.activate(ctx);
   qu.activate(ctx);
@@ -274,8 +270,6 @@ export async function activate(ctx: vsc.ExtensionContext) {
   };
   return api;
 }
-
-export function deactivate() {}
 
 const g_onSetLanguageClient = new vsc.EventEmitter<LanguageClient>();
 export const onSetLanguageClient = g_onSetLanguageClient.event;
@@ -311,7 +305,6 @@ function changeConfig(event: vsc.ConfigurationChangeEvent) {
 async function startLanguageServer() {
   g_startupNotification.text = 'Starting Julia Language Server…';
   g_startupNotification.show();
-
   let jlEnvPath = '';
   try {
     jlEnvPath = await packs.getAbsEnvPath();
@@ -321,7 +314,6 @@ async function startLanguageServer() {
     g_startupNotification.hide();
     return;
   }
-
   const languageServerDepotPath = path.join(g_context.globalStoragePath, 'lsdepot', 'v1');
   await fs.createDirectory(languageServerDepotPath);
   const oldDepotPath = process.env.JULIA_DEPOT_PATH ? process.env.JULIA_DEPOT_PATH : '';
@@ -348,14 +340,11 @@ async function startLanguageServer() {
       JULIA_LANGUAGESERVER: '1',
     },
   };
-
   const jlexepath = await packs.getJuliaExePath();
-
   const serverOptions = {
     run: { command: jlexepath, args: serverArgsRun, options: spawnOptions },
     debug: { command: jlexepath, args: serverArgsDebug, options: spawnOptions },
   };
-
   const clientOptions: LanguageClientOptions = {
     documentSelector: ['julia', 'juliamarkdown'],
     synchronize: {

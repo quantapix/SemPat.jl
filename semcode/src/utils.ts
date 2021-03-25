@@ -3,6 +3,8 @@ import * as path from 'path';
 import * as vsc from 'vscode';
 import * as vslc from 'vscode-languageclient';
 import { uuid } from 'uuidv4';
+import * as fs from 'fs';
+import { Uri, workspace, WorkspaceFolder } from 'vscode';
 
 export function startSpinner(m: string) {
   vsc.window.setStatusBarMessage(`Rust: $(settings-gear~spin) ${m}`);
@@ -10,6 +12,60 @@ export function startSpinner(m: string) {
 
 export function stopSpinner(m?: string) {
   vsc.window.setStatusBarMessage(m ? `Rust: ${m}` : 'Rust');
+}
+
+export class Observable<T> {
+  private _listeners: Set<(arg: T) => void> = new Set();
+  private _value: T;
+  constructor(v: T) {
+    this._value = v;
+  }
+  get value() {
+    return this._value;
+  }
+  set value(v: T) {
+    this._value = v;
+    this._listeners.forEach((f) => f(v));
+  }
+  public observe(f: (x: T) => void): vsc.Disposable {
+    this._listeners.add(f);
+    return { dispose: () => this._listeners.delete(f) };
+  }
+}
+
+export function nearestParentWorkspace(curWorkspace: WorkspaceFolder, filePath: string): WorkspaceFolder {
+  const root = curWorkspace.uri.fsPath;
+  const rootManifest = path.join(root, 'Cargo.toml');
+  if (fs.existsSync(rootManifest)) return curWorkspace;
+  let cur = filePath;
+  while (true) {
+    const old = cur;
+    cur = path.dirname(cur);
+    if (old === cur) break;
+    if (root === cur) break;
+    const cargoPath = path.join(cur, 'Cargo.toml');
+    if (fs.existsSync(cargoPath)) {
+      return {
+        ...curWorkspace,
+        name: path.basename(cur),
+        uri: Uri.file(cur),
+      };
+    }
+  }
+  return curWorkspace;
+}
+
+export function getOuterMostWorkspaceFolder(f: WorkspaceFolder): WorkspaceFolder {
+  const fs = (workspace.workspaceFolders || []).map((x) => normalizeUriToPathPrefix(x.uri)).sort((a, b) => a.length - b.length);
+  const uri = normalizeUriToPathPrefix(f.uri);
+  const p = fs.find((x) => uri.startsWith(x));
+  return p ? workspace.getWorkspaceFolder(Uri.parse(p)) || f : f;
+}
+
+function normalizeUriToPathPrefix(u: Uri): string {
+  let y = u.toString();
+  if (y.charAt(y.length - 1) !== '/') y = y + '/';
+  return y;
 }
 
 export function constructCommandString(c: string, xs = {}) {

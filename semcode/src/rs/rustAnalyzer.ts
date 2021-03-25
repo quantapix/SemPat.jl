@@ -30,16 +30,12 @@ function installDir(): string | undefined {
       return path.resolve(XDG_BIN_HOME);
     }
 
-    const baseDir = XDG_DATA_HOME
-      ? path.join(XDG_DATA_HOME, '..')
-      : HOME && path.join(HOME, '.local');
+    const baseDir = XDG_DATA_HOME ? path.join(XDG_DATA_HOME, '..') : HOME && path.join(HOME, '.local');
     return baseDir && path.resolve(path.join(baseDir, 'bin'));
   } else if (process.platform === 'win32') {
     // %LocalAppData%\rust-analyzer\
     const { LocalAppData } = process.env;
-    return (
-      LocalAppData && path.resolve(path.join(LocalAppData, 'rust-analyzer'))
-    );
+    return LocalAppData && path.resolve(path.join(LocalAppData, 'rust-analyzer'));
   }
 
   return undefined;
@@ -58,9 +54,7 @@ function metadataDir(): string | undefined {
   } else if (process.platform === 'win32') {
     // %LocalAppData%\rust-analyzer\
     const { LocalAppData } = process.env;
-    return (
-      LocalAppData && path.resolve(path.join(LocalAppData, 'rust-analyzer'))
-    );
+    return LocalAppData && path.resolve(path.join(LocalAppData, 'rust-analyzer'));
   }
 
   return undefined;
@@ -111,10 +105,7 @@ async function writeMetadata(config: Metadata) {
   return writeFile(filePath, JSON.stringify(config)).then(() => true);
 }
 
-export async function getServer({
-  askBeforeDownload,
-  package: pkg,
-}: RustAnalyzerConfig): Promise<string | undefined> {
+export async function getServer({ askBeforeDownload, package: pkg }: RustAnalyzerConfig): Promise<string | undefined> {
   let binaryName: string | undefined;
   if (process.arch === 'x64' || process.arch === 'ia32') {
     if (process.platform === 'linux') {
@@ -134,7 +125,7 @@ export async function getServer({
         'run `cargo xtask install --server` to build the language server from sources. ' +
         'If you feel that your platform should be supported, please create an issue ' +
         'about that [here](https://github.com/rust-analyzer/rust-analyzer/issues) and we ' +
-        'will consider it.',
+        'will consider it.'
     );
     return undefined;
   }
@@ -155,36 +146,23 @@ export async function getServer({
 
   if (askBeforeDownload) {
     const userResponse = await vs.window.showInformationMessage(
-      `${
-        metadata.releaseTag && metadata.releaseTag !== pkg.releaseTag
-          ? `You seem to have installed release \`${metadata.releaseTag}\` but requested a different one.`
-          : ''
-      }
+      `${metadata.releaseTag && metadata.releaseTag !== pkg.releaseTag ? `You seem to have installed release \`${metadata.releaseTag}\` but requested a different one.` : ''}
       Release \`${pkg.releaseTag}\` of rust-analyzer is not installed.\n
       Install to ${dir}?`,
-      'Download',
+      'Download'
     );
     if (userResponse !== 'Download') {
       return dest;
     }
   }
 
-  const release = await fetchRelease(
-    'rust-analyzer',
-    'rust-analyzer',
-    pkg.releaseTag,
-  );
-  const artifact = release.assets.find(asset => asset.name === binaryName);
+  const release = await fetchRelease('rust-analyzer', 'rust-analyzer', pkg.releaseTag);
+  const artifact = release.assets.find((asset) => asset.name === binaryName);
   if (!artifact) {
     throw new Error(`Bad release: ${JSON.stringify(release)}`);
   }
 
-  await download(
-    artifact.browser_download_url,
-    dest,
-    'Downloading rust-analyzer server',
-    { mode: 0o755 },
-  );
+  await download(artifact.browser_download_url, dest, 'Downloading rust-analyzer server', { mode: 0o755 });
 
   await writeMetadata({ releaseTag: pkg.releaseTag }).catch(() => {
     vs.window.showWarningMessage(`Couldn't save rust-analyzer metadata`);
@@ -203,9 +181,7 @@ let INSTANCE: lc.LanguageClient | undefined;
  * TODO:
  * Global observable progress
  */
-const PROGRESS: Observable<WorkspaceProgress> = new Observable<
-  WorkspaceProgress
->({ state: 'standby' });
+const PROGRESS: Observable<WorkspaceProgress> = new Observable<WorkspaceProgress>({ state: 'standby' });
 
 export async function createLanguageClient(
   folder: vs.WorkspaceFolder,
@@ -214,7 +190,7 @@ export async function createLanguageClient(
     logToFile?: boolean;
     rustup: { disabled: boolean; path: string; channel: string };
     rustAnalyzer: { path?: string; releaseTag: string };
-  },
+  }
 ): Promise<lc.LanguageClient> {
   if (!config.rustup.disabled) {
     await rustup.ensureToolchain(config.rustup);
@@ -267,12 +243,7 @@ export async function createLanguageClient(
     initializationOptions: vs.workspace.getConfiguration('rust.rust-analyzer'),
   };
 
-  INSTANCE = new lc.LanguageClient(
-    'rust-client',
-    'Rust Analyzer',
-    serverOptions,
-    clientOptions,
-  );
+  INSTANCE = new lc.LanguageClient('rust-client', 'Rust Analyzer', serverOptions, clientOptions);
 
   // Enable semantic highlighting which is available in stable VSCode
   INSTANCE.registerProposedFeatures();
@@ -302,28 +273,22 @@ async function setupGlobalProgress(client: lc.LanguageClient) {
           if (kind === 'end') {
             PROGRESS.value = { state: 'ready' };
           }
-        },
+        }
       );
     }
   });
 }
 
-export function setupClient(
-  _client: lc.LanguageClient,
-  _folder: vs.WorkspaceFolder,
-): vs.Disposable[] {
+export function setupClient(_client: lc.LanguageClient, _folder: vs.WorkspaceFolder): vs.Disposable[] {
   return [];
 }
 
-export function setupProgress(
-  _client: lc.LanguageClient,
-  workspaceProgress: Observable<WorkspaceProgress>,
-) {
+export function setupProgress(_client: lc.LanguageClient, workspaceProgress: Observable<WorkspaceProgress>) {
   workspaceProgress.value = PROGRESS.value;
   // We can only ever install one progress handler per language client and since
   // we can only ever have one instance of Rust Analyzer, fake the global
   // progress as a workspace one.
-  PROGRESS.observe(progress => {
+  PROGRESS.observe((progress) => {
     workspaceProgress.value = progress;
   });
 }

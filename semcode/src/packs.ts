@@ -90,59 +90,52 @@ async function changeJuliaEnvironment() {
   const optionsEnv: vscode.QuickPickOptions = {
     placeHolder: 'Select environment',
   };
-  const depotPaths = await getPkgDepotPath();
+  const ds = await getPkgDepotPath();
   const projectNames = ['JuliaProject.toml', 'Project.toml'];
   const homeDir = os.homedir();
   const envFolders = [{ label: '(pick a folder)', description: '' }];
   if (vscode.workspace.workspaceFolders) {
-    for (const workspaceFolder of vscode.workspace.workspaceFolders) {
-      let curPath = workspaceFolder.uri.fsPath.toString();
+    for (const f of vscode.workspace.workspaceFolders) {
+      let cur = f.uri.fsPath.toString();
       while (true) {
-        const oldPath = curPath;
-        for (const projectName of projectNames) {
-          if (await fs.exists(path.join(curPath, projectName))) {
-            envFolders.push({ label: path.basename(curPath), description: curPath });
+        const old = cur;
+        for (const p of projectNames) {
+          if (await fs.exists(path.join(cur, p))) {
+            envFolders.push({ label: path.basename(cur), description: cur });
             break;
           }
         }
-        if (curPath === homeDir) {
+        if (cur === homeDir) {
           break;
         }
-        curPath = path.dirname(curPath);
-        if (oldPath === curPath) {
+        cur = path.dirname(cur);
+        if (old === cur) {
           break;
         }
       }
     }
   }
-  for (const depotPath of depotPaths) {
-    const envFolderForThisDepot = path.join(depotPath, 'environments');
-    const folderExists = await fs.exists(envFolderForThisDepot);
-    if (folderExists) {
-      const envirsForThisDepot = await fs.readdir(envFolderForThisDepot);
-      for (const envFolder of envirsForThisDepot) {
-        envFolders.push({ label: envFolder, description: path.join(envFolderForThisDepot, envFolder) });
+  for (const d of ds) {
+    const e = path.join(d, 'environments');
+    if (await fs.exists(e)) {
+      const xs = await fs.readdir(e);
+      for (const x of xs) {
+        envFolders.push({ label: x, description: path.join(e, x) });
       }
     }
   }
-  const resultPackage = await vscode.window.showQuickPick(envFolders, optionsEnv);
-  if (resultPackage !== undefined) {
-    if (resultPackage.description === '') {
+  const y = await vscode.window.showQuickPick(envFolders, optionsEnv);
+  if (y !== undefined) {
+    if (y.description === '') {
       const resultFolder = await vscode.window.showOpenDialog({ canSelectFiles: false, canSelectFolders: true });
-      // Is this actually an environment?
       if (resultFolder !== undefined) {
         const envPathUri = resultFolder[0].toString();
         const envPath = vscode.Uri.parse(envPathUri).fsPath;
         const isThisAEnv = await fs.exists(path.join(envPath, 'Project.toml'));
-        if (isThisAEnv) {
-          switchEnvToPath(envPath, true);
-        } else {
-          vscode.window.showErrorMessage('The selected path is not a julia environment.');
-        }
+        if (isThisAEnv) switchEnvToPath(envPath, true);
+        else vscode.window.showErrorMessage('The selected path is not a julia environment.');
       }
-    } else {
-      switchEnvToPath(resultPackage.description, true);
-    }
+    } else switchEnvToPath(y.description, true);
   }
 }
 
