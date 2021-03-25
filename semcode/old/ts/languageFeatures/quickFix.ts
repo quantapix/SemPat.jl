@@ -11,7 +11,7 @@ import { ClientCapability, ITypeScriptServiceClient } from '../../../src/service
 import API from '../utils/api';
 import { nulToken } from '../utils/cancellation';
 import { applyCodeActionCommands, getEditForCodeAction } from '../utils/codeAction';
-import { conditionalRegistration, requireSomeCapability } from '../utils/dependentRegistration';
+import { conditionalRegistration, requireSomeCap } from '../../../src/registration';
 import { DocumentSelector } from '../utils/documentSelector';
 import * as fixNames from '../utils/fixNames';
 import { memoize } from '../utils/memoize';
@@ -381,7 +381,7 @@ export function register(
   diagnosticsManager: DiagnosticsManager,
   telemetryReporter: TelemetryReporter
 ) {
-  return conditionalRegistration([requireSomeCapability(client, ClientCapability.Semantic)], () => {
+  return conditionalRegistration([requireSomeCap(client, ClientCapability.Semantic)], () => {
     return vscode.languages.registerCodeActionsProvider(
       selector.semantic,
       new TypeScriptQuickFixProvider(client, fileConfigurationManager, commandManager, diagnosticsManager, telemetryReporter),

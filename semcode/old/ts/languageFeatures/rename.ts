@@ -9,7 +9,7 @@ import * as nls from 'vscode-nls';
 import type * as Proto from '../protocol';
 import { ClientCapability, ITypeScriptServiceClient, ServerResponse } from '../../../src/service';
 import API from '../utils/api';
-import { conditionalRegistration, requireSomeCapability } from '../utils/dependentRegistration';
+import { conditionalRegistration, requireSomeCap } from '../../../src/registration';
 import { DocumentSelector } from '../utils/documentSelector';
 import * as typeConverters from '../utils/typeConverters';
 import FileConfigurationManager from './fileConfigurationManager';
@@ -115,7 +115,7 @@ class TypeScriptRenameProvider implements vscode.RenameProvider {
 }
 
 export function register(selector: DocumentSelector, client: ITypeScriptServiceClient, fileConfigurationManager: FileConfigurationManager) {
-  return conditionalRegistration([requireSomeCapability(client, ClientCapability.Semantic)], () => {
+  return conditionalRegistration([requireSomeCap(client, ClientCapability.Semantic)], () => {
     return vscode.languages.registerRenameProvider(selector.semantic, new TypeScriptRenameProvider(client, fileConfigurationManager));
   });
 }

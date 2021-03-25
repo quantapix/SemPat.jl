@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import type * as Proto from '../protocol';
 import { ITypeScriptServiceClient } from '../../../src/service';
 import API from '../utils/api';
-import { conditionalRegistration, requireMinVersion, requireConfiguration, Condition } from '../utils/dependentRegistration';
+import { conditionalRegistration, requireMinVersion, requireConfig, Condition } from '../../../src/registration';
 import { Disposable } from '../utils/dispose';
 import { DocumentSelector } from '../utils/documentSelector';
 import * as typeConverters from '../utils/typeConverters';
@@ -136,8 +136,5 @@ function requireActiveDocument(selector: vscode.DocumentSelector) {
 }
 
 export function register(selector: DocumentSelector, modeId: string, client: ITypeScriptServiceClient) {
-  return conditionalRegistration(
-    [requireMinVersion(client, TagClosing.minVersion), requireConfiguration(modeId, 'autoClosingTags'), requireActiveDocument(selector.syntax)],
-    () => new TagClosing(client)
-  );
+  return conditionalRegistration([requireMinVersion(client, TagClosing.minVersion), requireConfig(modeId, 'autoClosingTags'), requireActiveDocument(selector.syntax)], () => new TagClosing(client));
 }

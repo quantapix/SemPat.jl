@@ -10,7 +10,7 @@ import { ClientCapability, ITypeScriptServiceClient } from '../../../src/service
 import API from '../utils/api';
 import { nulToken } from '../utils/cancellation';
 import { Command, CommandManager } from '../commands/commandManager';
-import { conditionalRegistration, requireMinVersion, requireSomeCapability } from '../utils/dependentRegistration';
+import { conditionalRegistration, requireMinVersion, requireSomeCap } from '../../../src/registration';
 import { DocumentSelector } from '../utils/documentSelector';
 import { TelemetryReporter } from '../utils/telemetry';
 import * as typeconverts from '../utils/typeConverters';
@@ -94,7 +94,7 @@ export function register(
   fileConfigurationManager: FileConfigurationManager,
   telemetryReporter: TelemetryReporter
 ) {
-  return conditionalRegistration([requireMinVersion(client, OrganizeImportsCodeActionProvider.minVersion), requireSomeCapability(client, ClientCapability.Semantic)], () => {
+  return conditionalRegistration([requireMinVersion(client, OrganizeImportsCodeActionProvider.minVersion), requireSomeCap(client, ClientCapability.Semantic)], () => {
     const organizeImportsProvider = new OrganizeImportsCodeActionProvider(client, commandManager, fileConfigurationManager, telemetryReporter);
     return vscode.languages.registerCodeActionsProvider(selector.semantic, organizeImportsProvider, organizeImportsProvider.metadata);
   });

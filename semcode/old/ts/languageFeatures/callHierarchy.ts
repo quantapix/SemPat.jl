@@ -9,7 +9,7 @@ import type * as Proto from '../protocol';
 import * as PConst from '../../../src/protocol.const';
 import { ClientCapability, ITypeScriptServiceClient } from '../../../src/service';
 import API from '../utils/api';
-import { conditionalRegistration, requireSomeCapability, requireMinVersion } from '../utils/dependentRegistration';
+import { conditionalRegistration, requireSomeCap, requireMinVersion } from '../../../src/registration';
 import { DocumentSelector } from '../utils/documentSelector';
 import { parseKindModifier } from '../utils/modifiers';
 import * as typeConverters from '../utils/typeConverters';
@@ -102,7 +102,7 @@ function fromProtocolCallHierarchyOutgoingCall(item: Proto.CallHierarchyOutgoing
 }
 
 export function register(selector: DocumentSelector, client: ITypeScriptServiceClient) {
-  return conditionalRegistration([requireMinVersion(client, TypeScriptCallHierarchySupport.minVersion), requireSomeCapability(client, ClientCapability.Semantic)], () => {
+  return conditionalRegistration([requireMinVersion(client, TypeScriptCallHierarchySupport.minVersion), requireSomeCap(client, ClientCapability.Semantic)], () => {
     return vscode.languages.registerCallHierarchyProvider(selector.semantic, new TypeScriptCallHierarchySupport(client));
   });
 }

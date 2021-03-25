@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { ClientCapability, ITypeScriptServiceClient } from '../../../src/service';
-import { conditionalRegistration, requireSomeCapability } from '../utils/dependentRegistration';
+import { conditionalRegistration, requireSomeCap } from '../../../src/registration';
 import { DocumentSelector } from '../utils/documentSelector';
 import DefinitionProviderBase from './definitionProviderBase';
 
@@ -16,7 +16,7 @@ class TypeScriptImplementationProvider extends DefinitionProviderBase implements
 }
 
 export function register(selector: DocumentSelector, client: ITypeScriptServiceClient) {
-  return conditionalRegistration([requireSomeCapability(client, ClientCapability.Semantic)], () => {
+  return conditionalRegistration([requireSomeCap(client, ClientCapability.Semantic)], () => {
     return vscode.languages.registerImplementationProvider(selector.semantic, new TypeScriptImplementationProvider(client));
   });
 }

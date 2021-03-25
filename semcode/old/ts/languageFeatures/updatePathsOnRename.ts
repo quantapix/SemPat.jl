@@ -11,7 +11,7 @@ import { ClientCapability, ITypeScriptServiceClient } from '../../../src/service
 import API from '../utils/api';
 import { Delayer } from '../utils/async';
 import { nulToken } from '../utils/cancellation';
-import { conditionalRegistration, requireSomeCapability, requireMinVersion } from '../utils/dependentRegistration';
+import { conditionalRegistration, requireSomeCap, requireMinVersion } from '../../../src/registration';
 import { Disposable } from '../utils/dispose';
 import * as fileSchemes from '../utils/fileSchemes';
 import { doesResourceLookLikeATypeScriptFile } from '../utils/languageDescription';
@@ -289,7 +289,7 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
 }
 
 export function register(client: ITypeScriptServiceClient, fileConfigurationManager: FileConfigurationManager, handles: (uri: vscode.Uri) => Promise<boolean>) {
-  return conditionalRegistration([requireMinVersion(client, UpdateImportsOnFileRenameHandler.minVersion), requireSomeCapability(client, ClientCapability.Semantic)], () => {
+  return conditionalRegistration([requireMinVersion(client, UpdateImportsOnFileRenameHandler.minVersion), requireSomeCap(client, ClientCapability.Semantic)], () => {
     return new UpdateImportsOnFileRenameHandler(client, fileConfigurationManager, handles);
   });
 }

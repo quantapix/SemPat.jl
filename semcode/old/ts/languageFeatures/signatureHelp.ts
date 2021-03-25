@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import type * as Proto from '../protocol';
 import { ClientCapability, ITypeScriptServiceClient } from '../../../src/service';
-import { conditionalRegistration, requireSomeCapability } from '../utils/dependentRegistration';
+import { conditionalRegistration, requireSomeCap } from '../../../src/registration';
 import { DocumentSelector } from '../utils/documentSelector';
 import * as Previewer from '../utils/previewer';
 import * as typeConverters from '../utils/typeConverters';
@@ -120,7 +120,7 @@ function toTsTriggerReason(context: vscode.SignatureHelpContext): Proto.Signatur
   }
 }
 export function register(selector: DocumentSelector, client: ITypeScriptServiceClient) {
-  return conditionalRegistration([requireSomeCapability(client, ClientCapability.EnhancedSyntax, ClientCapability.Semantic)], () => {
+  return conditionalRegistration([requireSomeCap(client, ClientCapability.EnhancedSyntax, ClientCapability.Semantic)], () => {
     return vscode.languages.registerSignatureHelpProvider(selector.syntax, new TypeScriptSignatureHelpProvider(client), {
       triggerCharacters: TypeScriptSignatureHelpProvider.triggerCharacters,
       retriggerCharacters: TypeScriptSignatureHelpProvider.retriggerCharacters,

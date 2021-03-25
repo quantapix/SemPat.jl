@@ -1,83 +1,51 @@
-import * as os from 'os';
-import * as path from 'path';
-import * as vsc from 'vscode';
-import * as vslc from 'vscode-languageclient';
+import { ServiceClient } from './service';
 import { uuid } from 'uuidv4';
 import * as fs from 'fs';
-import { Uri, workspace, WorkspaceFolder } from 'vscode';
+import * as os from 'os';
+import * as path from 'path';
+import * as PConst from './protocol.const';
+import * as vsc from 'vscode';
+import * as vslc from 'vscode-languageclient';
+import type * as Proto from './protocol';
 
 export function startSpinner(m: string) {
   vsc.window.setStatusBarMessage(`Rust: $(settings-gear~spin) ${m}`);
 }
-
 export function stopSpinner(m?: string) {
   vsc.window.setStatusBarMessage(m ? `Rust: ${m}` : 'Rust');
 }
 
 export class Observable<T> {
-  private _listeners: Set<(arg: T) => void> = new Set();
-  private _value: T;
-  constructor(v: T) {
-    this._value = v;
+  private _sinks: Set<(t: T) => void> = new Set();
+  constructor(private _val: T) {}
+  get val() {
+    return this._val;
   }
-  get value() {
-    return this._value;
+  set val(v: T) {
+    this._val = v;
+    this._sinks.forEach((f) => f(v));
   }
-  set value(v: T) {
-    this._value = v;
-    this._listeners.forEach((f) => f(v));
-  }
-  public observe(f: (x: T) => void): vsc.Disposable {
-    this._listeners.add(f);
-    return { dispose: () => this._listeners.delete(f) };
+  public observe(f: (t: T) => void): vsc.Disposable {
+    this._sinks.add(f);
+    return { dispose: () => this._sinks.delete(f) };
   }
 }
 
 export class Lazy<T> {
-  val?: T;
-  constructor(private readonly fun: () => T | undefined) {}
-  get() {
-    return this.val ?? (this.val = this.fun());
+  private _val?: T;
+  constructor(private readonly fun: () => T) {}
+  get val() {
+    return this._val ?? (this._val = this.fun());
   }
   reset() {
-    this.val = undefined;
+    this._val = undefined;
+  }
+  map<R>(f: (x: T) => R): Lazy<R> {
+    return new Lazy(() => f(this.val));
   }
 }
 
-export interface Lazy<T> {
-  value: T;
-  hasValue: boolean;
-  map<R>(f: (x: T) => R): Lazy<R>;
-}
-
-class LazyValue<T> implements Lazy<T> {
-  private _hasValue: boolean = false;
-  private _value?: T;
-
-  constructor(private readonly _getValue: () => T) {}
-
-  get value(): T {
-    if (!this._hasValue) {
-      this._hasValue = true;
-      this._value = this._getValue();
-    }
-    return this._value!;
-  }
-
-  get hasValue(): boolean {
-    return this._hasValue;
-  }
-
-  public map<R>(f: (x: T) => R): Lazy<R> {
-    return new LazyValue(() => f(this.value));
-  }
-}
-
-export function lazy<T>(getValue: () => T): Lazy<T> {
-  return new LazyValue<T>(getValue);
-}
-
-export function nearestParentWorkspace(curWorkspace: WorkspaceFolder, filePath: string): WorkspaceFolder {
+export function nearestParentWorkspace(curWorkspace: vsc.WorkspaceFolder, filePath: string): vsc.WorkspaceFolder {
   const root = curWorkspace.uri.fsPath;
   const rootManifest = path.join(root, 'Cargo.toml');
   if (fs.existsSync(rootManifest)) return curWorkspace;
@@ -92,21 +60,21 @@ export function nearestParentWorkspace(curWorkspace: WorkspaceFolder, filePath: 
       return {
         ...curWorkspace,
         name: path.basename(cur),
-        uri: Uri.file(cur),
+        uri: vsc.Uri.file(cur),
       };
     }
   }
   return curWorkspace;
 }
 
-export function getOuterMostWorkspaceFolder(f: WorkspaceFolder): WorkspaceFolder {
-  const fs = (workspace.workspaceFolders || []).map((x) => normalizeUriToPathPrefix(x.uri)).sort((a, b) => a.length - b.length);
+export function getOuterMostWorkspaceFolder(f: vsc.WorkspaceFolder): vsc.WorkspaceFolder {
+  const fs = (vsc.workspace.workspaceFolders || []).map((x) => normalizeUriToPathPrefix(x.uri)).sort((a, b) => a.length - b.length);
   const uri = normalizeUriToPathPrefix(f.uri);
   const p = fs.find((x) => uri.startsWith(x));
-  return p ? workspace.getWorkspaceFolder(Uri.parse(p)) || f : f;
+  return p ? vsc.workspace.getWorkspaceFolder(vsc.Uri.parse(p)) || f : f;
 }
 
-function normalizeUriToPathPrefix(u: Uri): string {
+function normalizeUriToPathPrefix(u: vsc.Uri): string {
   let y = u.toString();
   if (y.charAt(y.length - 1) !== '/') y = y + '/';
   return y;
@@ -196,4 +164,142 @@ export interface VersionedTextDocumentPositionParams {
   textDocument: vslc.TextDocumentIdentifier;
   version: number;
   position: vsc.Position;
+}
+
+export namespace Range {
+  export const fromTextSpan = (s: Proto.TextSpan): vsc.Range => fromLocations(s.start, s.end);
+  export const toTextSpan = (r: vsc.Range): Proto.TextSpan => ({
+    start: Position.toLocation(r.start),
+    end: Position.toLocation(r.end),
+  });
+  export const fromLocations = (start: Proto.Location, end: Proto.Location): vsc.Range =>
+    new vsc.Range(Math.max(0, start.line - 1), Math.max(start.offset - 1, 0), Math.max(0, end.line - 1), Math.max(0, end.offset - 1));
+  export const toFileRangeRequestArgs = (file: string, r: vsc.Range): Proto.FileRangeRequestArgs => ({
+    file,
+    startLine: r.start.line + 1,
+    startOffset: r.start.character + 1,
+    endLine: r.end.line + 1,
+    endOffset: r.end.character + 1,
+  });
+  export const toFormattingRequestArgs = (file: string, r: vsc.Range): Proto.FormatRequestArgs => ({
+    file,
+    line: r.start.line + 1,
+    offset: r.start.character + 1,
+    endLine: r.end.line + 1,
+    endOffset: r.end.character + 1,
+  });
+}
+
+export namespace Position {
+  export const fromLocation = (l: Proto.Location): vsc.Position => new vsc.Position(l.line - 1, l.offset - 1);
+  export const toLocation = (p: vsc.Position): Proto.Location => ({
+    line: p.line + 1,
+    offset: p.character + 1,
+  });
+  export const toFileLocationRequestArgs = (file: string, p: vsc.Position): Proto.FileLocationRequestArgs => ({
+    file,
+    line: p.line + 1,
+    offset: p.character + 1,
+  });
+}
+
+export namespace Location {
+  export const fromTextSpan = (r: vsc.Uri, s: Proto.TextSpan): vsc.Location => new vsc.Location(r, Range.fromTextSpan(s));
+}
+
+export namespace TextEdit {
+  export const fromCodeEdit = (e: Proto.CodeEdit): vsc.TextEdit => new vsc.TextEdit(Range.fromTextSpan(e), e.newText);
+}
+
+export namespace WorkspaceEdit {
+  export function fromFileCodeEdits(c: ServiceClient, es: Iterable<Proto.FileCodeEdits>): vsc.WorkspaceEdit {
+    return withFileCodeEdits(new vsc.WorkspaceEdit(), c, es);
+  }
+  export function withFileCodeEdits(w: vsc.WorkspaceEdit, c: ServiceClient, es: Iterable<Proto.FileCodeEdits>): vsc.WorkspaceEdit {
+    for (const e of es) {
+      const r = c.toResource(e.fileName);
+      for (const d of e.textChanges) {
+        w.replace(r, Range.fromTextSpan(d), d.newText);
+      }
+    }
+    return w;
+  }
+}
+
+export namespace SymbolKind {
+  export function fromProtocolScriptElementKind(k: Proto.ScriptElementKind) {
+    switch (k) {
+      case PConst.Kind.module:
+        return vsc.SymbolKind.Module;
+      case PConst.Kind.class:
+        return vsc.SymbolKind.Class;
+      case PConst.Kind.enum:
+        return vsc.SymbolKind.Enum;
+      case PConst.Kind.enumMember:
+        return vsc.SymbolKind.EnumMember;
+      case PConst.Kind.interface:
+        return vsc.SymbolKind.Interface;
+      case PConst.Kind.indexSignature:
+        return vsc.SymbolKind.Method;
+      case PConst.Kind.callSignature:
+        return vsc.SymbolKind.Method;
+      case PConst.Kind.method:
+        return vsc.SymbolKind.Method;
+      case PConst.Kind.memberVariable:
+        return vsc.SymbolKind.Property;
+      case PConst.Kind.memberGetAccessor:
+        return vsc.SymbolKind.Property;
+      case PConst.Kind.memberSetAccessor:
+        return vsc.SymbolKind.Property;
+      case PConst.Kind.variable:
+        return vsc.SymbolKind.Variable;
+      case PConst.Kind.let:
+        return vsc.SymbolKind.Variable;
+      case PConst.Kind.const:
+        return vsc.SymbolKind.Variable;
+      case PConst.Kind.localVariable:
+        return vsc.SymbolKind.Variable;
+      case PConst.Kind.alias:
+        return vsc.SymbolKind.Variable;
+      case PConst.Kind.function:
+        return vsc.SymbolKind.Function;
+      case PConst.Kind.localFunction:
+        return vsc.SymbolKind.Function;
+      case PConst.Kind.constructSignature:
+        return vsc.SymbolKind.Constructor;
+      case PConst.Kind.constructorImplementation:
+        return vsc.SymbolKind.Constructor;
+      case PConst.Kind.typeParameter:
+        return vsc.SymbolKind.TypeParameter;
+      case PConst.Kind.string:
+        return vsc.SymbolKind.String;
+      default:
+        return vsc.SymbolKind.Variable;
+    }
+  }
+}
+
+export function disposeAll(ds: vsc.Disposable[]) {
+  while (ds.length) {
+    const d = ds.pop();
+    if (d) d.dispose();
+  }
+}
+
+export abstract class Disposable {
+  private _done = false;
+  protected _ds: vsc.Disposable[] = [];
+  public dispose(): any {
+    if (this._done) return;
+    this._done = true;
+    disposeAll(this._ds);
+  }
+  protected _register<T extends vsc.Disposable>(t: T): T {
+    if (this._done) t.dispose();
+    else this._ds.push(t);
+    return t;
+  }
+  protected get isDisposed() {
+    return this._done;
+  }
 }

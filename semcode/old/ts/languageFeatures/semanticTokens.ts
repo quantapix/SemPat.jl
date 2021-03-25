@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import * as Proto from '../protocol';
 import { ClientCapability, ExecConfig, ITypeScriptServiceClient, ServerResponse } from '../../../src/service';
 import API from '../utils/api';
-import { conditionalRegistration, requireSomeCapability, requireMinVersion } from '../utils/dependentRegistration';
+import { conditionalRegistration, requireSomeCap, requireMinVersion } from '../../../src/registration';
 import { DocumentSelector } from '../utils/documentSelector';
 
 const minTypeScriptVersion = API.fromVersionString(`${VersionRequirement.major}.${VersionRequirement.minor}`);
@@ -17,7 +17,7 @@ const minTypeScriptVersion = API.fromVersionString(`${VersionRequirement.major}.
 const CONTENT_LENGTH_LIMIT = 100000;
 
 export function register(selector: DocumentSelector, client: ITypeScriptServiceClient) {
-  return conditionalRegistration([requireMinVersion(client, minTypeScriptVersion), requireSomeCapability(client, ClientCapability.Semantic)], () => {
+  return conditionalRegistration([requireMinVersion(client, minTypeScriptVersion), requireSomeCap(client, ClientCapability.Semantic)], () => {
     const provider = new DocumentSemanticTokensProvider(client);
     return vscode.Disposable.from(
       // register only as a range provider

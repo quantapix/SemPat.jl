@@ -12,7 +12,7 @@ import { ClientCapability, ITypeScriptServiceClient, ServerResponse } from '../.
 import API from '../utils/api';
 import { nulToken } from '../utils/cancellation';
 import { applyCodeAction } from '../utils/codeAction';
-import { conditionalRegistration, requireConfiguration, requireSomeCapability } from '../utils/dependentRegistration';
+import { conditionalRegistration, requireConfig, requireSomeCap } from '../../../src/registration';
 import { DocumentSelector } from '../utils/documentSelector';
 import { parseKindModifier } from '../utils/modifiers';
 import * as Previewer from '../utils/previewer';
@@ -886,7 +886,7 @@ export function register(
   telemetryReporter: TelemetryReporter,
   onCompletionAccepted: (item: vscode.CompletionItem) => void
 ) {
-  return conditionalRegistration([requireConfiguration(modeId, 'suggest.enabled'), requireSomeCapability(client, ClientCapability.EnhancedSyntax, ClientCapability.Semantic)], () => {
+  return conditionalRegistration([requireConfig(modeId, 'suggest.enabled'), requireSomeCap(client, ClientCapability.EnhancedSyntax, ClientCapability.Semantic)], () => {
     return vscode.languages.registerCompletionItemProvider(
       selector.syntax,
       new TypeScriptCompletionItemProvider(client, modeId, typingsStatus, fileConfigurationManager, commandManager, telemetryReporter, onCompletionAccepted),

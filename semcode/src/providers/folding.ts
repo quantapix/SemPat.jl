@@ -3,9 +3,9 @@ import type * as Proto from '../protocol';
 import { ServiceClient } from '../service';
 import API from '../../old/ts/utils/api';
 import { coalesce } from '../../old/ts/utils/arrays';
-import { conditionalRegistration, requireMinVersion } from '../../old/ts/utils/dependentRegistration';
+import { condRegistration, requireMinVer } from '../registration';
 import { DocumentSelector } from '../../old/ts/utils/documentSelector';
-import * as typeConverters from '../../old/ts/utils/typeConverters';
+import * as qu from '../utils';
 
 class FoldingProvider implements vsc.FoldingRangeProvider {
   public static readonly minVer = API.v280;
@@ -21,7 +21,7 @@ class FoldingProvider implements vsc.FoldingRangeProvider {
   }
 
   private convertOutliningSpan(s: Proto.OutliningSpan, d: vsc.TextDocument): vsc.FoldingRange | undefined {
-    const r = typeConverters.Range.fromTextSpan(s.textSpan);
+    const r = qu.Range.fromTextSpan(s.textSpan);
     if (s.kind === 'comment') {
       const x = d.lineAt(r.start.line).text;
       if (x.match(/\/\/\s*#endregion/gi)) return undefined;
@@ -57,7 +57,7 @@ class FoldingProvider implements vsc.FoldingRangeProvider {
 }
 
 export function register(s: DocumentSelector, c: ServiceClient): vsc.Disposable {
-  return conditionalRegistration([requireMinVersion(c, FoldingProvider.minVer)], () => {
+  return condRegistration([requireMinVer(c, FoldingProvider.minVer)], () => {
     return vsc.languages.registerFoldingRangeProvider(s.syntax, new FoldingProvider(c));
   });
 }

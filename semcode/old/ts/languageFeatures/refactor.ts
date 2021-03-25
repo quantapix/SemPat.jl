@@ -11,7 +11,7 @@ import type * as Proto from '../protocol';
 import { ClientCapability, ITypeScriptServiceClient } from '../../../src/service';
 import API from '../utils/api';
 import { nulToken } from '../utils/cancellation';
-import { conditionalRegistration, requireMinVersion, requireSomeCapability } from '../utils/dependentRegistration';
+import { conditionalRegistration, requireMinVersion, requireSomeCap } from '../../../src/registration';
 import { DocumentSelector } from '../utils/documentSelector';
 import * as fileSchemes from '../utils/fileSchemes';
 import { TelemetryReporter } from '../utils/telemetry';
@@ -472,7 +472,7 @@ export function register(
   commandManager: CommandManager,
   telemetryReporter: TelemetryReporter
 ) {
-  return conditionalRegistration([requireMinVersion(client, TypeScriptRefactorProvider.minVersion), requireSomeCapability(client, ClientCapability.Semantic)], () => {
+  return conditionalRegistration([requireMinVersion(client, TypeScriptRefactorProvider.minVersion), requireSomeCap(client, ClientCapability.Semantic)], () => {
     return vscode.languages.registerCodeActionsProvider(
       selector.semantic,
       new TypeScriptRefactorProvider(client, formattingOptionsManager, commandManager, telemetryReporter),

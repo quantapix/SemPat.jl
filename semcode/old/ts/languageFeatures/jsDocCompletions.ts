@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as nls from 'vscode-nls';
 import { ITypeScriptServiceClient } from '../../../src/service';
-import { conditionalRegistration, requireConfiguration } from '../utils/dependentRegistration';
+import { conditionalRegistration, requireConfig } from '../../../src/registration';
 import { DocumentSelector } from '../utils/documentSelector';
 import * as typeConverters from '../utils/typeConverters';
 import FileConfigurationManager from './fileConfigurationManager';
@@ -105,7 +105,7 @@ export function templateToSnippet(template: string): vscode.SnippetString {
 }
 
 export function register(selector: DocumentSelector, modeId: string, client: ITypeScriptServiceClient, fileConfigurationManager: FileConfigurationManager): vscode.Disposable {
-  return conditionalRegistration([requireConfiguration(modeId, 'suggest.completeJSDocs')], () => {
+  return conditionalRegistration([requireConfig(modeId, 'suggest.completeJSDocs')], () => {
     return vscode.languages.registerCompletionItemProvider(selector.syntax, new JsDocCompletionProvider(client, fileConfigurationManager), '*');
   });
 }

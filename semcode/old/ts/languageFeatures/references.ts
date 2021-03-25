@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { ClientCapability, ITypeScriptServiceClient } from '../../../src/service';
-import { conditionalRegistration, requireSomeCapability } from '../utils/dependentRegistration';
+import { conditionalRegistration, requireSomeCap } from '../../../src/registration';
 import { DocumentSelector } from '../utils/documentSelector';
 import * as typeConverters from '../utils/typeConverters';
 
@@ -38,7 +38,7 @@ class TypeScriptReferenceSupport implements vscode.ReferenceProvider {
 }
 
 export function register(selector: DocumentSelector, client: ITypeScriptServiceClient) {
-  return conditionalRegistration([requireSomeCapability(client, ClientCapability.EnhancedSyntax, ClientCapability.Semantic)], () => {
+  return conditionalRegistration([requireSomeCap(client, ClientCapability.EnhancedSyntax, ClientCapability.Semantic)], () => {
     return vscode.languages.registerReferenceProvider(selector.syntax, new TypeScriptReferenceSupport(client));
   });
 }
