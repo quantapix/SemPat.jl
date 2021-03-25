@@ -5,13 +5,12 @@
   "author": "quantapix <quantapix@gmail.com>",
   "license": "MIT",
   "version": "0.0.1",
+  "publisher": "quantapix",
   "engines": {
-    "vscode": "1.55.0"
+    "vscode": "^1.54.0"
   },
   "categories": [
-    "Programming Languages",
-    "Themes",
-    "Other"
+    "Programming Languages"
   ],
   "activationEvents": [
     "onCommand:semcode2.helloWorld"

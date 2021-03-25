@@ -1,27 +1,8 @@
-import {
-  Disposable,
-  ShellExecution,
-  Task,
-  TaskGroup,
-  TaskProvider,
-  tasks,
-  workspace,
-  WorkspaceFolder,
-} from 'vscode';
+import { Disposable, ShellExecution, Task, TaskGroup, TaskProvider, tasks, workspace, WorkspaceFolder } from 'vscode';
 
-/**
- * Displayed identifier associated with each task.
- */
 const TASK_SOURCE = 'Rust';
-/**
- * Internal VSCode task type (namespace) under which extensions register their
- * tasks. We only use `cargo` task type.
- */
 const TASK_TYPE = 'cargo';
 
-/**
- * Command execution parameters sent by the RLS (as of 1.35).
- */
 export interface Execution {
   /**
    * @deprecated Previously, the usage was not restricted to spawning with a
@@ -85,18 +66,11 @@ function detectCargoTasks(target: WorkspaceFolder): Task[] {
       group,
       problemMatchers: ['$rustc'],
     }))
-    .map(task => {
+    .map((task) => {
       // NOTE: It's important to solely use the VSCode-provided constructor (and
       // *not* use object spread operator!) - otherwise the task will not be picked
       // up by VSCode.
-      const vscodeTask = new Task(
-        task.definition,
-        target,
-        task.label,
-        TASK_SOURCE,
-        task.execution,
-        task.problemMatchers,
-      );
+      const vscodeTask = new Task(task.definition, target, task.label, TASK_SOURCE, task.execution, task.problemMatchers);
       vscodeTask.group = task.group;
       return vscodeTask;
     });
@@ -107,16 +81,7 @@ export function runRlsCommand(folder: WorkspaceFolder, execution: Execution) {
   const shellExecution = createShellExecution(execution);
   const problemMatchers = ['$rustc'];
 
-  return tasks.executeTask(
-    new Task(
-      { type: 'shell' },
-      folder,
-      'External RLS command',
-      TASK_SOURCE,
-      shellExecution,
-      problemMatchers,
-    ),
-  );
+  return tasks.executeTask(new Task({ type: 'shell' }, folder, 'External RLS command', TASK_SOURCE, shellExecution, problemMatchers));
 }
 
 /**
@@ -125,11 +90,7 @@ export function runRlsCommand(folder: WorkspaceFolder, execution: Execution) {
  * also capable of displaying ANSI terminal colors. Exit codes are not
  * supported, however.
  */
-export async function runTaskCommand(
-  { command, args, env, cwd }: Execution,
-  displayName: string,
-  folder?: WorkspaceFolder,
-) {
+export async function runTaskCommand({ command, args, env, cwd }: Execution, displayName: string, folder?: WorkspaceFolder) {
   // Task finish callback does not preserve concrete task definitions, we so
   // disambiguate finished tasks via executed command line.
   const commandLine = `${command} ${args.join(' ')}`;
@@ -142,16 +103,13 @@ export async function runTaskCommand(
     new ShellExecution(commandLine, {
       cwd: cwd || (folder && folder.uri.fsPath),
       env,
-    }),
+    })
   );
 
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     const disposable = tasks.onDidEndTask(({ execution }) => {
       const taskExecution = execution.task.execution;
-      if (
-        taskExecution instanceof ShellExecution &&
-        taskExecution.commandLine === commandLine
-      ) {
+      if (taskExecution instanceof ShellExecution && taskExecution.commandLine === commandLine) {
         disposable.dispose();
         resolve();
       }

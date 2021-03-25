@@ -1,15 +1,22 @@
 import * as os from 'os';
 import * as path from 'path';
-import * as vscode from 'vscode';
+import * as vsc from 'vscode';
 import * as vslc from 'vscode-languageclient';
-import { VersionedTextDocumentPositionParams } from './misc';
 import { uuid } from 'uuidv4';
+
+export function startSpinner(m: string) {
+  vsc.window.setStatusBarMessage(`Rust: $(settings-gear~spin) ${m}`);
+}
+
+export function stopSpinner(m?: string) {
+  vsc.window.setStatusBarMessage(m ? `Rust: ${m}` : 'Rust');
+}
 
 export function constructCommandString(c: string, xs = {}) {
   return `command:${c}?${encodeURIComponent(JSON.stringify(xs))}`;
 }
 
-export function getVersionedParamsAtPosition(d: vscode.TextDocument, p: vscode.Position): VersionedTextDocumentPositionParams {
+export function getVersionedParamsAtPosition(d: vsc.TextDocument, p: vsc.Position): VersionedTextDocumentPositionParams {
   return {
     textDocument: vslc.TextDocumentIdentifier.create(d.uri.toString()),
     version: d.version,
@@ -18,7 +25,7 @@ export function getVersionedParamsAtPosition(d: vscode.TextDocument, p: vscode.P
 }
 
 export function setContext(k: string, v: boolean) {
-  vscode.commands.executeCommand('setContext', k, v);
+  vsc.commands.executeCommand('setContext', k, v);
 }
 
 export function generatePipeName(pid: string, n: string) {
@@ -27,7 +34,7 @@ export function generatePipeName(pid: string, n: string) {
 }
 
 export function inferJuliaNumThreads(): string {
-  const config: number | undefined = vscode.workspace.getConfiguration('julia').get('NumThreads') ?? undefined;
+  const config: number | undefined = vsc.workspace.getConfiguration('julia').get('NumThreads') ?? undefined;
   const env: string | undefined = process.env['JULIA_NUM_THREADS'];
   if (config !== undefined) {
     return config.toString();
@@ -38,62 +45,55 @@ export function inferJuliaNumThreads(): string {
   }
 }
 
-export function registerCommand(c: string, f: any) {
-  const ff = (...xs: any) => {
-    return f(...xs);
-  };
-  return vscode.commands.registerCommand(c, ff);
-}
-
-export function activate(c: vscode.ExtensionContext) {
-  c.subscriptions.push(registerCommand('language-julia.applytextedit', applyTextEdit));
-  c.subscriptions.push(registerCommand('language-julia.toggleLinter', toggleLinter));
+export function activate(c: vsc.ExtensionContext) {
+  c.subscriptions.push(vsc.commands.registerCommand('language-julia.applytextedit', applyTextEdit));
+  c.subscriptions.push(vsc.commands.registerCommand('language-julia.toggleLinter', toggleLinter));
 }
 
 function applyTextEdit(x: any) {
-  const we = new vscode.WorkspaceEdit();
+  const we = new vsc.WorkspaceEdit();
   for (const e of x.documentChanges[0].edits) {
-    we.replace(x.documentChanges[0].textDocument.uri, new vscode.Range(e.range.start.line, e.range.start.character, e.range.end.line, e.range.end.character), e.newText);
+    we.replace(x.documentChanges[0].textDocument.uri, new vsc.Range(e.range.start.line, e.range.start.character, e.range.end.line, e.range.end.character), e.newText);
   }
-  vscode.workspace.applyEdit(we);
+  vsc.workspace.applyEdit(we);
 }
 
 function toggleLinter() {
-  const cval = vscode.workspace.getConfiguration('julia').get('lint.run', false);
-  vscode.workspace.getConfiguration('julia').update('lint.run', !cval, true);
+  const cval = vsc.workspace.getConfiguration('julia').get('lint.run', false);
+  vsc.workspace.getConfiguration('julia').update('lint.run', !cval, true);
 }
 
 const g_profilerResults = new Map<string, string>();
 
-export class ProfilerResultsProvider implements vscode.TextDocumentContentProvider {
-  provideTextDocumentContent(uri: vscode.Uri) {
+export class ProfilerResultsProvider implements vsc.TextDocumentContentProvider {
+  provideTextDocumentContent(uri: vsc.Uri) {
     return g_profilerResults.get(uri.toString());
   }
 }
 
-export function addProfilerResult(uri: vscode.Uri, content: string) {
+export function addProfilerResult(uri: vsc.Uri, content: string) {
   g_profilerResults.set(uri.toString(), content);
 }
 
 export async function showProfileResult(params: { content: string }) {
   const new_uuid = uuid();
-  const uri = vscode.Uri.parse('juliavsodeprofilerresults:' + new_uuid.toString() + '.cpuprofile');
+  const uri = vsc.Uri.parse('juliavsodeprofilerresults:' + new_uuid.toString() + '.cpuprofile');
   addProfilerResult(uri, params.content);
-  const doc = await vscode.workspace.openTextDocument(uri);
-  await vscode.window.showTextDocument(doc, { preview: false });
+  const doc = await vsc.workspace.openTextDocument(uri);
+  await vsc.window.showTextDocument(doc, { preview: false });
 }
 
 export async function showProfileResultFile(params: { filename: string }) {
-  const uri = vscode.Uri.file(params.filename);
-  await vscode.commands.executeCommand('vscode.open', uri, {
+  const uri = vsc.Uri.file(params.filename);
+  await vsc.commands.executeCommand('vsc.open', uri, {
     preserveFocuse: true,
     preview: false,
-    viewColumn: vscode.ViewColumn.Beside,
+    viewColumn: vsc.ViewColumn.Beside,
   });
 }
 
 export interface VersionedTextDocumentPositionParams {
   textDocument: vslc.TextDocumentIdentifier;
   version: number;
-  position: vscode.Position;
+  position: vsc.Position;
 }
