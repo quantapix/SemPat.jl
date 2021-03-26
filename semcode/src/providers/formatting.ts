@@ -1,14 +1,14 @@
-import * as vsc from 'vscode';
-import type * as Proto from '../protocol';
-import { ServiceClient } from '../service';
 import { condRegistration, requireConfig } from '../registration';
+import { ServiceClient } from '../service';
 import * as qu from '../utils';
+import * as qv from 'vscode';
 import FileConfigurationManager from './fileConfigurationManager';
+import type * as qp from '../protocol';
 
-class Formatting implements vsc.DocumentRangeFormattingEditProvider, vsc.OnTypeFormattingEditProvider {
+class Formatting implements qv.DocumentRangeFormattingEditProvider, qv.OnTypeFormattingEditProvider {
   public constructor(private readonly client: ServiceClient, private readonly manager: FileConfigurationManager) {}
 
-  public async provideDocumentRangeFormattingEdits(d: vsc.TextDocument, r: vsc.Range, opts: vsc.FormattingOptions, t: vsc.CancellationToken): Promise<vsc.TextEdit[] | undefined> {
+  public async provideDocumentRangeFormattingEdits(d: qv.TextDocument, r: qv.Range, opts: qv.FormattingOptions, t: qv.CancellationToken): Promise<qv.TextEdit[] | undefined> {
     const f = this.client.toOpenedFilePath(d);
     if (!f) return undefined;
     await this.manager.ensureConfigurationOptions(d, opts, t);
@@ -18,17 +18,17 @@ class Formatting implements vsc.DocumentRangeFormattingEditProvider, vsc.OnTypeF
     return y.body.map(qu.TextEdit.fromCodeEdit);
   }
 
-  public async provideOnTypeFormattingEdits(d: vsc.TextDocument, p: vsc.Position, k: string, opts: vsc.FormattingOptions, t: vsc.CancellationToken): Promise<vsc.TextEdit[]> {
+  public async provideOnTypeFormattingEdits(d: qv.TextDocument, p: qv.Position, k: string, opts: qv.FormattingOptions, t: qv.CancellationToken): Promise<qv.TextEdit[]> {
     const f = this.client.toOpenedFilePath(d);
     if (!f) return [];
     await this.manager.ensureConfigurationOptions(d, opts, t);
-    const xs: Proto.FormatOnKeyRequestArgs = {
+    const xs: qp.FormatOnKeyRequestArgs = {
       ...qu.Position.toFileLocationRequestArgs(f, p),
       key: k,
     };
     const response = await this.client.execute('formatonkey', xs, t);
     if (response.type !== 'response' || !response.body) return [];
-    const ys: vsc.TextEdit[] = [];
+    const ys: qv.TextEdit[] = [];
     for (const b of response.body) {
       const e = qu.TextEdit.fromCodeEdit(b);
       const r = e.range;
@@ -44,6 +44,6 @@ class Formatting implements vsc.DocumentRangeFormattingEditProvider, vsc.OnTypeF
 export function register(s: qu.DocumentSelector, modeId: string, c: ServiceClient, m: FileConfigurationManager) {
   return condRegistration([requireConfig(modeId, 'format.enable')], () => {
     const p = new Formatting(c, m);
-    return vsc.Disposable.from(vsc.languages.registerOnTypeFormattingEditProvider(s.syntax, p, ';', '}', '\n'), vsc.languages.registerDocumentRangeFormattingEditProvider(s.syntax, p));
+    return qv.Disposable.from(qv.languages.registerOnTypeFormattingEditProvider(s.syntax, p, ';', '}', '\n'), qv.languages.registerDocumentRangeFormattingEditProvider(s.syntax, p));
   });
 }

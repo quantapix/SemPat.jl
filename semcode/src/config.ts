@@ -1,4 +1,4 @@
-import * as vsc from 'vscode';
+import * as qv from 'vscode';
 import { RevealOutputChannelOn } from 'vscode-languageclient';
 
 import { getActiveChannel, RustupConfig } from './rs/rustup';
@@ -18,25 +18,25 @@ function fromStringToRevealOutputChannelOn(s: string): RevealOutputChannelOn {
 }
 
 export class RLSConfiguration {
-  private readonly configuration: vsc.WorkspaceConfiguration;
+  private readonly configuration: qv.WorkspaceConfiguration;
   private readonly wsPath: string;
 
-  private constructor(c: vsc.WorkspaceConfiguration, p: string) {
+  private constructor(c: qv.WorkspaceConfiguration, p: string) {
     this.configuration = c;
     this.wsPath = p;
   }
 
   public static loadFromWorkspace(p: string): RLSConfiguration {
-    const c = vsc.workspace.getConfiguration();
+    const c = qv.workspace.getConfiguration();
     return new RLSConfiguration(c, p);
   }
 
-  private static readRevealOutputChannelOn(c: vsc.WorkspaceConfiguration) {
+  private static readRevealOutputChannelOn(c: qv.WorkspaceConfiguration) {
     const setting = c.get<string>('rust-client.revealOutputChannelOn', 'never');
     return fromStringToRevealOutputChannelOn(setting);
   }
 
-  private static readChannel(wsPath: string, rustupPath: string, c: vsc.WorkspaceConfiguration): string {
+  private static readChannel(wsPath: string, rustupPath: string, c: qv.WorkspaceConfiguration): string {
     const channel = c.get<string>('rust-client.channel');
     if (channel === 'default' || !channel) {
       try {

@@ -9,7 +9,7 @@ import * as path from 'path';
 import * as repl from './repl';
 import * as tasks from './tasks';
 import * as qu from './utils';
-import * as vsc from 'vscode';
+import * as qv from 'vscode';
 
 import { RLSConfiguration } from './configuration';
 import * as rls from './rls';
@@ -21,17 +21,17 @@ export interface Api {
   activeWorkspace: typeof activeWorkspace;
 }
 
-export async function activate(c: vsc.ExtensionContext): Promise<Api> {
+export async function activate(c: qv.ExtensionContext): Promise<Api> {
   c.subscriptions.push(
-    ...[configureLanguage(), ...registerCommands(), vsc.workspace.onDidChangeWorkspaceFolders(whenChangingWorkspaceFolders), vsc.window.onDidChangeActiveTextEditor(onDidChangeActiveTextEditor)]
+    ...[configureLanguage(), ...registerCommands(), qv.workspace.onDidChangeWorkspaceFolders(whenChangingWorkspaceFolders), qv.window.onDidChangeActiveTextEditor(onDidChangeActiveTextEditor)]
   );
-  onDidChangeActiveTextEditor(vsc.window.activeTextEditor);
-  const config = vsc.workspace.getConfiguration();
+  onDidChangeActiveTextEditor(qv.window.activeTextEditor);
+  const config = qv.workspace.getConfiguration();
   if (typeof config.get<boolean | null>('rust-client.enableMultiProjectSetup', null) === 'boolean') {
-    vsc.window
+    qv.window
       .showWarningMessage('The multi-project setup for RLS is always enabled, so the `rust-client.enableMultiProjectSetup` setting is now redundant', { modal: false }, { title: 'Remove' })
       .then((x) => {
-        if (x && x.title === 'Remove') return config.update('rust-client.enableMultiProjectSetup', null, vsc.ConfigurationTarget.Global);
+        if (x && x.title === 'Remove') return config.update('rust-client.enableMultiProjectSetup', null, qv.ConfigurationTarget.Global);
         return;
       });
   }
@@ -42,9 +42,9 @@ export async function deactivate() {
   return Promise.all([...workspaces.values()].map((ws) => ws.stop()));
 }
 
-let progressObserver: vsc.Disposable | undefined;
+let progressObserver: qv.Disposable | undefined;
 
-function onDidChangeActiveTextEditor(e?: vsc.TextEditor) {
+function onDidChangeActiveTextEditor(e?: qv.TextEditor) {
   if (!e || !e.document) return;
   const { languageId, uri } = e.document;
   const w = clientWorkspaceForUri(uri, { initializeIfMissing: languageId === 'rust' || languageId === 'toml' });
@@ -62,7 +62,7 @@ function onDidChangeActiveTextEditor(e?: vsc.TextEditor) {
   updateProgress(w.progress.value);
 }
 
-function whenChangingWorkspaceFolders(e: vsc.WorkspaceFoldersChangeEvent) {
+function whenChangingWorkspaceFolders(e: qv.WorkspaceFoldersChangeEvent) {
   for (const f of e.removed) {
     const w = workspaces.get(f.uri.toString());
     if (w) {
@@ -74,8 +74,8 @@ function whenChangingWorkspaceFolders(e: vsc.WorkspaceFoldersChangeEvent) {
 
 const workspaces: Map<string, ClientWorkspace> = new Map();
 
-function clientWorkspaceForUri(uri: vsc.Uri, opts?: { initializeIfMissing: boolean }): ClientWorkspace | undefined {
-  const r = vsc.workspace.getWorkspaceFolder(uri);
+function clientWorkspaceForUri(uri: qv.Uri, opts?: { initializeIfMissing: boolean }): ClientWorkspace | undefined {
+  const r = qv.workspace.getWorkspaceFolder(uri);
   if (!r) return;
   const f = qu.nearestParentWorkspace(r, uri.fsPath);
   if (!f) return undefined;
@@ -91,16 +91,16 @@ function clientWorkspaceForUri(uri: vsc.Uri, opts?: { initializeIfMissing: boole
 export type WorkspaceProgress = { state: 'progress'; message: string } | { state: 'ready' | 'standby' };
 
 export class ClientWorkspace {
-  public readonly folder: vsc.WorkspaceFolder;
+  public readonly folder: qv.WorkspaceFolder;
   private readonly config: RLSConfiguration;
   private lc: LanguageClient | null = null;
-  private disposables: vsc.Disposable[];
+  private disposables: qv.Disposable[];
   private _progress: qu.Observable<WorkspaceProgress>;
   get progress() {
     return this._progress;
   }
 
-  constructor(folder: vsc.WorkspaceFolder) {
+  constructor(folder: qv.WorkspaceFolder) {
     this.config = RLSConfiguration.loadFromWorkspace(folder.uri.fsPath);
     this.folder = folder;
     this.disposables = [];
@@ -158,74 +158,74 @@ export class ClientWorkspace {
 
 const activeWorkspace = new qu.Observable<ClientWorkspace | null>(null);
 
-function registerCommands(): vsc.Disposable[] {
+function registerCommands(): qv.Disposable[] {
   return [
-    vsc.commands.registerCommand('rls.update', () => activeWorkspace.value?.rustupUpdate()),
-    vsc.commands.registerCommand('rls.restart', async () => activeWorkspace.value?.restart()),
-    vsc.commands.registerCommand('rls.run', (e: Execution) => activeWorkspace.value?.runRlsCommand(e)),
-    vsc.commands.registerCommand('rls.start', () => activeWorkspace.value?.start()),
-    vsc.commands.registerCommand('rls.stop', () => activeWorkspace.value?.stop()),
+    qv.commands.registerCommand('rls.update', () => activeWorkspace.value?.rustupUpdate()),
+    qv.commands.registerCommand('rls.restart', async () => activeWorkspace.value?.restart()),
+    qv.commands.registerCommand('rls.run', (e: Execution) => activeWorkspace.value?.runRlsCommand(e)),
+    qv.commands.registerCommand('rls.start', () => activeWorkspace.value?.start()),
+    qv.commands.registerCommand('rls.stop', () => activeWorkspace.value?.stop()),
   ];
 }
 
-function configureLanguage(): vsc.Disposable {
-  return vsc.languages.setLanguageConfiguration('rust', {
+function configureLanguage(): qv.Disposable {
+  return qv.languages.setLanguageConfiguration('rust', {
     onEnterRules: [
       {
         // Doc single-line comment
         // e.g. ///|
         beforeText: /^\s*\/{3}.*$/,
-        action: { indentAction: vsc.IndentAction.None, appendText: '/// ' },
+        action: { indentAction: qv.IndentAction.None, appendText: '/// ' },
       },
       {
         // Parent doc single-line comment
         // e.g. //!|
         beforeText: /^\s*\/{2}\!.*$/,
-        action: { indentAction: vsc.IndentAction.None, appendText: '//! ' },
+        action: { indentAction: qv.IndentAction.None, appendText: '//! ' },
       },
       {
         // Begins an auto-closed multi-line comment (standard or parent doc)
         // e.g. /** | */ or /*! | */
         beforeText: /^\s*\/\*(\*|\!)(?!\/)([^\*]|\*(?!\/))*$/,
         afterText: /^\s*\*\/$/,
-        action: { indentAction: vsc.IndentAction.IndentOutdent, appendText: ' * ' },
+        action: { indentAction: qv.IndentAction.IndentOutdent, appendText: ' * ' },
       },
       {
         // Begins a multi-line comment (standard or parent doc)
         // e.g. /** ...| or /*! ...|
         beforeText: /^\s*\/\*(\*|\!)(?!\/)([^\*]|\*(?!\/))*$/,
-        action: { indentAction: vsc.IndentAction.None, appendText: ' * ' },
+        action: { indentAction: qv.IndentAction.None, appendText: ' * ' },
       },
       {
         // Continues a multi-line comment
         // e.g.  * ...|
         beforeText: /^(\ \ )*\ \*(\ ([^\*]|\*(?!\/))*)?$/,
-        action: { indentAction: vsc.IndentAction.None, appendText: '* ' },
+        action: { indentAction: qv.IndentAction.None, appendText: '* ' },
       },
       {
         // Dedents after closing a multi-line comment
         // e.g.  */|
         beforeText: /^(\ \ )*\ \*\/\s*$/,
-        action: { indentAction: vsc.IndentAction.None, removeText: 1 },
+        action: { indentAction: qv.IndentAction.None, removeText: 1 },
       },
     ],
   });
 }
 
 let g_languageClient: LanguageClient = null;
-let g_context: vsc.ExtensionContext = null;
+let g_context: qv.ExtensionContext = null;
 let g_watchedEnvironmentFile: string = null;
-let g_startupNotification: vsc.StatusBarItem = null;
+let g_startupNotification: qv.StatusBarItem = null;
 
-export async function activate(ctx: vsc.ExtensionContext) {
+export async function activate(ctx: qv.ExtensionContext) {
   //console.log('Congratulations, your extension "semcode2" is now active!');
-  //let disposable = vsc.commands.registerCommand('semcode2.helloWorld', () => {
-  //  vsc.window.showInformationMessage('Hello World from SemCode2!');
+  //let disposable = qv.commands.registerCommand('semcode2.helloWorld', () => {
+  //  qv.window.showInformationMessage('Hello World from SemCode2!');
   //});
   //ctx.subscriptions.push(disposable);
 
-  if (vsc.extensions.getExtension('julialang.language-julia') && vsc.extensions.getExtension('julialang.language-julia-insider')) {
-    vsc.window.showErrorMessage(
+  if (qv.extensions.getExtension('julialang.language-julia') && qv.extensions.getExtension('julialang.language-julia-insider')) {
+    qv.window.showErrorMessage(
       'You have both the Julia Insider and regular Julia extension installed at the same time, which is not supported. Please uninstall or disable one of the two extensions.'
     );
     return;
@@ -233,8 +233,8 @@ export async function activate(ctx: vsc.ExtensionContext) {
 
   g_context = ctx;
   console.log('Activating extension language-julia');
-  ctx.subscriptions.push(vsc.workspace.onDidChangeConfiguration(changeConfig));
-  vsc.languages.setLanguageConfiguration('julia', {
+  ctx.subscriptions.push(qv.workspace.onDidChangeConfiguration(changeConfig));
+  qv.languages.setLanguageConfiguration('julia', {
     indentationRules: {
       increaseIndentPattern: /^(\s*|.*=\s*|.*@\w*\s*)[\w\s]*(?:["'`][^"'`]*["'`])*[\w\s]*\b(if|while|for|function|macro|(mutable\s+)?struct|abstract\s+type|primitive\s+type|let|quote|try|begin|.*\)\s*do|else|elseif|catch|finally)\b(?!(?:.*\bend\b[^\]]*)|(?:[^\[]*\].*)$).*$/,
       decreaseIndentPattern: /^\s*(end|else|elseif|catch|finally)\b.*$/,
@@ -248,13 +248,13 @@ export async function activate(ctx: vsc.ExtensionContext) {
   packs.activate(ctx);
   ctx.subscriptions.push(new JuliaDebugFeature(ctx));
   ctx.subscriptions.push(new packs.JuliaPackageDevFeature(ctx));
-  g_startupNotification = vsc.window.createStatusBarItem();
+  g_startupNotification = qv.window.createStatusBarItem();
   ctx.subscriptions.push(g_startupNotification);
   startLanguageServer();
   ctx.subscriptions.push(
-    vsc.commands.registerCommand('language-julia.refreshLanguageServer', refreshLanguageServer),
-    vsc.commands.registerCommand('language-julia.restartLanguageServer', restartLanguageServer),
-    vsc.workspace.registerTextDocumentContentProvider('juliavsodeprofilerresults', new qu.ProfilerResultsProvider())
+    qv.commands.registerCommand('language-julia.refreshLanguageServer', refreshLanguageServer),
+    qv.commands.registerCommand('language-julia.restartLanguageServer', restartLanguageServer),
+    qv.workspace.registerTextDocumentContentProvider('juliavsodeprofilerresults', new qu.ProfilerResultsProvider())
   );
   const api = {
     version: 2,
@@ -265,13 +265,13 @@ export async function activate(ctx: vsc.ExtensionContext) {
       return await packs.getJuliaExePath();
     },
     getPkgServer() {
-      return vsc.workspace.getConfiguration('julia').get('packageServer');
+      return qv.workspace.getConfiguration('julia').get('packageServer');
     },
   };
   return api;
 }
 
-const g_onSetLanguageClient = new vsc.EventEmitter<LanguageClient>();
+const g_onSetLanguageClient = new qv.EventEmitter<LanguageClient>();
 export const onSetLanguageClient = g_onSetLanguageClient.event;
 function setLanguageClient(c?: LanguageClient) {
   g_onSetLanguageClient.fire(c);
@@ -293,9 +293,9 @@ export async function withLanguageClient(callback: (c: LanguageClient) => any, c
   }
 }
 
-const g_onDidChangeConfig = new vsc.EventEmitter<vsc.ConfigurationChangeEvent>();
+const g_onDidChangeConfig = new qv.EventEmitter<qv.ConfigurationChangeEvent>();
 export const onDidChangeConfig = g_onDidChangeConfig.event;
-function changeConfig(event: vsc.ConfigurationChangeEvent) {
+function changeConfig(event: qv.ConfigurationChangeEvent) {
   g_onDidChangeConfig.fire(event);
   if (event.affectsConfiguration('julia.executablePath')) {
     restartLanguageServer();
@@ -309,8 +309,8 @@ async function startLanguageServer() {
   try {
     jlEnvPath = await packs.getAbsEnvPath();
   } catch (e) {
-    vsc.window.showErrorMessage('Could not start the Julia language server. Make sure the configuration setting julia.executablePath points to the Julia binary.');
-    vsc.window.showErrorMessage(e);
+    qv.window.showErrorMessage('Could not start the Julia language server. Make sure the configuration setting julia.executablePath points to the Julia binary.');
+    qv.window.showErrorMessage(e);
     g_startupNotification.hide();
     return;
   }
@@ -348,10 +348,10 @@ async function startLanguageServer() {
   const clientOptions: LanguageClientOptions = {
     documentSelector: ['julia', 'juliamarkdown'],
     synchronize: {
-      fileEvents: vsc.workspace.createFileSystemWatcher('**/*.{jl,jmd}'),
+      fileEvents: qv.workspace.createFileSystemWatcher('**/*.{jl,jmd}'),
     },
     revealOutputChannelOn: RevealOutputChannelOn.Never,
-    traceOutputChannel: vsc.window.createOutputChannel('Julia Language Server trace'),
+    traceOutputChannel: qv.window.createOutputChannel('Julia Language Server trace'),
     middleware: {
       provideCompletionItem: async (document, position, context, token, next) => {
         const validatedPosition = document.validatePosition(position);
@@ -381,7 +381,7 @@ async function startLanguageServer() {
       }
     });
   }
-  const disposable = vsc.commands.registerCommand('language-julia.showLanguageServerOutput', () => {
+  const disposable = qv.commands.registerCommand('language-julia.showLanguageServerOutput', () => {
     languageClient.outputChannel.show(true);
   });
   try {
@@ -393,7 +393,7 @@ async function startLanguageServer() {
       g_startupNotification.hide();
     });
   } catch (e) {
-    vsc.window.showErrorMessage('Could not start the Julia language server. Make sure the configuration setting julia.executablePath points to the Julia binary.');
+    qv.window.showErrorMessage('Could not start the Julia language server. Make sure the configuration setting julia.executablePath points to the Julia binary.');
     setLanguageClient();
     disposable.dispose();
     g_startupNotification.hide();

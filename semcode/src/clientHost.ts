@@ -1,8 +1,8 @@
-import * as vsc from 'vscode';
+import * as qv from 'vscode';
 import { DiagnosticKind } from './languageFeatures/diagnostics';
 import FileConfigurationManager from './languageFeatures/fileConfigurationManager';
 import LanguageProvider from './providers/language';
-import * as Proto from './protocol';
+import * as qp from './protocol';
 import * as PConst from './protocol.const';
 import { OngoingRequestCancellerFactory } from './tsServer/cancellation';
 import { ILogDirectoryProvider } from './tsServer/logDirectoryProvider';
@@ -40,7 +40,7 @@ export default class ServiceClientHost extends qu.Disposable {
 
   constructor(
     descriptions: LanguageDescription[],
-    context: vsc.ExtensionContext,
+    context: qv.ExtensionContext,
     onCaseInsenitiveFileSystem: boolean,
     services: {
       pluginManager: PluginManager;
@@ -51,7 +51,7 @@ export default class ServiceClientHost extends qu.Disposable {
       processFactory: TsServerProcessFactory;
       activeJsTsEditorTracker: ActiveJsTsEditorTracker;
     },
-    onCompletionAccepted: (item: vsc.CompletionItem) => void
+    onCompletionAccepted: (item: qv.CompletionItem) => void
   ) {
     super();
     this.commandManager = services.commandManager;
@@ -118,11 +118,11 @@ export default class ServiceClientHost extends qu.Disposable {
     this.client.onTsServerStarted(() => {
       this.triggerAllDiagnostics();
     });
-    vsc.workspace.onDidChangeConfiguration(this.configurationChanged, this, this._disposables);
+    qv.workspace.onDidChangeConfiguration(this.configurationChanged, this, this._disposables);
     this.configurationChanged();
   }
 
-  private registerExtensionLanguageProvider(d: LanguageDescription, onCompletionAccepted: (i: vsc.CompletionItem) => void) {
+  private registerExtensionLanguageProvider(d: LanguageDescription, onCompletionAccepted: (i: qv.CompletionItem) => void) {
     const manager = new LanguageProvider(this.client, d, this.commandManager, this.client.telemetryReporter, this.typingsStatus, this.fileConfigurationManager, onCompletionAccepted);
     this.languages.push(manager);
     this._register(manager);
@@ -143,20 +143,20 @@ export default class ServiceClientHost extends qu.Disposable {
     this.triggerAllDiagnostics();
   }
 
-  public async handles(r: vsc.Uri): Promise<boolean> {
+  public async handles(r: qv.Uri): Promise<boolean> {
     const provider = await this.findLanguage(r);
     if (provider) return true;
     return this.client.bufferSyncSupport.handles(r);
   }
 
   private configurationChanged(): void {
-    const c = vsc.workspace.getConfiguration('typescript');
+    const c = qv.workspace.getConfiguration('typescript');
     this.reportStyleCheckAsWarnings = c.get('reportStyleChecksAsWarnings', true);
   }
 
-  private async findLanguage(r: vsc.Uri): Promise<LanguageProvider | undefined> {
+  private async findLanguage(r: qv.Uri): Promise<LanguageProvider | undefined> {
     try {
-      const d = await vsc.workspace.openTextDocument(r);
+      const d = await qv.workspace.openTextDocument(r);
       return this.languages.find((l) => l.handles(r, d));
     } catch {
       return undefined;
@@ -176,12 +176,12 @@ export default class ServiceClientHost extends qu.Disposable {
     }
   }
 
-  private async diagnosticsReceived(k: DiagnosticKind, r: vsc.Uri, ds: Proto.Diagnostic[]): Promise<void> {
+  private async diagnosticsReceived(k: DiagnosticKind, r: qv.Uri, ds: qp.Diagnostic[]): Promise<void> {
     const l = await this.findLanguage(r);
     if (l) l.diagnosticsReceived(k, r, this.createMarkerDatas(ds, l.diagnosticSource));
   }
 
-  private configFileDiagnosticsReceived(e: Proto.ConfigFileDiagnosticEvent): void {
+  private configFileDiagnosticsReceived(e: qp.ConfigFileDiagnosticEvent): void {
     const b = e.body;
     if (!b || !b.diagnostics || !b.configFile) return;
     this.findLanguage(this.client.toResource(b.configFile)).then((l) => {
@@ -189,8 +189,8 @@ export default class ServiceClientHost extends qu.Disposable {
       l.configFileDiagnosticsReceived(
         this.client.toResource(b.configFile),
         b.diagnostics.map((d) => {
-          const r = d.start && d.end ? qu.Range.fromTextSpan(d) : new vsc.Range(0, 0, 0, 1);
-          const y = new vsc.Diagnostic(r, b.diagnostics[0].text, this.getDiagnosticSeverity(d));
+          const r = d.start && d.end ? qu.Range.fromTextSpan(d) : new qv.Range(0, 0, 0, 1);
+          const y = new qv.Diagnostic(r, b.diagnostics[0].text, this.getDiagnosticSeverity(d));
           y.source = l.diagnosticSource;
           return y;
         })
@@ -198,14 +198,14 @@ export default class ServiceClientHost extends qu.Disposable {
     });
   }
 
-  private createMarkerDatas(ds: Proto.Diagnostic[], src: string): (vsc.Diagnostic & { reportUnnecessary: any; reportDeprecated: any })[] {
+  private createMarkerDatas(ds: qp.Diagnostic[], src: string): (qv.Diagnostic & { reportUnnecessary: any; reportDeprecated: any })[] {
     return ds.map((d) => this.tsDiagnosticToVsDiagnostic(d, src));
   }
 
-  private tsDiagnosticToVsDiagnostic(d: Proto.Diagnostic, src: string): vsc.Diagnostic & { reportUnnecessary: any; reportDeprecated: any } {
+  private tsDiagnosticToVsDiagnostic(d: qp.Diagnostic, src: string): qv.Diagnostic & { reportUnnecessary: any; reportDeprecated: any } {
     const { start, end, text } = d;
-    const r = new vsc.Range(qu.Position.fromLocation(start), qu.Position.fromLocation(end));
-    const v = new vsc.Diagnostic(r, text, this.getDiagnosticSeverity(d));
+    const r = new qv.Range(qu.Position.fromLocation(start), qu.Position.fromLocation(end));
+    const v = new qv.Diagnostic(r, text, this.getDiagnosticSeverity(d));
     v.source = d.source || src;
     if (d.code) v.code = d.code;
     const i = d.relatedInformation;
@@ -214,33 +214,33 @@ export default class ServiceClientHost extends qu.Disposable {
         i.map((info: any) => {
           const s = info.span;
           if (!s) return undefined;
-          return new vsc.DiagnosticRelatedInformation(qu.Location.fromTextSpan(this.client.toResource(s.file), s), info.message);
+          return new qv.DiagnosticRelatedInformation(qu.Location.fromTextSpan(this.client.toResource(s.file), s), info.message);
         })
       );
     }
-    const ts: vsc.DiagnosticTag[] = [];
-    if (d.reportsUnnecessary) ts.push(vsc.DiagnosticTag.Unnecessary);
-    if (d.reportsDeprecated) ts.push(vsc.DiagnosticTag.Deprecated);
+    const ts: qv.DiagnosticTag[] = [];
+    if (d.reportsUnnecessary) ts.push(qv.DiagnosticTag.Unnecessary);
+    if (d.reportsDeprecated) ts.push(qv.DiagnosticTag.Deprecated);
     v.tags = ts.length ? ts : undefined;
-    const y = v as vsc.Diagnostic & { reportUnnecessary: any; reportDeprecated: any };
+    const y = v as qv.Diagnostic & { reportUnnecessary: any; reportDeprecated: any };
     y.reportUnnecessary = d.reportsUnnecessary;
     y.reportDeprecated = d.reportsDeprecated;
     return y;
   }
 
-  private getDiagnosticSeverity(d: Proto.Diagnostic): vsc.DiagnosticSeverity {
+  private getDiagnosticSeverity(d: qp.Diagnostic): qv.DiagnosticSeverity {
     if (this.reportStyleCheckAsWarnings && this.isStyleCheckDiagnostic(d.code) && d.category === PConst.DiagnosticCategory.error) {
-      return vsc.DiagnosticSeverity.Warning;
+      return qv.DiagnosticSeverity.Warning;
     }
     switch (d.category) {
       case PConst.DiagnosticCategory.error:
-        return vsc.DiagnosticSeverity.Error;
+        return qv.DiagnosticSeverity.Error;
       case PConst.DiagnosticCategory.warning:
-        return vsc.DiagnosticSeverity.Warning;
+        return qv.DiagnosticSeverity.Warning;
       case PConst.DiagnosticCategory.suggestion:
-        return vsc.DiagnosticSeverity.Hint;
+        return qv.DiagnosticSeverity.Hint;
       default:
-        return vsc.DiagnosticSeverity.Error;
+        return qv.DiagnosticSeverity.Error;
     }
   }
 

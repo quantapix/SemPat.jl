@@ -1,18 +1,18 @@
-import * as vsc from 'vscode';
 import { ClientCap, ServiceClient } from '../service';
 import { condRegistration, requireSomeCap } from '../registration';
 import * as qu from '../utils';
+import * as qv from 'vscode';
 
-class Reference implements vsc.ReferenceProvider {
+class Reference implements qv.ReferenceProvider {
   public constructor(private readonly client: ServiceClient) {}
 
-  public async provideReferences(d: vsc.TextDocument, p: vsc.Position, c: vsc.ReferenceContext, t: vsc.CancellationToken): Promise<vsc.Location[]> {
+  public async provideReferences(d: qv.TextDocument, p: qv.Position, c: qv.ReferenceContext, t: qv.CancellationToken): Promise<qv.Location[]> {
     const f = this.client.toOpenedFilePath(d);
     if (!f) return [];
     const xs = qu.Position.toFileLocationRequestArgs(f, p);
     const v = await this.client.execute('references', xs, t);
     if (v.type !== 'response' || !v.body) return [];
-    const ys: vsc.Location[] = [];
+    const ys: qv.Location[] = [];
     for (const r of v.body.refs) {
       if (!c.includeDeclaration && r.isDefinition) continue;
       const u = this.client.toResource(r.file);
@@ -24,6 +24,6 @@ class Reference implements vsc.ReferenceProvider {
 
 export function register(s: qu.DocumentSelector, c: ServiceClient) {
   return condRegistration([requireSomeCap(c, ClientCap.EnhancedSyntax, ClientCap.Semantic)], () => {
-    return vsc.languages.registerReferenceProvider(s.syntax, new Reference(c));
+    return qv.languages.registerReferenceProvider(s.syntax, new Reference(c));
   });
 }

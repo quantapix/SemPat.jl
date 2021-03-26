@@ -1,15 +1,15 @@
-import * as vsc from 'vscode';
-import type * as Proto from '../protocol';
-import * as PConst from '../protocol.const';
-import { ServiceClient } from '../service';
-import API from '../../old/ts/utils/api';
 import { doesResourceLookLikeAJavaScriptFile, doesResourceLookLikeATypeScriptFile } from '../../old/ts/utils/languageDescription';
+import { ServiceClient } from '../service';
+import * as PConst from '../protocol.const';
 import * as qu from '../utils';
+import * as qv from 'vscode';
+import API from '../../old/ts/utils/api';
+import type * as qp from '../protocol';
 
-class WsSymbol implements vsc.WorkspaceSymbolProvider {
+class WsSymbol implements qv.WorkspaceSymbolProvider {
   public constructor(private readonly client: ServiceClient, private readonly modeIds: readonly string[]) {}
 
-  public async provideWorkspaceSymbols(search: string, t: vsc.CancellationToken): Promise<vsc.SymbolInformation[]> {
+  public async provideWorkspaceSymbols(search: string, t: qv.CancellationToken): Promise<qv.SymbolInformation[]> {
     let f: string | undefined;
     if (this.searchAllOpenProjects) f = undefined;
     else {
@@ -17,7 +17,7 @@ class WsSymbol implements vsc.WorkspaceSymbolProvider {
       f = d ? await this.toOpenedFiledPath(d) : undefined;
       if (!f && this.client.apiVersion.lt(API.v390)) return [];
     }
-    const xs: Proto.NavtoRequestArgs = {
+    const xs: qp.NavtoRequestArgs = {
       file: f,
       searchValue: search,
       maxResultCount: 256,
@@ -28,15 +28,15 @@ class WsSymbol implements vsc.WorkspaceSymbolProvider {
   }
 
   private get searchAllOpenProjects() {
-    return this.client.apiVersion.gte(API.v390) && vsc.workspace.getConfiguration('typescript').get('workspaceSymbols.scope', 'allOpenProjects') === 'allOpenProjects';
+    return this.client.apiVersion.gte(API.v390) && qv.workspace.getConfiguration('typescript').get('workspaceSymbols.scope', 'allOpenProjects') === 'allOpenProjects';
   }
 
-  private async toOpenedFiledPath(d: vsc.TextDocument) {
+  private async toOpenedFiledPath(d: qv.TextDocument) {
     if (d.uri.scheme === qu.git) {
       try {
-        const p = vsc.Uri.file(JSON.parse(d.uri.query)?.path);
+        const p = qv.Uri.file(JSON.parse(d.uri.query)?.path);
         if (doesResourceLookLikeATypeScriptFile(p) || doesResourceLookLikeAJavaScriptFile(p)) {
-          const x = await vsc.workspace.openTextDocument(p);
+          const x = await qv.workspace.openTextDocument(p);
           return this.client.toOpenedFilePath(x);
         }
       } catch {
@@ -46,20 +46,20 @@ class WsSymbol implements vsc.WorkspaceSymbolProvider {
     return this.client.toOpenedFilePath(d);
   }
 
-  private toSymbolInformation(i: Proto.NavtoItem) {
+  private toSymbolInformation(i: qp.NavtoItem) {
     const l = getLabel(i);
-    const y = new vsc.SymbolInformation(l, getSymbolKind(i), i.containerName || '', qu.Location.fromTextSpan(this.client.toResource(i.file), i));
+    const y = new qv.SymbolInformation(l, getSymbolKind(i), i.containerName || '', qu.Location.fromTextSpan(this.client.toResource(i.file), i));
     const ms = i.kindModifiers ? qu.parseKindModifier(i.kindModifiers) : undefined;
-    if (ms?.has(PConst.KindModifiers.depreacted)) y.tags = [vsc.SymbolTag.Deprecated];
+    if (ms?.has(PConst.KindModifiers.depreacted)) y.tags = [qv.SymbolTag.Deprecated];
     return y;
   }
 
-  private getDocument(): vsc.TextDocument | undefined {
-    const d = vsc.window.activeTextEditor?.document;
+  private getDocument(): qv.TextDocument | undefined {
+    const d = qv.window.activeTextEditor?.document;
     if (d) {
       if (this.modeIds.includes(d.languageId)) return d;
     }
-    const ds = vsc.workspace.textDocuments;
+    const ds = qv.workspace.textDocuments;
     for (const d of ds) {
       if (this.modeIds.includes(d.languageId)) return d;
     }
@@ -68,39 +68,39 @@ class WsSymbol implements vsc.WorkspaceSymbolProvider {
 }
 
 export function register(c: ServiceClient, ids: readonly string[]) {
-  return vsc.languages.registerWorkspaceSymbolProvider(new WsSymbol(c, ids));
+  return qv.languages.registerWorkspaceSymbolProvider(new WsSymbol(c, ids));
 }
 
-function getLabel(i: Proto.NavtoItem) {
+function getLabel(i: qp.NavtoItem) {
   const n = i.name;
   return i.kind === 'method' || i.kind === 'function' ? n + '()' : n;
 }
 
-function getSymbolKind(i: Proto.NavtoItem): vsc.SymbolKind {
+function getSymbolKind(i: qp.NavtoItem): qv.SymbolKind {
   switch (i.kind) {
     case PConst.Kind.method:
-      return vsc.SymbolKind.Method;
+      return qv.SymbolKind.Method;
     case PConst.Kind.enum:
-      return vsc.SymbolKind.Enum;
+      return qv.SymbolKind.Enum;
     case PConst.Kind.enumMember:
-      return vsc.SymbolKind.EnumMember;
+      return qv.SymbolKind.EnumMember;
     case PConst.Kind.function:
-      return vsc.SymbolKind.Function;
+      return qv.SymbolKind.Function;
     case PConst.Kind.class:
-      return vsc.SymbolKind.Class;
+      return qv.SymbolKind.Class;
     case PConst.Kind.interface:
-      return vsc.SymbolKind.Interface;
+      return qv.SymbolKind.Interface;
     case PConst.Kind.type:
-      return vsc.SymbolKind.Class;
+      return qv.SymbolKind.Class;
     case PConst.Kind.memberVariable:
-      return vsc.SymbolKind.Field;
+      return qv.SymbolKind.Field;
     case PConst.Kind.memberGetAccessor:
-      return vsc.SymbolKind.Field;
+      return qv.SymbolKind.Field;
     case PConst.Kind.memberSetAccessor:
-      return vsc.SymbolKind.Field;
+      return qv.SymbolKind.Field;
     case PConst.Kind.variable:
-      return vsc.SymbolKind.Variable;
+      return qv.SymbolKind.Variable;
     default:
-      return vsc.SymbolKind.Variable;
+      return qv.SymbolKind.Variable;
   }
 }

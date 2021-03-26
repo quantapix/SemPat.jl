@@ -1,12 +1,12 @@
-import * as vscode from 'vscode';
-import type * as Proto from '../protocol';
 import { ServiceClient } from '../service';
 import * as qu from '../utils';
+import * as qv from 'vscode';
+import type * as qp from '../protocol';
 
-class Highlight implements vscode.DocumentHighlightProvider {
+class Highlight implements qv.DocumentHighlightProvider {
   public constructor(private readonly client: ServiceClient) {}
 
-  public async provideDocumentHighlights(d: vscode.TextDocument, p: vscode.Position, t: vscode.CancellationToken): Promise<vscode.DocumentHighlight[]> {
+  public async provideDocumentHighlights(d: qv.TextDocument, p: qv.Position, t: qv.CancellationToken): Promise<qv.DocumentHighlight[]> {
     const f = this.client.toOpenedFilePath(d);
     if (!f) return [];
     const xs = {
@@ -19,10 +19,10 @@ class Highlight implements vscode.DocumentHighlightProvider {
   }
 }
 
-function convertDocumentHighlight(i: Proto.DocumentHighlightsItem): ReadonlyArray<vscode.DocumentHighlight> {
-  return i.highlightSpans.map((s) => new vscode.DocumentHighlight(qu.Range.fromTextSpan(s), s.kind === 'writtenReference' ? vscode.DocumentHighlightKind.Write : vscode.DocumentHighlightKind.Read));
+function convertDocumentHighlight(i: qp.DocumentHighlightsItem): ReadonlyArray<qv.DocumentHighlight> {
+  return i.highlightSpans.map((s) => new qv.DocumentHighlight(qu.Range.fromTextSpan(s), s.kind === 'writtenReference' ? qv.DocumentHighlightKind.Write : qv.DocumentHighlightKind.Read));
 }
 
 export function register(s: qu.DocumentSelector, c: ServiceClient) {
-  return vscode.languages.registerDocumentHighlightProvider(s.syntax, new Highlight(c));
+  return qv.languages.registerDocumentHighlightProvider(s.syntax, new Highlight(c));
 }

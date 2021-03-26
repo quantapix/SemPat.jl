@@ -4,9 +4,9 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as PConst from './protocol.const';
-import * as vsc from 'vscode';
+import * as qv from 'vscode';
 import * as vslc from 'vscode-languageclient';
-import type * as Proto from './protocol';
+import type * as qp from './protocol';
 import { isArray } from '../old/py/common/core';
 
 export const empty = Object.freeze([]);
@@ -30,10 +30,10 @@ export function coalesce<T>(a: ReadonlyArray<T | undefined>): T[] {
 }
 
 export function startSpinner(m: string) {
-  vsc.window.setStatusBarMessage(`Rust: $(settings-gear~spin) ${m}`);
+  qv.window.setStatusBarMessage(`Rust: $(settings-gear~spin) ${m}`);
 }
 export function stopSpinner(m?: string) {
-  vsc.window.setStatusBarMessage(m ? `Rust: ${m}` : 'Rust');
+  qv.window.setStatusBarMessage(m ? `Rust: ${m}` : 'Rust');
 }
 
 export function parseKindModifier(ms: string): Set<string> {
@@ -41,8 +41,8 @@ export function parseKindModifier(ms: string): Set<string> {
 }
 
 export interface DocumentSelector {
-  readonly syntax: readonly vsc.DocumentFilter[];
-  readonly semantic: readonly vsc.DocumentFilter[];
+  readonly syntax: readonly qv.DocumentFilter[];
+  readonly semantic: readonly qv.DocumentFilter[];
 }
 
 export class Observable<T> {
@@ -55,7 +55,7 @@ export class Observable<T> {
     this._val = v;
     this._sinks.forEach((f) => f(v));
   }
-  public observe(f: (t: T) => void): vsc.Disposable {
+  public observe(f: (t: T) => void): qv.Disposable {
     this._sinks.add(f);
     return { dispose: () => this._sinks.delete(f) };
   }
@@ -75,7 +75,7 @@ export class Lazy<T> {
   }
 }
 
-export function nearestParentWorkspace(curWorkspace: vsc.WorkspaceFolder, filePath: string): vsc.WorkspaceFolder {
+export function nearestParentWorkspace(curWorkspace: qv.WorkspaceFolder, filePath: string): qv.WorkspaceFolder {
   const root = curWorkspace.uri.fsPath;
   const rootManifest = path.join(root, 'Cargo.toml');
   if (fs.existsSync(rootManifest)) return curWorkspace;
@@ -90,21 +90,21 @@ export function nearestParentWorkspace(curWorkspace: vsc.WorkspaceFolder, filePa
       return {
         ...curWorkspace,
         name: path.basename(cur),
-        uri: vsc.Uri.file(cur),
+        uri: qv.Uri.file(cur),
       };
     }
   }
   return curWorkspace;
 }
 
-export function getOuterMostWorkspaceFolder(f: vsc.WorkspaceFolder): vsc.WorkspaceFolder {
-  const fs = (vsc.workspace.workspaceFolders || []).map((x) => normalizeUriToPathPrefix(x.uri)).sort((a, b) => a.length - b.length);
+export function getOuterMostWorkspaceFolder(f: qv.WorkspaceFolder): qv.WorkspaceFolder {
+  const fs = (qv.workspace.workspaceFolders || []).map((x) => normalizeUriToPathPrefix(x.uri)).sort((a, b) => a.length - b.length);
   const uri = normalizeUriToPathPrefix(f.uri);
   const p = fs.find((x) => uri.startsWith(x));
-  return p ? vsc.workspace.getWorkspaceFolder(vsc.Uri.parse(p)) || f : f;
+  return p ? qv.workspace.getWorkspaceFolder(qv.Uri.parse(p)) || f : f;
 }
 
-function normalizeUriToPathPrefix(u: vsc.Uri): string {
+function normalizeUriToPathPrefix(u: qv.Uri): string {
   let y = u.toString();
   if (y.charAt(y.length - 1) !== '/') y = y + '/';
   return y;
@@ -114,7 +114,7 @@ export function constructCommandString(c: string, xs = {}) {
   return `command:${c}?${encodeURIComponent(JSON.stringify(xs))}`;
 }
 
-export function getVersionedParamsAtPosition(d: vsc.TextDocument, p: vsc.Position): VersionedTextDocumentPositionParams {
+export function getVersionedParamsAtPosition(d: qv.TextDocument, p: qv.Position): VersionedTextDocumentPositionParams {
   return {
     textDocument: vslc.TextDocumentIdentifier.create(d.uri.toString()),
     version: d.version,
@@ -123,7 +123,7 @@ export function getVersionedParamsAtPosition(d: vsc.TextDocument, p: vsc.Positio
 }
 
 export function setContext(k: string, v: boolean) {
-  vsc.commands.executeCommand('setContext', k, v);
+  qv.commands.executeCommand('setContext', k, v);
 }
 
 export function generatePipeName(pid: string, n: string) {
@@ -132,7 +132,7 @@ export function generatePipeName(pid: string, n: string) {
 }
 
 export function inferJuliaNumThreads(): string {
-  const config: number | undefined = vsc.workspace.getConfiguration('julia').get('NumThreads') ?? undefined;
+  const config: number | undefined = qv.workspace.getConfiguration('julia').get('NumThreads') ?? undefined;
   const env: string | undefined = process.env['JULIA_NUM_THREADS'];
   if (config !== undefined) {
     return config.toString();
@@ -143,75 +143,75 @@ export function inferJuliaNumThreads(): string {
   }
 }
 
-export function activate(c: vsc.ExtensionContext) {
-  c.subscriptions.push(vsc.commands.registerCommand('language-julia.applytextedit', applyTextEdit));
-  c.subscriptions.push(vsc.commands.registerCommand('language-julia.toggleLinter', toggleLinter));
+export function activate(c: qv.ExtensionContext) {
+  c.subscriptions.push(qv.commands.registerCommand('language-julia.applytextedit', applyTextEdit));
+  c.subscriptions.push(qv.commands.registerCommand('language-julia.toggleLinter', toggleLinter));
 }
 
 function applyTextEdit(x: any) {
-  const we = new vsc.WorkspaceEdit();
+  const we = new qv.WorkspaceEdit();
   for (const e of x.documentChanges[0].edits) {
-    we.replace(x.documentChanges[0].textDocument.uri, new vsc.Range(e.range.start.line, e.range.start.character, e.range.end.line, e.range.end.character), e.newText);
+    we.replace(x.documentChanges[0].textDocument.uri, new qv.Range(e.range.start.line, e.range.start.character, e.range.end.line, e.range.end.character), e.newText);
   }
-  vsc.workspace.applyEdit(we);
+  qv.workspace.applyEdit(we);
 }
 
 function toggleLinter() {
-  const cval = vsc.workspace.getConfiguration('julia').get('lint.run', false);
-  vsc.workspace.getConfiguration('julia').update('lint.run', !cval, true);
+  const cval = qv.workspace.getConfiguration('julia').get('lint.run', false);
+  qv.workspace.getConfiguration('julia').update('lint.run', !cval, true);
 }
 
 const g_profilerResults = new Map<string, string>();
 
-export class ProfilerResultsProvider implements vsc.TextDocumentContentProvider {
-  provideTextDocumentContent(uri: vsc.Uri) {
+export class ProfilerResultsProvider implements qv.TextDocumentContentProvider {
+  provideTextDocumentContent(uri: qv.Uri) {
     return g_profilerResults.get(uri.toString());
   }
 }
 
-export function addProfilerResult(uri: vsc.Uri, content: string) {
+export function addProfilerResult(uri: qv.Uri, content: string) {
   g_profilerResults.set(uri.toString(), content);
 }
 
 export async function showProfileResult(params: { content: string }) {
   const new_uuid = uuid();
-  const uri = vsc.Uri.parse('juliavsodeprofilerresults:' + new_uuid.toString() + '.cpuprofile');
+  const uri = qv.Uri.parse('juliavsodeprofilerresults:' + new_uuid.toString() + '.cpuprofile');
   addProfilerResult(uri, params.content);
-  const doc = await vsc.workspace.openTextDocument(uri);
-  await vsc.window.showTextDocument(doc, { preview: false });
+  const doc = await qv.workspace.openTextDocument(uri);
+  await qv.window.showTextDocument(doc, { preview: false });
 }
 
 export async function showProfileResultFile(params: { filename: string }) {
-  const uri = vsc.Uri.file(params.filename);
-  await vsc.commands.executeCommand('vsc.open', uri, {
+  const uri = qv.Uri.file(params.filename);
+  await qv.commands.executeCommand('qv.open', uri, {
     preserveFocuse: true,
     preview: false,
-    viewColumn: vsc.ViewColumn.Beside,
+    viewColumn: qv.ViewColumn.Beside,
   });
 }
 
 export interface VersionedTextDocumentPositionParams {
   textDocument: vslc.TextDocumentIdentifier;
   version: number;
-  position: vsc.Position;
+  position: qv.Position;
 }
 
 export namespace Range {
-  export const fromTextSpan = (s: Proto.TextSpan): vsc.Range => fromLocations(s.start, s.end);
-  export const toTextSpan = (r: vsc.Range): Proto.TextSpan => ({
+  export const fromTextSpan = (s: qp.TextSpan): qv.Range => fromLocations(s.start, s.end);
+  export const toTextSpan = (r: qv.Range): qp.TextSpan => ({
     start: Position.toLocation(r.start),
     end: Position.toLocation(r.end),
   });
-  export const fromLocations = (start: Proto.Location, end: Proto.Location): vsc.Range =>
-    new vsc.Range(Math.max(0, start.line - 1), Math.max(start.offset - 1, 0), Math.max(0, end.line - 1), Math.max(0, end.offset - 1));
-  export const toFileRangeRequestArgs = (file: string, r: vsc.Range): Proto.FileRangeRequestArgs => ({
+  export const fromLocations = (start: qp.Location, end: qp.Location): qv.Range =>
+    new qv.Range(Math.max(0, start.line - 1), Math.max(start.offset - 1, 0), Math.max(0, end.line - 1), Math.max(0, end.offset - 1));
+  export const toFileRangeRequestArgs = (file: string, r: qv.Range): qp.FileRangeRequestArgs => ({
     file,
     startLine: r.start.line + 1,
     startOffset: r.start.character + 1,
     endLine: r.end.line + 1,
     endOffset: r.end.character + 1,
   });
-  export const toFormattingRequestArgs = (file: string, r: vsc.Range): Proto.FormatRequestArgs => ({
+  export const toFormattingRequestArgs = (file: string, r: qv.Range): qp.FormatRequestArgs => ({
     file,
     line: r.start.line + 1,
     offset: r.start.character + 1,
@@ -221,12 +221,12 @@ export namespace Range {
 }
 
 export namespace Position {
-  export const fromLocation = (l: Proto.Location): vsc.Position => new vsc.Position(l.line - 1, l.offset - 1);
-  export const toLocation = (p: vsc.Position): Proto.Location => ({
+  export const fromLocation = (l: qp.Location): qv.Position => new qv.Position(l.line - 1, l.offset - 1);
+  export const toLocation = (p: qv.Position): qp.Location => ({
     line: p.line + 1,
     offset: p.character + 1,
   });
-  export const toFileLocationRequestArgs = (file: string, p: vsc.Position): Proto.FileLocationRequestArgs => ({
+  export const toFileLocationRequestArgs = (file: string, p: qv.Position): qp.FileLocationRequestArgs => ({
     file,
     line: p.line + 1,
     offset: p.character + 1,
@@ -234,18 +234,18 @@ export namespace Position {
 }
 
 export namespace Location {
-  export const fromTextSpan = (r: vsc.Uri, s: Proto.TextSpan): vsc.Location => new vsc.Location(r, Range.fromTextSpan(s));
+  export const fromTextSpan = (r: qv.Uri, s: qp.TextSpan): qv.Location => new qv.Location(r, Range.fromTextSpan(s));
 }
 
 export namespace TextEdit {
-  export const fromCodeEdit = (e: Proto.CodeEdit): vsc.TextEdit => new vsc.TextEdit(Range.fromTextSpan(e), e.newText);
+  export const fromCodeEdit = (e: qp.CodeEdit): qv.TextEdit => new qv.TextEdit(Range.fromTextSpan(e), e.newText);
 }
 
 export namespace WorkspaceEdit {
-  export function fromFileCodeEdits(c: ServiceClient, es: Iterable<Proto.FileCodeEdits>): vsc.WorkspaceEdit {
-    return withFileCodeEdits(new vsc.WorkspaceEdit(), c, es);
+  export function fromFileCodeEdits(c: ServiceClient, es: Iterable<qp.FileCodeEdits>): qv.WorkspaceEdit {
+    return withFileCodeEdits(new qv.WorkspaceEdit(), c, es);
   }
-  export function withFileCodeEdits(w: vsc.WorkspaceEdit, c: ServiceClient, es: Iterable<Proto.FileCodeEdits>): vsc.WorkspaceEdit {
+  export function withFileCodeEdits(w: qv.WorkspaceEdit, c: ServiceClient, es: Iterable<qp.FileCodeEdits>): qv.WorkspaceEdit {
     for (const e of es) {
       const r = c.toResource(e.fileName);
       for (const d of e.textChanges) {
@@ -257,59 +257,59 @@ export namespace WorkspaceEdit {
 }
 
 export namespace SymbolKind {
-  export function fromProtocolScriptElementKind(k: Proto.ScriptElementKind) {
+  export function fromProtocolScriptElementKind(k: qp.ScriptElementKind) {
     switch (k) {
       case PConst.Kind.module:
-        return vsc.SymbolKind.Module;
+        return qv.SymbolKind.Module;
       case PConst.Kind.class:
-        return vsc.SymbolKind.Class;
+        return qv.SymbolKind.Class;
       case PConst.Kind.enum:
-        return vsc.SymbolKind.Enum;
+        return qv.SymbolKind.Enum;
       case PConst.Kind.enumMember:
-        return vsc.SymbolKind.EnumMember;
+        return qv.SymbolKind.EnumMember;
       case PConst.Kind.interface:
-        return vsc.SymbolKind.Interface;
+        return qv.SymbolKind.Interface;
       case PConst.Kind.indexSignature:
-        return vsc.SymbolKind.Method;
+        return qv.SymbolKind.Method;
       case PConst.Kind.callSignature:
-        return vsc.SymbolKind.Method;
+        return qv.SymbolKind.Method;
       case PConst.Kind.method:
-        return vsc.SymbolKind.Method;
+        return qv.SymbolKind.Method;
       case PConst.Kind.memberVariable:
-        return vsc.SymbolKind.Property;
+        return qv.SymbolKind.Property;
       case PConst.Kind.memberGetAccessor:
-        return vsc.SymbolKind.Property;
+        return qv.SymbolKind.Property;
       case PConst.Kind.memberSetAccessor:
-        return vsc.SymbolKind.Property;
+        return qv.SymbolKind.Property;
       case PConst.Kind.variable:
-        return vsc.SymbolKind.Variable;
+        return qv.SymbolKind.Variable;
       case PConst.Kind.let:
-        return vsc.SymbolKind.Variable;
+        return qv.SymbolKind.Variable;
       case PConst.Kind.const:
-        return vsc.SymbolKind.Variable;
+        return qv.SymbolKind.Variable;
       case PConst.Kind.localVariable:
-        return vsc.SymbolKind.Variable;
+        return qv.SymbolKind.Variable;
       case PConst.Kind.alias:
-        return vsc.SymbolKind.Variable;
+        return qv.SymbolKind.Variable;
       case PConst.Kind.function:
-        return vsc.SymbolKind.Function;
+        return qv.SymbolKind.Function;
       case PConst.Kind.localFunction:
-        return vsc.SymbolKind.Function;
+        return qv.SymbolKind.Function;
       case PConst.Kind.constructSignature:
-        return vsc.SymbolKind.Constructor;
+        return qv.SymbolKind.Constructor;
       case PConst.Kind.constructorImplementation:
-        return vsc.SymbolKind.Constructor;
+        return qv.SymbolKind.Constructor;
       case PConst.Kind.typeParameter:
-        return vsc.SymbolKind.TypeParameter;
+        return qv.SymbolKind.TypeParameter;
       case PConst.Kind.string:
-        return vsc.SymbolKind.String;
+        return qv.SymbolKind.String;
       default:
-        return vsc.SymbolKind.Variable;
+        return qv.SymbolKind.Variable;
     }
   }
 }
 
-export function disposeAll(ds: vsc.Disposable[]) {
+export function disposeAll(ds: qv.Disposable[]) {
   while (ds.length) {
     const d = ds.pop();
     if (d) d.dispose();
@@ -318,13 +318,13 @@ export function disposeAll(ds: vsc.Disposable[]) {
 
 export abstract class Disposable {
   private _done = false;
-  protected _ds: vsc.Disposable[] = [];
+  protected _ds: qv.Disposable[] = [];
   public dispose(): any {
     if (this._done) return;
     this._done = true;
     disposeAll(this._ds);
   }
-  protected _register<T extends vsc.Disposable>(x: T | T[]) {
+  protected _register<T extends qv.Disposable>(x: T | T[]) {
     if (isArray(x)) {
       for (const t of x) {
         this._register(t);
@@ -348,31 +348,31 @@ export const vscodeNotebookCell = 'vscode-notebook-cell';
 export const semanticSupportedSchemes = [file, untitled, walkThroughSnippet, vscodeNotebookCell];
 export const disabledSchemes = new Set([git, vsls]);
 
-export async function exists(r: vsc.Uri): Promise<boolean> {
+export async function exists(r: qv.Uri): Promise<boolean> {
   try {
-    const s = await vsc.workspace.fs.stat(r);
-    return !!(s.type & vsc.FileType.File);
+    const s = await qv.workspace.fs.stat(r);
+    return !!(s.type & qv.FileType.File);
   } catch {
     return false;
   }
 }
 
+export const addMissingAwait = 'addMissingAwait';
 export const annotateWithTypeFromJSDoc = 'annotateWithTypeFromJSDoc';
+export const awaitInSyncFunction = 'fixAwaitInSyncFunction';
+export const classDoesntImplementInheritedAbstractMember = 'fixClassDoesntImplementInheritedAbstractMember';
+export const classIncorrectlyImplementsInterface = 'fixClassIncorrectlyImplementsInterface';
 export const constructorForDerivedNeedSuperCall = 'constructorForDerivedNeedSuperCall';
 export const extendsInterfaceBecomesImplements = 'extendsInterfaceBecomesImplements';
-export const awaitInSyncFunction = 'fixAwaitInSyncFunction';
-export const classIncorrectlyImplementsInterface = 'fixClassIncorrectlyImplementsInterface';
-export const classDoesntImplementInheritedAbstractMember = 'fixClassDoesntImplementInheritedAbstractMember';
+export const fixImport = 'import';
 export const fixUnreachableCode = 'fixUnreachableCode';
-export const unusedIdentifier = 'unusedIdentifier';
 export const forgottenThisPropertyAccess = 'forgottenThisPropertyAccess';
 export const spelling = 'spelling';
-export const fixImport = 'import';
-export const addMissingAwait = 'addMissingAwait';
+export const unusedIdentifier = 'unusedIdentifier';
 
-const noopDisposable = vsc.Disposable.from();
+const noopDisposable = qv.Disposable.from();
 
-export const nulToken: vsc.CancellationToken = {
+export const nulToken: qv.CancellationToken = {
   isCancellationRequested: false,
   onCancellationRequested: () => noopDisposable,
 };
@@ -435,19 +435,19 @@ export const cannotFindName = new Set([2552, 2304]);
 export const extendsShouldBeImplements = new Set([2689]);
 export const asyncOnlyAllowedInAsyncFunctions = new Set([1308]);
 
-export function getEditForCodeAction(c: ServiceClient, a: Proto.CodeAction): vsc.WorkspaceEdit | undefined {
+export function getEditForCodeAction(c: ServiceClient, a: qp.CodeAction): qv.WorkspaceEdit | undefined {
   return a.changes && a.changes.length ? WorkspaceEdit.fromFileCodeEdits(c, a.changes) : undefined;
 }
 
-export async function applyCodeAction(c: ServiceClient, a: Proto.CodeAction, t: vsc.CancellationToken): Promise<boolean> {
+export async function applyCodeAction(c: ServiceClient, a: qp.CodeAction, t: qv.CancellationToken): Promise<boolean> {
   const e = getEditForCodeAction(c, a);
   if (e) {
-    if (!(await vsc.workspace.applyEdit(e))) return false;
+    if (!(await qv.workspace.applyEdit(e))) return false;
   }
   return applyCodeActionCommands(c, a.commands, t);
 }
 
-export async function applyCodeActionCommands(c: ServiceClient, cs: ReadonlyArray<{}> | undefined, t: vsc.CancellationToken): Promise<boolean> {
+export async function applyCodeActionCommands(c: ServiceClient, cs: ReadonlyArray<{}> | undefined, t: qv.CancellationToken): Promise<boolean> {
   if (cs && cs.length) {
     for (const command of cs) {
       await c.execute('applyCodeActionCommand', { command }, t);
@@ -509,7 +509,7 @@ export function escapeRegExp(s: string) {
 
 export class RelativeWorkspacePathResolver {
   public static asAbsoluteWorkspacePath(p: string): string | undefined {
-    for (const r of vsc.workspace.workspaceFolders || []) {
+    for (const r of qv.workspace.workspaceFolders || []) {
       const pres = [`./${r.name}/`, `${r.name}/`, `.\\${r.name}\\`, `${r.name}\\`];
       for (const s of pres) {
         if (p.startsWith(s)) return path.join(r.uri.fsPath, p.replace(s, ''));
@@ -520,15 +520,15 @@ export class RelativeWorkspacePathResolver {
 }
 
 export class ResourceMap<T> {
-  private static readonly defaultPathNormalizer = (r: vsc.Uri): string => {
+  private static readonly defaultPathNormalizer = (r: qv.Uri): string => {
     if (r.scheme === file) return r.fsPath;
     return r.toString(true);
   };
 
-  private readonly _map = new Map<string, { readonly resource: vsc.Uri; value: T }>();
+  private readonly _map = new Map<string, { readonly resource: qv.Uri; value: T }>();
 
   constructor(
-    protected readonly _normalizePath: (r: vsc.Uri) => string | undefined = ResourceMap.defaultPathNormalizer,
+    protected readonly _normalizePath: (r: qv.Uri) => string | undefined = ResourceMap.defaultPathNormalizer,
     protected readonly config: {
       readonly onCaseInsenitiveFileSystem: boolean;
     }
@@ -538,19 +538,19 @@ export class ResourceMap<T> {
     return this._map.size;
   }
 
-  public has(r: vsc.Uri): boolean {
+  public has(r: qv.Uri): boolean {
     const f = this.toKey(r);
     return !!f && this._map.has(f);
   }
 
-  public get(r: vsc.Uri): T | undefined {
+  public get(r: qv.Uri): T | undefined {
     const f = this.toKey(r);
     if (!f) return undefined;
     const e = this._map.get(f);
     return e ? e.value : undefined;
   }
 
-  public set(r: vsc.Uri, v: T) {
+  public set(r: qv.Uri, v: T) {
     const f = this.toKey(r);
     if (!f) return;
     const e = this._map.get(f);
@@ -558,7 +558,7 @@ export class ResourceMap<T> {
     else this._map.set(f, { resource: r, value: v });
   }
 
-  public delete(r: vsc.Uri): void {
+  public delete(r: qv.Uri): void {
     const f = this.toKey(r);
     if (f) this._map.delete(f);
   }
@@ -571,11 +571,11 @@ export class ResourceMap<T> {
     return Array.from(this._map.values()).map((x) => x.value);
   }
 
-  public get entries(): Iterable<{ resource: vsc.Uri; value: T }> {
+  public get entries(): Iterable<{ resource: qv.Uri; value: T }> {
     return this._map.values();
   }
 
-  private toKey(r: vsc.Uri): string | undefined {
+  private toKey(r: qv.Uri): string | undefined {
     const k = this._normalizePath(r);
     if (!k) return k;
     return this.isCaseInsensitivePath(k) ? k.toLowerCase() : k;

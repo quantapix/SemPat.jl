@@ -1,4 +1,4 @@
-import * as vscode from 'vscode';
+import * as qv from 'vscode';
 import { constructCommandString, registerCommand, setContext } from '../utils';
 
 const LINE_INF = 9999;
@@ -19,27 +19,27 @@ export enum ResultType {
 interface ResultContent {
   isIcon: boolean;
   content: string;
-  hoverContent: string | vscode.MarkdownString;
+  hoverContent: string | qv.MarkdownString;
   isError: boolean;
   type: ResultType;
 }
 
 export class Result {
-  document: vscode.TextDocument;
+  document: qv.TextDocument;
   text: string;
-  range: vscode.Range;
+  range: qv.Range;
   content: ResultContent;
-  decoration: vscode.TextEditorDecorationType;
+  decoration: qv.TextEditorDecorationType;
   destroyed: boolean;
-  removeEmitter: vscode.EventEmitter<undefined>;
-  onDidRemove: vscode.Event<undefined>;
+  removeEmitter: qv.EventEmitter<undefined>;
+  onDidRemove: qv.Event<undefined>;
 
-  constructor(editor: vscode.TextEditor, range: vscode.Range, content: ResultContent) {
+  constructor(editor: qv.TextEditor, range: qv.Range, content: ResultContent) {
     this.range = range;
     this.document = editor.document;
     this.text = editor.document.getText(this.range);
     this.destroyed = false;
-    this.removeEmitter = new vscode.EventEmitter();
+    this.removeEmitter = new qv.EventEmitter();
     this.onDidRemove = this.removeEmitter.event;
 
     this.setContent(content);
@@ -64,9 +64,9 @@ export class Result {
       decoration.before.contentText = content.content;
     }
 
-    this.decoration = vscode.window.createTextEditorDecorationType(decoration);
+    this.decoration = qv.window.createTextEditorDecorationType(decoration);
 
-    for (const ed of vscode.window.visibleTextEditors) {
+    for (const ed of qv.window.visibleTextEditors) {
       if (ed.document === this.document) {
         ed.setDecorations(this.decoration, [
           {
@@ -78,7 +78,7 @@ export class Result {
     }
   }
 
-  createDecoration(): vscode.DecorationRenderOptions {
+  createDecoration(): qv.DecorationRenderOptions {
     if (this.content.type === ResultType.Error) {
       return this.createErrorDecoration();
     } else {
@@ -86,15 +86,15 @@ export class Result {
     }
   }
 
-  createResultDecoration(): vscode.DecorationRenderOptions {
-    const section = vscode.workspace.getConfiguration('julia');
+  createResultDecoration(): qv.DecorationRenderOptions {
+    const section = qv.workspace.getConfiguration('julia');
     const colorConfig = section.get<object>('execution.inlineResults.colors');
 
-    const colorFor = function (candidates: string[], defaultTo: string | vscode.ThemeColor): string | vscode.ThemeColor {
+    const colorFor = function (candidates: string[], defaultTo: string | qv.ThemeColor): string | qv.ThemeColor {
       if (candidates.length > 0) {
         if (colorConfig && colorConfig[candidates[0]]) {
           const color: string = colorConfig[candidates[0]];
-          return color.startsWith('vscode.') ? new vscode.ThemeColor(color.replace(/^(vscode\.)/, '')) : color;
+          return color.startsWith('qv.') ? new qv.ThemeColor(color.replace(/^(vscode\.)/, '')) : color;
         } else {
           return colorFor(candidates.slice(1), defaultTo);
         }
@@ -109,7 +109,7 @@ export class Result {
       before: {
         contentIconPath: undefined,
         contentText: undefined,
-        color: colorFor(['foreground'], new vscode.ThemeColor('editor.foreground')),
+        color: colorFor(['foreground'], new qv.ThemeColor('editor.foreground')),
         backgroundColor: colorFor(['background'], '#ffffff22'),
         margin: '0 0 0 10px',
         border: '2px solid',
@@ -119,37 +119,37 @@ export class Result {
       },
       dark: {
         before: {
-          color: colorFor(['foreground-dark', 'foreground'], new vscode.ThemeColor('editor.foreground')),
+          color: colorFor(['foreground-dark', 'foreground'], new qv.ThemeColor('editor.foreground')),
           backgroundColor: colorFor(['background-dark', 'background'], '#ffffff22'),
         },
       },
       light: {
         before: {
-          color: colorFor(['foreground-light', 'foreground'], new vscode.ThemeColor('editor.foreground')),
+          color: colorFor(['foreground-light', 'foreground'], new qv.ThemeColor('editor.foreground')),
           backgroundColor: colorFor(['background-light', 'background'], '#00000011'),
         },
       },
-      rangeBehavior: vscode.DecorationRangeBehavior.OpenClosed,
+      rangeBehavior: qv.DecorationRangeBehavior.OpenClosed,
     };
   }
 
-  createErrorDecoration(): vscode.DecorationRenderOptions {
+  createErrorDecoration(): qv.DecorationRenderOptions {
     return {
-      backgroundColor: new vscode.ThemeColor('diffEditor.removedTextBackground'),
+      backgroundColor: new qv.ThemeColor('diffEditor.removedTextBackground'),
       isWholeLine: true,
-      rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
+      rangeBehavior: qv.DecorationRangeBehavior.ClosedClosed,
     };
   }
 
-  get decorationRange(): vscode.Range {
-    return this.content.type === ResultType.Error ? this.range : new vscode.Range(this.range.end.translate(0, LINE_INF), this.range.end.translate(0, LINE_INF));
+  get decorationRange(): qv.Range {
+    return this.content.type === ResultType.Error ? this.range : new qv.Range(this.range.end.translate(0, LINE_INF), this.range.end.translate(0, LINE_INF));
   }
 
   draw() {
     this.setContent(this.content);
   }
 
-  validate(e: vscode.TextDocumentChangeEvent) {
+  validate(e: qv.TextDocumentChangeEvent) {
     if (this.document !== e.document) {
       return true;
     }
@@ -166,7 +166,7 @@ export class Result {
         const lineOffset = lines.length - 1 - (change.range.end.line - change.range.start.line);
         const charOffset = change.range.end.line === this.range.start.line ? lines[lines.length - 1].length : 0;
 
-        this.range = new vscode.Range(this.range.start.translate(lineOffset, charOffset), this.range.end.translate(lineOffset, charOffset));
+        this.range = new qv.Range(this.range.start.translate(lineOffset, charOffset), this.range.end.translate(lineOffset, charOffset));
       }
     }
 
@@ -189,17 +189,17 @@ export class Result {
 
 const results: Result[] = [];
 
-export function activate(context: vscode.ExtensionContext) {
+export function activate(context: qv.ExtensionContext) {
   context.subscriptions.push(
     // subscriptions
-    vscode.workspace.onDidChangeTextDocument((e) => validateResults(e)),
-    vscode.window.onDidChangeVisibleTextEditors((editors) => refreshResults(editors)),
-    vscode.window.onDidChangeTextEditorSelection((changeEvent) => updateResultContextKey(changeEvent)),
+    qv.workspace.onDidChangeTextDocument((e) => validateResults(e)),
+    qv.window.onDidChangeVisibleTextEditors((editors) => refreshResults(editors)),
+    qv.window.onDidChangeTextEditorSelection((changeEvent) => updateResultContextKey(changeEvent)),
 
     // public commands
     registerCommand('language-julia.clearAllInlineResults', removeAll),
-    registerCommand('language-julia.clearAllInlineResultsInEditor', () => removeAll(vscode.window.activeTextEditor)),
-    registerCommand('language-julia.clearCurrentInlineResult', () => removeCurrent(vscode.window.activeTextEditor)),
+    registerCommand('language-julia.clearAllInlineResultsInEditor', () => removeAll(qv.window.activeTextEditor)),
+    registerCommand('language-julia.clearCurrentInlineResult', () => removeCurrent(qv.window.activeTextEditor)),
 
     // internal commands
     registerCommand('language-julia.openFile', (locationArg: { path: string; line: number }) => {
@@ -217,7 +217,7 @@ export function activate(context: vscode.ExtensionContext) {
   );
 }
 
-function updateResultContextKey(changeEvent: vscode.TextEditorSelectionChangeEvent) {
+function updateResultContextKey(changeEvent: qv.TextEditorSelectionChangeEvent) {
   if (changeEvent.textEditor.document.languageId !== 'julia') {
     return;
   }
@@ -234,7 +234,7 @@ function updateResultContextKey(changeEvent: vscode.TextEditorSelectionChangeEve
 
 export function deactivate() {}
 
-export function addResult(editor: vscode.TextEditor, range: vscode.Range, content: string, hoverContent: string) {
+export function addResult(editor: qv.TextEditor, range: qv.Range, content: string, hoverContent: string) {
   results.filter((result) => result.document === editor.document && result.range.intersection(range) !== undefined).forEach(removeResult);
   const result = new Result(editor, range, resultContent(content, hoverContent));
   results.push(result);
@@ -252,7 +252,7 @@ export function resultContent(content: string, hoverContent: string, isError: bo
 }
 
 function toMarkdownString(str: string) {
-  const markdownString = new vscode.MarkdownString(str);
+  const markdownString = new qv.MarkdownString(str);
   markdownString.isTrusted = true;
   return markdownString;
 }
@@ -290,7 +290,7 @@ export function clearStackTrace() {
   stackFrameHighlights.err = '';
 }
 
-function setStackFrameHighlight(err: string, frames: Frame[], editors: vscode.TextEditor[] = vscode.window.visibleTextEditors) {
+function setStackFrameHighlight(err: string, frames: Frame[], editors: qv.TextEditor[] = qv.window.visibleTextEditors) {
   stackFrameHighlights.err = err;
   frames.forEach((frame) => {
     const targetEditors = editors.filter((editor) => isEditorPath(editor, frame.path));
@@ -307,18 +307,18 @@ function setStackFrameHighlight(err: string, frames: Frame[], editors: vscode.Te
   });
 }
 
-function isEditorPath(editor: vscode.TextEditor, path: string) {
+function isEditorPath(editor: qv.TextEditor, path: string) {
   return (
     // for untitled editor we need this
     editor.document.fileName === path ||
     // more robust than using e.g. `editor.document.fileName`
-    editor.document.uri.toString() === vscode.Uri.file(path).toString()
+    editor.document.uri.toString() === qv.Uri.file(path).toString()
   );
 }
 
-function addErrorResult(err: string, frame: Frame, editor: vscode.TextEditor) {
+function addErrorResult(err: string, frame: Frame, editor: qv.TextEditor) {
   if (frame.line > 0) {
-    const range = new vscode.Range(editor.document.validatePosition(new vscode.Position(frame.line - 1, 0)), editor.document.validatePosition(new vscode.Position(frame.line - 1, LINE_INF)));
+    const range = new qv.Range(editor.document.validatePosition(new qv.Position(frame.line - 1, 0)), editor.document.validatePosition(new qv.Position(frame.line - 1, LINE_INF)));
     return new Result(editor, range, errorResultContent(err, frame));
   }
   return null;
@@ -346,7 +346,7 @@ function attachGotoFrameCommandLinks(transformed: string, frame: Frame) {
   ].join(' ');
 }
 
-export function refreshResults(editors: vscode.TextEditor[]) {
+export function refreshResults(editors: qv.TextEditor[]) {
   results.forEach((result) => {
     editors.forEach((editor) => {
       if (result.document === editor.document) {
@@ -371,7 +371,7 @@ export function refreshResults(editors: vscode.TextEditor[]) {
   });
 }
 
-export function validateResults(e: vscode.TextDocumentChangeEvent) {
+export function validateResults(e: qv.TextDocumentChangeEvent) {
   results.filter((result) => !result.validate(e)).forEach(removeResult);
 }
 
@@ -380,24 +380,24 @@ export function removeResult(target: Result) {
   return results.splice(results.indexOf(target), 1);
 }
 
-export function removeAll(editor: undefined | vscode.TextEditor = undefined) {
+export function removeAll(editor: undefined | qv.TextEditor = undefined) {
   const isvalid = (result: Result) => !editor || result.document === editor.document;
   results.filter(isvalid).forEach(removeResult);
 }
 
-export function removeCurrent(editor: vscode.TextEditor) {
+export function removeCurrent(editor: qv.TextEditor) {
   editor.selections.forEach((selection) => {
     results.filter((r) => isResultInLineRange(editor, r, selection)).forEach(removeResult);
   });
   setContext('juliaHasInlineResult', false);
 }
 
-function isResultInLineRange(editor: vscode.TextEditor, result: Result, range: vscode.Selection | vscode.Range) {
+function isResultInLineRange(editor: qv.TextEditor, result: Result, range: qv.Selection | qv.Range) {
   if (result.document !== editor.document) {
     return false;
   }
   const intersect = range.intersection(result.range);
-  const lineRange = new vscode.Range(range.start.with(undefined, 0), editor.document.validatePosition(range.start.with(undefined, LINE_INF)));
+  const lineRange = new qv.Range(range.start.with(undefined, 0), editor.document.validatePosition(range.start.with(undefined, LINE_INF)));
   const lineIntersect = lineRange.intersection(result.range);
   return intersect !== undefined || lineIntersect !== undefined;
 }
@@ -406,18 +406,18 @@ function isResultInLineRange(editor: vscode.TextEditor, result: Result, range: v
 
 async function openFile(path: string, line: number = undefined) {
   line = line || 1;
-  const start = new vscode.Position(line - 1, 0);
-  const end = new vscode.Position(line - 1, 0);
-  const range = new vscode.Range(start, end);
+  const start = new qv.Position(line - 1, 0);
+  const end = new qv.Position(line - 1, 0);
+  const range = new qv.Range(start, end);
 
-  let uri: vscode.Uri;
+  let uri: qv.Uri;
   if (path.indexOf('Untitled') === 0) {
     // can't open an untitled file like this:
-    // uri = vscode.Uri.parse('untitled:' + path)
+    // uri = qv.Uri.parse('untitled:' + path)
   } else {
-    uri = vscode.Uri.file(path);
+    uri = qv.Uri.file(path);
   }
-  return vscode.window.showTextDocument(uri, {
+  return qv.window.showTextDocument(uri, {
     preview: true,
     selection: range,
   });

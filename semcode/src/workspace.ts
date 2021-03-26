@@ -1,4 +1,4 @@
-import * as vscode from 'vscode';
+import * as qv from 'vscode';
 import * as rpc from 'vscode-jsonrpc';
 import { registerCommand } from '../utils';
 import { notifyTypeReplShowInGrid, onExit, onFinishEval, onInit } from './repl';
@@ -22,9 +22,9 @@ const requestTypeGetLazy = new rpc.RequestType<{ id: number }, WorkspaceVariable
 
 let g_replVariables: WorkspaceVariable[] = [];
 
-export class REPLTreeDataProvider implements vscode.TreeDataProvider<WorkspaceVariable> {
-  private _onDidChangeTreeData: vscode.EventEmitter<WorkspaceVariable | undefined> = new vscode.EventEmitter<WorkspaceVariable | undefined>();
-  readonly onDidChangeTreeData: vscode.Event<WorkspaceVariable | undefined> = this._onDidChangeTreeData.event;
+export class REPLTreeDataProvider implements qv.TreeDataProvider<WorkspaceVariable> {
+  private _onDidChangeTreeData: qv.EventEmitter<WorkspaceVariable | undefined> = new qv.EventEmitter<WorkspaceVariable | undefined>();
+  readonly onDidChangeTreeData: qv.Event<WorkspaceVariable | undefined> = this._onDidChangeTreeData.event;
 
   refresh(): void {
     this._onDidChangeTreeData.fire(undefined);
@@ -43,13 +43,13 @@ export class REPLTreeDataProvider implements vscode.TreeDataProvider<WorkspaceVa
     }
   }
 
-  getTreeItem(node: WorkspaceVariable): vscode.TreeItem {
-    const treeItem = new vscode.TreeItem(node.head);
+  getTreeItem(node: WorkspaceVariable): qv.TreeItem {
+    const treeItem = new qv.TreeItem(node.head);
     treeItem.description = node.value;
     treeItem.tooltip = node.type;
     treeItem.contextValue = node.canshow ? 'globalvariable' : '';
-    treeItem.collapsibleState = node.haschildren ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None;
-    treeItem.iconPath = new vscode.ThemeIcon(node.icon);
+    treeItem.collapsibleState = node.haschildren ? qv.TreeItemCollapsibleState.Collapsed : qv.TreeItemCollapsibleState.None;
+    treeItem.iconPath = new qv.ThemeIcon(node.icon);
     return treeItem;
   }
 }
@@ -65,10 +65,10 @@ async function showInVSCode(node: WorkspaceVariable) {
   g_connection.sendNotification(notifyTypeReplShowInGrid, { code: node.head });
 }
 
-export function activate(context: vscode.ExtensionContext) {
+export function activate(context: qv.ExtensionContext) {
   g_REPLTreeDataProvider = new REPLTreeDataProvider();
   context.subscriptions.push(
-    vscode.window.registerTreeDataProvider('REPLVariables', g_REPLTreeDataProvider),
+    qv.window.registerTreeDataProvider('REPLVariables', g_REPLTreeDataProvider),
     onInit((x) => {
       g_connection = x;
       updateReplVariables();

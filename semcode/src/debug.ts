@@ -2,7 +2,7 @@ import { Subject } from 'await-notify';
 import * as net from 'net';
 import { join } from 'path';
 import { uuid } from 'uuidv4';
-import * as vscode from 'vscode';
+import * as qv from 'vscode';
 import { InitializedEvent, Logger, logger, LoggingDebugSession, StoppedEvent, TerminatedEvent } from 'vscode-debugadapter';
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { createMessageConnection, Disposable, MessageConnection, StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node';
@@ -127,7 +127,7 @@ interface AttachRequestArguments extends DebugProtocol.AttachRequestArguments {
 export class JuliaDebugSession extends LoggingDebugSession {
   private _configurationDone = new Subject();
 
-  private _debuggeeTerminal: vscode.Terminal;
+  private _debuggeeTerminal: qv.Terminal;
   private _connection: MessageConnection;
   private _debuggeeWrapperSocket: net.Socket;
 
@@ -136,7 +136,7 @@ export class JuliaDebugSession extends LoggingDebugSession {
 
   private _no_need_for_force_kill: boolean = false;
 
-  public constructor(private context: vscode.ExtensionContext, private juliaPath: string) {
+  public constructor(private context: qv.ExtensionContext, private juliaPath: string) {
     super('julia-debug.txt');
     this.setDebuggerLinesStartAt1(true);
     this.setDebuggerColumnsStartAt1(true);
@@ -234,7 +234,7 @@ export class JuliaDebugSession extends LoggingDebugSession {
 
     await serverListeningPromise.wait();
 
-    this._debuggeeTerminal = vscode.window.createTerminal({
+    this._debuggeeTerminal = qv.window.createTerminal({
       name: 'Julia Debugger',
       shellPath: this.juliaPath,
       shellArgs: ['--color=yes', '--startup-file=no', '--history-file=no', join(this.context.extensionPath, 'scripts', 'debugger', 'launch_wrapper.jl'), pn, pnForWrapper, args.cwd, args.juliaEnv, ''],
@@ -244,7 +244,7 @@ export class JuliaDebugSession extends LoggingDebugSession {
     });
     this._debuggeeTerminal.show(false);
     const disposables: Array<Disposable> = [];
-    vscode.window.onDidCloseTerminal(
+    qv.window.onDidCloseTerminal(
       (terminal) => {
         if (terminal === this._debuggeeTerminal) {
           this.sendEvent(new TerminatedEvent());
@@ -386,28 +386,28 @@ export class JuliaDebugSession extends LoggingDebugSession {
 }
 
 export class JuliaDebugFeature {
-  constructor(private context: vscode.ExtensionContext) {
+  constructor(private context: qv.ExtensionContext) {
     const provider = new JuliaDebugConfigurationProvider();
     const factory = new InlineDebugAdapterFactory(this.context);
 
     this.context.subscriptions.push(
-      vscode.debug.registerDebugConfigurationProvider('julia', provider),
-      vscode.debug.registerDebugAdapterDescriptorFactory('julia', factory),
+      qv.debug.registerDebugConfigurationProvider('julia', provider),
+      qv.debug.registerDebugAdapterDescriptorFactory('julia', factory),
       registerCommand('language-julia.debug.getActiveJuliaEnvironment', async (config) => {
         return await packs.getAbsEnvPath();
       }),
-      registerCommand('language-julia.runEditorContents', async (resource: vscode.Uri | undefined) => {
+      registerCommand('language-julia.runEditorContents', async (resource: qv.Uri | undefined) => {
         resource = getActiveUri(resource);
         if (!resource) {
-          vscode.window.showInformationMessage('No active editor found.');
+          qv.window.showInformationMessage('No active editor found.');
           return;
         }
-        const folder = vscode.workspace.getWorkspaceFolder(resource);
+        const folder = qv.workspace.getWorkspaceFolder(resource);
         if (folder === undefined) {
-          vscode.window.showInformationMessage('File not found in workspace.');
+          qv.window.showInformationMessage('File not found in workspace.');
           return;
         }
-        const success = await vscode.debug.startDebugging(folder, {
+        const success = await qv.debug.startDebugging(folder, {
           type: 'julia',
           name: 'Run Editor Contents',
           request: 'launch',
@@ -415,28 +415,28 @@ export class JuliaDebugFeature {
           noDebug: true,
         });
         if (!success) {
-          vscode.window.showErrorMessage('Could not run editor content in new process.');
+          qv.window.showErrorMessage('Could not run editor content in new process.');
         }
       }),
-      registerCommand('language-julia.debugEditorContents', async (resource: vscode.Uri | undefined) => {
+      registerCommand('language-julia.debugEditorContents', async (resource: qv.Uri | undefined) => {
         resource = getActiveUri(resource);
         if (!resource) {
-          vscode.window.showInformationMessage('No active editor found.');
+          qv.window.showInformationMessage('No active editor found.');
           return;
         }
-        const folder = vscode.workspace.getWorkspaceFolder(resource);
+        const folder = qv.workspace.getWorkspaceFolder(resource);
         if (folder === undefined) {
-          vscode.window.showInformationMessage('File not found in workspace.');
+          qv.window.showInformationMessage('File not found in workspace.');
           return;
         }
-        const success = await vscode.debug.startDebugging(folder, {
+        const success = await qv.debug.startDebugging(folder, {
           type: 'julia',
           name: 'Debug Editor Contents',
           request: 'launch',
           program: resource.fsPath,
         });
         if (!success) {
-          vscode.window.showErrorMessage('Could not debug editor content in new process.');
+          qv.window.showErrorMessage('Could not debug editor content in new process.');
         }
       })
     );
@@ -445,12 +445,12 @@ export class JuliaDebugFeature {
   public dispose() {}
 }
 
-function getActiveUri(uri: vscode.Uri | undefined, editor: vscode.TextEditor | undefined = vscode.window.activeTextEditor) {
+function getActiveUri(uri: qv.Uri | undefined, editor: qv.TextEditor | undefined = qv.window.activeTextEditor) {
   return uri || (editor ? editor.document.uri : undefined);
 }
 
-export class JuliaDebugConfigurationProvider implements vscode.DebugConfigurationProvider {
-  public resolveDebugConfiguration(folder: vscode.WorkspaceFolder | undefined, config: vscode.DebugConfiguration, token?: vscode.CancellationToken): vscode.ProviderResult<vscode.DebugConfiguration> {
+export class JuliaDebugConfigurationProvider implements qv.DebugConfigurationProvider {
+  public resolveDebugConfiguration(folder: qv.WorkspaceFolder | undefined, config: qv.DebugConfiguration, token?: qv.CancellationToken): qv.ProviderResult<qv.DebugConfiguration> {
     if (!config.request) {
       config.request = 'launch';
     }
@@ -464,7 +464,7 @@ export class JuliaDebugConfigurationProvider implements vscode.DebugConfiguratio
     }
 
     if (!config.program && config.request !== 'attach') {
-      config.program = vscode.window.activeTextEditor.document.fileName;
+      config.program = qv.window.activeTextEditor.document.fileName;
     }
 
     if (!config.internalConsoleOptions) {
@@ -489,12 +489,12 @@ export class JuliaDebugConfigurationProvider implements vscode.DebugConfiguratio
   }
 }
 
-class InlineDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory {
-  constructor(private context: vscode.ExtensionContext) {}
+class InlineDebugAdapterFactory implements qv.DebugAdapterDescriptorFactory {
+  constructor(private context: qv.ExtensionContext) {}
 
-  createDebugAdapterDescriptor(_session: vscode.DebugSession): vscode.ProviderResult<vscode.DebugAdapterDescriptor> {
+  createDebugAdapterDescriptor(_session: qv.DebugSession): qv.ProviderResult<qv.DebugAdapterDescriptor> {
     return (async () => {
-      return new vscode.DebugAdapterInlineImplementation(<any>new JuliaDebugSession(this.context, await getJuliaExePath()));
+      return new qv.DebugAdapterInlineImplementation(<any>new JuliaDebugSession(this.context, await getJuliaExePath()));
     })();
   }
 }

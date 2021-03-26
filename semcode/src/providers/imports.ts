@@ -1,20 +1,13 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
-import * as vscode from 'vscode';
-import * as nls from 'vscode-nls';
-import type * as Proto from '../protocol';
-import { ClientCapability, ITypeScriptServiceClient } from '../service';
-import API from '../../old/ts/utils/api';
-import { nulToken } from '../utils/cancellation';
+import { ClientCap, ServiceClient } from '../service';
 import { Command, CommandManager } from '../../old/ts/commands/commandManager';
-import { conditionalRegistration, requireMinVersion, requireSomeCap } from '../registration';
-import { DocumentSelector } from '../utils/documentSelector';
+import { condRegistration, requireMinVer, requireSomeCap } from '../registration';
 import { TelemetryReporter } from '../../old/ts/utils/telemetry';
-import * as typeconverts from '../utils/typeConverters';
+import * as nls from 'vscode-nls';
+import * as qu from '../utils';
+import * as qv from 'vscode';
+import API from '../../old/ts/utils/api';
 import FileConfigurationManager from '../../old/ts/languageFeatures/fileConfigurationManager';
+import type * as qp from '../protocol';
 
 const localize = nls.loadMessageBundle();
 
@@ -23,7 +16,7 @@ class OrganizeImportsCommand implements Command {
 
   public readonly id = OrganizeImportsCommand.Id;
 
-  constructor(private readonly client: ITypeScriptServiceClient, private readonly telemetryReporter: TelemetryReporter) {}
+  constructor(private readonly client: ServiceClient, private readonly telemetryReporter: TelemetryReporter) {}
 
   public async execute(file: string): Promise<boolean> {
     /* __GDPR__
@@ -35,7 +28,7 @@ class OrganizeImportsCommand implements Command {
 		*/
     this.telemetryReporter.logTelemetry('organizeImports.execute', {});
 
-    const args: Proto.OrganizeImportsRequestArgs = {
+    const args: qp.OrganizeImportsRequestArgs = {
       scope: {
         type: 'file',
         args: {
@@ -43,59 +36,54 @@ class OrganizeImportsCommand implements Command {
         },
       },
     };
-    const response = await this.client.interruptGetErr(() => this.client.execute('organizeImports', args, nulToken));
+    const response = await this.client.interruptGetErr(() => this.client.execute('organizeImports', args, qu.nulToken));
     if (response.type !== 'response' || !response.body) {
       return false;
     }
 
-    const edits = typeconverts.WorkspaceEdit.fromFileCodeEdits(this.client, response.body);
-    return vscode.workspace.applyEdit(edits);
+    const edits = qu.WorkspaceEdit.fromFileCodeEdits(this.client, response.body);
+    return qv.workspace.applyEdit(edits);
   }
 }
 
-export class OrganizeImportsCodeActionProvider implements vscode.CodeActionProvider {
+export class OrganizeImportsCodeActionProvider implements qv.CodeActionProvider {
   public static readonly minVersion = API.v280;
 
-  public constructor(
-    private readonly client: ITypeScriptServiceClient,
-    commandManager: CommandManager,
-    private readonly fileConfigManager: FileConfigurationManager,
-    telemetryReporter: TelemetryReporter
-  ) {
+  public constructor(private readonly client: ServiceClient, commandManager: CommandManager, private readonly fileConfigManager: FileConfigurationManager, telemetryReporter: TelemetryReporter) {
     commandManager.register(new OrganizeImportsCommand(client, telemetryReporter));
   }
 
-  public readonly metadata: vscode.CodeActionProviderMetadata = {
-    providedCodeActionKinds: [vscode.CodeActionKind.SourceOrganizeImports],
+  public readonly metadata: qv.CodeActionProviderMetadata = {
+    providedCodeActionKinds: [qv.CodeActionKind.SourceOrganizeImports],
   };
 
-  public provideCodeActions(document: vscode.TextDocument, _range: vscode.Range, context: vscode.CodeActionContext, token: vscode.CancellationToken): vscode.CodeAction[] {
+  public provideCodeActions(document: qv.TextDocument, _range: qv.Range, context: qv.CodeActionContext, token: qv.CancellationToken): qv.CodeAction[] {
     const file = this.client.toOpenedFilePath(document);
     if (!file) {
       return [];
     }
 
-    if (!context.only || !context.only.contains(vscode.CodeActionKind.SourceOrganizeImports)) {
+    if (!context.only || !context.only.contains(qv.CodeActionKind.SourceOrganizeImports)) {
       return [];
     }
 
     this.fileConfigManager.ensureConfigurationForDocument(document, token);
 
-    const action = new vscode.CodeAction(localize('organizeImportsAction.title', 'Organize Imports'), vscode.CodeActionKind.SourceOrganizeImports);
+    const action = new qv.CodeAction(localize('organizeImportsAction.title', 'Organize Imports'), qv.CodeActionKind.SourceOrganizeImports);
     action.command = { title: '', command: OrganizeImportsCommand.Id, arguments: [file] };
     return [action];
   }
 }
 
 export function register(
-  selector: DocumentSelector,
-  client: ITypeScriptServiceClient,
+  selector: qu.DocumentSelector,
+  client: ServiceClient,
   commandManager: CommandManager,
   fileConfigurationManager: FileConfigurationManager,
   telemetryReporter: TelemetryReporter
 ) {
-  return conditionalRegistration([requireMinVersion(client, OrganizeImportsCodeActionProvider.minVersion), requireSomeCap(client, ClientCapability.Semantic)], () => {
+  return condRegistration([requireMinVer(client, OrganizeImportsCodeActionProvider.minVersion), requireSomeCap(client, ClientCap.Semantic)], () => {
     const organizeImportsProvider = new OrganizeImportsCodeActionProvider(client, commandManager, fileConfigurationManager, telemetryReporter);
-    return vscode.languages.registerCodeActionsProvider(selector.semantic, organizeImportsProvider, organizeImportsProvider.metadata);
+    return qv.languages.registerCodeActionsProvider(selector.semantic, organizeImportsProvider, organizeImportsProvider.metadata);
   });
 }

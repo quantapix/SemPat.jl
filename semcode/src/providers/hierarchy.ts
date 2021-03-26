@@ -1,18 +1,18 @@
-import * as path from 'path';
-import * as vsc from 'vscode';
-import type * as Proto from '../protocol';
-import * as PConst from '../protocol.const';
 import { ClientCap, ServiceClient } from '../service';
-import API from '../../old/ts/utils/api';
 import { condRegistration, requireSomeCap, requireMinVer } from '../registration';
+import * as path from 'path';
+import * as PConst from '../protocol.const';
 import * as qu from '../utils';
+import * as qv from 'vscode';
+import API from '../../old/ts/utils/api';
+import type * as qp from '../protocol';
 
-class Hierarchy implements vsc.CallHierarchyProvider {
+class Hierarchy implements qv.CallHierarchyProvider {
   public static readonly minVersion = API.v380;
 
   public constructor(private readonly client: ServiceClient) {}
 
-  public async prepareCallHierarchy(d: vsc.TextDocument, p: vsc.Position, t: vsc.CancellationToken): Promise<vsc.CallHierarchyItem | vsc.CallHierarchyItem[] | undefined> {
+  public async prepareCallHierarchy(d: qv.TextDocument, p: qv.Position, t: qv.CancellationToken): Promise<qv.CallHierarchyItem | qv.CallHierarchyItem[] | undefined> {
     const f = this.client.toOpenedFilePath(d);
     if (!f) return undefined;
     const xs = qu.Position.toFileLocationRequestArgs(f, p);
@@ -21,7 +21,7 @@ class Hierarchy implements vsc.CallHierarchyProvider {
     return Array.isArray(v.body) ? v.body.map(fromProtocolCallHierarchyItem) : fromProtocolCallHierarchyItem(v.body);
   }
 
-  public async provideCallHierarchyIncomingCalls(i: vsc.CallHierarchyItem, t: vsc.CancellationToken): Promise<vsc.CallHierarchyIncomingCall[] | undefined> {
+  public async provideCallHierarchyIncomingCalls(i: qv.CallHierarchyItem, t: qv.CancellationToken): Promise<qv.CallHierarchyIncomingCall[] | undefined> {
     const f = this.client.toPath(i.uri);
     if (!f) return undefined;
     const xs = qu.Position.toFileLocationRequestArgs(f, i.selectionRange.start);
@@ -30,7 +30,7 @@ class Hierarchy implements vsc.CallHierarchyProvider {
     return v.body.map(fromProtocolCallHierarchyIncomingCall);
   }
 
-  public async provideCallHierarchyOutgoingCalls(i: vsc.CallHierarchyItem, t: vsc.CancellationToken): Promise<vsc.CallHierarchyOutgoingCall[] | undefined> {
+  public async provideCallHierarchyOutgoingCalls(i: qv.CallHierarchyItem, t: qv.CancellationToken): Promise<qv.CallHierarchyOutgoingCall[] | undefined> {
     const f = this.client.toPath(i.uri);
     if (!f) return undefined;
     const xs = qu.Position.toFileLocationRequestArgs(f, i.selectionRange.start);
@@ -40,37 +40,37 @@ class Hierarchy implements vsc.CallHierarchyProvider {
   }
 }
 
-function isSourceFileItem(i: Proto.CallHierarchyItem) {
+function isSourceFileItem(i: qp.CallHierarchyItem) {
   return i.kind === PConst.Kind.script || (i.kind === PConst.Kind.module && i.selectionSpan.start.line === 1 && i.selectionSpan.start.offset === 1);
 }
 
-function fromProtocolCallHierarchyItem(item: Proto.CallHierarchyItem): vsc.CallHierarchyItem {
+function fromProtocolCallHierarchyItem(item: qp.CallHierarchyItem): qv.CallHierarchyItem {
   const useFileName = isSourceFileItem(item);
   const name = useFileName ? path.basename(item.file) : item.name;
-  const detail = useFileName ? vsc.workspace.asRelativePath(path.dirname(item.file)) : item.containerName ?? '';
-  const result = new vsc.CallHierarchyItem(
+  const detail = useFileName ? qv.workspace.asRelativePath(path.dirname(item.file)) : item.containerName ?? '';
+  const result = new qv.CallHierarchyItem(
     qu.SymbolKind.fromProtocolScriptElementKind(item.kind),
     name,
     detail,
-    vsc.Uri.file(item.file),
+    qv.Uri.file(item.file),
     qu.Range.fromTextSpan(item.span),
     qu.Range.fromTextSpan(item.selectionSpan)
   );
   const kindModifiers = item.kindModifiers ? qu.parseKindModifier(item.kindModifiers) : undefined;
-  if (kindModifiers?.has(PConst.KindModifiers.depreacted)) result.tags = [vsc.SymbolTag.Deprecated];
+  if (kindModifiers?.has(PConst.KindModifiers.depreacted)) result.tags = [qv.SymbolTag.Deprecated];
   return result;
 }
 
-function fromProtocolCallHierarchyIncomingCall(c: Proto.CallHierarchyIncomingCall): vsc.CallHierarchyIncomingCall {
-  return new vsc.CallHierarchyIncomingCall(fromProtocolCallHierarchyItem(c.from), c.fromSpans.map(qu.Range.fromTextSpan));
+function fromProtocolCallHierarchyIncomingCall(c: qp.CallHierarchyIncomingCall): qv.CallHierarchyIncomingCall {
+  return new qv.CallHierarchyIncomingCall(fromProtocolCallHierarchyItem(c.from), c.fromSpans.map(qu.Range.fromTextSpan));
 }
 
-function fromProtocolCallHierarchyOutgoingCall(c: Proto.CallHierarchyOutgoingCall): vsc.CallHierarchyOutgoingCall {
-  return new vsc.CallHierarchyOutgoingCall(fromProtocolCallHierarchyItem(c.to), c.fromSpans.map(qu.Range.fromTextSpan));
+function fromProtocolCallHierarchyOutgoingCall(c: qp.CallHierarchyOutgoingCall): qv.CallHierarchyOutgoingCall {
+  return new qv.CallHierarchyOutgoingCall(fromProtocolCallHierarchyItem(c.to), c.fromSpans.map(qu.Range.fromTextSpan));
 }
 
 export function register(s: qu.DocumentSelector, c: ServiceClient) {
   return condRegistration([requireMinVer(c, Hierarchy.minVersion), requireSomeCap(c, ClientCap.Semantic)], () => {
-    return vsc.languages.registerCallHierarchyProvider(s.semantic, new Hierarchy(c));
+    return qv.languages.registerCallHierarchyProvider(s.semantic, new Hierarchy(c));
   });
 }

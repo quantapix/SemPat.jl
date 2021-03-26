@@ -1,8 +1,8 @@
 import * as path from 'path';
-import * as vsc from 'vscode';
+import * as qv from 'vscode';
 import * as nls from 'vscode-nls';
 import { DiagnosticKind, DiagnosticsManager } from '../old/ts/languageFeatures/diagnostics';
-import * as Proto from './protocol';
+import * as qp from './protocol';
 import { EventName } from './protocol.const';
 import BufferSyncSupport from '../old/ts/tsServer/bufferSyncSupport';
 import { OngoingRequestCancellerFactory } from '../old/ts/tsServer/cancellation';
@@ -28,12 +28,12 @@ const localize = nls.loadMessageBundle();
 
 export interface TsDiagnostics {
   readonly kind: DiagnosticKind;
-  readonly resource: vsc.Uri;
-  readonly diagnostics: Proto.Diagnostic[];
+  readonly resource: qv.Uri;
+  readonly diagnostics: qp.Diagnostic[];
 }
 
 interface ToCancelOnResourceChanged {
-  readonly resource: vsc.Uri;
+  readonly resource: qv.Uri;
   cancel(): void;
 }
 
@@ -70,7 +70,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
   private readonly pathSeparator: string;
   private readonly inMemoryResourcePrefix = '^';
 
-  private readonly workspaceState: vsc.Memento;
+  private readonly workspaceState: qv.Memento;
 
   private _onReady?: { promise: Promise<void>; resolve: () => void; reject: () => void };
   private _configuration: TypeScriptServiceConfiguration;
@@ -100,7 +100,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
   private readonly processFactory: TsServerProcessFactory;
 
   constructor(
-    private readonly context: vsc.ExtensionContext,
+    private readonly context: qv.ExtensionContext,
     onCaseInsenitiveFileSystem: boolean,
     services: {
       pluginManager: PluginManager;
@@ -164,7 +164,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
       this.cancelInflightRequestsForResource(resource);
     });
 
-    vsc.workspace.onDidChangeConfiguration(
+    qv.workspace.onDidChangeConfiguration(
       () => {
         const oldConfiguration = this._configuration;
         this._configuration = TypeScriptServiceConfiguration.loadFromWorkspace();
@@ -229,10 +229,10 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
     return new ClientCaps(ClientCap.Syntax, ClientCap.Semantic);
   }
 
-  private readonly _onDidChangeCapabilities = this._register(new vsc.EventEmitter<void>());
+  private readonly _onDidChangeCapabilities = this._register(new qv.EventEmitter<void>());
   readonly onDidChangeCapabilities = this._onDidChangeCapabilities.event;
 
-  private cancelInflightRequestsForResource(resource: vsc.Uri): void {
+  private cancelInflightRequestsForResource(resource: qv.Uri): void {
     if (this.serverState.type !== ServerState.Type.Running) {
       return;
     }
@@ -270,31 +270,31 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
     this.serverState = this.startService(true);
   }
 
-  private readonly _onTsServerStarted = this._register(new vsc.EventEmitter<{ version: TypeScriptVersion; usedApiVersion: API }>());
+  private readonly _onTsServerStarted = this._register(new qv.EventEmitter<{ version: TypeScriptVersion; usedApiVersion: API }>());
   public readonly onTsServerStarted = this._onTsServerStarted.event;
 
-  private readonly _onDiagnosticsReceived = this._register(new vsc.EventEmitter<TsDiagnostics>());
+  private readonly _onDiagnosticsReceived = this._register(new qv.EventEmitter<TsDiagnostics>());
   public readonly onDiagnosticsReceived = this._onDiagnosticsReceived.event;
 
-  private readonly _onConfigDiagnosticsReceived = this._register(new vsc.EventEmitter<Proto.ConfigFileDiagnosticEvent>());
+  private readonly _onConfigDiagnosticsReceived = this._register(new qv.EventEmitter<qp.ConfigFileDiagnosticEvent>());
   public readonly onConfigDiagnosticsReceived = this._onConfigDiagnosticsReceived.event;
 
-  private readonly _onResendModelsRequested = this._register(new vsc.EventEmitter<void>());
+  private readonly _onResendModelsRequested = this._register(new qv.EventEmitter<void>());
   public readonly onResendModelsRequested = this._onResendModelsRequested.event;
 
-  private readonly _onProjectLanguageServiceStateChanged = this._register(new vsc.EventEmitter<Proto.ProjectLanguageServiceStateEventBody>());
+  private readonly _onProjectLanguageServiceStateChanged = this._register(new qv.EventEmitter<qp.ProjectLanguageServiceStateEventBody>());
   public readonly onProjectLanguageServiceStateChanged = this._onProjectLanguageServiceStateChanged.event;
 
-  private readonly _onDidBeginInstallTypings = this._register(new vsc.EventEmitter<Proto.BeginInstallTypesEventBody>());
+  private readonly _onDidBeginInstallTypings = this._register(new qv.EventEmitter<qp.BeginInstallTypesEventBody>());
   public readonly onDidBeginInstallTypings = this._onDidBeginInstallTypings.event;
 
-  private readonly _onDidEndInstallTypings = this._register(new vsc.EventEmitter<Proto.EndInstallTypesEventBody>());
+  private readonly _onDidEndInstallTypings = this._register(new qv.EventEmitter<qp.EndInstallTypesEventBody>());
   public readonly onDidEndInstallTypings = this._onDidEndInstallTypings.event;
 
-  private readonly _onTypesInstallerInitializationFailed = this._register(new vsc.EventEmitter<Proto.TypesInstallerInitializationFailedEventBody>());
+  private readonly _onTypesInstallerInitializationFailed = this._register(new qv.EventEmitter<qp.TypesInstallerInitializationFailedEventBody>());
   public readonly onTypesInstallerInitializationFailed = this._onTypesInstallerInitializationFailed.event;
 
-  private readonly _onSurveyReady = this._register(new vsc.EventEmitter<Proto.SurveyReadyEventBody>());
+  private readonly _onSurveyReady = this._register(new qv.EventEmitter<qp.SurveyReadyEventBody>());
   public readonly onSurveyReady = this._onSurveyReady.event;
 
   public get apiVersion(): API {
@@ -356,7 +356,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
 
     let version = this._versionManager.currentVersion;
     if (!version.isValid) {
-      vsc.window.showWarningMessage(localize('noServerFound', "The path {0} doesn't point to a valid tsserver install. Falling back to bundled TypeScript version.", version.path));
+      qv.window.showWarningMessage(localize('noServerFound', "The path {0} doesn't point to a valid tsserver install. Falling back to bundled TypeScript version.", version.path));
 
       this._versionManager.reset();
       version = this._versionManager.currentVersion;
@@ -393,7 +393,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
       }
 
       if (err) {
-        vsc.window.showErrorMessage(localize('serverExitedWithError', 'TypeScript language server exited with error. Error message is: {0}', err.message || err.name));
+        qv.window.showErrorMessage(localize('serverExitedWithError', 'TypeScript language server exited with error. Error message is: {0}', err.message || err.name));
       }
 
       this.serverState = new ServerState.Errored(err, handle.tsServerLogFile);
@@ -463,8 +463,8 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
 
   public async openTsServerLogFile(): Promise<boolean> {
     if (this._configuration.tsServerLogLevel === TsServerLogLevel.Off) {
-      vsc.window
-        .showErrorMessage<vsc.MessageItem>(
+      qv.window
+        .showErrorMessage<qv.MessageItem>(
           localize('typescript.openTsServerLog.loggingNotEnabled', 'TS Server logging is off. Please set `typescript.tsserver.log` and restart the TS server to enable logging'),
           {
             title: localize('typescript.openTsServerLog.enableAndReloadOption', 'Enable logging and restart TS server'),
@@ -472,7 +472,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
         )
         .then((selection) => {
           if (selection) {
-            return vsc.workspace
+            return qv.workspace
               .getConfiguration()
               .update('typescript.tsserver.log', 'verbose', true)
               .then(() => {
@@ -485,23 +485,23 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
     }
 
     if (this.serverState.type !== ServerState.Type.Running || !this.serverState.server.tsServerLogFile) {
-      vsc.window.showWarningMessage(localize('typescript.openTsServerLog.noLogFile', 'TS Server has not started logging.'));
+      qv.window.showWarningMessage(localize('typescript.openTsServerLog.noLogFile', 'TS Server has not started logging.'));
       return false;
     }
 
     try {
-      const doc = await vsc.workspace.openTextDocument(vsc.Uri.file(this.serverState.server.tsServerLogFile));
-      await vsc.window.showTextDocument(doc);
+      const doc = await qv.workspace.openTextDocument(qv.Uri.file(this.serverState.server.tsServerLogFile));
+      await qv.window.showTextDocument(doc);
       return true;
     } catch {
       // noop
     }
 
     try {
-      await vsc.commands.executeCommand('revealFileInOS', vsc.Uri.file(this.serverState.server.tsServerLogFile));
+      await qv.commands.executeCommand('revealFileInOS', qv.Uri.file(this.serverState.server.tsServerLogFile));
       return true;
     } catch {
-      vsc.window.showWarningMessage(localize('openTsServerLog.openFileFailedFailed', 'Could not open TS Server log file'));
+      qv.window.showWarningMessage(localize('openTsServerLog.openFileFailedFailed', 'Could not open TS Server log file'));
       return false;
     }
   }
@@ -511,7 +511,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
 
     const watchOptions = this.apiVersion.gte(API.v380) ? this.configuration.watchOptions : undefined;
 
-    const configureOptions: Proto.ConfigureRequestArguments = {
+    const configureOptions: qp.ConfigureRequestArguments = {
       hostInfo: 'vscode',
       preferences: {
         providePrefixAndSuffixTextForRename: true,
@@ -535,13 +535,13 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
   }
 
   private setCompilerOptionsForInferredProjects(configuration: TypeScriptServiceConfiguration): void {
-    const args: Proto.SetCompilerOptionsForInferredProjectsArgs = {
+    const args: qp.SetCompilerOptionsForInferredProjectsArgs = {
       options: this.getCompilerOptionsForInferredProjects(configuration),
     };
     this.executeWithoutWaitingForResponse('compilerOptionsForInferredProjects', args);
   }
 
-  private getCompilerOptionsForInferredProjects(configuration: TypeScriptServiceConfiguration): Proto.ExternalProjectCompilerOptions {
+  private getCompilerOptionsForInferredProjects(configuration: TypeScriptServiceConfiguration): qp.ExternalProjectCompilerOptions {
     return {
       ...inferredProjectCompilerOptions(ProjectType.TypeScript, configuration),
       allowJs: true,
@@ -562,10 +562,10 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
       this.numberRestarts++;
       let startService = true;
 
-      const reportIssueItem: vsc.MessageItem = {
+      const reportIssueItem: qv.MessageItem = {
         title: localize('serverDiedReportIssue', 'Report Issue'),
       };
-      let prompt: Thenable<undefined | vsc.MessageItem> | undefined = undefined;
+      let prompt: Thenable<undefined | qv.MessageItem> | undefined = undefined;
 
       if (this.numberRestarts > 5) {
         this.numberRestarts = 0;
@@ -573,7 +573,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
           this.lastStart = Date.now();
           startService = false;
           this.hasServerFatallyCrashedTooManyTimes = true;
-          prompt = vsc.window.showErrorMessage(
+          prompt = qv.window.showErrorMessage(
             localize('serverDiedAfterStart', 'The TypeScript language service died 5 times right after it got started. The service will not be restarted.'),
             reportIssueItem
           );
@@ -588,14 +588,14 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
           this.logTelemetry('serviceExited');
         } else if (diff < 60 * 1000 * 5 /* 5 Minutes */) {
           this.lastStart = Date.now();
-          prompt = vsc.window.showWarningMessage(localize('serverDied', 'The TypeScript language service died unexpectedly 5 times in the last 5 Minutes.'), reportIssueItem);
+          prompt = qv.window.showWarningMessage(localize('serverDied', 'The TypeScript language service died unexpectedly 5 times in the last 5 Minutes.'), reportIssueItem);
         }
-      } else if (['vscode-insiders', 'code-oss'].includes(vsc.env.uriScheme)) {
+      } else if (['vscode-insiders', 'code-oss'].includes(qv.env.uriScheme)) {
         // Prompt after a single restart
         if (!this._isPromptingAfterCrash && previousState.type === ServerState.Type.Errored && previousState.error instanceof TypeScriptServerError) {
           this.numberRestarts = 0;
           this._isPromptingAfterCrash = true;
-          prompt = vsc.window.showWarningMessage(localize('serverDiedOnce', 'The TypeScript language service died unexpectedly.'), reportIssueItem);
+          prompt = qv.window.showWarningMessage(localize('serverDiedOnce', 'The TypeScript language service died unexpectedly.'), reportIssueItem);
         }
       }
 
@@ -607,7 +607,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
             previousState.type === ServerState.Type.Errored && previousState.error instanceof TypeScriptServerError
               ? getReportIssueArgsForError(previousState.error, previousState.tsServerLogFile)
               : undefined;
-          vsc.commands.executeCommand('workbench.action.openIssueReporter', args);
+          qv.commands.executeCommand('workbench.action.openIssueReporter', args);
         }
       });
 
@@ -617,7 +617,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
     }
   }
 
-  public normalizedPath(resource: vsc.Uri): string | undefined {
+  public normalizedPath(resource: qv.Uri): string | undefined {
     if (fileSchemes.disabledSchemes.has(resource.scheme)) {
       return undefined;
     }
@@ -639,11 +639,11 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
     }
   }
 
-  public toPath(resource: vsc.Uri): string | undefined {
+  public toPath(resource: qv.Uri): string | undefined {
     return this.normalizedPath(resource);
   }
 
-  public toOpenedFilePath(document: vsc.TextDocument, options: { suppressAlertOnFailure?: boolean } = {}): string | undefined {
+  public toOpenedFilePath(document: qv.TextDocument, options: { suppressAlertOnFailure?: boolean } = {}): string | undefined {
     if (!this.bufferSyncSupport.ensureHasBuffer(document.uri)) {
       if (!options.suppressAlertOnFailure && !fileSchemes.disabledSchemes.has(document.uri.scheme)) {
         console.error(`Unexpected resource ${document.uri}`);
@@ -653,7 +653,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
     return this.toPath(document.uri);
   }
 
-  public hasCapabilityForResource(resource: vsc.Uri, capability: ClientCap): boolean {
+  public hasCapabilityForResource(resource: qv.Uri, capability: ClientCap): boolean {
     switch (capability) {
       case ClientCap.Semantic: {
         return fileSchemes.semanticSupportedSchemes.includes(resource.scheme);
@@ -665,23 +665,23 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
     }
   }
 
-  public toResource(filepath: string): vsc.Uri {
+  public toResource(filepath: string): qv.Uri {
     if (isWeb()) {
       // On web, treat absolute paths as pointing to standard lib files
       if (filepath.startsWith('/')) {
-        return vsc.Uri.joinPath(this.context.extensionUri, 'node_modules', 'typescript', 'lib', filepath.slice(1));
+        return qv.Uri.joinPath(this.context.extensionUri, 'node_modules', 'typescript', 'lib', filepath.slice(1));
       }
     }
 
     if (filepath.startsWith(this.inMemoryResourcePrefix)) {
-      const resource = vsc.Uri.parse(filepath.slice(1));
+      const resource = qv.Uri.parse(filepath.slice(1));
       return this.bufferSyncSupport.toVsCodeResource(resource);
     }
     return this.bufferSyncSupport.toResource(filepath);
   }
 
-  public getWorkspaceRootForResource(resource: vsc.Uri): string | undefined {
-    const roots = vsc.workspace.workspaceFolders ? Array.from(vsc.workspace.workspaceFolders) : undefined;
+  public getWorkspaceRootForResource(resource: qv.Uri): string | undefined {
+    const roots = qv.workspace.workspaceFolders ? Array.from(qv.workspace.workspaceFolders) : undefined;
     if (!roots || !roots.length) {
       return undefined;
     }
@@ -698,13 +698,13 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
     return undefined;
   }
 
-  public execute(command: keyof TypeScriptRequests, args: any, token: vsc.CancellationToken, config?: ExecConfig): Promise<ServerResponse.Response<Proto.Response>> {
-    let execution: Promise<ServerResponse.Response<Proto.Response>>;
+  public execute(command: keyof TypeScriptRequests, args: any, token: qv.CancellationToken, config?: ExecConfig): Promise<ServerResponse.Response<qp.Response>> {
+    let execution: Promise<ServerResponse.Response<qp.Response>>;
 
     if (config?.cancelOnResourceChange) {
       const runningServerState = this.service();
 
-      const source = new vsc.CancellationTokenSource();
+      const source = new qv.CancellationTokenSource();
       token.onCancellationRequested(() => source.cancel());
 
       const inFlight: ToCancelOnResourceChanged = {
@@ -746,7 +746,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
     });
   }
 
-  public executeAsync(command: keyof TypeScriptRequests, args: Proto.GeterrRequestArgs, token: vsc.CancellationToken): Promise<ServerResponse.Response<Proto.Response>> {
+  public executeAsync(command: keyof TypeScriptRequests, args: qp.GeterrRequestArgs, token: qv.CancellationToken): Promise<ServerResponse.Response<qp.Response>> {
     return this.executeImpl(command, args, {
       isAsync: true,
       token,
@@ -757,18 +757,18 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
   private executeImpl(
     command: keyof TypeScriptRequests,
     args: any,
-    executeInfo: { isAsync: boolean; token?: vsc.CancellationToken; expectsResult: false; lowPriority?: boolean; requireSemantic?: boolean }
+    executeInfo: { isAsync: boolean; token?: qv.CancellationToken; expectsResult: false; lowPriority?: boolean; requireSemantic?: boolean }
   ): undefined;
   private executeImpl(
     command: keyof TypeScriptRequests,
     args: any,
-    executeInfo: { isAsync: boolean; token?: vsc.CancellationToken; expectsResult: boolean; lowPriority?: boolean; requireSemantic?: boolean }
-  ): Promise<ServerResponse.Response<Proto.Response>>;
+    executeInfo: { isAsync: boolean; token?: qv.CancellationToken; expectsResult: boolean; lowPriority?: boolean; requireSemantic?: boolean }
+  ): Promise<ServerResponse.Response<qp.Response>>;
   private executeImpl(
     command: keyof TypeScriptRequests,
     args: any,
-    executeInfo: { isAsync: boolean; token?: vsc.CancellationToken; expectsResult: boolean; lowPriority?: boolean; requireSemantic?: boolean }
-  ): Promise<ServerResponse.Response<Proto.Response>> | undefined {
+    executeInfo: { isAsync: boolean; token?: qv.CancellationToken; expectsResult: boolean; lowPriority?: boolean; requireSemantic?: boolean }
+  ): Promise<ServerResponse.Response<qp.Response>> | undefined {
     this.bufferSyncSupport.beforeCommand(command);
     const runningServerState = this.service();
     return runningServerState.server.executeImpl(command, args, executeInfo);
@@ -804,7 +804,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
     }
   }
 
-  private dispatchEvent(event: Proto.Event) {
+  private dispatchEvent(event: qp.Event) {
     switch (event.event) {
       case EventName.syntaxDiag:
       case EventName.semanticDiag:
@@ -812,7 +812,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
         // This event also roughly signals that projects have been loaded successfully (since the TS server is synchronous)
         this.loadingIndicator.reset();
 
-        const diagnosticEvent = event as Proto.DiagnosticEvent;
+        const diagnosticEvent = event as qp.DiagnosticEvent;
         if (diagnosticEvent.body && diagnosticEvent.body.diagnostics) {
           this._onDiagnosticsReceived.fire({
             kind: getDignosticsKind(event),
@@ -823,16 +823,16 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
         break;
 
       case EventName.configFileDiag:
-        this._onConfigDiagnosticsReceived.fire(event as Proto.ConfigFileDiagnosticEvent);
+        this._onConfigDiagnosticsReceived.fire(event as qp.ConfigFileDiagnosticEvent);
         break;
 
       case EventName.telemetry: {
-        const body = (event as Proto.TelemetryEvent).body;
+        const body = (event as qp.TelemetryEvent).body;
         this.dispatchTelemetryEvent(body);
         break;
       }
       case EventName.projectLanguageServiceState: {
-        const body = (event as Proto.ProjectLanguageServiceStateEvent).body!;
+        const body = (event as qp.ProjectLanguageServiceStateEvent).body!;
         if (this.serverState.type === ServerState.Type.Running) {
           this.serverState.updateLanguageServiceEnabled(body.languageServiceEnabled);
         }
@@ -842,42 +842,42 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
       case EventName.projectsUpdatedInBackground:
         this.loadingIndicator.reset();
 
-        const body = (event as Proto.ProjectsUpdatedInBackgroundEvent).body;
+        const body = (event as qp.ProjectsUpdatedInBackgroundEvent).body;
         const resources = body.openFiles.map((file) => this.toResource(file));
         this.bufferSyncSupport.getErr(resources);
         break;
 
       case EventName.beginInstallTypes:
-        this._onDidBeginInstallTypings.fire((event as Proto.BeginInstallTypesEvent).body);
+        this._onDidBeginInstallTypings.fire((event as qp.BeginInstallTypesEvent).body);
         break;
 
       case EventName.endInstallTypes:
-        this._onDidEndInstallTypings.fire((event as Proto.EndInstallTypesEvent).body);
+        this._onDidEndInstallTypings.fire((event as qp.EndInstallTypesEvent).body);
         break;
 
       case EventName.typesInstallerInitializationFailed:
-        this._onTypesInstallerInitializationFailed.fire((event as Proto.TypesInstallerInitializationFailedEvent).body);
+        this._onTypesInstallerInitializationFailed.fire((event as qp.TypesInstallerInitializationFailedEvent).body);
         break;
 
       case EventName.surveyReady:
-        this._onSurveyReady.fire((event as Proto.SurveyReadyEvent).body);
+        this._onSurveyReady.fire((event as qp.SurveyReadyEvent).body);
         break;
 
       case EventName.projectLoadingStart:
-        this.loadingIndicator.startedLoadingProject((event as Proto.ProjectLoadingStartEvent).body.projectName);
+        this.loadingIndicator.startedLoadingProject((event as qp.ProjectLoadingStartEvent).body.projectName);
         break;
 
       case EventName.projectLoadingFinish:
-        this.loadingIndicator.finishedLoadingProject((event as Proto.ProjectLoadingFinishEvent).body.projectName);
+        this.loadingIndicator.finishedLoadingProject((event as qp.ProjectLoadingFinishEvent).body.projectName);
         break;
     }
   }
 
-  private dispatchTelemetryEvent(telemetryData: Proto.TelemetryEventBody): void {
+  private dispatchTelemetryEvent(telemetryData: qp.TelemetryEventBody): void {
     const properties: { [key: string]: string } = Object.create(null);
     switch (telemetryData.telemetryEventName) {
       case 'typingsInstalled':
-        const typingsInstalledPayload: Proto.TypingsInstalledTelemetryEventPayload = telemetryData.payload as Proto.TypingsInstalledTelemetryEventPayload;
+        const typingsInstalledPayload: qp.TypingsInstalledTelemetryEventPayload = telemetryData.payload as qp.TypingsInstalledTelemetryEventPayload;
         properties['installedPackages'] = typingsInstalledPayload.installedPackages;
 
         if (typeof typingsInstalledPayload.installSuccess === 'boolean') {
@@ -973,14 +973,14 @@ ${error.serverStack}
 \`\`\``);
 
   return {
-    extensionId: 'vsc.typescript-language-features',
+    extensionId: 'qv.typescript-language-features',
     issueTitle: `TS Server fatal error:  ${error.serverMessage}`,
 
     issueBody: sections.join('\n\n'),
   };
 }
 
-function getDignosticsKind(event: Proto.Event) {
+function getDignosticsKind(event: qp.Event) {
   switch (event.event) {
     case 'syntaxDiag':
       return DiagnosticKind.Syntax;
@@ -1003,9 +1003,9 @@ class ServerInitializingIndicator extends qu.Disposable {
   }
   public startedLoadingProject(projectName: string | undefined): void {
     this.reset();
-    vsc.window.withProgress(
+    qv.window.withProgress(
       {
-        location: vsc.ProgressLocation.Window,
+        location: qv.ProgressLocation.Window,
         title: localize('serverLoading.progress', 'Initializing JS/TS language features'),
       },
       () =>

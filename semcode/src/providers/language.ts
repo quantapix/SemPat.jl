@@ -1,13 +1,13 @@
 import { basename } from 'path';
-import * as vscode from 'vscode';
-import { DiagnosticKind } from '../../old/ts/languageFeatures/diagnostics';
-import FileConfigurationManager from '../../old/ts/languageFeatures/fileConfigurationManager';
 import { CachedResponse } from '../../old/ts/tsServer/cachedResponse';
-import TypeScriptServiceClient from '../client';
 import { CommandManager } from '../../old/ts/commands/commandManager';
-import * as qu from '../utils';
+import { DiagnosticKind } from '../../old/ts/languageFeatures/diagnostics';
 import { LanguageDescription } from '../../old/ts/utils/languageDescription';
 import { TelemetryReporter } from '../../old/ts/utils/telemetry';
+import * as qu from '../utils';
+import * as qv from 'vscode';
+import FileConfigurationManager from '../../old/ts/languageFeatures/fileConfigurationManager';
+import TypeScriptServiceClient from '../client';
 import TypingsStatus from '../../old/ts/utils/typingsStatus';
 
 const validateSetting = 'validate.enable';
@@ -21,17 +21,17 @@ export default class LanguageProvider extends qu.Disposable {
     private readonly telemetryReporter: TelemetryReporter,
     private readonly typingsStatus: TypingsStatus,
     private readonly fileConfigurationManager: FileConfigurationManager,
-    private readonly onCompletionAccepted: (item: vscode.CompletionItem) => void
+    private readonly onCompletionAccepted: (item: qv.CompletionItem) => void
   ) {
     super();
-    vscode.workspace.onDidChangeConfiguration(this.configurationChanged, this, this._disposables);
+    qv.workspace.onDidChangeConfiguration(this.configurationChanged, this, this._disposables);
     this.configurationChanged();
     client.onReady(() => this.registerProviders());
   }
 
   private get documentSelector(): qu.DocumentSelector {
-    const semantic: vscode.DocumentFilter[] = [];
-    const syntax: vscode.DocumentFilter[] = [];
+    const semantic: qv.DocumentFilter[] = [];
+    const syntax: qv.DocumentFilter[] = [];
     for (const language of this.description.modeIds) {
       syntax.push({ language });
       for (const scheme of qu.semanticSupportedSchemes) {
@@ -78,12 +78,12 @@ export default class LanguageProvider extends qu.Disposable {
   }
 
   private configurationChanged(): void {
-    const c = vscode.workspace.getConfiguration(this.id, null);
+    const c = qv.workspace.getConfiguration(this.id, null);
     this.updateValidate(c.get(validateSetting, true));
     this.updateSuggestionDiagnostics(c.get(suggestionSetting, true));
   }
 
-  public handles(r: vscode.Uri, d: vscode.TextDocument): boolean {
+  public handles(r: qv.Uri, d: qv.TextDocument): boolean {
     if (d && this.description.modeIds.indexOf(d.languageId) >= 0) return true;
     const b = basename(r.fsPath);
     return !!b && !!this.description.configFilePattern && this.description.configFilePattern.test(b);
@@ -113,8 +113,8 @@ export default class LanguageProvider extends qu.Disposable {
     this.client.bufferSyncSupport.requestAllDiagnostics();
   }
 
-  public diagnosticsReceived(k: DiagnosticKind, r: vscode.Uri, ds: (vscode.Diagnostic & { reportUnnecessary: any; reportDeprecated: any })[]): void {
-    const c = vscode.workspace.getConfiguration(this.id, r);
+  public diagnosticsReceived(k: DiagnosticKind, r: qv.Uri, ds: (qv.Diagnostic & { reportUnnecessary: any; reportDeprecated: any })[]): void {
+    const c = qv.workspace.getConfiguration(this.id, r);
     const unnecessary = c.get<boolean>('showUnused', true);
     const deprecated = c.get<boolean>('showDeprecated', true);
     this.client.diagnosticsManager.updateDiagnostics(
@@ -123,17 +123,17 @@ export default class LanguageProvider extends qu.Disposable {
       k,
       ds.filter((d) => {
         if (!unnecessary) {
-          if (d.reportUnnecessary && d.severity === vscode.DiagnosticSeverity.Hint) return false;
+          if (d.reportUnnecessary && d.severity === qv.DiagnosticSeverity.Hint) return false;
         }
         if (!deprecated) {
-          if (d.reportDeprecated && d.severity === vscode.DiagnosticSeverity.Hint) return false;
+          if (d.reportDeprecated && d.severity === qv.DiagnosticSeverity.Hint) return false;
         }
         return true;
       })
     );
   }
 
-  public configFileDiagnosticsReceived(r: vscode.Uri, ds: vscode.Diagnostic[]): void {
+  public configFileDiagnosticsReceived(r: qv.Uri, ds: qv.Diagnostic[]): void {
     this.client.diagnosticsManager.configFileDiagnosticsReceived(r, ds);
   }
 

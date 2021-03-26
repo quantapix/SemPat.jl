@@ -1,8 +1,8 @@
-import * as vsc from 'vscode';
-import * as Proto from '../protocol';
 import { ClientCap, ExecConfig, ServiceClient, ServerResponse } from '../service';
-import API from '../../old/ts/utils/api';
 import { condRegistration, requireSomeCap, requireMinVer } from '../registration';
+import * as qp from '../protocol';
+import * as qv from 'vscode';
+import API from '../../old/ts/utils/api';
 
 const minTypeScriptVersion = API.fromVersionString(`${VersionRequirement.major}.${VersionRequirement.minor}`);
 
@@ -11,25 +11,25 @@ const CONTENT_LENGTH_LIMIT = 100000;
 export function register(s: qu.DocumentSelector, c: ServiceClient) {
   return condRegistration([requireMinVer(c, minTypeScriptVersion), requireSomeCap(c, ClientCap.Semantic)], () => {
     const p = new DocumentSemanticTokensProvider(c);
-    return vsc.Disposable.from(vsc.languages.registerDocumentRangeSemanticTokensProvider(s.semantic, p, p.getLegend()));
+    return qv.Disposable.from(qv.languages.registerDocumentRangeSemanticTokensProvider(s.semantic, p, p.getLegend()));
   });
 }
 
-class DocumentSemanticTokensProvider implements vsc.DocumentSemanticTokensProvider, vsc.DocumentRangeSemanticTokensProvider {
+class DocumentSemanticTokensProvider implements qv.DocumentSemanticTokensProvider, qv.DocumentRangeSemanticTokensProvider {
   constructor(private readonly client: ServiceClient) {}
 
-  getLegend(): vsc.SemanticTokensLegend {
-    return new vsc.SemanticTokensLegend(tokenTypes, tokenModifiers);
+  getLegend(): qv.SemanticTokensLegend {
+    return new qv.SemanticTokensLegend(tokenTypes, tokenModifiers);
   }
 
-  async provideDocumentSemanticTokens(document: vsc.TextDocument, token: vsc.CancellationToken): Promise<vsc.SemanticTokens | null> {
+  async provideDocumentSemanticTokens(document: qv.TextDocument, token: qv.CancellationToken): Promise<qv.SemanticTokens | null> {
     const file = this.client.toOpenedFilePath(document);
     if (!file || document.getText().length > CONTENT_LENGTH_LIMIT) return null;
 
     return this._provideSemanticTokens(document, { file, start: 0, length: document.getText().length }, token);
   }
 
-  async provideDocumentRangeSemanticTokens(document: vsc.TextDocument, range: vsc.Range, token: vsc.CancellationToken): Promise<vsc.SemanticTokens | null> {
+  async provideDocumentRangeSemanticTokens(document: qv.TextDocument, range: qv.Range, token: qv.CancellationToken): Promise<qv.SemanticTokens | null> {
     const file = this.client.toOpenedFilePath(document);
     if (!file || document.offsetAt(range.end) - document.offsetAt(range.start) > CONTENT_LENGTH_LIMIT) return null;
 
@@ -38,7 +38,7 @@ class DocumentSemanticTokensProvider implements vsc.DocumentSemanticTokensProvid
     return this._provideSemanticTokens(document, { file, start, length }, token);
   }
 
-  async _provideSemanticTokens(document: vsc.TextDocument, requestArg: Proto.EncodedSemanticClassificationsRequestArgs, token: vsc.CancellationToken): Promise<vsc.SemanticTokens | null> {
+  async _provideSemanticTokens(document: qv.TextDocument, requestArg: qp.EncodedSemanticClassificationsRequestArgs, token: qv.CancellationToken): Promise<qv.SemanticTokens | null> {
     const file = this.client.toOpenedFilePath(document);
     if (!file) return null;
 
@@ -53,10 +53,10 @@ class DocumentSemanticTokensProvider implements vsc.DocumentSemanticTokensProvid
 
     if (versionBeforeRequest !== versionAfterRequest) {
       await waitForDocumentChangesToEnd(document);
-      throw new vsc.CancellationError();
+      throw new qv.CancellationError();
     }
     const tokenSpan = response.body.spans;
-    const builder = new vsc.SemanticTokensBuilder();
+    const builder = new qv.SemanticTokensBuilder();
     let i = 0;
     while (i < tokenSpan.length) {
       const offset = tokenSpan[i++];
@@ -84,7 +84,7 @@ class DocumentSemanticTokensProvider implements vsc.DocumentSemanticTokensProvid
   }
 }
 
-function waitForDocumentChangesToEnd(document: vsc.TextDocument) {
+function waitForDocumentChangesToEnd(document: qv.TextDocument) {
   let version = document.version;
   return new Promise<void>((s) => {
     const iv = setInterval((_) => {
@@ -177,14 +177,14 @@ namespace ExperimentalProtocol {
     execute<K extends keyof ExperimentalProtocol.ExtendedTsServerRequests>(
       command: K,
       args: ExperimentalProtocol.ExtendedTsServerRequests[K][0],
-      token: vsc.CancellationToken,
+      token: qv.CancellationToken,
       config?: ExecConfig
     ): Promise<ServerResponse.Response<ExperimentalProtocol.ExtendedTsServerRequests[K][1]>>;
   }
-  export interface EncodedSemanticClassificationsRequest extends Proto.FileRequest {
+  export interface EncodedSemanticClassificationsRequest extends qp.FileRequest {
     arguments: EncodedSemanticClassificationsRequestArgs;
   }
-  export interface EncodedSemanticClassificationsRequestArgs extends Proto.FileRequestArgs {
+  export interface EncodedSemanticClassificationsRequestArgs extends qp.FileRequestArgs {
     start: number;
     length: number;
   }
@@ -227,7 +227,7 @@ namespace ExperimentalProtocol {
     bigintLiteral = 25,
   }
 
-  export interface EncodedSemanticClassificationsResponse extends Proto.Response {
+  export interface EncodedSemanticClassificationsResponse extends qp.Response {
     body?: {
       endOfLineState: EndOfLineState;
       spans: number[];

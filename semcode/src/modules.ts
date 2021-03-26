@@ -1,4 +1,4 @@
-import * as vscode from 'vscode';
+import * as qv from 'vscode';
 import * as rpc from 'vscode-jsonrpc';
 import * as vslc from 'vscode-languageclient/node';
 import { onSetLanguageClient } from './extension';
@@ -6,10 +6,10 @@ import { registerCommand } from './utils';
 import { VersionedTextDocumentPositionParams } from './misc';
 import { onExit, onInit } from './repl';
 
-let statusBarItem: vscode.StatusBarItem = null;
+let statusBarItem: qv.StatusBarItem = null;
 let g_connection: rpc.MessageConnection = null;
 let g_languageClient: vslc.LanguageClient = null;
-let g_currentGetModuleRequestCancelTokenSource: vscode.CancellationTokenSource = null;
+let g_currentGetModuleRequestCancelTokenSource: qv.CancellationTokenSource = null;
 
 const manuallySetDocuments = [];
 
@@ -18,18 +18,18 @@ const requestTypeIsModuleLoaded = new rpc.RequestType<{ mod: string }, boolean, 
 
 const automaticallyChooseOption = 'Choose Automatically';
 
-export function activate(context: vscode.ExtensionContext) {
+export function activate(context: qv.ExtensionContext) {
   context.subscriptions.push(
-    vscode.window.onDidChangeActiveTextEditor((ed) => {
+    qv.window.onDidChangeActiveTextEditor((ed) => {
       cancelCurrentGetModuleRequest();
-      g_currentGetModuleRequestCancelTokenSource = new vscode.CancellationTokenSource();
+      g_currentGetModuleRequestCancelTokenSource = new qv.CancellationTokenSource();
       updateStatusBarItem(ed, g_currentGetModuleRequestCancelTokenSource.token);
     })
   );
   context.subscriptions.push(
-    vscode.window.onDidChangeTextEditorSelection((changeEvent) => {
+    qv.window.onDidChangeTextEditorSelection((changeEvent) => {
       cancelCurrentGetModuleRequest();
-      g_currentGetModuleRequestCancelTokenSource = new vscode.CancellationTokenSource();
+      g_currentGetModuleRequestCancelTokenSource = new qv.CancellationTokenSource();
       updateModuleForSelectionEvent(changeEvent, g_currentGetModuleRequestCancelTokenSource.token);
     })
   );
@@ -41,7 +41,7 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
+  statusBarItem = qv.window.createStatusBarItem(qv.StatusBarAlignment.Right, 99);
   statusBarItem.command = 'language-julia.chooseModule';
   statusBarItem.tooltip = 'Choose Current Module';
 
@@ -65,7 +65,7 @@ function cancelCurrentGetModuleRequest() {
   }
 }
 
-export async function getModuleForEditor(document: vscode.TextDocument, position: vscode.Position, token?: vscode.CancellationToken) {
+export async function getModuleForEditor(document: qv.TextDocument, position: qv.Position, token?: qv.CancellationToken) {
   const manuallySetModule = manuallySetDocuments[document.fileName];
   if (manuallySetModule) {
     return manuallySetModule;
@@ -104,7 +104,7 @@ export async function getModuleForEditor(document: vscode.TextDocument, position
     return;
   } catch (err) {
     if (err.message === 'Language client is not ready yet') {
-      vscode.window.showErrorMessage(err);
+      qv.window.showErrorMessage(err);
     } else if (languageClient) {
       console.error(err);
     }
@@ -112,11 +112,11 @@ export async function getModuleForEditor(document: vscode.TextDocument, position
   }
 }
 
-function isJuliaEditor(editor: vscode.TextEditor = vscode.window.activeTextEditor) {
+function isJuliaEditor(editor: qv.TextEditor = qv.window.activeTextEditor) {
   return editor && editor.document.languageId === 'julia';
 }
 
-async function updateStatusBarItem(editor: vscode.TextEditor = vscode.window.activeTextEditor, token?: vscode.CancellationToken) {
+async function updateStatusBarItem(editor: qv.TextEditor = qv.window.activeTextEditor, token?: qv.CancellationToken) {
   if (isJuliaEditor(editor)) {
     statusBarItem.show();
     await updateModuleForEditor(editor, token);
@@ -125,12 +125,12 @@ async function updateStatusBarItem(editor: vscode.TextEditor = vscode.window.act
   }
 }
 
-async function updateModuleForSelectionEvent(event: vscode.TextEditorSelectionChangeEvent, token?: vscode.CancellationToken) {
+async function updateModuleForSelectionEvent(event: qv.TextEditorSelectionChangeEvent, token?: qv.CancellationToken) {
   const editor = event.textEditor;
   await updateStatusBarItem(editor, token);
 }
 
-async function updateModuleForEditor(editor: vscode.TextEditor, token?: vscode.CancellationToken) {
+async function updateModuleForEditor(editor: qv.TextEditor, token?: qv.CancellationToken) {
   const mod = await getModuleForEditor(editor.document, editor.selection.start, token);
   if (mod) {
     const loaded = await isModuleLoaded(mod);
@@ -146,7 +146,7 @@ async function isModuleLoaded(mod: string) {
     return await g_connection.sendRequest(requestTypeIsModuleLoaded, { mod: mod });
   } catch (err) {
     if (g_connection) {
-      vscode.window.showErrorMessage(err);
+      qv.window.showErrorMessage(err);
     }
     return false;
   }
@@ -158,9 +158,9 @@ async function chooseModule() {
     possibleModules = await g_connection.sendRequest(requestTypeGetModules, null);
   } catch (err) {
     if (g_connection) {
-      vscode.window.showErrorMessage(err);
+      qv.window.showErrorMessage(err);
     } else {
-      vscode.window.showInformationMessage('Setting a module requires an active REPL.');
+      qv.window.showInformationMessage('Setting a module requires an active REPL.');
     }
     return;
   }
@@ -168,13 +168,13 @@ async function chooseModule() {
   possibleModules.sort();
   possibleModules.splice(0, 0, automaticallyChooseOption);
 
-  const qpOptions: vscode.QuickPickOptions = {
+  const qpOptions: qv.QuickPickOptions = {
     placeHolder: 'Select module',
     canPickMany: false,
   };
-  const mod = await vscode.window.showQuickPick(possibleModules, qpOptions);
+  const mod = await qv.window.showQuickPick(possibleModules, qpOptions);
 
-  const ed = vscode.window.activeTextEditor;
+  const ed = qv.window.activeTextEditor;
   if (mod === automaticallyChooseOption) {
     delete manuallySetDocuments[ed.document.fileName];
   } else {
@@ -182,6 +182,6 @@ async function chooseModule() {
   }
 
   cancelCurrentGetModuleRequest();
-  g_currentGetModuleRequestCancelTokenSource = new vscode.CancellationTokenSource();
+  g_currentGetModuleRequestCancelTokenSource = new qv.CancellationTokenSource();
   updateStatusBarItem(ed, g_currentGetModuleRequestCancelTokenSource.token);
 }

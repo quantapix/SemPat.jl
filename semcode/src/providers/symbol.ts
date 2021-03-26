@@ -1,20 +1,20 @@
-import * as vsc from 'vscode';
-import type * as Proto from '../protocol';
-import * as PConst from '../protocol.const';
 import { CachedResponse } from '../../old/ts/tsServer/cachedResponse';
 import { ServiceClient } from '../service';
+import * as PConst from '../protocol.const';
 import * as qu from '../utils';
+import * as qv from 'vscode';
+import type * as qp from '../protocol';
 
-class DocSymbol implements vsc.DocumentSymbolProvider {
-  public constructor(private readonly client: ServiceClient, private cached: CachedResponse<Proto.NavTreeResponse>) {}
+class DocSymbol implements qv.DocumentSymbolProvider {
+  public constructor(private readonly client: ServiceClient, private cached: CachedResponse<qp.NavTreeResponse>) {}
 
-  public async provideDocumentSymbols(d: vsc.TextDocument, t: vsc.CancellationToken): Promise<vsc.DocumentSymbol[] | undefined> {
+  public async provideDocumentSymbols(d: qv.TextDocument, t: qv.CancellationToken): Promise<qv.DocumentSymbol[] | undefined> {
     const f = this.client.toOpenedFilePath(d);
     if (!f) return undefined;
-    const xs: Proto.FileRequestArgs = { file: f };
+    const xs: qp.FileRequestArgs = { file: f };
     const response = await this.cached.execute(d, () => this.client.execute('navtree', xs, t));
     if (response.type !== 'response' || !response.body?.childItems) return undefined;
-    const y: vsc.DocumentSymbol[] = [];
+    const y: qv.DocumentSymbol[] = [];
     for (const i of response.body.childItems) {
       convertNavTree(d.uri, y, i);
     }
@@ -22,11 +22,11 @@ class DocSymbol implements vsc.DocumentSymbolProvider {
   }
 }
 
-export function register(s: qu.DocumentSelector, c: ServiceClient, r: CachedResponse<Proto.NavTreeResponse>) {
-  return vsc.languages.registerDocumentSymbolProvider(s.syntax, new DocSymbol(c, r), { label: 'TypeScript' });
+export function register(s: qu.DocumentSelector, c: ServiceClient, r: CachedResponse<qp.NavTreeResponse>) {
+  return qv.languages.registerDocumentSymbolProvider(s.syntax, new DocSymbol(c, r), { label: 'TypeScript' });
 }
 
-function convertNavTree(u: vsc.Uri, out: vsc.DocumentSymbol[], t: Proto.NavigationTree): boolean {
+function convertNavTree(u: qv.Uri, out: qv.DocumentSymbol[], t: qp.NavigationTree): boolean {
   let y = shouldIncludeEntry(t);
   if (!y && !t.childItems?.length) return false;
   const cs = new Set(t.childItems || []);
@@ -45,7 +45,7 @@ function convertNavTree(u: vsc.Uri, out: vsc.DocumentSymbol[], t: Proto.Navigati
   return y;
 }
 
-function convertSymbol(t: Proto.NavigationTree, r: vsc.Range): vsc.DocumentSymbol {
+function convertSymbol(t: qp.NavigationTree, r: qv.Range): qv.DocumentSymbol {
   const selectionRange = t.nameSpan ? qu.Range.fromTextSpan(t.nameSpan) : r;
   let x = t.text;
   switch (t.kind) {
@@ -56,49 +56,49 @@ function convertSymbol(t: Proto.NavigationTree, r: vsc.Range): vsc.DocumentSymbo
       x = `(set) ${x}`;
       break;
   }
-  const y = new vsc.DocumentSymbol(x, '', getSymbolKind(t.kind), r, r.contains(selectionRange) ? selectionRange : r);
+  const y = new qv.DocumentSymbol(x, '', getSymbolKind(t.kind), r, r.contains(selectionRange) ? selectionRange : r);
   const ms = qu.parseKindModifier(t.kindModifiers);
-  if (ms.has(PConst.KindModifiers.depreacted)) y.tags = [vsc.SymbolTag.Deprecated];
+  if (ms.has(PConst.KindModifiers.depreacted)) y.tags = [qv.SymbolTag.Deprecated];
   return y;
 }
 
-function shouldIncludeEntry(t: Proto.NavigationTree | Proto.NavigationBarItem): boolean {
+function shouldIncludeEntry(t: qp.NavigationTree | qp.NavigationBarItem): boolean {
   if (t.kind === PConst.Kind.alias) return false;
   return !!(t.text && t.text !== '<function>' && t.text !== '<class>');
 }
 
-function getSymbolKind(k: string): vsc.SymbolKind {
+function getSymbolKind(k: string): qv.SymbolKind {
   switch (k) {
     case PConst.Kind.module:
-      return vsc.SymbolKind.Module;
+      return qv.SymbolKind.Module;
     case PConst.Kind.class:
-      return vsc.SymbolKind.Class;
+      return qv.SymbolKind.Class;
     case PConst.Kind.enum:
-      return vsc.SymbolKind.Enum;
+      return qv.SymbolKind.Enum;
     case PConst.Kind.interface:
-      return vsc.SymbolKind.Interface;
+      return qv.SymbolKind.Interface;
     case PConst.Kind.method:
-      return vsc.SymbolKind.Method;
+      return qv.SymbolKind.Method;
     case PConst.Kind.memberVariable:
-      return vsc.SymbolKind.Property;
+      return qv.SymbolKind.Property;
     case PConst.Kind.memberGetAccessor:
-      return vsc.SymbolKind.Property;
+      return qv.SymbolKind.Property;
     case PConst.Kind.memberSetAccessor:
-      return vsc.SymbolKind.Property;
+      return qv.SymbolKind.Property;
     case PConst.Kind.variable:
-      return vsc.SymbolKind.Variable;
+      return qv.SymbolKind.Variable;
     case PConst.Kind.const:
-      return vsc.SymbolKind.Variable;
+      return qv.SymbolKind.Variable;
     case PConst.Kind.localVariable:
-      return vsc.SymbolKind.Variable;
+      return qv.SymbolKind.Variable;
     case PConst.Kind.function:
-      return vsc.SymbolKind.Function;
+      return qv.SymbolKind.Function;
     case PConst.Kind.localFunction:
-      return vsc.SymbolKind.Function;
+      return qv.SymbolKind.Function;
     case PConst.Kind.constructSignature:
-      return vsc.SymbolKind.Constructor;
+      return qv.SymbolKind.Constructor;
     case PConst.Kind.constructorImplementation:
-      return vsc.SymbolKind.Constructor;
+      return qv.SymbolKind.Constructor;
   }
-  return vsc.SymbolKind.Variable;
+  return qv.SymbolKind.Variable;
 }

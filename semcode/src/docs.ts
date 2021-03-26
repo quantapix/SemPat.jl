@@ -1,6 +1,6 @@
 import * as markdownit from 'markdown-it';
 import * as path from 'path';
-import * as vscode from 'vscode';
+import * as qv from 'vscode';
 import { withLanguageClient } from './extension';
 import { constructCommandString, getVersionedParamsAtPosition, registerCommand } from './utils';
 
@@ -12,7 +12,7 @@ function openArgs(href: string) {
     uri = matches[1];
     line = parseInt(matches[3]);
   } else {
-    uri = vscode.Uri.parse(matches[1]);
+    uri = qv.Uri.parse(matches[1]);
   }
   return { uri, line };
 }
@@ -28,13 +28,13 @@ md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
 
   if (aIndex >= 0 && tokens[idx].attrs[aIndex][1] === '@ref' && tokens.length > idx + 1) {
     const commandUri = constructCommandString('language-julia.search-word', { searchTerm: tokens[idx + 1].content });
-    tokens[idx].attrs[aIndex][1] = vscode.Uri.parse(commandUri).toString();
+    tokens[idx].attrs[aIndex][1] = qv.Uri.parse(commandUri).toString();
   } else if (aIndex >= 0 && tokens.length > idx + 1) {
     const href = tokens[idx + 1].content;
     const { uri, line } = openArgs(href);
     let commandUri;
     if (line === undefined) {
-      commandUri = constructCommandString('vscode.open', uri);
+      commandUri = constructCommandString('qv.open', uri);
     } else {
       commandUri = constructCommandString('language-julia.openFile', { path: uri, line });
     }
@@ -44,7 +44,7 @@ md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
   return self.renderToken(tokens, idx, options);
 };
 
-export function activate(context: vscode.ExtensionContext) {
+export function activate(context: qv.ExtensionContext) {
   const provider = new DocumentationViewProvider(context);
 
   context.subscriptions.push(
@@ -53,13 +53,13 @@ export function activate(context: vscode.ExtensionContext) {
     registerCommand('language-julia.browse-back-documentation', () => provider.browseBack()),
     registerCommand('language-julia.browse-forward-documentation', () => provider.browseForward()),
     registerCommand('language-julia.search-word', (params) => provider.findHelp(params)),
-    vscode.window.registerWebviewViewProvider('julia-documentation', provider)
+    qv.window.registerWebviewViewProvider('julia-documentation', provider)
   );
 }
 
-class DocumentationViewProvider implements vscode.WebviewViewProvider {
-  private view?: vscode.WebviewView;
-  private context: vscode.ExtensionContext;
+class DocumentationViewProvider implements qv.WebviewViewProvider {
+  private view?: qv.WebviewView;
+  private context: qv.ExtensionContext;
 
   private backStack = Array<string>(); // also keep current page
   private forwardStack = Array<string>();
@@ -68,7 +68,7 @@ class DocumentationViewProvider implements vscode.WebviewViewProvider {
     this.context = context;
   }
 
-  resolveWebviewView(view: vscode.WebviewView, context: vscode.WebviewViewResolveContext) {
+  resolveWebviewView(view: qv.WebviewView, context: qv.WebviewViewResolveContext) {
     this.view = view;
 
     view.webview.options = {
@@ -92,7 +92,7 @@ class DocumentationViewProvider implements vscode.WebviewViewProvider {
 
   async showDocumentationPane() {
     // this forces the webview to be resolved:
-    await vscode.commands.executeCommand('julia-documentation.focus');
+    await qv.commands.executeCommand('julia-documentation.focus');
     // should always be true, but better safe than sorry
     if (this.view) {
       this.view.show?.(true);
@@ -123,7 +123,7 @@ class DocumentationViewProvider implements vscode.WebviewViewProvider {
   }
 
   async showDocumentation() {
-    const editor = vscode.window.activeTextEditor;
+    const editor = qv.window.activeTextEditor;
     if (!editor) {
       return;
     }
@@ -139,7 +139,7 @@ class DocumentationViewProvider implements vscode.WebviewViewProvider {
     this.setHTML(html);
   }
 
-  async getDocumentation(editor: vscode.TextEditor): Promise<string> {
+  async getDocumentation(editor: qv.TextEditor): Promise<string> {
     return await withLanguageClient(
       async (languageClient) => {
         return await languageClient.sendRequest<string>('julia/getDocAt', getVersionedParamsAtPosition(editor.document, editor.selection.start));
@@ -156,14 +156,14 @@ class DocumentationViewProvider implements vscode.WebviewViewProvider {
 
     const extensionPath = this.context.extensionPath;
 
-    const googleFontscss = this.view.webview.asWebviewUri(vscode.Uri.file(path.join(extensionPath, 'libs', 'google_fonts', 'css')));
-    const fontawesomecss = this.view.webview.asWebviewUri(vscode.Uri.file(path.join(extensionPath, 'libs', 'fontawesome', 'fontawesome.min.css')));
-    const solidcss = this.view.webview.asWebviewUri(vscode.Uri.file(path.join(extensionPath, 'libs', 'fontawesome', 'solid.min.css')));
-    const brandscss = this.view.webview.asWebviewUri(vscode.Uri.file(path.join(extensionPath, 'libs', 'fontawesome', 'brands.min.css')));
-    const documenterStylesheetcss = this.view.webview.asWebviewUri(vscode.Uri.file(path.join(extensionPath, 'libs', 'documenter', 'documenter-vscode.css')));
-    const katexcss = this.view.webview.asWebviewUri(vscode.Uri.file(path.join(extensionPath, 'libs', 'katex', 'katex.min.css')));
+    const googleFontscss = this.view.webview.asWebviewUri(qv.Uri.file(path.join(extensionPath, 'libs', 'google_fonts', 'css')));
+    const fontawesomecss = this.view.webview.asWebviewUri(qv.Uri.file(path.join(extensionPath, 'libs', 'fontawesome', 'fontawesome.min.css')));
+    const solidcss = this.view.webview.asWebviewUri(qv.Uri.file(path.join(extensionPath, 'libs', 'fontawesome', 'solid.min.css')));
+    const brandscss = this.view.webview.asWebviewUri(qv.Uri.file(path.join(extensionPath, 'libs', 'fontawesome', 'brands.min.css')));
+    const documenterStylesheetcss = this.view.webview.asWebviewUri(qv.Uri.file(path.join(extensionPath, 'libs', 'documenter', 'documenter-qv.css')));
+    const katexcss = this.view.webview.asWebviewUri(qv.Uri.file(path.join(extensionPath, 'libs', 'katex', 'katex.min.css')));
 
-    const webfontjs = this.view.webview.asWebviewUri(vscode.Uri.file(path.join(extensionPath, 'libs', 'webfont', 'webfont.js')));
+    const webfontjs = this.view.webview.asWebviewUri(qv.Uri.file(path.join(extensionPath, 'libs', 'webfont', 'webfont.js')));
 
     return `
     <html lang="en" class='theme--documenter-vscode'>
@@ -253,7 +253,7 @@ class DocumentationViewProvider implements vscode.WebviewViewProvider {
 
             function search(val) {
                 if (val) {
-                    vscode.postMessage({
+                    qv.postMessage({
                         type: 'search',
                         query: val
                     })

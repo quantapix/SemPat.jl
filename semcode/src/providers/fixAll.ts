@@ -1,20 +1,12 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
-import * as vscode from 'vscode';
-import * as nls from 'vscode-nls';
-import type * as Proto from '../protocol';
-import { ClientCapability, ITypeScriptServiceClient } from '../service';
-import API from '../../old/ts/utils/api';
-import { conditionalRegistration, requireSomeCap, requireMinVersion } from '../registration';
-import { DocumentSelector } from '../utils/documentSelector';
-import * as errorCodes from '../utils/errorCodes';
-import * as fixNames from '../utils/fixNames';
-import * as typeConverters from '../utils/typeConverters';
+import { ClientCap, ServiceClient } from '../service';
+import { condRegistration, requireSomeCap, requireMinVer } from '../registration';
 import { DiagnosticsManager } from '../../old/ts/languageFeatures/diagnostics';
+import * as nls from 'vscode-nls';
+import * as qu from '../utils';
+import * as qv from 'vscode';
+import API from '../../old/ts/utils/api';
 import FileConfigurationManager from '../../old/ts/languageFeatures/fileConfigurationManager';
+import type * as qp from '../protocol';
 
 const localize = nls.loadMessageBundle();
 
@@ -25,11 +17,11 @@ interface AutoFix {
 
 async function buildIndividualFixes(
   fixes: readonly AutoFix[],
-  edit: vscode.WorkspaceEdit,
-  client: ITypeScriptServiceClient,
+  edit: qv.WorkspaceEdit,
+  client: ServiceClient,
   file: string,
-  diagnostics: readonly vscode.Diagnostic[],
-  token: vscode.CancellationToken
+  diagnostics: readonly qv.Diagnostic[],
+  token: qv.CancellationToken
 ): Promise<void> {
   for (const diagnostic of diagnostics) {
     for (const { codes, fixName } of fixes) {
@@ -41,8 +33,8 @@ async function buildIndividualFixes(
         continue;
       }
 
-      const args: Proto.CodeFixRequestArgs = {
-        ...typeConverters.Range.toFileRangeRequestArgs(file, diagnostic.range),
+      const args: qp.CodeFixRequestArgs = {
+        ...qu.Range.toFileRangeRequestArgs(file, diagnostic.range),
         errorCodes: [+diagnostic.code!],
       };
 
@@ -53,7 +45,7 @@ async function buildIndividualFixes(
 
       const fix = response.body?.find((fix) => fix.fixName === fixName);
       if (fix) {
-        typeConverters.WorkspaceEdit.withFileCodeEdits(edit, client, fix.changes);
+        qu.WorkspaceEdit.withFileCodeEdits(edit, client, fix.changes);
         break;
       }
     }
@@ -62,11 +54,11 @@ async function buildIndividualFixes(
 
 async function buildCombinedFix(
   fixes: readonly AutoFix[],
-  edit: vscode.WorkspaceEdit,
-  client: ITypeScriptServiceClient,
+  edit: qv.WorkspaceEdit,
+  client: ServiceClient,
   file: string,
-  diagnostics: readonly vscode.Diagnostic[],
-  token: vscode.CancellationToken
+  diagnostics: readonly qv.Diagnostic[],
+  token: qv.CancellationToken
 ): Promise<void> {
   for (const diagnostic of diagnostics) {
     for (const { codes, fixName } of fixes) {
@@ -78,8 +70,8 @@ async function buildCombinedFix(
         continue;
       }
 
-      const args: Proto.CodeFixRequestArgs = {
-        ...typeConverters.Range.toFileRangeRequestArgs(file, diagnostic.range),
+      const args: qp.CodeFixRequestArgs = {
+        ...qu.Range.toFileRangeRequestArgs(file, diagnostic.range),
         errorCodes: [+diagnostic.code!],
       };
 
@@ -94,11 +86,11 @@ async function buildCombinedFix(
       }
 
       if (!fix.fixId) {
-        typeConverters.WorkspaceEdit.withFileCodeEdits(edit, client, fix.changes);
+        qu.WorkspaceEdit.withFileCodeEdits(edit, client, fix.changes);
         return;
       }
 
-      const combinedArgs: Proto.GetCombinedCodeFixRequestArgs = {
+      const combinedArgs: qp.GetCombinedCodeFixRequestArgs = {
         scope: {
           type: 'file',
           args: { file },
@@ -111,7 +103,7 @@ async function buildCombinedFix(
         return;
       }
 
-      typeConverters.WorkspaceEdit.withFileCodeEdits(edit, client, combinedResponse.body.changes);
+      qu.WorkspaceEdit.withFileCodeEdits(edit, client, combinedResponse.body.changes);
       return;
     }
   }
@@ -119,24 +111,24 @@ async function buildCombinedFix(
 
 // #region Source Actions
 
-abstract class SourceAction extends vscode.CodeAction {
-  abstract build(client: ITypeScriptServiceClient, file: string, diagnostics: readonly vscode.Diagnostic[], token: vscode.CancellationToken): Promise<void>;
+abstract class SourceAction extends qv.CodeAction {
+  abstract build(client: ServiceClient, file: string, diagnostics: readonly qv.Diagnostic[], token: qv.CancellationToken): Promise<void>;
 }
 
 class SourceFixAll extends SourceAction {
-  static readonly kind = vscode.CodeActionKind.SourceFixAll.append('ts');
+  static readonly kind = qv.CodeActionKind.SourceFixAll.append('ts');
 
   constructor() {
     super(localize('autoFix.label', 'Fix All'), SourceFixAll.kind);
   }
 
-  async build(client: ITypeScriptServiceClient, file: string, diagnostics: readonly vscode.Diagnostic[], token: vscode.CancellationToken): Promise<void> {
-    this.edit = new vscode.WorkspaceEdit();
+  async build(client: ServiceClient, file: string, diagnostics: readonly qv.Diagnostic[], token: qv.CancellationToken): Promise<void> {
+    this.edit = new qv.WorkspaceEdit();
 
     await buildIndividualFixes(
       [
-        { codes: errorCodes.incorrectlyImplementsInterface, fixName: fixNames.classIncorrectlyImplementsInterface },
-        { codes: errorCodes.asyncOnlyAllowedInAsyncFunctions, fixName: fixNames.awaitInSyncFunction },
+        { codes: qu.incorrectlyImplementsInterface, fixName: qu.classIncorrectlyImplementsInterface },
+        { codes: qu.asyncOnlyAllowedInAsyncFunctions, fixName: qu.awaitInSyncFunction },
       ],
       this.edit,
       client,
@@ -145,51 +137,51 @@ class SourceFixAll extends SourceAction {
       token
     );
 
-    await buildCombinedFix([{ codes: errorCodes.unreachableCode, fixName: fixNames.unreachableCode }], this.edit, client, file, diagnostics, token);
+    await buildCombinedFix([{ codes: qu.unreachableCode, fixName: qu.unreachableCode }], this.edit, client, file, diagnostics, token);
   }
 }
 
 class SourceRemoveUnused extends SourceAction {
-  static readonly kind = vscode.CodeActionKind.Source.append('removeUnused').append('ts');
+  static readonly kind = qv.CodeActionKind.Source.append('removeUnused').append('ts');
 
   constructor() {
     super(localize('autoFix.unused.label', 'Remove all unused code'), SourceRemoveUnused.kind);
   }
 
-  async build(client: ITypeScriptServiceClient, file: string, diagnostics: readonly vscode.Diagnostic[], token: vscode.CancellationToken): Promise<void> {
-    this.edit = new vscode.WorkspaceEdit();
-    await buildCombinedFix([{ codes: errorCodes.variableDeclaredButNeverUsed, fixName: fixNames.unusedIdentifier }], this.edit, client, file, diagnostics, token);
+  async build(client: ServiceClient, file: string, diagnostics: readonly qv.Diagnostic[], token: qv.CancellationToken): Promise<void> {
+    this.edit = new qv.WorkspaceEdit();
+    await buildCombinedFix([{ codes: qu.variableDeclaredButNeverUsed, fixName: qu.unusedIdentifier }], this.edit, client, file, diagnostics, token);
   }
 }
 
 class SourceAddMissingImports extends SourceAction {
-  static readonly kind = vscode.CodeActionKind.Source.append('addMissingImports').append('ts');
+  static readonly kind = qv.CodeActionKind.Source.append('addMissingImports').append('ts');
 
   constructor() {
     super(localize('autoFix.missingImports.label', 'Add all missing imports'), SourceAddMissingImports.kind);
   }
 
-  async build(client: ITypeScriptServiceClient, file: string, diagnostics: readonly vscode.Diagnostic[], token: vscode.CancellationToken): Promise<void> {
-    this.edit = new vscode.WorkspaceEdit();
-    await buildCombinedFix([{ codes: errorCodes.cannotFindName, fixName: fixNames.fixImport }], this.edit, client, file, diagnostics, token);
+  async build(client: ServiceClient, file: string, diagnostics: readonly qv.Diagnostic[], token: qv.CancellationToken): Promise<void> {
+    this.edit = new qv.WorkspaceEdit();
+    await buildCombinedFix([{ codes: qu.cannotFindName, fixName: qu.fixImport }], this.edit, client, file, diagnostics, token);
   }
 }
 
 //#endregion
 
-class TypeScriptAutoFixProvider implements vscode.CodeActionProvider {
+class TypeScriptAutoFixProvider implements qv.CodeActionProvider {
   private static kindProviders = [SourceFixAll, SourceRemoveUnused, SourceAddMissingImports];
 
-  constructor(private readonly client: ITypeScriptServiceClient, private readonly fileConfigurationManager: FileConfigurationManager, private readonly diagnosticsManager: DiagnosticsManager) {}
+  constructor(private readonly client: ServiceClient, private readonly fileConfigurationManager: FileConfigurationManager, private readonly diagnosticsManager: DiagnosticsManager) {}
 
-  public get metadata(): vscode.CodeActionProviderMetadata {
+  public get metadata(): qv.CodeActionProviderMetadata {
     return {
       providedCodeActionKinds: TypeScriptAutoFixProvider.kindProviders.map((x) => x.kind),
     };
   }
 
-  public async provideCodeActions(document: vscode.TextDocument, _range: vscode.Range, context: vscode.CodeActionContext, token: vscode.CancellationToken): Promise<vscode.CodeAction[] | undefined> {
-    if (!context.only || !vscode.CodeActionKind.Source.intersects(context.only)) {
+  public async provideCodeActions(document: qv.TextDocument, _range: qv.Range, context: qv.CodeActionContext, token: qv.CancellationToken): Promise<qv.CodeAction[] | undefined> {
+    if (!context.only || !qv.CodeActionKind.Source.intersects(context.only)) {
       return undefined;
     }
 
@@ -220,14 +212,14 @@ class TypeScriptAutoFixProvider implements vscode.CodeActionProvider {
     return actions;
   }
 
-  private getFixAllActions(only: vscode.CodeActionKind): SourceAction[] {
+  private getFixAllActions(only: qv.CodeActionKind): SourceAction[] {
     return TypeScriptAutoFixProvider.kindProviders.filter((provider) => only.intersects(provider.kind)).map((provider) => new provider());
   }
 }
 
-export function register(selector: DocumentSelector, client: ITypeScriptServiceClient, fileConfigurationManager: FileConfigurationManager, diagnosticsManager: DiagnosticsManager) {
-  return conditionalRegistration([requireMinVersion(client, API.v300), requireSomeCap(client, ClientCapability.Semantic)], () => {
+export function register(selector: qu.DocumentSelector, client: ServiceClient, fileConfigurationManager: FileConfigurationManager, diagnosticsManager: DiagnosticsManager) {
+  return condRegistration([requireMinVer(client, API.v300), requireSomeCap(client, ClientCap.Semantic)], () => {
     const provider = new TypeScriptAutoFixProvider(client, fileConfigurationManager, diagnosticsManager);
-    return vscode.languages.registerCodeActionsProvider(selector.semantic, provider, provider.metadata);
+    return qv.languages.registerCodeActionsProvider(selector.semantic, provider, provider.metadata);
   });
 }

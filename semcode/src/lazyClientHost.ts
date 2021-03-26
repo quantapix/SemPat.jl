@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
+import * as qv from 'vscode';
 import { CommandManager } from '../old/ts/commands/commandManager';
 import { OngoingRequestCancellerFactory } from '../old/ts/tsServer/cancellation';
 import { ILogDirectoryProvider } from '../old/ts/tsServer/logDirectoryProvider';
@@ -19,7 +19,7 @@ import ManagedFileContextManager from '../old/ts/utils/managedFileContext';
 import { PluginManager } from '../old/ts/utils/plugins';
 
 export function createLazyClientHost(
-  context: vscode.ExtensionContext,
+  context: qv.ExtensionContext,
   onCaseInsensitiveFileSystem: boolean,
   services: {
     pluginManager: PluginManager;
@@ -30,7 +30,7 @@ export function createLazyClientHost(
     processFactory: TsServerProcessFactory;
     activeJsTsEditorTracker: ActiveJsTsEditorTracker;
   },
-  onCompletionAccepted: (item: vscode.CompletionItem) => void
+  onCompletionAccepted: (item: qv.CompletionItem) => void
 ): Lazy<TypeScriptServiceClientHost> {
   return lazy(() => {
     const clientHost = new TypeScriptServiceClientHost(standardLanguageDescriptions, context, onCaseInsensitiveFileSystem, services, onCompletionAccepted);
@@ -41,13 +41,13 @@ export function createLazyClientHost(
   });
 }
 
-export function lazilyActivateClient(lazyClientHost: Lazy<TypeScriptServiceClientHost>, pluginManager: PluginManager, activeJsTsEditorTracker: ActiveJsTsEditorTracker): vscode.Disposable {
-  const disposables: vscode.Disposable[] = [];
+export function lazilyActivateClient(lazyClientHost: Lazy<TypeScriptServiceClientHost>, pluginManager: PluginManager, activeJsTsEditorTracker: ActiveJsTsEditorTracker): qv.Disposable {
+  const disposables: qv.Disposable[] = [];
 
   const supportedLanguage = flatten([...standardLanguageDescriptions.map((x) => x.modeIds), ...pluginManager.plugins.map((x) => x.languages)]);
 
   let hasActivated = false;
-  const maybeActivate = (textDocument: vscode.TextDocument): boolean => {
+  const maybeActivate = (textDocument: qv.TextDocument): boolean => {
     if (!hasActivated && isSupportedDocument(supportedLanguage, textDocument)) {
       hasActivated = true;
       // Force activation
@@ -63,9 +63,9 @@ export function lazilyActivateClient(lazyClientHost: Lazy<TypeScriptServiceClien
     return false;
   };
 
-  const didActivate = vscode.workspace.textDocuments.some(maybeActivate);
+  const didActivate = qv.workspace.textDocuments.some(maybeActivate);
   if (!didActivate) {
-    const openListener = vscode.workspace.onDidOpenTextDocument(
+    const openListener = qv.workspace.onDidOpenTextDocument(
       (doc) => {
         if (maybeActivate(doc)) {
           openListener.dispose();
@@ -76,9 +76,9 @@ export function lazilyActivateClient(lazyClientHost: Lazy<TypeScriptServiceClien
     );
   }
 
-  return vscode.Disposable.from(...disposables);
+  return qv.Disposable.from(...disposables);
 }
 
-function isSupportedDocument(supportedLanguage: readonly string[], document: vscode.TextDocument): boolean {
+function isSupportedDocument(supportedLanguage: readonly string[], document: qv.TextDocument): boolean {
   return supportedLanguage.indexOf(document.languageId) >= 0 && !fileSchemes.disabledSchemes.has(document.uri.scheme);
 }

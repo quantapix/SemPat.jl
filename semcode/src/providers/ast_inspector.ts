@@ -1,11 +1,11 @@
-import * as vsc from 'vscode';
+import * as qv from 'vscode';
 import * as qu from '../utils';
 import { Ctx, Disposable } from '../../old/rs/analyzer/ctx';
 import { RustEditor, isRustEditor } from '../../old/rs/analyzer/util';
 
-export class AstInspector implements vsc.HoverProvider, vsc.DefinitionProvider, Disposable {
-  private readonly astDecorationType = vsc.window.createTextEditorDecorationType({
-    borderColor: new vsc.ThemeColor('rust_analyzer.syntaxTreeBorder'),
+export class AstInspector implements qv.HoverProvider, qv.DefinitionProvider, Disposable {
+  private readonly astDecorationType = qv.window.createTextEditorDecorationType({
+    borderColor: new qv.ThemeColor('rust_analyzer.syntaxTreeBorder'),
     borderStyle: 'solid',
     borderWidth: '2px',
   });
@@ -14,7 +14,7 @@ export class AstInspector implements vsc.HoverProvider, vsc.DefinitionProvider, 
   private readonly rust2Ast = new qu.Lazy(() => {
     const astEditor = this.findAstTextEditor();
     if (!this.rustEditor || !astEditor) return undefined;
-    const buf: [vsc.Range, vsc.Range][] = [];
+    const buf: [qv.Range, qv.Range][] = [];
     for (let i = 0; i < astEditor.document.lineCount; ++i) {
       const astLine = astEditor.document.lineAt(i);
       const isTokenNode = astLine.text.lastIndexOf('"') >= 0;
@@ -27,30 +27,30 @@ export class AstInspector implements vsc.HoverProvider, vsc.DefinitionProvider, 
   });
 
   constructor(ctx: Ctx) {
-    ctx.pushCleanup(vsc.languages.registerHoverProvider({ scheme: 'rust-analyzer' }, this));
-    ctx.pushCleanup(vsc.languages.registerDefinitionProvider({ language: 'rust' }, this));
-    vsc.workspace.onDidCloseTextDocument(this.onDidCloseTextDocument, this, ctx.subscriptions);
-    vsc.workspace.onDidChangeTextDocument(this.onDidChangeTextDocument, this, ctx.subscriptions);
-    vsc.window.onDidChangeVisibleTextEditors(this.onDidChangeVisibleTextEditors, this, ctx.subscriptions);
+    ctx.pushCleanup(qv.languages.registerHoverProvider({ scheme: 'rust-analyzer' }, this));
+    ctx.pushCleanup(qv.languages.registerDefinitionProvider({ language: 'rust' }, this));
+    qv.workspace.onDidCloseTextDocument(this.onDidCloseTextDocument, this, ctx.subscriptions);
+    qv.workspace.onDidChangeTextDocument(this.onDidChangeTextDocument, this, ctx.subscriptions);
+    qv.window.onDidChangeVisibleTextEditors(this.onDidChangeVisibleTextEditors, this, ctx.subscriptions);
     ctx.pushCleanup(this);
   }
   dispose() {
     this.setRustEditor(undefined);
   }
 
-  private onDidChangeTextDocument(e: vsc.TextDocumentChangeEvent) {
+  private onDidChangeTextDocument(e: qv.TextDocumentChangeEvent) {
     if (this.rustEditor && e.document.uri.toString() === this.rustEditor.document.uri.toString()) {
       this.rust2Ast.reset();
     }
   }
 
-  private onDidCloseTextDocument(d: vsc.TextDocument) {
+  private onDidCloseTextDocument(d: qv.TextDocument) {
     if (this.rustEditor && d.uri.toString() === this.rustEditor.document.uri.toString()) {
       this.setRustEditor(undefined);
     }
   }
 
-  private onDidChangeVisibleTextEditors(es: vsc.TextEditor[]) {
+  private onDidChangeVisibleTextEditors(es: qv.TextEditor[]) {
     if (!this.findAstTextEditor()) {
       this.setRustEditor(undefined);
       return;
@@ -58,8 +58,8 @@ export class AstInspector implements vsc.HoverProvider, vsc.DefinitionProvider, 
     this.setRustEditor(es.find(isRustEditor));
   }
 
-  private findAstTextEditor(): undefined | vsc.TextEditor {
-    return vsc.window.visibleTextEditors.find((it) => it.document.uri.scheme === 'rust-analyzer');
+  private findAstTextEditor(): undefined | qv.TextEditor {
+    return qv.window.visibleTextEditors.find((it) => it.document.uri.scheme === 'rust-analyzer');
   }
 
   private setRustEditor(e?: RustEditor) {
@@ -70,7 +70,7 @@ export class AstInspector implements vsc.HoverProvider, vsc.DefinitionProvider, 
     this.rustEditor = e;
   }
 
-  provideDefinition(doc: vsc.TextDocument, pos: vsc.Position): vsc.ProviderResult<vsc.DefinitionLink[]> {
+  provideDefinition(doc: qv.TextDocument, pos: qv.Position): qv.ProviderResult<qv.DefinitionLink[]> {
     if (!this.rustEditor || doc.uri.toString() !== this.rustEditor.document.uri.toString()) return;
     const astEditor = this.findAstTextEditor();
     if (!astEditor) return;
@@ -78,7 +78,7 @@ export class AstInspector implements vsc.HoverProvider, vsc.DefinitionProvider, 
     if (!rust2AstRanges) return;
     const [rustFileRange, astFileRange] = rust2AstRanges;
     astEditor.revealRange(astFileRange);
-    astEditor.selection = new vsc.Selection(astFileRange.start, astFileRange.end);
+    astEditor.selection = new qv.Selection(astFileRange.start, astFileRange.end);
     return [
       {
         targetRange: astFileRange,
@@ -89,7 +89,7 @@ export class AstInspector implements vsc.HoverProvider, vsc.DefinitionProvider, 
     ];
   }
 
-  provideHover(doc: vsc.TextDocument, hoverPosition: vsc.Position): vsc.ProviderResult<vsc.Hover> {
+  provideHover(doc: qv.TextDocument, hoverPosition: qv.Position): qv.ProviderResult<qv.Hover> {
     if (!this.rustEditor) return;
     const astFileLine = doc.lineAt(hoverPosition.line);
     const rustFileRange = this.parseRustTextRange(this.rustEditor.document, astFileLine.text);
@@ -98,27 +98,27 @@ export class AstInspector implements vsc.HoverProvider, vsc.DefinitionProvider, 
     this.rustEditor.revealRange(rustFileRange);
     const rustSourceCode = this.rustEditor.document.getText(rustFileRange);
     const astFileRange = this.findAstNodeRange(astFileLine);
-    return new vsc.Hover(['```rust\n' + rustSourceCode + '\n```'], astFileRange);
+    return new qv.Hover(['```rust\n' + rustSourceCode + '\n```'], astFileRange);
   }
 
-  private findAstNodeRange(l: vsc.TextLine): vsc.Range {
+  private findAstNodeRange(l: qv.TextLine): qv.Range {
     const lineOffset = l.range.start;
     const begin = lineOffset.translate(undefined, l.firstNonWhitespaceCharacterIndex);
     const end = lineOffset.translate(undefined, l.text.trimEnd().length);
-    return new vsc.Range(begin, end);
+    return new qv.Range(begin, end);
   }
 
-  private parseRustTextRange(doc: vsc.TextDocument, astLine: string): undefined | vsc.Range {
+  private parseRustTextRange(doc: qv.TextDocument, astLine: string): undefined | qv.Range {
     const parsedRange = /(\d+)\.\.(\d+)/.exec(astLine);
     if (!parsedRange) return;
     const [begin, end] = parsedRange.slice(1).map((off) => this.positionAt(doc, +off));
-    return new vsc.Range(begin, end);
+    return new qv.Range(begin, end);
   }
 
-  cache?: { doc: vsc.TextDocument; offset: number; line: number };
+  cache?: { doc: qv.TextDocument; offset: number; line: number };
 
-  positionAt(doc: vsc.TextDocument, targetOffset: number): vsc.Position {
-    if (doc.eol === vsc.EndOfLine.LF) return doc.positionAt(targetOffset);
+  positionAt(doc: qv.TextDocument, targetOffset: number): qv.Position {
+    if (doc.eol === qv.EndOfLine.LF) return doc.positionAt(targetOffset);
     let line = 0;
     let offset = 0;
     const cache = this.cache;

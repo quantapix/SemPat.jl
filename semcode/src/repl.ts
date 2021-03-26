@@ -4,7 +4,7 @@ import { assert } from 'console';
 import * as net from 'net';
 import * as path from 'path';
 import { uuid } from 'uuidv4';
-import * as vscode from 'vscode';
+import * as qv from 'vscode';
 import * as rpc from 'vscode-jsonrpc/node';
 import * as vslc from 'vscode-languageclient/node';
 import { onSetLanguageClient } from './extension';
@@ -19,10 +19,10 @@ import * as results from './results';
 import { Frame } from './results';
 import * as workspace from './workspace';
 
-let g_context: vscode.ExtensionContext = null;
+let g_context: qv.ExtensionContext = null;
 let g_languageClient: vslc.LanguageClient = null;
 
-let g_terminal: vscode.Terminal = null;
+let g_terminal: qv.Terminal = null;
 
 export let g_connection: rpc.MessageConnection = undefined;
 
@@ -31,23 +31,23 @@ function startREPLCommand() {
 }
 
 function is_remote_env(): boolean {
-  return typeof vscode.env.remoteName !== 'undefined';
+  return typeof qv.env.remoteName !== 'undefined';
 }
 
 function get_editor(): string {
-  const editor: string | null = vscode.workspace.getConfiguration('julia').get('editor');
+  const editor: string | null = qv.workspace.getConfiguration('julia').get('editor');
 
   if (editor) {
     return editor;
   }
   if (is_remote_env()) {
-    if (vscode.env.appName === 'Code - OSS') {
+    if (qv.env.appName === 'Code - OSS') {
       return 'code-server';
     } else {
       return `"${process.execPath}"`;
     }
   }
-  return vscode.env.appName.includes('Insiders') ? 'code-insiders' : 'code';
+  return qv.env.appName.includes('Insiders') ? 'code-insiders' : 'code';
 }
 
 async function startREPL(preserveFocus: boolean, showTerminal: boolean = true) {
@@ -56,9 +56,9 @@ async function startREPL(preserveFocus: boolean, showTerminal: boolean = true) {
     const startupPath = path.join(g_context.extensionPath, 'scripts', 'terminalserver', 'terminalserver.jl');
     function getArgs() {
       const jlarg2 = [startupPath, pipename, 'pipe'];
-      jlarg2.push(`USE_REVISE=${vscode.workspace.getConfiguration('julia').get('useRevise')}`);
-      jlarg2.push(`USE_PLOTPANE=${vscode.workspace.getConfiguration('julia').get('usePlotPane')}`);
-      jlarg2.push(`USE_PROGRESS=${vscode.workspace.getConfiguration('julia').get('useProgressFrontend')}`);
+      jlarg2.push(`USE_REVISE=${qv.workspace.getConfiguration('julia').get('useRevise')}`);
+      jlarg2.push(`USE_PLOTPANE=${qv.workspace.getConfiguration('julia').get('usePlotPane')}`);
+      jlarg2.push(`USE_PROGRESS=${qv.workspace.getConfiguration('julia').get('useProgressFrontend')}`);
       jlarg2.push(`DEBUG_MODE=${process.env.DEBUG_MODE}`);
       return jlarg2;
     }
@@ -68,7 +68,7 @@ async function startREPL(preserveFocus: boolean, showTerminal: boolean = true) {
       JULIA_NUM_THREADS: inferJuliaNumThreads(),
     };
 
-    const pkgServer: string = vscode.workspace.getConfiguration('julia').get('packageServer');
+    const pkgServer: string = qv.workspace.getConfiguration('julia').get('packageServer');
     if (pkgServer.length !== 0) {
       env['JULIA_PKG_SERVER'] = pkgServer;
     }
@@ -77,8 +77,8 @@ async function startREPL(preserveFocus: boolean, showTerminal: boolean = true) {
     const exepath = await packs.getJuliaExePath();
     const pkgenvpath = await packs.getAbsEnvPath();
     if (pkgenvpath === null) {
-      const jlarg1 = ['-i', '--banner=no'].concat(vscode.workspace.getConfiguration('julia').get('additionalArgs'));
-      g_terminal = vscode.window.createTerminal({
+      const jlarg1 = ['-i', '--banner=no'].concat(qv.workspace.getConfiguration('julia').get('additionalArgs'));
+      g_terminal = qv.window.createTerminal({
         name: 'Julia REPL',
         shellPath: exepath,
         shellArgs: jlarg1.concat(getArgs()),
@@ -88,18 +88,18 @@ async function startREPL(preserveFocus: boolean, showTerminal: boolean = true) {
       const env_file_paths = await packs.getProjectFilePaths(pkgenvpath);
 
       let sysImageArgs = [];
-      if (vscode.workspace.getConfiguration('julia').get('useCustomSysimage') && env_file_paths.sysimage_path && env_file_paths.project_toml_path && env_file_paths.manifest_toml_path) {
+      if (qv.workspace.getConfiguration('julia').get('useCustomSysimage') && env_file_paths.sysimage_path && env_file_paths.project_toml_path && env_file_paths.manifest_toml_path) {
         const date_sysimage = await fs.stat(env_file_paths.sysimage_path);
         const date_manifest = await fs.stat(env_file_paths.manifest_toml_path);
 
         if (date_sysimage.mtime > date_manifest.mtime) {
           sysImageArgs = ['-J', env_file_paths.sysimage_path];
         } else {
-          vscode.window.showWarningMessage('Julia sysimage for this environment is out-of-date and not used for REPL.');
+          qv.window.showWarningMessage('Julia sysimage for this environment is out-of-date and not used for REPL.');
         }
       }
-      const jlarg1 = ['-i', '--banner=no', `--project=${pkgenvpath}`].concat(sysImageArgs).concat(vscode.workspace.getConfiguration('julia').get('additionalArgs'));
-      g_terminal = vscode.window.createTerminal({
+      const jlarg1 = ['-i', '--banner=no', `--project=${pkgenvpath}`].concat(sysImageArgs).concat(qv.workspace.getConfiguration('julia').get('additionalArgs'));
+      g_terminal = qv.window.createTerminal({
         name: 'Julia REPL',
         shellPath: exepath,
         shellArgs: jlarg1.concat(getArgs()),
@@ -120,7 +120,7 @@ function killREPL() {
 }
 
 function debuggerRun(params: DebugLaunchParams) {
-  vscode.debug.startDebugging(undefined, {
+  qv.debug.startDebugging(undefined, {
     type: 'julia',
     request: 'attach',
     name: 'Julia REPL',
@@ -131,7 +131,7 @@ function debuggerRun(params: DebugLaunchParams) {
 }
 
 function debuggerEnter(params: DebugLaunchParams) {
-  vscode.debug.startDebugging(undefined, {
+  qv.debug.startDebugging(undefined, {
     type: 'julia',
     request: 'attach',
     name: 'Julia REPL',
@@ -185,13 +185,13 @@ interface Progress {
 }
 const notifyTypeProgress = new rpc.NotificationType<Progress>('repl/updateProgress');
 
-const g_onInit = new vscode.EventEmitter<rpc.MessageConnection>();
+const g_onInit = new qv.EventEmitter<rpc.MessageConnection>();
 export const onInit = g_onInit.event;
-const g_onExit = new vscode.EventEmitter<Boolean>();
+const g_onExit = new qv.EventEmitter<Boolean>();
 export const onExit = g_onExit.event;
-const g_onStartEval = new vscode.EventEmitter<null>();
+const g_onStartEval = new qv.EventEmitter<null>();
 export const onStartEval = g_onStartEval.event;
-const g_onFinishEval = new vscode.EventEmitter<null>();
+const g_onFinishEval = new qv.EventEmitter<null>();
 export const onFinishEval = g_onFinishEval.event;
 
 // code execution start
@@ -238,9 +238,9 @@ async function updateProgress(progress: Progress) {
       delete g_progress_dict[progress.id.value];
     }
   } else {
-    vscode.window.withProgress(
+    qv.window.withProgress(
       {
-        location: vscode.ProgressLocation.Window,
+        location: qv.ProgressLocation.Window,
         title: 'Julia',
         cancellable: true,
       },
@@ -306,20 +306,20 @@ function clearProgress() {
   }
 }
 
-async function executeFile(uri?: vscode.Uri | string) {
-  const editor = vscode.window.activeTextEditor;
+async function executeFile(uri?: qv.Uri | string) {
+  const editor = qv.window.activeTextEditor;
   await startREPL(true, false);
   let module = 'Main';
   let path = '';
   let code = '';
 
-  if (uri && !(uri instanceof vscode.Uri)) {
-    uri = vscode.Uri.parse(uri);
+  if (uri && !(uri instanceof qv.Uri)) {
+    uri = qv.Uri.parse(uri);
   }
 
-  if (uri && uri instanceof vscode.Uri) {
+  if (uri && uri instanceof qv.Uri) {
     path = uri.fsPath;
-    const readBytes = await vscode.workspace.fs.readFile(uri);
+    const readBytes = await qv.workspace.fs.readFile(uri);
     code = Buffer.from(readBytes).toString('utf8');
   } else {
     if (!editor) {
@@ -328,7 +328,7 @@ async function executeFile(uri?: vscode.Uri | string) {
     path = editor.document.fileName;
     code = editor.document.getText();
 
-    const pos = editor.document.validatePosition(new vscode.Position(0, 1)); // xref: https://github.com/julia-vscode/julia-vscode/issues/1500
+    const pos = editor.document.validatePosition(new qv.Position(0, 1)); // xref: https://github.com/julia-vscode/julia-vscode/issues/1500
     module = await modules.getModuleForEditor(editor.document, pos);
   }
 
@@ -345,11 +345,11 @@ async function executeFile(uri?: vscode.Uri | string) {
 }
 
 async function getBlockRange(params: VersionedTextDocumentPositionParams) {
-  const zeroPos = new vscode.Position(0, 0);
+  const zeroPos = new qv.Position(0, 0);
   const zeroReturn = [zeroPos, zeroPos, params.position];
 
   if (g_languageClient === null) {
-    vscode.window.showErrorMessage('No LS running or start. Check your settings.');
+    qv.window.showErrorMessage('No LS running or start. Check your settings.');
     return zeroReturn;
   }
 
@@ -359,7 +359,7 @@ async function getBlockRange(params: VersionedTextDocumentPositionParams) {
     return await g_languageClient.sendRequest('julia/getCurrentBlockRange', params);
   } catch (err) {
     if (err.message === 'Language client is not ready yet') {
-      vscode.window.showErrorMessage(err);
+      qv.window.showErrorMessage(err);
       return zeroReturn;
     } else {
       console.error(err);
@@ -369,12 +369,12 @@ async function getBlockRange(params: VersionedTextDocumentPositionParams) {
 }
 
 async function selectJuliaBlock() {
-  const editor = vscode.window.activeTextEditor;
+  const editor = qv.window.activeTextEditor;
   const position = editor.document.validatePosition(editor.selection.start);
   const ret_val = await getBlockRange(getVersionedParamsAtPosition(editor.document, position));
 
-  const start_pos = new vscode.Position(ret_val[0].line, ret_val[0].character);
-  const end_pos = new vscode.Position(ret_val[1].line, ret_val[1].character);
+  const start_pos = new qv.Position(ret_val[0].line, ret_val[0].character);
+  const end_pos = new qv.Position(ret_val[1].line, ret_val[1].character);
   validateMoveAndReveal(editor, start_pos, end_pos);
 }
 
@@ -398,46 +398,46 @@ function _nextCellBorder(doc, line_num: number, direction: number) {
 const nextCellBorder = (doc, line_num) => _nextCellBorder(doc, line_num, +1);
 const prevCellBorder = (doc, line_num) => _nextCellBorder(doc, line_num, -1);
 
-function validateMoveAndReveal(editor: vscode.TextEditor, startpos: vscode.Position, endpos: vscode.Position) {
+function validateMoveAndReveal(editor: qv.TextEditor, startpos: qv.Position, endpos: qv.Position) {
   const doc = editor.document;
   startpos = doc.validatePosition(startpos);
   endpos = doc.validatePosition(endpos);
-  editor.selection = new vscode.Selection(startpos, endpos);
-  editor.revealRange(new vscode.Range(startpos, endpos));
+  editor.selection = new qv.Selection(startpos, endpos);
+  editor.revealRange(new qv.Range(startpos, endpos));
 }
 
 async function moveCellDown() {
-  const ed = vscode.window.activeTextEditor;
+  const ed = qv.window.activeTextEditor;
   if (ed === undefined) {
     return;
   }
   const currline = ed.selection.active.line;
-  const newpos = new vscode.Position(nextCellBorder(ed.document, currline + 1) + 1, 0);
+  const newpos = new qv.Position(nextCellBorder(ed.document, currline + 1) + 1, 0);
   validateMoveAndReveal(ed, newpos, newpos);
 }
 
 async function moveCellUp() {
-  const ed = vscode.window.activeTextEditor;
+  const ed = qv.window.activeTextEditor;
   if (ed === undefined) {
     return;
   }
   const currline = ed.selection.active.line;
-  const newpos = new vscode.Position(Math.max(0, prevCellBorder(ed.document, currline) - 1), 0);
+  const newpos = new qv.Position(Math.max(0, prevCellBorder(ed.document, currline) - 1), 0);
   validateMoveAndReveal(ed, newpos, newpos);
 }
 
-function currentCellRange(editor: vscode.TextEditor) {
+function currentCellRange(editor: qv.TextEditor) {
   const doc = editor.document;
   const currline = editor.selection.active.line;
   const startline = prevCellBorder(doc, currline) + 1;
   const endline = nextCellBorder(doc, currline + 1) - 1;
-  const startpos = doc.validatePosition(new vscode.Position(startline, 0));
-  const endpos = doc.validatePosition(new vscode.Position(endline, doc.lineAt(endline).text.length));
-  return new vscode.Range(startpos, endpos);
+  const startpos = doc.validatePosition(new qv.Position(startline, 0));
+  const endpos = doc.validatePosition(new qv.Position(endline, doc.lineAt(endline).text.length));
+  return new qv.Range(startpos, endpos);
 }
 
 async function executeCell(shouldMove: boolean = false) {
-  const ed = vscode.window.activeTextEditor;
+  const ed = qv.window.activeTextEditor;
   if (ed === undefined) {
     return;
   }
@@ -452,7 +452,7 @@ async function executeCell(shouldMove: boolean = false) {
   await startREPL(true, false);
 
   if (shouldMove && ed.selection === selection) {
-    const nextpos = new vscode.Position(cellrange.end.line + 2, 0);
+    const nextpos = new qv.Position(cellrange.end.line + 2, 0);
     validateMoveAndReveal(ed, nextpos, nextpos);
   }
 
@@ -460,7 +460,7 @@ async function executeCell(shouldMove: boolean = false) {
 }
 
 async function evaluateBlockOrSelection(shouldMove: boolean = false) {
-  const editor = vscode.window.activeTextEditor;
+  const editor = qv.window.activeTextEditor;
   if (editor === undefined) {
     return;
   }
@@ -470,17 +470,17 @@ async function evaluateBlockOrSelection(shouldMove: boolean = false) {
   await startREPL(true, false);
 
   for (const selection of selections) {
-    let range: vscode.Range = null;
-    let nextBlock: vscode.Position = null;
-    const startpos: vscode.Position = editor.document.validatePosition(new vscode.Position(selection.start.line, selection.start.character));
+    let range: qv.Range = null;
+    let nextBlock: qv.Position = null;
+    const startpos: qv.Position = editor.document.validatePosition(new qv.Position(selection.start.line, selection.start.character));
     const module: string = await modules.getModuleForEditor(editor.document, startpos);
 
     if (selection.isEmpty) {
       const currentBlock = await getBlockRange(getVersionedParamsAtPosition(editor.document, startpos));
-      range = new vscode.Range(currentBlock[0].line, currentBlock[0].character, currentBlock[1].line, currentBlock[1].character);
-      nextBlock = editor.document.validatePosition(new vscode.Position(currentBlock[2].line, currentBlock[2].character));
+      range = new qv.Range(currentBlock[0].line, currentBlock[0].character, currentBlock[1].line, currentBlock[1].character);
+      nextBlock = editor.document.validatePosition(new qv.Position(currentBlock[2].line, currentBlock[2].character));
     } else {
-      range = new vscode.Range(selection.start, selection.end);
+      range = new qv.Range(selection.start, selection.end);
     }
 
     const text = editor.document.getText(range);
@@ -493,8 +493,8 @@ async function evaluateBlockOrSelection(shouldMove: boolean = false) {
       return;
     }
 
-    const tempDecoration = vscode.window.createTextEditorDecorationType({
-      backgroundColor: new vscode.ThemeColor('editor.hoverHighlightBackground'),
+    const tempDecoration = qv.window.createTextEditorDecorationType({
+      backgroundColor: new qv.ThemeColor('editor.hoverHighlightBackground'),
       isWholeLine: true,
     });
     editor.setDecorations(tempDecoration, [range]);
@@ -507,8 +507,8 @@ async function evaluateBlockOrSelection(shouldMove: boolean = false) {
   }
 }
 
-async function evaluate(editor: vscode.TextEditor, range: vscode.Range, text: string, module: string) {
-  const section = vscode.workspace.getConfiguration('julia');
+async function evaluate(editor: qv.TextEditor, range: qv.Range, text: string, module: string) {
+  const section = qv.workspace.getConfiguration('julia');
   const resultType: string = section.get('execution.resultType');
   const codeInREPL: boolean = section.get('execution.codeInREPL');
 
@@ -555,7 +555,7 @@ async function executeCodeCopyPaste(text: string, individualLine: boolean) {
 }
 
 function executeSelectionCopyPaste() {
-  const editor = vscode.window.activeTextEditor;
+  const editor = qv.window.activeTextEditor;
   if (!editor) {
     return;
   }
@@ -565,7 +565,7 @@ function executeSelectionCopyPaste() {
     for (let line = selection.start.line + 1; line < editor.document.lineCount; line++) {
       if (!editor.document.lineAt(line).isEmptyOrWhitespace) {
         const newPos = selection.active.with(line, editor.document.lineAt(line).range.end.character);
-        const newSel = new vscode.Selection(newPos, newPos);
+        const newSel = new qv.Selection(newPos, newPos);
         editor.selection = newSel;
         break;
       }
@@ -606,7 +606,7 @@ function signalInterrupt() {
   }
 }
 
-async function cdToHere(uri: vscode.Uri) {
+async function cdToHere(uri: qv.Uri) {
   const uriPath = await getDirUriFsPath(uri);
   await startREPL(true, false);
   if (uriPath) {
@@ -618,7 +618,7 @@ async function cdToHere(uri: vscode.Uri) {
   }
 }
 
-async function activateHere(uri: vscode.Uri) {
+async function activateHere(uri: qv.Uri) {
   const uriPath = await getDirUriFsPath(uri);
   activatePath(uriPath);
 }
@@ -635,13 +635,13 @@ async function activatePath(path: string) {
   }
 }
 
-async function activateFromDir(uri: vscode.Uri) {
+async function activateFromDir(uri: qv.Uri) {
   const uriPath = await getDirUriFsPath(uri);
   if (uriPath) {
     try {
       const target = await searchUpFile('Project.toml', uriPath);
       if (!target) {
-        vscode.window.showWarningMessage(`No project file found for ${uriPath}`);
+        qv.window.showWarningMessage(`No project file found for ${uriPath}`);
         return;
       }
       activatePath(path.dirname(target));
@@ -661,9 +661,9 @@ async function searchUpFile(target: string, from: string): Promise<string> {
   }
 }
 
-async function getDirUriFsPath(uri: vscode.Uri | undefined) {
+async function getDirUriFsPath(uri: qv.Uri | undefined) {
   if (!uri) {
-    const ed = vscode.window.activeTextEditor;
+    const ed = qv.window.activeTextEditor;
     if (ed && ed.document && ed.document.uri) {
       uri = ed.document.uri;
     }
@@ -689,7 +689,7 @@ export async function replStartDebugger(pipename: string) {
   g_connection.sendNotification(notifyTypeReplStartDebugger, { debugPipename: pipename });
 }
 
-export function activate(context: vscode.ExtensionContext) {
+export function activate(context: qv.ExtensionContext) {
   g_context = context;
 
   context.subscriptions.push(
@@ -727,29 +727,29 @@ export function activate(context: vscode.ExtensionContext) {
       clearProgress();
       setContext('isJuliaEvaluating', false);
     }),
-    vscode.workspace.onDidChangeConfiguration((event) => {
+    qv.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration('julia.usePlotPane')) {
         try {
-          g_connection.sendNotification('repl/togglePlotPane', { enable: vscode.workspace.getConfiguration('julia').get('usePlotPane') });
+          g_connection.sendNotification('repl/togglePlotPane', { enable: qv.workspace.getConfiguration('julia').get('usePlotPane') });
         } catch (err) {
           console.warn(err);
         }
       } else if (event.affectsConfiguration('julia.useProgressFrontend')) {
         try {
-          g_connection.sendNotification('repl/toggleProgress', { enable: vscode.workspace.getConfiguration('julia').get('useProgressFrontend') });
+          g_connection.sendNotification('repl/toggleProgress', { enable: qv.workspace.getConfiguration('julia').get('useProgressFrontend') });
         } catch (err) {
           console.warn(err);
         }
       }
     }),
-    vscode.window.onDidChangeActiveTerminal((terminal) => {
+    qv.window.onDidChangeActiveTerminal((terminal) => {
       if (terminal === g_terminal) {
         setContext('isJuliaREPL', true);
       } else {
         setContext('isJuliaREPL', false);
       }
     }),
-    vscode.window.onDidCloseTerminal((terminal) => {
+    qv.window.onDidCloseTerminal((terminal) => {
       if (terminal === g_terminal) {
         g_terminal = null;
       }
@@ -772,7 +772,7 @@ export function activate(context: vscode.ExtensionContext) {
     registerCommand('language-julia.activateFromDir', activateFromDir)
   );
 
-  const terminalConfig = vscode.workspace.getConfiguration('terminal.integrated');
+  const terminalConfig = qv.workspace.getConfiguration('terminal.integrated');
   const shellSkipCommands: Array<String> = terminalConfig.get('commandsToSkipShell');
   if (shellSkipCommands.indexOf('language-julia.interrupt') === -1) {
     shellSkipCommands.push('language-julia.interrupt');

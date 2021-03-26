@@ -1,121 +1,81 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
+import { ClientCap, ServiceClient, ServerResponse } from '../service';
+import { condRegistration, requireSomeCap } from '../registration';
 import * as path from 'path';
-import * as vscode from 'vscode';
-import * as nls from 'vscode-nls';
-import type * as Proto from '../protocol';
-import { ClientCapability, ITypeScriptServiceClient, ServerResponse } from '../service';
+import * as qu from '../utils';
+import * as qv from 'vscode';
 import API from '../../old/ts/utils/api';
-import { conditionalRegistration, requireSomeCap } from '../registration';
-import { DocumentSelector } from '../utils/documentSelector';
-import * as typeConverters from '../utils/typeConverters';
 import FileConfigurationManager from '../../old/ts/languageFeatures/fileConfigurationManager';
+import type * as qp from '../protocol';
 
-const localize = nls.loadMessageBundle();
+class TypeScriptRenameProvider implements qv.RenameProvider {
+  public constructor(private readonly client: ServiceClient, private readonly fileConfigurationManager: FileConfigurationManager) {}
 
-class TypeScriptRenameProvider implements vscode.RenameProvider {
-  public constructor(private readonly client: ITypeScriptServiceClient, private readonly fileConfigurationManager: FileConfigurationManager) {}
-
-  public async prepareRename(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Range | null> {
-    if (this.client.apiVersion.lt(API.v310)) {
-      return null;
-    }
-
+  public async prepareRename(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): Promise<qv.Range | null> {
+    if (this.client.apiVersion.lt(API.v310)) return null;
     const response = await this.execRename(document, position, token);
-    if (response?.type !== 'response' || !response.body) {
-      return null;
-    }
-
+    if (response?.type !== 'response' || !response.body) return null;
     const renameInfo = response.body.info;
-    if (!renameInfo.canRename) {
-      return Promise.reject<vscode.Range>(renameInfo.localizedErrorMessage);
-    }
-
-    return typeConverters.Range.fromTextSpan(renameInfo.triggerSpan);
+    if (!renameInfo.canRename) return Promise.reject<qv.Range>(renameInfo.localizedErrorMessage);
+    return qu.Range.fromTextSpan(renameInfo.triggerSpan);
   }
 
-  public async provideRenameEdits(document: vscode.TextDocument, position: vscode.Position, newName: string, token: vscode.CancellationToken): Promise<vscode.WorkspaceEdit | null> {
+  public async provideRenameEdits(document: qv.TextDocument, position: qv.Position, newName: string, token: qv.CancellationToken): Promise<qv.WorkspaceEdit | null> {
     const response = await this.execRename(document, position, token);
-    if (!response || response.type !== 'response' || !response.body) {
-      return null;
-    }
-
+    if (!response || response.type !== 'response' || !response.body) return null;
     const renameInfo = response.body.info;
-    if (!renameInfo.canRename) {
-      return Promise.reject<vscode.WorkspaceEdit>(renameInfo.localizedErrorMessage);
-    }
-
+    if (!renameInfo.canRename) return Promise.reject<qv.WorkspaceEdit>(renameInfo.localizedErrorMessage);
     if (renameInfo.fileToRename) {
       const edits = await this.renameFile(renameInfo.fileToRename, newName, token);
-      if (edits) {
-        return edits;
-      } else {
-        return Promise.reject<vscode.WorkspaceEdit>(localize('fileRenameFail', 'An error occurred while renaming file'));
-      }
+      if (edits) return edits;
+      else return Promise.reject<qv.WorkspaceEdit>('fileRenameFail');
     }
-
     return this.updateLocs(response.body.locs, newName);
   }
 
-  public async execRename(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<ServerResponse.Response<Proto.RenameResponse> | undefined> {
+  public async execRename(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): Promise<ServerResponse.Response<qp.RenameResponse> | undefined> {
     const file = this.client.toOpenedFilePath(document);
-    if (!file) {
-      return undefined;
-    }
-
-    const args: Proto.RenameRequestArgs = {
-      ...typeConverters.Position.toFileLocationRequestArgs(file, position),
+    if (!file) return undefined;
+    const args: qp.RenameRequestArgs = {
+      ...qu.Position.toFileLocationRequestArgs(file, position),
       findInStrings: false,
       findInComments: false,
     };
-
     return this.client.interruptGetErr(() => {
       this.fileConfigurationManager.ensureConfigurationForDocument(document, token);
       return this.client.execute('rename', args, token);
     });
   }
 
-  private updateLocs(locations: ReadonlyArray<Proto.SpanGroup>, newName: string) {
-    const edit = new vscode.WorkspaceEdit();
+  private updateLocs(locations: ReadonlyArray<qp.SpanGroup>, newName: string) {
+    const edit = new qv.WorkspaceEdit();
     for (const spanGroup of locations) {
       const resource = this.client.toResource(spanGroup.file);
       for (const textSpan of spanGroup.locs) {
-        edit.replace(resource, typeConverters.Range.fromTextSpan(textSpan), (textSpan.prefixText || '') + newName + (textSpan.suffixText || ''));
+        edit.replace(resource, qu.Range.fromTextSpan(textSpan), (textSpan.prefixText || '') + newName + (textSpan.suffixText || ''));
       }
     }
     return edit;
   }
 
-  private async renameFile(fileToRename: string, newName: string, token: vscode.CancellationToken): Promise<vscode.WorkspaceEdit | undefined> {
-    // Make sure we preserve file extension if none provided
-    if (!path.extname(newName)) {
-      newName += path.extname(fileToRename);
-    }
-
+  private async renameFile(fileToRename: string, newName: string, token: qv.CancellationToken): Promise<qv.WorkspaceEdit | undefined> {
+    if (!path.extname(newName)) newName += path.extname(fileToRename);
     const dirname = path.dirname(fileToRename);
     const newFilePath = path.join(dirname, newName);
-
-    const args: Proto.GetEditsForFileRenameRequestArgs & { file: string } = {
+    const args: qp.GetEditsForFileRenameRequestArgs & { file: string } = {
       file: fileToRename,
       oldFilePath: fileToRename,
       newFilePath: newFilePath,
     };
     const response = await this.client.execute('getEditsForFileRename', args, token);
-    if (response.type !== 'response' || !response.body) {
-      return undefined;
-    }
-
-    const edits = typeConverters.WorkspaceEdit.fromFileCodeEdits(this.client, response.body);
-    edits.renameFile(vscode.Uri.file(fileToRename), vscode.Uri.file(newFilePath));
+    if (response.type !== 'response' || !response.body) return undefined;
+    const edits = qu.WorkspaceEdit.fromFileCodeEdits(this.client, response.body);
+    edits.renameFile(qv.Uri.file(fileToRename), qv.Uri.file(newFilePath));
     return edits;
   }
 }
 
-export function register(selector: DocumentSelector, client: ITypeScriptServiceClient, fileConfigurationManager: FileConfigurationManager) {
-  return conditionalRegistration([requireSomeCap(client, ClientCapability.Semantic)], () => {
-    return vscode.languages.registerRenameProvider(selector.semantic, new TypeScriptRenameProvider(client, fileConfigurationManager));
+export function register(s: qu.DocumentSelector, c: ServiceClient, fileConfigurationManager: FileConfigurationManager) {
+  return condRegistration([requireSomeCap(c, ClientCap.Semantic)], () => {
+    return qv.languages.registerRenameProvider(s.semantic, new TypeScriptRenameProvider(c, fileConfigurationManager));
   });
 }

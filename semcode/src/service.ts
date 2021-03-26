@@ -1,5 +1,5 @@
-import * as vscode from 'vscode';
-import * as Proto from './protocol';
+import * as qv from 'vscode';
+import * as qp from './protocol';
 import BufferSyncSupport from '../old/ts/tsServer/bufferSyncSupport';
 import { ExecutionTarget } from '../old/ts/tsServer/server';
 import { TypeScriptVersion } from '../old/ts/tsServer/versionProvider';
@@ -19,59 +19,59 @@ export namespace ServerResponse {
     constructor(public readonly reason: string) {}
   }
   export const NoContent = { type: 'noContent' } as const;
-  export type Response<T extends Proto.Response> = T | Cancelled | typeof NoContent;
+  export type Response<T extends qp.Response> = T | Cancelled | typeof NoContent;
 }
 
 interface StandardTsServerRequests {
-  applyCodeActionCommand: [Proto.ApplyCodeActionCommandRequestArgs, Proto.ApplyCodeActionCommandResponse];
-  completionEntryDetails: [Proto.CompletionDetailsRequestArgs, Proto.CompletionDetailsResponse];
-  completionInfo: [Proto.CompletionsRequestArgs, Proto.CompletionInfoResponse];
-  completions: [Proto.CompletionsRequestArgs, Proto.CompletionsResponse];
-  configure: [Proto.ConfigureRequestArguments, Proto.ConfigureResponse];
-  definition: [Proto.FileLocationRequestArgs, Proto.DefinitionResponse];
-  definitionAndBoundSpan: [Proto.FileLocationRequestArgs, Proto.DefinitionInfoAndBoundSpanResponse];
-  docCommentTemplate: [Proto.FileLocationRequestArgs, Proto.DocCommandTemplateResponse];
-  documentHighlights: [Proto.DocumentHighlightsRequestArgs, Proto.DocumentHighlightsResponse];
-  format: [Proto.FormatRequestArgs, Proto.FormatResponse];
-  formatonkey: [Proto.FormatOnKeyRequestArgs, Proto.FormatResponse];
-  getApplicableRefactors: [Proto.GetApplicableRefactorsRequestArgs, Proto.GetApplicableRefactorsResponse];
-  getCodeFixes: [Proto.CodeFixRequestArgs, Proto.CodeFixResponse];
-  getCombinedCodeFix: [Proto.GetCombinedCodeFixRequestArgs, Proto.GetCombinedCodeFixResponse];
-  getEditsForFileRename: [Proto.GetEditsForFileRenameRequestArgs, Proto.GetEditsForFileRenameResponse];
-  getEditsForRefactor: [Proto.GetEditsForRefactorRequestArgs, Proto.GetEditsForRefactorResponse];
-  getOutliningSpans: [Proto.FileRequestArgs, Proto.OutliningSpansResponse];
-  getSupportedCodeFixes: [null, Proto.GetSupportedCodeFixesResponse];
-  implementation: [Proto.FileLocationRequestArgs, Proto.ImplementationResponse];
-  jsxClosingTag: [Proto.JsxClosingTagRequestArgs, Proto.JsxClosingTagResponse];
-  navto: [Proto.NavtoRequestArgs, Proto.NavtoResponse];
-  navtree: [Proto.FileRequestArgs, Proto.NavTreeResponse];
-  organizeImports: [Proto.OrganizeImportsRequestArgs, Proto.OrganizeImportsResponse];
-  projectInfo: [Proto.ProjectInfoRequestArgs, Proto.ProjectInfoResponse];
-  quickinfo: [Proto.FileLocationRequestArgs, Proto.QuickInfoResponse];
-  references: [Proto.FileLocationRequestArgs, Proto.ReferencesResponse];
-  rename: [Proto.RenameRequestArgs, Proto.RenameResponse];
-  selectionRange: [Proto.SelectionRangeRequestArgs, Proto.SelectionRangeResponse];
-  signatureHelp: [Proto.SignatureHelpRequestArgs, Proto.SignatureHelpResponse];
-  typeDefinition: [Proto.FileLocationRequestArgs, Proto.TypeDefinitionResponse];
-  updateOpen: [Proto.UpdateOpenRequestArgs, Proto.Response];
-  prepareCallHierarchy: [Proto.FileLocationRequestArgs, Proto.PrepareCallHierarchyResponse];
-  provideCallHierarchyIncomingCalls: [Proto.FileLocationRequestArgs, Proto.ProvideCallHierarchyIncomingCallsResponse];
-  provideCallHierarchyOutgoingCalls: [Proto.FileLocationRequestArgs, Proto.ProvideCallHierarchyOutgoingCallsResponse];
-  fileReferences: [Proto.FileRequestArgs, Proto.FileReferencesResponse];
+  applyCodeActionCommand: [qp.ApplyCodeActionCommandRequestArgs, qp.ApplyCodeActionCommandResponse];
+  completionEntryDetails: [qp.CompletionDetailsRequestArgs, qp.CompletionDetailsResponse];
+  completionInfo: [qp.CompletionsRequestArgs, qp.CompletionInfoResponse];
+  completions: [qp.CompletionsRequestArgs, qp.CompletionsResponse];
+  configure: [qp.ConfigureRequestArguments, qp.ConfigureResponse];
+  definition: [qp.FileLocationRequestArgs, qp.DefinitionResponse];
+  definitionAndBoundSpan: [qp.FileLocationRequestArgs, qp.DefinitionInfoAndBoundSpanResponse];
+  docCommentTemplate: [qp.FileLocationRequestArgs, qp.DocCommandTemplateResponse];
+  documentHighlights: [qp.DocumentHighlightsRequestArgs, qp.DocumentHighlightsResponse];
+  format: [qp.FormatRequestArgs, qp.FormatResponse];
+  formatonkey: [qp.FormatOnKeyRequestArgs, qp.FormatResponse];
+  getApplicableRefactors: [qp.GetApplicableRefactorsRequestArgs, qp.GetApplicableRefactorsResponse];
+  getCodeFixes: [qp.CodeFixRequestArgs, qp.CodeFixResponse];
+  getCombinedCodeFix: [qp.GetCombinedCodeFixRequestArgs, qp.GetCombinedCodeFixResponse];
+  getEditsForFileRename: [qp.GetEditsForFileRenameRequestArgs, qp.GetEditsForFileRenameResponse];
+  getEditsForRefactor: [qp.GetEditsForRefactorRequestArgs, qp.GetEditsForRefactorResponse];
+  getOutliningSpans: [qp.FileRequestArgs, qp.OutliningSpansResponse];
+  getSupportedCodeFixes: [null, qp.GetSupportedCodeFixesResponse];
+  implementation: [qp.FileLocationRequestArgs, qp.ImplementationResponse];
+  jsxClosingTag: [qp.JsxClosingTagRequestArgs, qp.JsxClosingTagResponse];
+  navto: [qp.NavtoRequestArgs, qp.NavtoResponse];
+  navtree: [qp.FileRequestArgs, qp.NavTreeResponse];
+  organizeImports: [qp.OrganizeImportsRequestArgs, qp.OrganizeImportsResponse];
+  projectInfo: [qp.ProjectInfoRequestArgs, qp.ProjectInfoResponse];
+  quickinfo: [qp.FileLocationRequestArgs, qp.QuickInfoResponse];
+  references: [qp.FileLocationRequestArgs, qp.ReferencesResponse];
+  rename: [qp.RenameRequestArgs, qp.RenameResponse];
+  selectionRange: [qp.SelectionRangeRequestArgs, qp.SelectionRangeResponse];
+  signatureHelp: [qp.SignatureHelpRequestArgs, qp.SignatureHelpResponse];
+  typeDefinition: [qp.FileLocationRequestArgs, qp.TypeDefinitionResponse];
+  updateOpen: [qp.UpdateOpenRequestArgs, qp.Response];
+  prepareCallHierarchy: [qp.FileLocationRequestArgs, qp.PrepareCallHierarchyResponse];
+  provideCallHierarchyIncomingCalls: [qp.FileLocationRequestArgs, qp.ProvideCallHierarchyIncomingCallsResponse];
+  provideCallHierarchyOutgoingCalls: [qp.FileLocationRequestArgs, qp.ProvideCallHierarchyOutgoingCallsResponse];
+  fileReferences: [qp.FileRequestArgs, qp.FileReferencesResponse];
 }
 
 interface NoResponseTsServerRequests {
-  open: [Proto.OpenRequestArgs, null];
-  close: [Proto.FileRequestArgs, null];
-  change: [Proto.ChangeRequestArgs, null];
-  compilerOptionsForInferredProjects: [Proto.SetCompilerOptionsForInferredProjectsArgs, null];
+  open: [qp.OpenRequestArgs, null];
+  close: [qp.FileRequestArgs, null];
+  change: [qp.ChangeRequestArgs, null];
+  compilerOptionsForInferredProjects: [qp.SetCompilerOptionsForInferredProjectsArgs, null];
   reloadProjects: [null, null];
-  configurePlugin: [Proto.ConfigurePluginRequest, Proto.ConfigurePluginResponse];
+  configurePlugin: [qp.ConfigurePluginRequest, qp.ConfigurePluginResponse];
 }
 
 interface AsyncTsServerRequests {
-  geterr: [Proto.GeterrRequestArgs, Proto.Response];
-  geterrForProject: [Proto.GeterrForProjectRequestArgs, Proto.Response];
+  geterr: [qp.GeterrRequestArgs, qp.Response];
+  geterrForProject: [qp.GeterrForProjectRequestArgs, qp.Response];
 }
 
 export type TypeScriptRequests = StandardTsServerRequests & NoResponseTsServerRequests & AsyncTsServerRequests;
@@ -79,7 +79,7 @@ export type TypeScriptRequests = StandardTsServerRequests & NoResponseTsServerRe
 export type ExecConfig = {
   readonly lowPriority?: boolean;
   readonly nonRecoverable?: boolean;
-  readonly cancelOnResourceChange?: vscode.Uri;
+  readonly cancelOnResourceChange?: qv.Uri;
   readonly executionTarget?: ExecutionTarget;
 };
 
@@ -100,19 +100,19 @@ export class ClientCaps {
 }
 
 export interface ServiceClient {
-  normalizedPath(r: vscode.Uri): string | undefined;
-  toPath(r: vscode.Uri): string | undefined;
-  toResource(p: string): vscode.Uri;
-  toOpenedFilePath(d: vscode.TextDocument, opts?: { suppressAlertOnFailure?: boolean }): string | undefined;
-  hasCapabilityForResource(r: vscode.Uri, c: ClientCap): boolean;
-  getWorkspaceRootForResource(r: vscode.Uri): string | undefined;
-  readonly onTsServerStarted: vscode.Event<{ version: TypeScriptVersion; usedApiVersion: API }>;
-  readonly onProjectLanguageServiceStateChanged: vscode.Event<Proto.ProjectLanguageServiceStateEventBody>;
-  readonly onDidBeginInstallTypings: vscode.Event<Proto.BeginInstallTypesEventBody>;
-  readonly onDidEndInstallTypings: vscode.Event<Proto.EndInstallTypesEventBody>;
-  readonly onTypesInstallerInitializationFailed: vscode.Event<Proto.TypesInstallerInitializationFailedEventBody>;
+  normalizedPath(r: qv.Uri): string | undefined;
+  toPath(r: qv.Uri): string | undefined;
+  toResource(p: string): qv.Uri;
+  toOpenedFilePath(d: qv.TextDocument, opts?: { suppressAlertOnFailure?: boolean }): string | undefined;
+  hasCapabilityForResource(r: qv.Uri, c: ClientCap): boolean;
+  getWorkspaceRootForResource(r: qv.Uri): string | undefined;
+  readonly onTsServerStarted: qv.Event<{ version: TypeScriptVersion; usedApiVersion: API }>;
+  readonly onProjectLanguageServiceStateChanged: qv.Event<qp.ProjectLanguageServiceStateEventBody>;
+  readonly onDidBeginInstallTypings: qv.Event<qp.BeginInstallTypesEventBody>;
+  readonly onDidEndInstallTypings: qv.Event<qp.EndInstallTypesEventBody>;
+  readonly onTypesInstallerInitializationFailed: qv.Event<qp.TypesInstallerInitializationFailedEventBody>;
   readonly capabilities: ClientCaps;
-  readonly onDidChangeCapabilities: vscode.Event<void>;
+  readonly onDidChangeCapabilities: qv.Event<void>;
   onReady(f: () => void): Promise<void>;
   showVersionPicker(): void;
   readonly apiVersion: API;
@@ -123,10 +123,10 @@ export interface ServiceClient {
   execute<K extends keyof StandardTsServerRequests>(
     k: K,
     xs: StandardTsServerRequests[K][0],
-    t: vscode.CancellationToken,
+    t: qv.CancellationToken,
     c?: ExecConfig
   ): Promise<ServerResponse.Response<StandardTsServerRequests[K][1]>>;
   executeWithoutWaitingForResponse<K extends keyof NoResponseTsServerRequests>(k: K, xs: NoResponseTsServerRequests[K][0]): void;
-  executeAsync<K extends keyof AsyncTsServerRequests>(k: K, xs: AsyncTsServerRequests[K][0], t: vscode.CancellationToken): Promise<ServerResponse.Response<Proto.Response>>;
+  executeAsync<K extends keyof AsyncTsServerRequests>(k: K, xs: AsyncTsServerRequests[K][0], t: qv.CancellationToken): Promise<ServerResponse.Response<qp.Response>>;
   interruptGetErr<R>(f: () => R): R;
 }
