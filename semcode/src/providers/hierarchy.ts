@@ -7,7 +7,7 @@ import API from '../../old/ts/utils/api';
 import { condRegistration, requireSomeCap, requireMinVer } from '../registration';
 import * as qu from '../utils';
 
-class CallHierarchySupport implements vsc.CallHierarchyProvider {
+class Hierarchy implements vsc.CallHierarchyProvider {
   public static readonly minVersion = API.v380;
 
   public constructor(private readonly client: ServiceClient) {}
@@ -70,7 +70,7 @@ function fromProtocolCallHierarchyOutgoingCall(c: Proto.CallHierarchyOutgoingCal
 }
 
 export function register(s: qu.DocumentSelector, c: ServiceClient) {
-  return condRegistration([requireMinVer(c, CallHierarchySupport.minVersion), requireSomeCap(c, ClientCap.Semantic)], () => {
-    return vsc.languages.registerCallHierarchyProvider(s.semantic, new CallHierarchySupport(c));
+  return condRegistration([requireMinVer(c, Hierarchy.minVersion), requireSomeCap(c, ClientCap.Semantic)], () => {
+    return vsc.languages.registerCallHierarchyProvider(s.semantic, new Hierarchy(c));
   });
 }

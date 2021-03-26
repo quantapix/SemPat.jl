@@ -9,7 +9,7 @@ import { Api, getExtensionApi } from './api';
 import { CommandManager } from './commands/commandManager';
 import { registerBaseCommands } from './commands/index';
 import { LanguageConfigurationManager } from './languageFeatures/languageConfiguration';
-import { createLazyClientHost, lazilyActivateClient } from './lazyClientHost';
+import { createLazyClientHost, lazilyActivateClient } from '../../src/lazyClientHost';
 import { nodeRequestCancellerFactory } from './tsServer/cancellation.electron';
 import { NodeLogDirectoryProvider } from './tsServer/logDirectoryProvider.electron';
 import { ChildServerProcess } from './tsServer/serverProcess.electron';
@@ -19,53 +19,56 @@ import { onCaseInsenitiveFileSystem } from './utils/fileSystem.electron';
 import { PluginManager } from './utils/plugins';
 import * as temp from './utils/temp.electron';
 
-export function activate(
-	context: vscode.ExtensionContext
-): Api {
-	const pluginManager = new PluginManager();
-	context.subscriptions.push(pluginManager);
+export function activate(context: vscode.ExtensionContext): Api {
+  const pluginManager = new PluginManager();
+  context.subscriptions.push(pluginManager);
 
-	const commandManager = new CommandManager();
-	context.subscriptions.push(commandManager);
+  const commandManager = new CommandManager();
+  context.subscriptions.push(commandManager);
 
-	const onCompletionAccepted = new vscode.EventEmitter<vscode.CompletionItem>();
-	context.subscriptions.push(onCompletionAccepted);
+  const onCompletionAccepted = new vscode.EventEmitter<vscode.CompletionItem>();
+  context.subscriptions.push(onCompletionAccepted);
 
-	const logDirectoryProvider = new NodeLogDirectoryProvider(context);
-	const versionProvider = new DiskTypeScriptVersionProvider();
+  const logDirectoryProvider = new NodeLogDirectoryProvider(context);
+  const versionProvider = new DiskTypeScriptVersionProvider();
 
-	context.subscriptions.push(new LanguageConfigurationManager());
+  context.subscriptions.push(new LanguageConfigurationManager());
 
-	const activeJsTsEditorTracker = new ActiveJsTsEditorTracker();
-	context.subscriptions.push(activeJsTsEditorTracker);
+  const activeJsTsEditorTracker = new ActiveJsTsEditorTracker();
+  context.subscriptions.push(activeJsTsEditorTracker);
 
-	const lazyClientHost = createLazyClientHost(context, onCaseInsenitiveFileSystem(), {
-		pluginManager,
-		commandManager,
-		logDirectoryProvider,
-		cancellerFactory: nodeRequestCancellerFactory,
-		versionProvider,
-		processFactory: ChildServerProcess,
-		activeJsTsEditorTracker,
-	}, item => {
-		onCompletionAccepted.fire(item);
-	});
+  const lazyClientHost = createLazyClientHost(
+    context,
+    onCaseInsenitiveFileSystem(),
+    {
+      pluginManager,
+      commandManager,
+      logDirectoryProvider,
+      cancellerFactory: nodeRequestCancellerFactory,
+      versionProvider,
+      processFactory: ChildServerProcess,
+      activeJsTsEditorTracker,
+    },
+    (item) => {
+      onCompletionAccepted.fire(item);
+    }
+  );
 
-	registerBaseCommands(commandManager, lazyClientHost, pluginManager, activeJsTsEditorTracker);
+  registerBaseCommands(commandManager, lazyClientHost, pluginManager, activeJsTsEditorTracker);
 
-	import('./task/taskProvider').then(module => {
-		context.subscriptions.push(module.register(lazyClientHost.map(x => x.serviceClient)));
-	});
+  import('./task/taskProvider').then((module) => {
+    context.subscriptions.push(module.register(lazyClientHost.map((x) => x.serviceClient)));
+  });
 
-	import('./languageFeatures/tsconfig').then(module => {
-		context.subscriptions.push(module.register());
-	});
+  import('./languageFeatures/tsconfig').then((module) => {
+    context.subscriptions.push(module.register());
+  });
 
-	context.subscriptions.push(lazilyActivateClient(lazyClientHost, pluginManager, activeJsTsEditorTracker));
+  context.subscriptions.push(lazilyActivateClient(lazyClientHost, pluginManager, activeJsTsEditorTracker));
 
-	return getExtensionApi(onCompletionAccepted.event, pluginManager);
+  return getExtensionApi(onCompletionAccepted.event, pluginManager);
 }
 
 export function deactivate() {
-	fs.rmdirSync(temp.getInstanceTempDir(), { recursive: true });
+  fs.rmdirSync(temp.getInstanceTempDir(), { recursive: true });
 }

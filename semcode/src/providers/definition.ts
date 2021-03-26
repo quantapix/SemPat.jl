@@ -1,87 +1,74 @@
 import * as vsc from 'vscode';
 import { ClientCap, ServiceClient } from '../service';
 import * as qu from '../utils';
-import API from '../../old/ts/utils/api';
 import { condRegistration, requireSomeCap } from '../registration';
 
-export class DefinitionProviderBase {
+class Base {
   constructor(protected readonly client: ServiceClient) {}
-  protected async getSymbolLocations(
-    definitionType: 'definition' | 'implementation' | 'typeDefinition',
-    document: vsc.TextDocument,
-    position: vsc.Position,
-    token: vsc.CancellationToken
-  ): Promise<vsc.Location[] | undefined> {
-    const file = this.client.toOpenedFilePath(document);
-    if (!file) return undefined;
-    const args = qu.Position.toFileLocationRequestArgs(file, position);
-    const response = await this.client.execute(definitionType, args, token);
-    if (response.type !== 'response' || !response.body) return undefined;
-    return response.body.map((location) => qu.Location.fromTextSpan(this.client.toResource(location.file), location));
+  protected async getSymbolLocations(k: 'definition' | 'implementation' | 'typeDefinition', d: vsc.TextDocument, p: vsc.Position, t: vsc.CancellationToken): Promise<vsc.Location[] | undefined> {
+    const f = this.client.toOpenedFilePath(d);
+    if (!f) return undefined;
+    const xs = qu.Position.toFileLocationRequestArgs(f, p);
+    const v = await this.client.execute(k, xs, t);
+    if (v.type !== 'response' || !v.body) return undefined;
+    return v.body.map((l) => qu.Location.fromTextSpan(this.client.toResource(l.file), l));
   }
 }
 
-export class DefinitionProvider extends DefinitionProviderBase implements vsc.DefinitionProvider {
-  constructor(client: ServiceClient) {
-    super(client);
+class Definition extends Base implements vsc.DefinitionProvider {
+  constructor(c: ServiceClient) {
+    super(c);
   }
-  public async provideDefinition(document: vsc.TextDocument, position: vsc.Position, token: vsc.CancellationToken): Promise<vsc.DefinitionLink[] | vsc.Definition | undefined> {
-    if (this.client.apiVersion.gte(API.v270)) {
-      const filepath = this.client.toOpenedFilePath(document);
-      if (!filepath) return undefined;
-      const args = qu.Position.toFileLocationRequestArgs(filepath, position);
-      const response = await this.client.execute('definitionAndBoundSpan', args, token);
-      if (response.type !== 'response' || !response.body) return undefined;
-      const span = response.body.textSpan ? qu.Range.fromTextSpan(response.body.textSpan) : undefined;
-      return response.body.definitions.map(
-        (location): vsc.DefinitionLink => {
-          const target = qu.Location.fromTextSpan(this.client.toResource(location.file), location);
-          if (location.contextStart && location.contextEnd) {
-            return {
-              originSelectionRange: span,
-              targetRange: qu.Range.fromLocations(location.contextStart, location.contextEnd),
-              targetUri: target.uri,
-              targetSelectionRange: target.range,
-            };
-          }
+  public async provideDefinition(d: vsc.TextDocument, p: vsc.Position, t: vsc.CancellationToken): Promise<vsc.DefinitionLink[] | vsc.Definition | undefined> {
+    const f = this.client.toOpenedFilePath(d);
+    if (!f) return undefined;
+    const xs = qu.Position.toFileLocationRequestArgs(f, p);
+    const v = await this.client.execute('definitionAndBoundSpan', xs, t);
+    if (v.type !== 'response' || !v.body) return undefined;
+    const s = v.body.textSpan ? qu.Range.fromTextSpan(v.body.textSpan) : undefined;
+    return v.body.definitions.map(
+      (l): vsc.DefinitionLink => {
+        const target = qu.Location.fromTextSpan(this.client.toResource(l.file), l);
+        if (l.contextStart && l.contextEnd) {
           return {
-            originSelectionRange: span,
-            targetRange: target.range,
+            originSelectionRange: s,
+            targetRange: qu.Range.fromLocations(l.contextStart, l.contextEnd),
             targetUri: target.uri,
+            targetSelectionRange: target.range,
           };
         }
-      );
-    }
-    return this.getSymbolLocations('definition', document, position, token);
+        return {
+          originSelectionRange: s,
+          targetRange: target.range,
+          targetUri: target.uri,
+        };
+      }
+    );
   }
 }
 
-export function register(s: qu.DocumentSelector, c: ServiceClient) {
-  return condRegistration([requireSomeCap(c, ClientCap.EnhancedSyntax, ClientCap.Semantic)], () => {
-    return vsc.languages.registerDefinitionProvider(s.syntax, new DefinitionProvider(c));
-  });
-}
-
-export class TypeDefinitionProvider extends DefinitionProviderBase implements vsc.TypeDefinitionProvider {
+class TypeDefinition extends Base implements vsc.TypeDefinitionProvider {
   public provideTypeDefinition(d: vsc.TextDocument, p: vsc.Position, t: vsc.CancellationToken): Promise<vsc.Definition | undefined> {
     return this.getSymbolLocations('typeDefinition', d, p, t);
   }
 }
 
-export function register(s: qu.DocumentSelector, c: ServiceClient) {
-  return condRegistration([requireSomeCap(c, ClientCap.EnhancedSyntax, ClientCap.Semantic)], () => {
-    return vsc.languages.registerTypeDefinitionProvider(s.syntax, new TypeDefinitionProvider(c));
-  });
-}
-
-export class ImplementationProvider extends DefinitionProviderBase implements vsc.ImplementationProvider {
+class Implementation extends Base implements vsc.ImplementationProvider {
   public provideImplementation(d: vsc.TextDocument, p: vsc.Position, t: vsc.CancellationToken): Promise<vsc.Definition | undefined> {
     return this.getSymbolLocations('implementation', d, p, t);
   }
 }
 
 export function register(s: qu.DocumentSelector, c: ServiceClient) {
-  return condRegistration([requireSomeCap(c, ClientCap.Semantic)], () => {
-    return vsc.languages.registerImplementationProvider(s.semantic, new ImplementationProvider(c));
-  });
+  return [
+    condRegistration([requireSomeCap(c, ClientCap.EnhancedSyntax, ClientCap.Semantic)], () => {
+      return vsc.languages.registerDefinitionProvider(s.syntax, new Definition(c));
+    }),
+    condRegistration([requireSomeCap(c, ClientCap.EnhancedSyntax, ClientCap.Semantic)], () => {
+      return vsc.languages.registerTypeDefinitionProvider(s.syntax, new TypeDefinition(c));
+    }),
+    condRegistration([requireSomeCap(c, ClientCap.Semantic)], () => {
+      return vsc.languages.registerImplementationProvider(s.semantic, new Implementation(c));
+    }),
+  ];
 }

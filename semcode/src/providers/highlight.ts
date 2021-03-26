@@ -3,7 +3,7 @@ import type * as Proto from '../protocol';
 import { ServiceClient } from '../service';
 import * as qu from '../utils';
 
-class DocumentHighlightProvider implements vscode.DocumentHighlightProvider {
+class Highlight implements vscode.DocumentHighlightProvider {
   public constructor(private readonly client: ServiceClient) {}
 
   public async provideDocumentHighlights(d: vscode.TextDocument, p: vscode.Position, t: vscode.CancellationToken): Promise<vscode.DocumentHighlight[]> {
@@ -24,5 +24,5 @@ function convertDocumentHighlight(i: Proto.DocumentHighlightsItem): ReadonlyArra
 }
 
 export function register(s: qu.DocumentSelector, c: ServiceClient) {
-  return vscode.languages.registerDocumentHighlightProvider(s.syntax, new DocumentHighlightProvider(c));
+  return vscode.languages.registerDocumentHighlightProvider(s.syntax, new Highlight(c));
 }

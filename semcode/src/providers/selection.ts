@@ -5,9 +5,9 @@
 
 import * as vscode from 'vscode';
 import type * as Proto from '../protocol';
-import { ITypeScriptServiceClient } from '../../../src/service';
-import API from '../utils/api';
-import { conditionalRegistration, requireMinVersion } from '../../../src/registration';
+import { ITypeScriptServiceClient } from '../service';
+import API from '../../old/ts/utils/api';
+import { conditionalRegistration, requireMinVersion } from '../registration';
 import { DocumentSelector } from '../utils/documentSelector';
 import * as typeConverters from '../utils/typeConverters';
 

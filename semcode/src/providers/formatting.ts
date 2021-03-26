@@ -5,7 +5,7 @@ import { condRegistration, requireConfig } from '../registration';
 import * as qu from '../utils';
 import FileConfigurationManager from './fileConfigurationManager';
 
-class FormattingProvider implements vsc.DocumentRangeFormattingEditProvider, vsc.OnTypeFormattingEditProvider {
+class Formatting implements vsc.DocumentRangeFormattingEditProvider, vsc.OnTypeFormattingEditProvider {
   public constructor(private readonly client: ServiceClient, private readonly manager: FileConfigurationManager) {}
 
   public async provideDocumentRangeFormattingEdits(d: vsc.TextDocument, r: vsc.Range, opts: vsc.FormattingOptions, t: vsc.CancellationToken): Promise<vsc.TextEdit[] | undefined> {
@@ -43,7 +43,7 @@ class FormattingProvider implements vsc.DocumentRangeFormattingEditProvider, vsc
 
 export function register(s: qu.DocumentSelector, modeId: string, c: ServiceClient, m: FileConfigurationManager) {
   return condRegistration([requireConfig(modeId, 'format.enable')], () => {
-    const p = new FormattingProvider(c, m);
+    const p = new Formatting(c, m);
     return vsc.Disposable.from(vsc.languages.registerOnTypeFormattingEditProvider(s.syntax, p, ';', '}', '\n'), vsc.languages.registerDocumentRangeFormattingEditProvider(s.syntax, p));
   });
 }

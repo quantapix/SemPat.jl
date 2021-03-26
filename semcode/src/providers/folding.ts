@@ -5,7 +5,7 @@ import API from '../../old/ts/utils/api';
 import { condRegistration, requireMinVer } from '../registration';
 import * as qu from '../utils';
 
-class FoldingProvider implements vsc.FoldingRangeProvider {
+class Folding implements vsc.FoldingRangeProvider {
   public static readonly minVer = API.v280;
   public constructor(private readonly client: ServiceClient) {}
 
@@ -26,7 +26,7 @@ class FoldingProvider implements vsc.FoldingRangeProvider {
     }
     const b = r.start.line;
     const e = this.adjustFoldingEnd(r, d);
-    return new vsc.FoldingRange(b, e, FoldingProvider.getFoldingRangeKind(s));
+    return new vsc.FoldingRange(b, e, Folding.getFoldingRangeKind(s));
   }
 
   private static readonly endPairChars = ['}', ']', ')', '`'];
@@ -34,7 +34,7 @@ class FoldingProvider implements vsc.FoldingRangeProvider {
   private adjustFoldingEnd(r: vsc.Range, d: vsc.TextDocument) {
     if (r.end.character > 0) {
       const e = d.getText(new vsc.Range(r.end.translate(0, -1), r.end));
-      if (FoldingProvider.endPairChars.includes(e)) return Math.max(r.end.line - 1, r.start.line);
+      if (Folding.endPairChars.includes(e)) return Math.max(r.end.line - 1, r.start.line);
     }
     return r.end.line;
   }
@@ -55,7 +55,7 @@ class FoldingProvider implements vsc.FoldingRangeProvider {
 }
 
 export function register(s: qu.DocumentSelector, c: ServiceClient): vsc.Disposable {
-  return condRegistration([requireMinVer(c, FoldingProvider.minVer)], () => {
-    return vsc.languages.registerFoldingRangeProvider(s.syntax, new FoldingProvider(c));
+  return condRegistration([requireMinVer(c, Folding.minVer)], () => {
+    return vsc.languages.registerFoldingRangeProvider(s.syntax, new Folding(c));
   });
 }

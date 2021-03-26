@@ -7,6 +7,7 @@ import * as PConst from './protocol.const';
 import * as vsc from 'vscode';
 import * as vslc from 'vscode-languageclient';
 import type * as Proto from './protocol';
+import { isArray } from '../old/py/common/core';
 
 export const empty = Object.freeze([]);
 
@@ -323,12 +324,269 @@ export abstract class Disposable {
     this._done = true;
     disposeAll(this._ds);
   }
-  protected _register<T extends vsc.Disposable>(t: T): T {
-    if (this._done) t.dispose();
-    else this._ds.push(t);
-    return t;
+  protected _register<T extends vsc.Disposable>(x: T | T[]) {
+    if (isArray(x)) {
+      for (const t of x) {
+        this._register(t);
+      }
+    } else {
+      if (this._done) x.dispose();
+      else this._ds.push(x);
+    }
   }
   protected get isDisposed() {
     return this._done;
   }
+}
+
+export const file = 'file';
+export const untitled = 'untitled';
+export const git = 'git';
+export const vsls = 'vsls';
+export const walkThroughSnippet = 'walkThroughSnippet';
+export const vscodeNotebookCell = 'vscode-notebook-cell';
+export const semanticSupportedSchemes = [file, untitled, walkThroughSnippet, vscodeNotebookCell];
+export const disabledSchemes = new Set([git, vsls]);
+
+export async function exists(r: vsc.Uri): Promise<boolean> {
+  try {
+    const s = await vsc.workspace.fs.stat(r);
+    return !!(s.type & vsc.FileType.File);
+  } catch {
+    return false;
+  }
+}
+
+export const annotateWithTypeFromJSDoc = 'annotateWithTypeFromJSDoc';
+export const constructorForDerivedNeedSuperCall = 'constructorForDerivedNeedSuperCall';
+export const extendsInterfaceBecomesImplements = 'extendsInterfaceBecomesImplements';
+export const awaitInSyncFunction = 'fixAwaitInSyncFunction';
+export const classIncorrectlyImplementsInterface = 'fixClassIncorrectlyImplementsInterface';
+export const classDoesntImplementInheritedAbstractMember = 'fixClassDoesntImplementInheritedAbstractMember';
+export const fixUnreachableCode = 'fixUnreachableCode';
+export const unusedIdentifier = 'unusedIdentifier';
+export const forgottenThisPropertyAccess = 'forgottenThisPropertyAccess';
+export const spelling = 'spelling';
+export const fixImport = 'import';
+export const addMissingAwait = 'addMissingAwait';
+
+const noopDisposable = vsc.Disposable.from();
+
+export const nulToken: vsc.CancellationToken = {
+  isCancellationRequested: false,
+  onCancellationRequested: () => noopDisposable,
+};
+
+export interface ITask<T> {
+  (): T;
+}
+
+export class Delayer<T> {
+  private tout?: any;
+  private prom?: Promise<T | undefined>;
+  private onSuccess?: (v: T | PromiseLike<T> | undefined) => void;
+  private task?: ITask<T>;
+
+  constructor(public defDelay: number) {}
+
+  public trigger(t: ITask<T>, d: number = this.defDelay): Promise<T | undefined> {
+    this.task = t;
+    if (d >= 0) this.cancelTimeout();
+    if (!this.prom) {
+      this.prom = new Promise<T | undefined>((resolve) => {
+        this.onSuccess = resolve;
+      }).then(() => {
+        this.prom = undefined;
+        this.onSuccess = undefined;
+        const y = this.task && this.task();
+        this.task = undefined;
+        return y;
+      });
+    }
+    if (d >= 0 || this.tout === undefined) {
+      this.tout = setTimeout(
+        () => {
+          this.tout = undefined;
+          if (this.onSuccess) this.onSuccess(undefined);
+        },
+        d >= 0 ? d : this.defDelay
+      );
+    }
+    return this.prom;
+  }
+
+  private cancelTimeout(): void {
+    if (this.tout !== undefined) {
+      clearTimeout(this.tout);
+      this.tout = undefined;
+    }
+  }
+}
+
+export const variableDeclaredButNeverUsed = new Set([6196, 6133]);
+export const propertyDeclaretedButNeverUsed = new Set([6138]);
+export const allImportsAreUnused = new Set([6192]);
+export const unreachableCode = new Set([7027]);
+export const unusedLabel = new Set([7028]);
+export const fallThroughCaseInSwitch = new Set([7029]);
+export const notAllCodePathsReturnAValue = new Set([7030]);
+export const incorrectlyImplementsInterface = new Set([2420]);
+export const cannotFindName = new Set([2552, 2304]);
+export const extendsShouldBeImplements = new Set([2689]);
+export const asyncOnlyAllowedInAsyncFunctions = new Set([1308]);
+
+export function getEditForCodeAction(c: ServiceClient, a: Proto.CodeAction): vsc.WorkspaceEdit | undefined {
+  return a.changes && a.changes.length ? WorkspaceEdit.fromFileCodeEdits(c, a.changes) : undefined;
+}
+
+export async function applyCodeAction(c: ServiceClient, a: Proto.CodeAction, t: vsc.CancellationToken): Promise<boolean> {
+  const e = getEditForCodeAction(c, a);
+  if (e) {
+    if (!(await vsc.workspace.applyEdit(e))) return false;
+  }
+  return applyCodeActionCommands(c, a.commands, t);
+}
+
+export async function applyCodeActionCommands(c: ServiceClient, cs: ReadonlyArray<{}> | undefined, t: vsc.CancellationToken): Promise<boolean> {
+  if (cs && cs.length) {
+    for (const command of cs) {
+      await c.execute('applyCodeActionCommand', { command }, t);
+    }
+  }
+  return true;
+}
+
+export function memoize(_target: any, key: string, x: any) {
+  let k: string | undefined;
+  let f: Function | undefined;
+  if (typeof x.value === 'function') {
+    k = 'value';
+    f = x.value;
+  } else if (typeof x.get === 'function') {
+    k = 'get';
+    f = x.get;
+  } else throw new Error('not supported');
+  const p = `$memoize$${key}`;
+  x[k] = function (...xs: any[]) {
+    if (!this.hasOwnProperty(p)) {
+      Object.defineProperty(this, p, {
+        configurable: false,
+        enumerable: false,
+        writable: false,
+        value: f!.apply(this, xs),
+      });
+    }
+    return this[p];
+  };
+}
+
+export function objequals(a: any, b: any): boolean {
+  if (a === b) return true;
+  if (a === null || a === undefined || b === null || b === undefined) return false;
+  if (typeof a !== typeof b) return false;
+  if (typeof a !== 'object') return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a)) return equals(a, b, equals);
+  else {
+    const aks: string[] = [];
+    for (const key in a) {
+      aks.push(key);
+    }
+    aks.sort();
+    const bks: string[] = [];
+    for (const key in b) {
+      bks.push(key);
+    }
+    bks.sort();
+    if (!equals(aks, bks)) return false;
+    return aks.every((k) => equals(a[k], b[k]));
+  }
+}
+
+export function escapeRegExp(s: string) {
+  return s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+}
+
+export class RelativeWorkspacePathResolver {
+  public static asAbsoluteWorkspacePath(p: string): string | undefined {
+    for (const r of vsc.workspace.workspaceFolders || []) {
+      const pres = [`./${r.name}/`, `${r.name}/`, `.\\${r.name}\\`, `${r.name}\\`];
+      for (const s of pres) {
+        if (p.startsWith(s)) return path.join(r.uri.fsPath, p.replace(s, ''));
+      }
+    }
+    return undefined;
+  }
+}
+
+export class ResourceMap<T> {
+  private static readonly defaultPathNormalizer = (r: vsc.Uri): string => {
+    if (r.scheme === file) return r.fsPath;
+    return r.toString(true);
+  };
+
+  private readonly _map = new Map<string, { readonly resource: vsc.Uri; value: T }>();
+
+  constructor(
+    protected readonly _normalizePath: (r: vsc.Uri) => string | undefined = ResourceMap.defaultPathNormalizer,
+    protected readonly config: {
+      readonly onCaseInsenitiveFileSystem: boolean;
+    }
+  ) {}
+
+  public get size() {
+    return this._map.size;
+  }
+
+  public has(r: vsc.Uri): boolean {
+    const f = this.toKey(r);
+    return !!f && this._map.has(f);
+  }
+
+  public get(r: vsc.Uri): T | undefined {
+    const f = this.toKey(r);
+    if (!f) return undefined;
+    const e = this._map.get(f);
+    return e ? e.value : undefined;
+  }
+
+  public set(r: vsc.Uri, v: T) {
+    const f = this.toKey(r);
+    if (!f) return;
+    const e = this._map.get(f);
+    if (e) e.value = v;
+    else this._map.set(f, { resource: r, value: v });
+  }
+
+  public delete(r: vsc.Uri): void {
+    const f = this.toKey(r);
+    if (f) this._map.delete(f);
+  }
+
+  public clear(): void {
+    this._map.clear();
+  }
+
+  public get values(): Iterable<T> {
+    return Array.from(this._map.values()).map((x) => x.value);
+  }
+
+  public get entries(): Iterable<{ resource: vsc.Uri; value: T }> {
+    return this._map.values();
+  }
+
+  private toKey(r: vsc.Uri): string | undefined {
+    const k = this._normalizePath(r);
+    if (!k) return k;
+    return this.isCaseInsensitivePath(k) ? k.toLowerCase() : k;
+  }
+
+  private isCaseInsensitivePath(p: string) {
+    if (isWindowsPath(p)) return true;
+    return p[0] === '/' && this.config.onCaseInsenitiveFileSystem;
+  }
+}
+
+function isWindowsPath(p: string): boolean {
+  return /^[a-zA-Z]:[\/\\]/.test(p);
 }

@@ -5,18 +5,18 @@
 
 import * as vscode from 'vscode';
 import * as nls from 'vscode-nls';
-import { Command, CommandManager } from '../commands/commandManager';
-import { LearnMoreAboutRefactoringsCommand } from '../commands/learnMoreAboutRefactorings';
+import { Command, CommandManager } from '../../old/ts/commands/commandManager';
+import { LearnMoreAboutRefactoringsCommand } from '../../old/ts/commands/learnMoreAboutRefactorings';
 import type * as Proto from '../protocol';
-import { ClientCapability, ITypeScriptServiceClient } from '../../../src/service';
-import API from '../utils/api';
+import { ClientCapability, ITypeScriptServiceClient } from '../service';
+import API from '../../old/ts/utils/api';
 import { nulToken } from '../utils/cancellation';
-import { conditionalRegistration, requireMinVersion, requireSomeCap } from '../../../src/registration';
+import { conditionalRegistration, requireMinVersion, requireSomeCap } from '../registration';
 import { DocumentSelector } from '../utils/documentSelector';
 import * as fileSchemes from '../utils/fileSchemes';
-import { TelemetryReporter } from '../utils/telemetry';
+import { TelemetryReporter } from '../../old/ts/utils/telemetry';
 import * as typeConverters from '../utils/typeConverters';
-import FormattingOptionsManager from './fileConfigurationManager';
+import FormattingOptionsManager from '../../old/ts/languageFeatures/fileConfigurationManager';
 
 const localize = nls.loadMessageBundle();
 

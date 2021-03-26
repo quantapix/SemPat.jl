@@ -7,12 +7,12 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import * as nls from 'vscode-nls';
 import type * as Proto from '../protocol';
-import { ClientCapability, ITypeScriptServiceClient, ServerResponse } from '../../../src/service';
-import API from '../utils/api';
-import { conditionalRegistration, requireSomeCap } from '../../../src/registration';
+import { ClientCapability, ITypeScriptServiceClient, ServerResponse } from '../service';
+import API from '../../old/ts/utils/api';
+import { conditionalRegistration, requireSomeCap } from '../registration';
 import { DocumentSelector } from '../utils/documentSelector';
 import * as typeConverters from '../utils/typeConverters';
-import FileConfigurationManager from './fileConfigurationManager';
+import FileConfigurationManager from '../../old/ts/languageFeatures/fileConfigurationManager';
 
 const localize = nls.loadMessageBundle();
 

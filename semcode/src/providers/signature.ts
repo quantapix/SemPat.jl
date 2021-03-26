@@ -5,10 +5,10 @@
 
 import * as vscode from 'vscode';
 import type * as Proto from '../protocol';
-import { ClientCapability, ITypeScriptServiceClient } from '../../../src/service';
-import { conditionalRegistration, requireSomeCap } from '../../../src/registration';
+import { ClientCapability, ITypeScriptServiceClient } from '../service';
+import { conditionalRegistration, requireSomeCap } from '../registration';
 import { DocumentSelector } from '../utils/documentSelector';
-import * as Previewer from '../utils/previewer';
+import * as Previewer from '../../old/ts/utils/previewer';
 import * as typeConverters from '../utils/typeConverters';
 
 class TypeScriptSignatureHelpProvider implements vscode.SignatureHelpProvider {

@@ -3,7 +3,7 @@ import { ClientCap, ServiceClient } from '../service';
 import { condRegistration, requireSomeCap } from '../registration';
 import * as qu from '../utils';
 
-class ReferenceSupport implements vsc.ReferenceProvider {
+class Reference implements vsc.ReferenceProvider {
   public constructor(private readonly client: ServiceClient) {}
 
   public async provideReferences(d: vsc.TextDocument, p: vsc.Position, c: vsc.ReferenceContext, t: vsc.CancellationToken): Promise<vsc.Location[]> {
@@ -24,6 +24,6 @@ class ReferenceSupport implements vsc.ReferenceProvider {
 
 export function register(s: qu.DocumentSelector, c: ServiceClient) {
   return condRegistration([requireSomeCap(c, ClientCap.EnhancedSyntax, ClientCap.Semantic)], () => {
-    return vsc.languages.registerReferenceProvider(s.syntax, new ReferenceSupport(c));
+    return vsc.languages.registerReferenceProvider(s.syntax, new Reference(c));
   });
 }

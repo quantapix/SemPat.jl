@@ -1,104 +1,104 @@
-import * as vscode from 'vscode';
+import * as vsc from 'vscode';
 import type * as Proto from '../protocol';
 import * as PConst from '../protocol.const';
 import { CachedResponse } from '../../old/ts/tsServer/cachedResponse';
 import { ServiceClient } from '../service';
 import * as qu from '../utils';
 
-const getSymbolKind = (k: string): vscode.SymbolKind => {
-  switch (k) {
-    case PConst.Kind.module:
-      return vscode.SymbolKind.Module;
-    case PConst.Kind.class:
-      return vscode.SymbolKind.Class;
-    case PConst.Kind.enum:
-      return vscode.SymbolKind.Enum;
-    case PConst.Kind.interface:
-      return vscode.SymbolKind.Interface;
-    case PConst.Kind.method:
-      return vscode.SymbolKind.Method;
-    case PConst.Kind.memberVariable:
-      return vscode.SymbolKind.Property;
-    case PConst.Kind.memberGetAccessor:
-      return vscode.SymbolKind.Property;
-    case PConst.Kind.memberSetAccessor:
-      return vscode.SymbolKind.Property;
-    case PConst.Kind.variable:
-      return vscode.SymbolKind.Variable;
-    case PConst.Kind.const:
-      return vscode.SymbolKind.Variable;
-    case PConst.Kind.localVariable:
-      return vscode.SymbolKind.Variable;
-    case PConst.Kind.function:
-      return vscode.SymbolKind.Function;
-    case PConst.Kind.localFunction:
-      return vscode.SymbolKind.Function;
-    case PConst.Kind.constructSignature:
-      return vscode.SymbolKind.Constructor;
-    case PConst.Kind.constructorImplementation:
-      return vscode.SymbolKind.Constructor;
-  }
-  return vscode.SymbolKind.Variable;
-};
-
-class DocumentSymbolProvider implements vscode.DocumentSymbolProvider {
+class DocSymbol implements vsc.DocumentSymbolProvider {
   public constructor(private readonly client: ServiceClient, private cached: CachedResponse<Proto.NavTreeResponse>) {}
 
-  public async provideDocumentSymbols(d: vscode.TextDocument, t: vscode.CancellationToken): Promise<vscode.DocumentSymbol[] | undefined> {
+  public async provideDocumentSymbols(d: vsc.TextDocument, t: vsc.CancellationToken): Promise<vsc.DocumentSymbol[] | undefined> {
     const f = this.client.toOpenedFilePath(d);
     if (!f) return undefined;
     const xs: Proto.FileRequestArgs = { file: f };
     const response = await this.cached.execute(d, () => this.client.execute('navtree', xs, t));
     if (response.type !== 'response' || !response.body?.childItems) return undefined;
-    const y: vscode.DocumentSymbol[] = [];
+    const y: vsc.DocumentSymbol[] = [];
     for (const i of response.body.childItems) {
-      DocumentSymbolProvider.convertNavTree(d.uri, y, i);
+      convertNavTree(d.uri, y, i);
     }
     return y;
-  }
-
-  private static convertNavTree(u: vscode.Uri, output: vscode.DocumentSymbol[], item: Proto.NavigationTree): boolean {
-    let y = DocumentSymbolProvider.shouldInclueEntry(item);
-    if (!y && !item.childItems?.length) return false;
-    const cs = new Set(item.childItems || []);
-    for (const s of item.spans) {
-      const r = qu.Range.fromTextSpan(s);
-      const symbolInfo = DocumentSymbolProvider.convertSymbol(item, r);
-      for (const c of cs) {
-        if (c.spans.some((x) => !!r.intersection(qu.Range.fromTextSpan(x)))) {
-          const includedChild = DocumentSymbolProvider.convertNavTree(u, symbolInfo.children, c);
-          y = y || includedChild;
-          cs.delete(c);
-        }
-      }
-      if (y) output.push(symbolInfo);
-    }
-    return y;
-  }
-
-  private static convertSymbol(item: Proto.NavigationTree, r: vscode.Range): vscode.DocumentSymbol {
-    const selectionRange = item.nameSpan ? qu.Range.fromTextSpan(item.nameSpan) : r;
-    let t = item.text;
-    switch (item.kind) {
-      case PConst.Kind.memberGetAccessor:
-        t = `(get) ${t}`;
-        break;
-      case PConst.Kind.memberSetAccessor:
-        t = `(set) ${t}`;
-        break;
-    }
-    const y = new vscode.DocumentSymbol(t, '', getSymbolKind(item.kind), r, r.contains(selectionRange) ? selectionRange : r);
-    const ms = qu.parseKindModifier(item.kindModifiers);
-    if (ms.has(PConst.KindModifiers.depreacted)) y.tags = [vscode.SymbolTag.Deprecated];
-    return y;
-  }
-
-  private static shouldInclueEntry(item: Proto.NavigationTree | Proto.NavigationBarItem): boolean {
-    if (item.kind === PConst.Kind.alias) return false;
-    return !!(item.text && item.text !== '<function>' && item.text !== '<class>');
   }
 }
 
 export function register(s: qu.DocumentSelector, c: ServiceClient, r: CachedResponse<Proto.NavTreeResponse>) {
-  return vscode.languages.registerDocumentSymbolProvider(s.syntax, new DocumentSymbolProvider(c, r), { label: 'TypeScript' });
+  return vsc.languages.registerDocumentSymbolProvider(s.syntax, new DocSymbol(c, r), { label: 'TypeScript' });
+}
+
+function convertNavTree(u: vsc.Uri, out: vsc.DocumentSymbol[], t: Proto.NavigationTree): boolean {
+  let y = shouldIncludeEntry(t);
+  if (!y && !t.childItems?.length) return false;
+  const cs = new Set(t.childItems || []);
+  for (const s of t.spans) {
+    const r = qu.Range.fromTextSpan(s);
+    const symbolInfo = convertSymbol(t, r);
+    for (const c of cs) {
+      if (c.spans.some((x) => !!r.intersection(qu.Range.fromTextSpan(x)))) {
+        const includedChild = convertNavTree(u, symbolInfo.children, c);
+        y = y || includedChild;
+        cs.delete(c);
+      }
+    }
+    if (y) out.push(symbolInfo);
+  }
+  return y;
+}
+
+function convertSymbol(t: Proto.NavigationTree, r: vsc.Range): vsc.DocumentSymbol {
+  const selectionRange = t.nameSpan ? qu.Range.fromTextSpan(t.nameSpan) : r;
+  let x = t.text;
+  switch (t.kind) {
+    case PConst.Kind.memberGetAccessor:
+      x = `(get) ${x}`;
+      break;
+    case PConst.Kind.memberSetAccessor:
+      x = `(set) ${x}`;
+      break;
+  }
+  const y = new vsc.DocumentSymbol(x, '', getSymbolKind(t.kind), r, r.contains(selectionRange) ? selectionRange : r);
+  const ms = qu.parseKindModifier(t.kindModifiers);
+  if (ms.has(PConst.KindModifiers.depreacted)) y.tags = [vsc.SymbolTag.Deprecated];
+  return y;
+}
+
+function shouldIncludeEntry(t: Proto.NavigationTree | Proto.NavigationBarItem): boolean {
+  if (t.kind === PConst.Kind.alias) return false;
+  return !!(t.text && t.text !== '<function>' && t.text !== '<class>');
+}
+
+function getSymbolKind(k: string): vsc.SymbolKind {
+  switch (k) {
+    case PConst.Kind.module:
+      return vsc.SymbolKind.Module;
+    case PConst.Kind.class:
+      return vsc.SymbolKind.Class;
+    case PConst.Kind.enum:
+      return vsc.SymbolKind.Enum;
+    case PConst.Kind.interface:
+      return vsc.SymbolKind.Interface;
+    case PConst.Kind.method:
+      return vsc.SymbolKind.Method;
+    case PConst.Kind.memberVariable:
+      return vsc.SymbolKind.Property;
+    case PConst.Kind.memberGetAccessor:
+      return vsc.SymbolKind.Property;
+    case PConst.Kind.memberSetAccessor:
+      return vsc.SymbolKind.Property;
+    case PConst.Kind.variable:
+      return vsc.SymbolKind.Variable;
+    case PConst.Kind.const:
+      return vsc.SymbolKind.Variable;
+    case PConst.Kind.localVariable:
+      return vsc.SymbolKind.Variable;
+    case PConst.Kind.function:
+      return vsc.SymbolKind.Function;
+    case PConst.Kind.localFunction:
+      return vsc.SymbolKind.Function;
+    case PConst.Kind.constructSignature:
+      return vsc.SymbolKind.Constructor;
+    case PConst.Kind.constructorImplementation:
+      return vsc.SymbolKind.Constructor;
+  }
+  return vsc.SymbolKind.Variable;
 }
