@@ -1,22 +1,65 @@
 {
   "name": "semcode",
   "displayName": "SemCode",
-  "description": "",
+  "description": "Sem Code",
   "author": "quantapix <quantapix@gmail.com>",
   "license": "MIT",
   "version": "0.0.1",
   "publisher": "quantapix",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/quantapix/SemPats.jl"
+  },
   "engines": {
     "vscode": "^1.54.0"
   },
   "categories": [
     "Programming Languages"
   ],
+  "keywords": [
+    "multi-root ready"
+  ],
   "activationEvents": [
+    "onLanguage:plaintext",
     "onCommand:semcode2.helloWorld"
   ],
-  "main": "./dist/extension.js",
+  "main": "./client/out/extension",
   "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "SemCode configuration",
+      "properties": {
+        "semcode.enable": {
+          "scope": "resource",
+          "type": "boolean",
+          "default": true,
+          "description": "Controls the enablement."
+        },
+        "semcode.options": {
+          "scope": "resource",
+          "type": "object",
+          "default": {},
+          "description": "Additional options."
+        },
+        "semcode.maxNumberOfProblems": {
+          "scope": "resource",
+          "type": "number",
+          "default": 100,
+          "description": "Controls the maximum number of problems produced by the server."
+        },
+        "semcode.trace.server": {
+          "scope": "window",
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces communication between client and server"
+        }
+      }
+    },
     "commands": [
       {
         "command": "semcode.helloWorld",
@@ -69,6 +112,13 @@
       }
     ]
   },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -b",
+    "watch": "tsc -b -w",
+    "postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
+    "test": "sh ./scripts/e2e.sh"
+  },
   "scripts-old": {
     "vscode:prepublish": "npm run package",
     "compile": "webpack",
@@ -79,7 +129,7 @@
     "pretest": "npm run test-compile && npm run lint",
     "lint": "eslint src --ext ts"
   },
-  "scripts": {
+  "scripts-old2": {
     "vscode:prepublish": "webpack --mode production",
     "webpack": "webpack --mode development",
     "webpack-dev": "webpack --mode development --watch",

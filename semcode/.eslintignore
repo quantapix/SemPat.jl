@@ -1,2 +1,6 @@
-raw/**
+client/node_modules/**
+client/out/**
 node_modules/**
+raw/**
+server/node_modules/**
+server/out/**

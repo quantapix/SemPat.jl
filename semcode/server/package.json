@@ -1,0 +1,20 @@
+{
+  "name": "semcode",
+  "description": "client part",
+  "author": "quantapix <quantapix@gmail.com>",
+  "license": "MIT",
+  "version": "0.0.1",
+  "publisher": "quantapix",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/quantapix/SemPats.jl"
+  },
+  "engines": {
+    "node": "*"
+  },
+  "dependencies": {
+    "vscode-languageserver": "",
+    "vscode-languageserver-textdocument": ""
+  },
+  "scripts": {}
+}
