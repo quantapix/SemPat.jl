@@ -3,6 +3,7 @@ out
 raw
 node_modules
 yarn.lock
+package-lock.json
 client/server
 .vscode-test
 

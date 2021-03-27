@@ -165,13 +165,16 @@
     "async-file": "",
     "await-notify": "",
     "child-process-promise": "",
-    "markdown-it": "",
     "markdown-it-footnote": "",
+    "markdown-it": "",
     "promised-temp": "",
     "uuidv4": "",
+    "vscode-css-languageservice": "",
     "vscode-debugadapter": "",
+    "vscode-html-languageservice": "",
     "vscode-jsonrpc": "",
     "vscode-languageclient": "",
+    "vscode-languageserver": "",
     "which": ""
   },
   "devDependencies": {
