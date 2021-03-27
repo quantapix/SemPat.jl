@@ -1,6 +1,6 @@
 import { LanguageService as CSSService, getLanguageService as getCSSService } from 'vscode-css-languageservice';
 import { CompletionList, Diagnostic, HTMLLanguageService as HTMLService, getLanguageService as getHTMLService, Position, Range, TextDocument } from 'vscode-html-languageservice';
-import { getDocumentRegions, HTMLDocRegions } from '../../lsp-embedded-language-service/server/src/embed';
+import { getDocRegions, HTMLRegions } from './embed';
 import { getLangCache, LangCache } from './cache';
 
 // export * from 'vscode-html-languageservice';
@@ -13,7 +13,7 @@ export interface LangMode {
   dispose(): void;
 }
 
-export function getCSSMode(s: CSSService, rs: LangCache<HTMLDocRegions>): LangMode {
+export function getCSSMode(s: CSSService, rs: LangCache<HTMLRegions>): LangMode {
   return {
     getId() {
       return 'css';
@@ -64,7 +64,7 @@ export interface LangModeRange extends Range {
 export function getLangModes(): LangModes {
   const html = getHTMLService();
   const css = getCSSService();
-  const regions = getLangCache<HTMLDocRegions>(10, 60, (d) => getDocumentRegions(html, d));
+  const regions = getLangCache<HTMLRegions>(10, 60, (d) => getDocRegions(html, d));
   let caches: LangCache<any>[] = [];
   caches.push(regions);
   let modes = Object.create(null);

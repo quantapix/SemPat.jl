@@ -98,11 +98,11 @@
       }
     ],
     "grammars": [
-			{
-				"language": "html1",
-				"scopeName": "text.html1.basic",
-				"path": "./syntaxes/html1.tmLanguage.json"
-			},
+      {
+        "language": "html1",
+        "scopeName": "text.html1.basic",
+        "path": "./syntaxes/html1.tmLanguage.json"
+      },
       {
         "language": "julia",
         "scopeName": "source.julia",
@@ -125,11 +125,20 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "cd client && npm install && cd .. && npm run compile",
+		"vscode:prepublish": "npm run webpack",
+    "vscode:prepublish2": "cd client && npm install && cd .. && npm run compile",
     "compile": "tsc -b",
+		"compile:client": "tsc -b ./client/tsconfig.json",
+		"compile:server": "tsc -b ./server/tsconfig.json",
     "watch": "tsc -b -w",
     "postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
-    "test": "sh ./scripts/e2e.sh"
+    "test": "sh ./scripts/e2e.sh",
+		"webpack": "npm run clean && webpack --mode production --config ./client/webpack.config.js && webpack --mode production --config ./server/webpack.config.js",
+		"webpack:dev": "npm run clean && webpack --mode none --config ./client/webpack.config.js && webpack --mode none --config ./server/webpack.config.js",
+		"lint": "npm run lint:client && npm run lint:server",
+		"lint:client": "eslint --config ./client/.eslintrc.json ./client/src/*.ts",
+		"lint:server": "eslint --config ./server/.eslintrc.json ./server/src/*.ts",
+		"clean": "rimraf client/out && rimraf server/out"
   },
   "scripts-old": {
     "vscode:prepublish": "npm run package",
@@ -189,19 +198,21 @@
     "@typescript-eslint/eslint-plugin": "",
     "@typescript-eslint/parser": "",
     "download": "",
-    "eslint": "",
     "eslint-config-prettier": "",
     "eslint-plugin-node": "",
     "eslint-plugin-prettier": "",
+    "eslint": "",
     "glob": "",
+    "merge-options": "",
     "mocha": "",
     "prettier": "",
+    "rimraf": "",
     "semver": "",
     "ts-loader": "",
     "typescript": "",
     "vsce": "",
     "vscode-test": "",
-    "webpack": "",
-    "webpack-cli": ""
+    "webpack-cli": "",
+    "webpack": ""
   }
 }

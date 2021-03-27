@@ -42,19 +42,24 @@ export function activate(ctx: qv.ExtensionContext) {
     if (d.languageId !== 'plaintext' || (d.uri.scheme !== 'file' && d.uri.scheme !== 'untitled')) return;
     const r = d.uri;
     if (r.scheme === 'untitled' && !aClient) {
-      const os = { execArgv: ['--nolazy', '--inspect=6010'] };
+      const os = { execArgv: ['--nolazy', '--inspect=6010'], cwd: process.cwd() };
       const so: ql.ServerOptions = {
-        run: { module, transport: ql.TransportKind.ipc },
+        run: { module, transport: ql.TransportKind.ipc, options: { cwd: process.cwd() } },
         debug: { module, transport: ql.TransportKind.ipc, options: os },
       };
       const co: ql.LanguageClientOptions = {
         //documentSelector: [{ scheme: 'untitled', language: 'plaintext' }],
         documentSelector: [{ scheme: 'untitled', language: 'html1' }],
         diagnosticCollectionName: 'semcode',
+        //revealOutputChannelOn: RevealOutputChannelOn.Never,
+        //progressOnInitialization: true,
+
         outputChannel,
       };
       aClient = new ql.LanguageClient('semcode', 'SemCode', so, co);
       aClient.start();
+      //aClient.registerProposedFeatures();
+      //ctx.subscriptions.push(aClient.start());
       return;
     }
     let f = qv.workspace.getWorkspaceFolder(r);
@@ -70,7 +75,7 @@ export function activate(ctx: qv.ExtensionContext) {
         documentSelector: [{ scheme: 'file', language: 'plaintext', pattern: `${f.uri.fsPath}/**/*` }],
         diagnosticCollectionName: 'semcode',
         workspaceFolder: f,
-        outputChannel: outputChannel,
+        outputChannel,
       };
       const c = new ql.LanguageClient('semcode', 'Sem Code', so, co);
       c.start();

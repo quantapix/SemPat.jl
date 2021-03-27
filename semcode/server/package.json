@@ -13,10 +13,11 @@
     "node": "*"
   },
   "dependencies": {
+		"vscode-uri": "",
     "vscode-css-languageservice": "",
     "vscode-html-languageservice": "",
-    "vscode-languageserver": "",
-    "vscode-languageserver-textdocument": ""
+    "vscode-languageserver-textdocument": "",
+    "vscode-languageserver": ""
   },
   "scripts": {}
 }
