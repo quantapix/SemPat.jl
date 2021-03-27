@@ -16,6 +16,7 @@
     "vscode-languageclient": ""
   },
   "devDependencies": {
+		"@types/node": "",
     "@types/vscode": "",
     "vscode-test": ""
   }

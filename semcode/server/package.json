@@ -1,6 +1,6 @@
 {
   "name": "semcode",
-  "description": "client part",
+  "description": "server part",
   "author": "quantapix <quantapix@gmail.com>",
   "license": "MIT",
   "version": "0.0.1",
@@ -13,8 +13,10 @@
     "node": "*"
   },
   "dependencies": {
-    "vscode-languageserver": "",
-    "vscode-languageserver-textdocument": ""
+		"vscode-css-languageservice": "",
+		"vscode-html-languageservice": "",
+    "vscode-languageserver-textdocument": "",
+    "vscode-languageserver": ""
   },
   "scripts": {}
 }

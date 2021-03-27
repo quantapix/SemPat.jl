@@ -6,6 +6,7 @@
 **/*.map
 **/*.ts
 **/tsconfig.json
+**/tsconfig.base.json
 client/node_modules/**
 !client/node_modules/semver/**
 !client/node_modules/vscode-jsonrpc/**

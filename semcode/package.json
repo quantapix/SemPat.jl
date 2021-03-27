@@ -21,6 +21,7 @@
   ],
   "activationEvents": [
     "onLanguage:plaintext",
+    "onLanguage:html1",
     "onCommand:semcode2.helloWorld"
   ],
   "main": "./client/out/extension",
@@ -68,6 +69,12 @@
     ],
     "languages": [
       {
+        "id": "html1",
+        "extensions": [
+          ".html1"
+        ]
+      },
+      {
         "id": "julia",
         "aliases": [
           "Julia",
@@ -91,6 +98,11 @@
       }
     ],
     "grammars": [
+			{
+				"language": "html1",
+				"scopeName": "text.html1.basic",
+				"path": "./syntaxes/html1.tmLanguage.json"
+			},
       {
         "language": "julia",
         "scopeName": "source.julia",
@@ -113,7 +125,7 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "cd client && npm install && cd .. && npm run compile",
     "compile": "tsc -b",
     "watch": "tsc -b -w",
     "postinstall": "cd client && npm install && cd ../server && npm install && cd ..",

@@ -1,9 +1,9 @@
 {
+  "editor.insertSpaces": false,
   "files.exclude": { "out": false },
   "search.exclude": { "out": true },
+  // "tslint.enable": true,
+  "typescript.preferences.quoteStyle": "single",
   "typescript.tsc.autoDetect": "off",
-  "editor.insertSpaces": false,
-  "tslint.enable": true,
-  "typescript.preferences.quoteStyle": "single"
   // "editor.codeActionsOnSave": { "source.fixAll.eslint": true }
 }

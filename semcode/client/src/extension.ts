@@ -48,7 +48,8 @@ export function activate(ctx: qv.ExtensionContext) {
         debug: { module, transport: ql.TransportKind.ipc, options: os },
       };
       const co: ql.LanguageClientOptions = {
-        documentSelector: [{ scheme: 'untitled', language: 'plaintext' }],
+        //documentSelector: [{ scheme: 'untitled', language: 'plaintext' }],
+        documentSelector: [{ scheme: 'untitled', language: 'html1' }],
         diagnosticCollectionName: 'semcode',
         outputChannel,
       };
