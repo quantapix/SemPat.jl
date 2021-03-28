@@ -3,7 +3,9 @@ import * as qv from 'vscode';
 import * as ql from 'vscode-languageclient/node';
 import * as WebSocket from 'ws';
 import { isInStyleRegion, getCSSContent } from './embed';
-import { LanguageService } from 'vscode-html-languageservice';
+import { getLanguageService } from 'vscode-html-languageservice';
+
+const html = getLanguageService();
 
 let aClient: ql.LanguageClient;
 let clients: Map<string, ql.LanguageClient> = new Map();
