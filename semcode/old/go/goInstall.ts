@@ -14,53 +14,49 @@ import { getBinPath, getCurrentGoPath, getModuleCache } from './util';
 import { envPath, getCurrentGoRoot, getCurrentGoWorkspaceFromGOPATH } from './utils/pathUtils';
 
 export async function installCurrentPackage(): Promise<void> {
-	const editor = vscode.window.activeTextEditor;
-	if (!editor) {
-		vscode.window.showInformationMessage('No editor is active, cannot find current package to install');
-		return;
-	}
-	if (editor.document.languageId !== 'go') {
-		vscode.window.showInformationMessage(
-			'File in the active editor is not a Go file, cannot find current package to install'
-		);
-		return;
-	}
+  const editor = qv.window.activeTextEditor;
+  if (!editor) {
+    qv.window.showInformationMessage('No editor is active, cannot find current package to install');
+    return;
+  }
+  if (editor.document.languageId !== 'go') {
+    qv.window.showInformationMessage('File in the active editor is not a Go file, cannot find current package to install');
+    return;
+  }
 
-	const goRuntimePath = getBinPath('go');
-	if (!goRuntimePath) {
-		vscode.window.showErrorMessage(
-			`Failed to run "go install" to install the package as the "go" binary cannot be found in either GOROOT(${getCurrentGoRoot()}) or PATH(${envPath})`
-		);
-		return;
-	}
+  const goRuntimePath = getBinPath('go');
+  if (!goRuntimePath) {
+    qv.window.showErrorMessage(`Failed to run "go install" to install the package as the "go" binary cannot be found in either GOROOT(${getCurrentGoRoot()}) or PATH(${envPath})`);
+    return;
+  }
 
-	const env = toolExecutionEnvironment();
-	const cwd = path.dirname(editor.document.uri.fsPath);
-	const isMod = await isModSupported(editor.document.uri);
+  const env = toolExecutionEnvironment();
+  const cwd = path.dirname(editor.document.uri.fsPath);
+  const isMod = await isModSupported(editor.document.uri);
 
-	// Skip installing if cwd is in the module cache
-	if (isMod && cwd.startsWith(getModuleCache())) {
-		return;
-	}
+  // Skip installing if cwd is in the module cache
+  if (isMod && cwd.startsWith(getModuleCache())) {
+    return;
+  }
 
-	const goConfig = getGoConfig();
-	const buildFlags = goConfig['buildFlags'] || [];
-	const args = ['install', ...buildFlags];
+  const goConfig = getGoConfig();
+  const buildFlags = goConfig['buildFlags'] || [];
+  const args = ['install', ...buildFlags];
 
-	if (goConfig['buildTags'] && buildFlags.indexOf('-tags') === -1) {
-		args.push('-tags', goConfig['buildTags']);
-	}
+  if (goConfig['buildTags'] && buildFlags.indexOf('-tags') === -1) {
+    args.push('-tags', goConfig['buildTags']);
+  }
 
-	// Find the right importPath instead of directly using `.`. Fixes https://github.com/Microsoft/vscode-go/issues/846
-	const currentGoWorkspace = getCurrentGoWorkspaceFromGOPATH(getCurrentGoPath(), cwd);
-	const importPath = currentGoWorkspace && !isMod ? cwd.substr(currentGoWorkspace.length + 1) : '.';
-	args.push(importPath);
+  // Find the right importPath instead of directly using `.`. Fixes https://github.com/Microsoft/vscode-go/issues/846
+  const currentGoWorkspace = getCurrentGoWorkspaceFromGOPATH(getCurrentGoPath(), cwd);
+  const importPath = currentGoWorkspace && !isMod ? cwd.substr(currentGoWorkspace.length + 1) : '.';
+  args.push(importPath);
 
-	outputChannel.clear();
-	outputChannel.show();
-	outputChannel.appendLine(`Installing ${importPath === '.' ? 'current package' : importPath}`);
+  outputChannel.clear();
+  outputChannel.show();
+  outputChannel.appendLine(`Installing ${importPath === '.' ? 'current package' : importPath}`);
 
-	cp.execFile(goRuntimePath, args, { env, cwd }, (err, stdout, stderr) => {
-		outputChannel.appendLine(err ? `Installation failed: ${stderr}` : 'Installation successful');
-	});
+  cp.execFile(goRuntimePath, args, { env, cwd }, (err, stdout, stderr) => {
+    outputChannel.appendLine(err ? `Installation failed: ${stderr}` : 'Installation successful');
+  });
 }

@@ -18,58 +18,53 @@ import vscode = require('vscode');
 const inputRegex = /^(\w+\ \*?\w+\ )?([\w./]+)$/;
 
 export function implCursor() {
-	const editor = vscode.window.activeTextEditor;
-	if (!editor) {
-		vscode.window.showErrorMessage('No active editor found.');
-		return;
-	}
-	const cursor = editor.selection;
-	return vscode.window
-		.showInputBox({
-			placeHolder: 'f *File io.Closer',
-			prompt: 'Enter receiver and interface to implement.'
-		})
-		.then((implInput) => {
-			if (typeof implInput === 'undefined') {
-				return;
-			}
-			const matches = implInput.match(inputRegex);
-			if (!matches) {
-				vscode.window.showInformationMessage(`Not parsable input: ${implInput}`);
-				return;
-			}
+  const editor = qv.window.activeTextEditor;
+  if (!editor) {
+    qv.window.showErrorMessage('No active editor found.');
+    return;
+  }
+  const cursor = editor.selection;
+  return qv.window
+    .showInputBox({
+      placeHolder: 'f *File io.Closer',
+      prompt: 'Enter receiver and interface to implement.',
+    })
+    .then((implInput) => {
+      if (typeof implInput === 'undefined') {
+        return;
+      }
+      const matches = implInput.match(inputRegex);
+      if (!matches) {
+        qv.window.showInformationMessage(`Not parsable input: ${implInput}`);
+        return;
+      }
 
-			// TODO: automatically detect type name at cursor
-			// if matches[1] is undefined then detect receiver type
-			// take first character and use as receiver name
+      // TODO: automatically detect type name at cursor
+      // if matches[1] is undefined then detect receiver type
+      // take first character and use as receiver name
 
-			runGoImpl([matches[1], matches[2]], cursor.start, editor);
-		});
+      runGoImpl([matches[1], matches[2]], cursor.start, editor);
+    });
 }
 
-function runGoImpl(args: string[], insertPos: vscode.Position, editor: vscode.TextEditor) {
-	const goimpl = getBinPath('impl');
-	const p = cp.execFile(
-		goimpl,
-		args,
-		{ env: toolExecutionEnvironment(), cwd: dirname(editor.document.fileName) },
-		(err, stdout, stderr) => {
-			if (err && (<any>err).code === 'ENOENT') {
-				promptForMissingTool('impl');
-				return;
-			}
+function runGoImpl(args: string[], insertPos: qv.Position, editor: qv.TextEditor) {
+  const goimpl = getBinPath('impl');
+  const p = cp.execFile(goimpl, args, { env: toolExecutionEnvironment(), cwd: dirname(editor.document.fileName) }, (err, stdout, stderr) => {
+    if (err && (<any>err).code === 'ENOENT') {
+      promptForMissingTool('impl');
+      return;
+    }
 
-			if (err) {
-				vscode.window.showInformationMessage(`Cannot stub interface: ${stderr}`);
-				return;
-			}
+    if (err) {
+      qv.window.showInformationMessage(`Cannot stub interface: ${stderr}`);
+      return;
+    }
 
-			editor.edit((editBuilder) => {
-				editBuilder.insert(insertPos, stdout);
-			});
-		}
-	);
-	if (p.pid) {
-		p.stdin.end();
-	}
+    editor.edit((editBuilder) => {
+      editBuilder.insert(insertPos, stdout);
+    });
+  });
+  if (p.pid) {
+    p.stdin.end();
+  }
 }

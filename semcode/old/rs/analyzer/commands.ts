@@ -1,4 +1,4 @@
-import * as vscode from 'vscode';
+import * as qv from 'vscode';
 import * as lc from 'vscode-languageclient';
 import * as ra from './lsp_ext';
 
@@ -14,24 +14,24 @@ export * from '../../../src/providers/ast_inspector';
 export * from './run';
 
 export function analyzerStatus(ctx: Ctx): Cmd {
-  const tdcp = new (class implements vscode.TextDocumentContentProvider {
-    readonly uri = vscode.Uri.parse('rust-analyzer-status://status');
-    readonly eventEmitter = new vscode.EventEmitter<vscode.Uri>();
+  const tdcp = new (class implements qv.TextDocumentContentProvider {
+    readonly uri = qv.Uri.parse('rust-analyzer-status://status');
+    readonly eventEmitter = new qv.EventEmitter<qv.Uri>();
 
-    provideTextDocumentContent(_uri: vscode.Uri): vscode.ProviderResult<string> {
-      if (!vscode.window.activeTextEditor) return '';
+    provideTextDocumentContent(_uri: qv.Uri): qv.ProviderResult<string> {
+      if (!qv.window.activeTextEditor) return '';
 
       return ctx.client.sendRequest(ra.analyzerStatus, null);
     }
 
-    get onDidChange(): vscode.Event<vscode.Uri> {
+    get onDidChange(): qv.Event<qv.Uri> {
       return this.eventEmitter.event;
     }
   })();
 
   let poller: NodeJS.Timer | undefined = undefined;
 
-  ctx.pushCleanup(vscode.workspace.registerTextDocumentContentProvider('rust-analyzer-status', tdcp));
+  ctx.pushCleanup(qv.workspace.registerTextDocumentContentProvider('rust-analyzer-status', tdcp));
 
   ctx.pushCleanup({
     dispose() {
@@ -45,35 +45,35 @@ export function analyzerStatus(ctx: Ctx): Cmd {
     if (poller === undefined) {
       poller = setInterval(() => tdcp.eventEmitter.fire(tdcp.uri), 1000);
     }
-    const document = await vscode.workspace.openTextDocument(tdcp.uri);
-    return vscode.window.showTextDocument(document, vscode.ViewColumn.Two, true);
+    const document = await qv.workspace.openTextDocument(tdcp.uri);
+    return qv.window.showTextDocument(document, qv.ViewColumn.Two, true);
   };
 }
 
 export function memoryUsage(ctx: Ctx): Cmd {
-  const tdcp = new (class implements vscode.TextDocumentContentProvider {
-    readonly uri = vscode.Uri.parse('rust-analyzer-memory://memory');
-    readonly eventEmitter = new vscode.EventEmitter<vscode.Uri>();
+  const tdcp = new (class implements qv.TextDocumentContentProvider {
+    readonly uri = qv.Uri.parse('rust-analyzer-memory://memory');
+    readonly eventEmitter = new qv.EventEmitter<qv.Uri>();
 
-    provideTextDocumentContent(_uri: vscode.Uri): vscode.ProviderResult<string> {
-      if (!vscode.window.activeTextEditor) return '';
+    provideTextDocumentContent(_uri: qv.Uri): qv.ProviderResult<string> {
+      if (!qv.window.activeTextEditor) return '';
 
       return ctx.client.sendRequest(ra.memoryUsage, null).then((mem) => {
         return 'Per-query memory usage:\n' + mem + '\n(note: database has been cleared)';
       });
     }
 
-    get onDidChange(): vscode.Event<vscode.Uri> {
+    get onDidChange(): qv.Event<qv.Uri> {
       return this.eventEmitter.event;
     }
   })();
 
-  ctx.pushCleanup(vscode.workspace.registerTextDocumentContentProvider('rust-analyzer-memory', tdcp));
+  ctx.pushCleanup(qv.workspace.registerTextDocumentContentProvider('rust-analyzer-memory', tdcp));
 
   return async () => {
     tdcp.eventEmitter.fire(tdcp.uri);
-    const document = await vscode.workspace.openTextDocument(tdcp.uri);
-    return vscode.window.showTextDocument(document, vscode.ViewColumn.Two, true);
+    const document = await qv.workspace.openTextDocument(tdcp.uri);
+    return qv.window.showTextDocument(document, qv.ViewColumn.Two, true);
   };
 }
 
@@ -90,7 +90,7 @@ export function matchingBrace(ctx: Ctx): Cmd {
     editor.selections = editor.selections.map((sel, idx) => {
       const active = client.protocol2CodeConverter.asPosition(response[idx]);
       const anchor = sel.isEmpty ? active : sel.anchor;
-      return new vscode.Selection(anchor, active);
+      return new qv.Selection(anchor, active);
     });
     editor.revealRange(editor.selection);
   };
@@ -140,7 +140,7 @@ export function onEnter(ctx: Ctx): Cmd {
   return async () => {
     if (await handleKeypress()) return;
 
-    await vscode.commands.executeCommand('default:type', { text: '\n' });
+    await qv.commands.executeCommand('default:type', { text: '\n' });
   };
 }
 
@@ -160,10 +160,10 @@ export function parentModule(ctx: Ctx): Cmd {
     const uri = client.protocol2CodeConverter.asUri(loc.targetUri);
     const range = client.protocol2CodeConverter.asRange(loc.targetRange);
 
-    const doc = await vscode.workspace.openTextDocument(uri);
-    const e = await vscode.window.showTextDocument(doc);
-    e.selection = new vscode.Selection(range.start, range.start);
-    e.revealRange(range, vscode.TextEditorRevealType.InCenter);
+    const doc = await qv.workspace.openTextDocument(uri);
+    const e = await qv.window.showTextDocument(doc);
+    e.selection = new qv.Selection(range.start, range.start);
+    e.revealRange(range, qv.TextEditorRevealType.InCenter);
   };
 }
 
@@ -172,7 +172,7 @@ export function ssr(ctx: Ctx): Cmd {
     const client = ctx.client;
     if (!client) return;
 
-    const options: vscode.InputBoxOptions = {
+    const options: qv.InputBoxOptions = {
       value: '() ==>> ()',
       prompt: "Enter request, for example 'Foo($a) ==> Foo::new($a)' ",
       validateInput: async (x: string) => {
@@ -184,19 +184,19 @@ export function ssr(ctx: Ctx): Cmd {
         return null;
       },
     };
-    const request = await vscode.window.showInputBox(options);
+    const request = await qv.window.showInputBox(options);
     if (!request) return;
 
-    vscode.window.withProgress(
+    qv.window.withProgress(
       {
-        location: vscode.ProgressLocation.Notification,
+        location: qv.ProgressLocation.Notification,
         title: 'Structured search replace in progress...',
         cancellable: false,
       },
       async (_progress, _token) => {
         const edit = await client.sendRequest(ra.ssr, { query: request, parseOnly: false });
 
-        await vscode.workspace.applyEdit(client.protocol2CodeConverter.asWorkspaceEdit(edit));
+        await qv.workspace.applyEdit(client.protocol2CodeConverter.asWorkspaceEdit(edit));
       }
     );
   };
@@ -208,13 +208,13 @@ export function serverVersion(ctx: Ctx): Cmd {
     const commitHash = stdout.slice(`rust-analyzer `.length).trim();
     const { releaseTag } = ctx.config.package;
 
-    void vscode.window.showInformationMessage(`rust-analyzer version: ${releaseTag ?? 'unreleased'} (${commitHash})`);
+    void qv.window.showInformationMessage(`rust-analyzer version: ${releaseTag ?? 'unreleased'} (${commitHash})`);
   };
 }
 
 export function toggleInlayHints(ctx: Ctx): Cmd {
   return async () => {
-    await vscode.workspace.getConfiguration(`${ctx.config.rootSection}.inlayHints`).update('enable', !ctx.config.inlayHints.enable, vscode.ConfigurationTarget.Workspace);
+    await qv.workspace.getConfiguration(`${ctx.config.rootSection}.inlayHints`).update('enable', !ctx.config.inlayHints.enable, qv.ConfigurationTarget.Workspace);
   };
 }
 
@@ -222,28 +222,28 @@ export function toggleInlayHints(ctx: Ctx): Cmd {
 //
 // The contents of the file come from the `TextDocumentContentProvider`
 export function syntaxTree(ctx: Ctx): Cmd {
-  const tdcp = new (class implements vscode.TextDocumentContentProvider {
-    readonly uri = vscode.Uri.parse('rust-analyzer://syntaxtree/tree.rast');
-    readonly eventEmitter = new vscode.EventEmitter<vscode.Uri>();
+  const tdcp = new (class implements qv.TextDocumentContentProvider {
+    readonly uri = qv.Uri.parse('rust-analyzer://syntaxtree/tree.rast');
+    readonly eventEmitter = new qv.EventEmitter<qv.Uri>();
     constructor() {
-      vscode.workspace.onDidChangeTextDocument(this.onDidChangeTextDocument, this, ctx.subscriptions);
-      vscode.window.onDidChangeActiveTextEditor(this.onDidChangeActiveTextEditor, this, ctx.subscriptions);
+      qv.workspace.onDidChangeTextDocument(this.onDidChangeTextDocument, this, ctx.subscriptions);
+      qv.window.onDidChangeActiveTextEditor(this.onDidChangeActiveTextEditor, this, ctx.subscriptions);
     }
 
-    private onDidChangeTextDocument(event: vscode.TextDocumentChangeEvent) {
+    private onDidChangeTextDocument(event: qv.TextDocumentChangeEvent) {
       if (isRustDocument(event.document)) {
         // We need to order this after language server updates, but there's no API for that.
         // Hence, good old sleep().
         void sleep(10).then(() => this.eventEmitter.fire(this.uri));
       }
     }
-    private onDidChangeActiveTextEditor(editor: vscode.TextEditor | undefined) {
+    private onDidChangeActiveTextEditor(editor: qv.TextEditor | undefined) {
       if (editor && isRustEditor(editor)) {
         this.eventEmitter.fire(this.uri);
       }
     }
 
-    provideTextDocumentContent(uri: vscode.Uri, ct: vscode.CancellationToken): vscode.ProviderResult<string> {
+    provideTextDocumentContent(uri: qv.Uri, ct: qv.CancellationToken): qv.ProviderResult<string> {
       const rustEditor = ctx.activeRustEditor;
       if (!rustEditor) return '';
 
@@ -254,32 +254,32 @@ export function syntaxTree(ctx: Ctx): Cmd {
       return ctx.client.sendRequest(ra.syntaxTree, params, ct);
     }
 
-    get onDidChange(): vscode.Event<vscode.Uri> {
+    get onDidChange(): qv.Event<qv.Uri> {
       return this.eventEmitter.event;
     }
   })();
 
   void new AstInspector(ctx);
 
-  ctx.pushCleanup(vscode.workspace.registerTextDocumentContentProvider('rust-analyzer', tdcp));
+  ctx.pushCleanup(qv.workspace.registerTextDocumentContentProvider('rust-analyzer', tdcp));
   ctx.pushCleanup(
-    vscode.languages.setLanguageConfiguration('ra_syntax_tree', {
+    qv.languages.setLanguageConfiguration('ra_syntax_tree', {
       brackets: [['[', ')']],
     })
   );
 
   return async () => {
-    const editor = vscode.window.activeTextEditor;
+    const editor = qv.window.activeTextEditor;
     const rangeEnabled = !!editor && !editor.selection.isEmpty;
 
-    const uri = rangeEnabled ? vscode.Uri.parse(`${tdcp.uri.toString()}?range=true`) : tdcp.uri;
+    const uri = rangeEnabled ? qv.Uri.parse(`${tdcp.uri.toString()}?range=true`) : tdcp.uri;
 
-    const document = await vscode.workspace.openTextDocument(uri);
+    const document = await qv.workspace.openTextDocument(uri);
 
     tdcp.eventEmitter.fire(uri);
 
-    void (await vscode.window.showTextDocument(document, {
-      viewColumn: vscode.ViewColumn.Two,
+    void (await qv.window.showTextDocument(document, {
+      viewColumn: qv.ViewColumn.Two,
       preserveFocus: true,
     }));
   };
@@ -298,11 +298,11 @@ export function expandMacro(ctx: Ctx): Cmd {
     return result;
   }
 
-  const tdcp = new (class implements vscode.TextDocumentContentProvider {
-    uri = vscode.Uri.parse('rust-analyzer://expandMacro/[EXPANSION].rs');
-    eventEmitter = new vscode.EventEmitter<vscode.Uri>();
-    async provideTextDocumentContent(_uri: vscode.Uri): Promise<string> {
-      const editor = vscode.window.activeTextEditor;
+  const tdcp = new (class implements qv.TextDocumentContentProvider {
+    uri = qv.Uri.parse('rust-analyzer://expandMacro/[EXPANSION].rs');
+    eventEmitter = new qv.EventEmitter<qv.Uri>();
+    async provideTextDocumentContent(_uri: qv.Uri): Promise<string> {
+      const editor = qv.window.activeTextEditor;
       const client = ctx.client;
       if (!editor || !client) return '';
 
@@ -318,17 +318,17 @@ export function expandMacro(ctx: Ctx): Cmd {
       return codeFormat(expanded);
     }
 
-    get onDidChange(): vscode.Event<vscode.Uri> {
+    get onDidChange(): qv.Event<qv.Uri> {
       return this.eventEmitter.event;
     }
   })();
 
-  ctx.pushCleanup(vscode.workspace.registerTextDocumentContentProvider('rust-analyzer', tdcp));
+  ctx.pushCleanup(qv.workspace.registerTextDocumentContentProvider('rust-analyzer', tdcp));
 
   return async () => {
-    const document = await vscode.workspace.openTextDocument(tdcp.uri);
+    const document = await qv.workspace.openTextDocument(tdcp.uri);
     tdcp.eventEmitter.fire(tdcp.uri);
-    return vscode.window.showTextDocument(document, vscode.ViewColumn.Two, true);
+    return qv.window.showTextDocument(document, qv.ViewColumn.Two, true);
   };
 }
 
@@ -340,21 +340,16 @@ export function showReferences(ctx: Ctx): Cmd {
   return (uri: string, position: lc.Position, locations: lc.Location[]) => {
     const client = ctx.client;
     if (client) {
-      vscode.commands.executeCommand(
-        'editor.action.showReferences',
-        vscode.Uri.parse(uri),
-        client.protocol2CodeConverter.asPosition(position),
-        locations.map(client.protocol2CodeConverter.asLocation)
-      );
+      qv.commands.executeCommand('editor.action.showReferences', qv.Uri.parse(uri), client.protocol2CodeConverter.asPosition(position), locations.map(client.protocol2CodeConverter.asLocation));
     }
   };
 }
 
 export function applyActionGroup(_ctx: Ctx): Cmd {
   return async (actions: { label: string; arguments: ra.ResolveCodeActionParams }[]) => {
-    const selectedAction = await vscode.window.showQuickPick(actions);
+    const selectedAction = await qv.window.showQuickPick(actions);
     if (!selectedAction) return;
-    vscode.commands.executeCommand('rust-analyzer.resolveCodeAction', selectedAction.arguments);
+    qv.commands.executeCommand('rust-analyzer.resolveCodeAction', selectedAction.arguments);
   };
 }
 
@@ -367,7 +362,7 @@ export function gotoLocation(ctx: Ctx): Cmd {
       // collapse the range to a cursor position
       range = range.with({ end: range.start });
 
-      await vscode.window.showTextDocument(uri, { selection: range });
+      await qv.window.showTextDocument(uri, { selection: range });
     }
   };
 }
@@ -385,7 +380,7 @@ export function resolveCodeAction(ctx: Ctx): Cmd {
 }
 
 export function applySnippetWorkspaceEditCommand(_ctx: Ctx): Cmd {
-  return async (edit: vscode.WorkspaceEdit) => {
+  return async (edit: qv.WorkspaceEdit) => {
     await applySnippetWorkspaceEdit(edit);
   };
 }
@@ -400,7 +395,7 @@ export function run(ctx: Ctx): Cmd {
     item.detail = 'rerun';
     prevRunnable = item;
     const task = await createTask(item.runnable, ctx.config);
-    return await vscode.tasks.executeTask(task);
+    return await qv.tasks.executeTask(task);
   };
 }
 
@@ -410,14 +405,14 @@ export function runSingle(ctx: Ctx): Cmd {
     if (!editor) return;
 
     const task = await createTask(runnable, ctx.config);
-    task.group = vscode.TaskGroup.Build;
+    task.group = qv.TaskGroup.Build;
     task.presentationOptions = {
-      reveal: vscode.TaskRevealKind.Always,
-      panel: vscode.TaskPanelKind.Dedicated,
+      reveal: qv.TaskRevealKind.Always,
+      panel: qv.TaskPanelKind.Dedicated,
       clear: true,
     };
 
-    return vscode.tasks.executeTask(task);
+    return qv.tasks.executeTask(task);
   };
 }
 

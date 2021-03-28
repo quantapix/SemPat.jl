@@ -13,11 +13,14 @@
     "vscode": "^1.54.0"
   },
   "dependencies": {
-    "vscode-languageclient": ""
+    "vscode-languageclient": "",
+    "ws": ""
   },
   "devDependencies": {
     "@types/node": "",
     "@types/vscode": "",
-    "vscode-test": ""
+    "@types/ws": "",
+    "vscode-test": "",
+    "vscode": ""
   }
 }

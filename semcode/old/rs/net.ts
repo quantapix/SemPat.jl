@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import fetch from 'node-fetch';
 import * as stream from 'stream';
 import * as util from 'util';
-import * as vscode from 'vscode';
+import * as qv from 'vscode';
 
 const pipeline = util.promisify(stream.pipeline);
 
@@ -43,9 +43,9 @@ export interface GithubRelease {
 }
 
 export async function download(downloadUrl: string, destinationPath: string, progressTitle: string, { mode }: { mode?: number } = {}) {
-  await vscode.window.withProgress(
+  await qv.window.withProgress(
     {
-      location: vscode.ProgressLocation.Notification,
+      location: qv.ProgressLocation.Notification,
       cancellable: false,
       title: progressTitle,
     },

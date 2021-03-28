@@ -1,42 +1,24 @@
-import * as vscode from 'vscode';
+import * as qv from 'vscode';
 import { HoverRequest, LanguageClient } from 'vscode-languageclient';
 
-export class SignatureHelpProvider implements vscode.SignatureHelpProvider {
+export class SignatureHelpProvider implements qv.SignatureHelpProvider {
   private languageClient: LanguageClient;
-  private previousFunctionPosition?: vscode.Position;
+  private previousFunctionPosition?: qv.Position;
 
   constructor(lc: LanguageClient) {
     this.languageClient = lc;
   }
 
-  public provideSignatureHelp(
-    document: vscode.TextDocument,
-    position: vscode.Position,
-    token: vscode.CancellationToken,
-    context: vscode.SignatureHelpContext,
-  ): vscode.ProviderResult<vscode.SignatureHelp> {
+  public provideSignatureHelp(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken, context: qv.SignatureHelpContext): qv.ProviderResult<qv.SignatureHelp> {
     // the current signature help provider uses the hover information from RLS
     // and it only has a string representation of the function signature.
     // This check makes sure we can easily show the tooltip for multiple parameters, separated by `,`
     if (context.triggerCharacter === '(') {
       this.previousFunctionPosition = position;
-      return this.provideHover(
-        this.languageClient,
-        document,
-        position,
-        token,
-      ).then(hover => this.hoverToSignatureHelp(hover, position, document));
+      return this.provideHover(this.languageClient, document, position, token).then((hover) => this.hoverToSignatureHelp(hover, position, document));
     } else if (context.triggerCharacter === ',') {
-      if (
-        this.previousFunctionPosition &&
-        position.line === this.previousFunctionPosition.line
-      ) {
-        return this.provideHover(
-          this.languageClient,
-          document,
-          this.previousFunctionPosition,
-          token,
-        ).then(hover => this.hoverToSignatureHelp(hover, position, document));
+      if (this.previousFunctionPosition && position.line === this.previousFunctionPosition.line) {
+        return this.provideHover(this.languageClient, document, this.previousFunctionPosition, token).then((hover) => this.hoverToSignatureHelp(hover, position, document));
       } else {
         return null;
       }
@@ -48,32 +30,16 @@ export class SignatureHelpProvider implements vscode.SignatureHelpProvider {
     }
   }
 
-  private provideHover(
-    lc: LanguageClient,
-    document: vscode.TextDocument,
-    position: vscode.Position,
-    token: vscode.CancellationToken,
-  ): Promise<vscode.Hover> {
+  private provideHover(lc: LanguageClient, document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): Promise<qv.Hover> {
     return new Promise((resolve, reject) => {
-      lc.sendRequest(
-        HoverRequest.type,
-        lc.code2ProtocolConverter.asTextDocumentPositionParams(
-          document,
-          position.translate(0, -1),
-        ),
-        token,
-      ).then(
-        data => resolve(lc.protocol2CodeConverter.asHover(data)),
-        error => reject(error),
+      lc.sendRequest(HoverRequest.type, lc.code2ProtocolConverter.asTextDocumentPositionParams(document, position.translate(0, -1)), token).then(
+        (data) => resolve(lc.protocol2CodeConverter.asHover(data)),
+        (error) => reject(error)
       );
     });
   }
 
-  private hoverToSignatureHelp(
-    hover: vscode.Hover,
-    position: vscode.Position,
-    document: vscode.TextDocument,
-  ): vscode.SignatureHelp | undefined {
+  private hoverToSignatureHelp(hover: qv.Hover, position: qv.Position, document: qv.TextDocument): qv.SignatureHelp | undefined {
     /*
     The contents of a hover result has the following structure:
     contents:Array[2]
@@ -111,32 +77,24 @@ export class SignatureHelpProvider implements vscode.SignatureHelpProvider {
     */
 
     // we remove the markdown formatting for the label, as it only accepts strings
-    const label = (hover.contents[0] as vscode.MarkdownString).value
-      .replace('```rust', '')
-      .replace('```', '');
+    const label = (hover.contents[0] as qv.MarkdownString).value.replace('```rust', '').replace('```', '');
 
     // the signature help tooltip is activated on `(` or `,`
     // here we make sure the label received is for a function,
     // and that we are not showing the hover for the same line
     // where we are declaring a function.
-    if (
-      !label.includes('fn') ||
-      document.lineAt(position.line).text.includes('fn ')
-    ) {
+    if (!label.includes('fn') || document.lineAt(position.line).text.includes('fn ')) {
       return undefined;
     }
 
-    const doc =
-      hover.contents.length > 1
-        ? (hover.contents.slice(-1)[0] as vscode.MarkdownString)
-        : undefined;
-    const si = new vscode.SignatureInformation(label, doc);
+    const doc = hover.contents.length > 1 ? (hover.contents.slice(-1)[0] as qv.MarkdownString) : undefined;
+    const si = new qv.SignatureInformation(label, doc);
 
     // without parsing the function definition, we don't have a way to get more info on parameters.
     // If RLS supports signature help requests in the future, we can update this.
     si.parameters = [];
 
-    const sh = new vscode.SignatureHelp();
+    const sh = new qv.SignatureHelp();
     sh.signatures[0] = si;
     sh.activeSignature = 0;
 

@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as qv from 'vscode';
 import * as ql from 'vscode-languageclient/node';
+import * as WebSocket from 'ws';
 
 let aClient: ql.LanguageClient;
 let clients: Map<string, ql.LanguageClient> = new Map();
@@ -35,8 +36,30 @@ function getOuterFolder(w: qv.WorkspaceFolder): qv.WorkspaceFolder {
 }
 
 export function activate(ctx: qv.ExtensionContext) {
+  const port = qv.workspace.getConfiguration('semcode').get('port', 7000);
+  let socket: WebSocket | undefined = undefined;
+  qv.commands.registerCommand('semcode.startStreaming', () => {
+    socket = new WebSocket(`ws://localhost:${port}`);
+  });
   const module = ctx.asAbsolutePath(path.join('server', 'out', 'server.js'));
-  const outputChannel: qv.OutputChannel = qv.window.createOutputChannel('semcode');
+  //const outputChannel: qv.OutputChannel = qv.window.createOutputChannel('semcode');
+  let log = '';
+  const outputChannel: qv.OutputChannel = {
+    name: 'websocket',
+    append(s: string) {
+      log += s;
+      console.log(s);
+    },
+    appendLine(s: string) {
+      log += s;
+      if (socket && socket.readyState === WebSocket.OPEN) socket.send(log);
+      log = '';
+    },
+    clear() {},
+    show() {},
+    hide() {},
+    dispose() {},
+  };
 
   function didOpenDoc(d: qv.TextDocument): void {
     if (d.languageId !== 'plaintext' || (d.uri.scheme !== 'file' && d.uri.scheme !== 'untitled')) return;
@@ -50,10 +73,10 @@ export function activate(ctx: qv.ExtensionContext) {
       const co: ql.LanguageClientOptions = {
         //documentSelector: [{ scheme: 'untitled', language: 'plaintext' }],
         documentSelector: [{ scheme: 'untitled', language: 'html1' }],
+        synchronize: { fileEvents: qv.workspace.createFileSystemWatcher('**/.clientrc') },
         diagnosticCollectionName: 'semcode',
         //revealOutputChannelOn: RevealOutputChannelOn.Never,
         //progressOnInitialization: true,
-
         outputChannel,
       };
       aClient = new ql.LanguageClient('semcode', 'SemCode', so, co);
