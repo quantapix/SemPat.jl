@@ -2,6 +2,8 @@ import * as path from 'path';
 import * as qv from 'vscode';
 import * as ql from 'vscode-languageclient/node';
 import * as WebSocket from 'ws';
+import { isInStyleRegion, getCSSContent } from './embed';
+import { LanguageService } from 'vscode-html-languageservice';
 
 let aClient: ql.LanguageClient;
 let clients: Map<string, ql.LanguageClient> = new Map();
@@ -60,6 +62,14 @@ export function activate(ctx: qv.ExtensionContext) {
     hide() {},
     dispose() {},
   };
+  const embeds = new Map<string, string>();
+  qv.workspace.registerTextDocumentContentProvider('embedded-content', {
+    provideTextDocumentContent: (r) => {
+      const x = r.path.slice(1).slice(0, -4);
+      const y = decodeURIComponent(x);
+      return embeds.get(y);
+    },
+  });
 
   function didOpenDoc(d: qv.TextDocument): void {
     if (d.languageId !== 'plaintext' || (d.uri.scheme !== 'file' && d.uri.scheme !== 'untitled')) return;
@@ -77,6 +87,16 @@ export function activate(ctx: qv.ExtensionContext) {
         diagnosticCollectionName: 'semcode',
         //revealOutputChannelOn: RevealOutputChannelOn.Never,
         //progressOnInitialization: true,
+        middleware: {
+          provideCompletionItem: async (d, p, c, t, next) => {
+            if (!isInStyleRegion(html, d.getText(), d.offsetAt(p))) return await next(d, p, c, t);
+            const r = d.uri.toString();
+            embeds.set(r, getCSSContent(html, d.getText()));
+            const x = `embedded-content://css/${encodeURIComponent(r)}.css`;
+            const y = qv.Uri.parse(x);
+            return await qv.commands.executeCommand<qv.CompletionList>('qv.executeCompletionItemProvider', y, p, c.triggerCharacter);
+          },
+        },
         outputChannel,
       };
       aClient = new ql.LanguageClient('semcode', 'SemCode', so, co);

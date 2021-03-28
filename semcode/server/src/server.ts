@@ -31,7 +31,7 @@ conn.onInitialize((ps: ql.InitializeParams) => {
     },
   };
   if (hasFolder) y.capabilities.workspace = { workspaceFolders: { supported: true } };
-  wsFolder = ps.rootUri;
+  wsFolder = ps.workspaceFolders;
   conn.console.log(`[Server(${process.pid}) ${wsFolder}] started and initialize received`);
   return y;
 });
@@ -55,7 +55,7 @@ let docSettings: Map<string, Thenable<Settings>> = new Map();
 
 conn.onDidChangeConfiguration((c) => {
   if (hasConfig) docSettings.clear();
-  else globals = <Settings>(c.settings.languageServerExample || defaultSettings);
+  else globals = <Settings>(c.settings.semcode || defaultSettings);
   docs.all().forEach(validateTextDocument);
 });
 
@@ -63,7 +63,7 @@ function getDocumentSettings(r: string): Thenable<Settings> {
   if (!hasConfig) return Promise.resolve(globals);
   let y = docSettings.get(r);
   if (!y) {
-    y = conn.workspace.getConfiguration({ scopeUri: r, section: 'languageServerExample' });
+    y = conn.workspace.getConfiguration({ scopeUri: r, section: 'semcode' });
     docSettings.set(r, y);
   }
   return y;
@@ -143,7 +143,7 @@ function validate(d: TextDocument): void {
 }
 
 conn.onDidChangeWatchedFiles((_) => {
-  conn.console.log('We received an file change event');
+  conn.console.log('Received change event');
 });
 conn.onCompletion((_: ql.TextDocumentPositionParams): ql.CompletionItem[] => {
   return [
@@ -158,6 +158,7 @@ conn.onCompletion(async (pos, tok) => {
   if (!m || !m.doComplete) return ql.CompletionList.create();
   const doComplete = m.doComplete!;
   return doComplete(d, pos.position);
+  //return doComplete(d, pos.position, m.parseHTMLDocument(d));
 });
 conn.onCompletionResolve(
   (i: ql.CompletionItem): ql.CompletionItem => {

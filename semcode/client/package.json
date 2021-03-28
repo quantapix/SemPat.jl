@@ -13,6 +13,7 @@
     "vscode": "^1.54.0"
   },
   "dependencies": {
+		"vscode-html-languageservice": "",
     "vscode-languageclient": "",
     "ws": ""
   },
