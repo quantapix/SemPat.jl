@@ -23,7 +23,7 @@
     "onLanguage:plaintext",
     "onLanguage:html1",
     "onCommand:semcode2.helloWorld",
-		"onLanguage:semanticLanguage"
+    "onLanguage:semanticLanguage"
   ],
   "main": "./client/out/extension",
   "contributes": {
@@ -54,6 +54,14 @@
           "default": 7000,
           "scope": "window",
           "description": "WebSocket port to stream log data into"
+        },
+        "semcode.statusColor": {
+          "type": [
+            "string"
+          ],
+          "default": "#FFFFFF",
+          "description": "Color to use for the status bar item",
+          "scope": "resource"
         },
         "semcode.trace.server": {
           "scope": "window",
@@ -122,12 +130,12 @@
           ".jmd"
         ]
       },
-			{
-				"id": "semanticLanguage",
-				"extensions": [
-					".semanticLanguage"
-				]
-			}
+      {
+        "id": "semanticLanguage",
+        "extensions": [
+          ".semanticLanguage"
+        ]
+      }
     ],
     "grammars": [
       {
