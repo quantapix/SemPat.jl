@@ -1,14 +1,3 @@
-/*
- * hoverProvider.ts
- * Copyright (c) Microsoft Corporation.
- * Licensed under the MIT license.
- * Author: Eric Traut
- *
- * Logic that maps a position within a Python program file into
- * markdown text that is displayed when the user hovers over that
- * position within a smart editor.
- */
-
 import { CancellationToken, Hover, MarkupKind } from 'vscode-languageserver';
 
 import { Declaration, DeclarationType, FunctionDeclaration } from '../analyzer/declaration';
@@ -70,14 +59,6 @@ export class HoverProvider {
     if (node.nodeType === ParseNodeType.Name) {
       const declarations = evaluator.getDeclarationsForNameNode(node);
       if (declarations && declarations.length > 0) {
-        // In most cases, it's best to treat the first declaration as the
-        // "primary". This works well for properties that have setters
-        // which often have doc strings on the getter but not the setter.
-        // The one case where using the first declaration doesn't work as
-        // well is the case where an import statement within an __init__.py
-        // file uses the form "from .A import A". In this case, if we use
-        // the first declaration, it will show up as a module rather than
-        // the imported symbol type.
         let primaryDeclaration = declarations[0];
         if (primaryDeclaration.type === DeclarationType.Alias && declarations.length > 1) {
           primaryDeclaration = declarations[1];
@@ -85,18 +66,11 @@ export class HoverProvider {
 
         this._addResultsForDeclaration(format, sourceMapper, results.parts, primaryDeclaration, node, evaluator);
       } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
-        // If we had no declaration, see if we can provide a minimal tooltip. We'll skip
-        // this if it's part of a module name, since a module name part with no declaration
-        // is a directory (a namespace package), and we don't want to provide any hover
-        // information in that case.
         if (results.parts.length === 0) {
           const type = evaluator.getType(node) || UnknownType.create();
 
           let typeText = '';
           if (isModule(type)) {
-            // Handle modules specially because submodules aren't associated with
-            // declarations, but we want them to be presented in the same way as
-            // the top-level module, which does have a declaration.
             typeText = '(module) ' + node.value;
           } else {
             typeText = node.value + ': ' + evaluator.printType(type, /* expandTypeAlias */ false);
@@ -127,10 +101,6 @@ export class HoverProvider {
 
       case DeclarationType.Variable: {
         let label = resolvedDecl.isConstant || resolvedDecl.isFinal ? 'constant' : 'variable';
-
-        // If the named node is an aliased import symbol, we can't call
-        // getType on the original name because it's not in the symbol
-        // table. Instead, use the node from the resolved alias.
         let typeNode = node;
         if (declaration.node.nodeType === ParseNodeType.ImportAs || declaration.node.nodeType === ParseNodeType.ImportFromAs) {
           if (declaration.node.alias && node !== declaration.node.alias) {
@@ -139,16 +109,10 @@ export class HoverProvider {
             }
           }
         } else if (node.parent?.nodeType === ParseNodeType.Argument && node.parent.name === node) {
-          // If this is a named argument, we would normally have received a Parameter declaration
-          // rather than a variable declaration, but we can get here in the case of a dataclass.
-          // Replace the typeNode with the node of the variable declaration.
           if (declaration.node.nodeType === ParseNodeType.Name) {
             typeNode = declaration.node;
           }
         }
-
-        // Determine if this identifier is a type alias. If so, expand
-        // the type alias when printing the type information.
         const type = evaluator.getType(typeNode);
         let expandTypeAlias = false;
         if (type && TypeBase.isInstantiable(type)) {
@@ -211,13 +175,7 @@ export class HoverProvider {
   }
 
   private static _addInitMethodInsteadIfCallNode(format: MarkupKind, node: NameNode, evaluator: TypeEvaluator, parts: HoverTextPart[], sourceMapper: SourceMapper, declaration: Declaration) {
-    // If the class is used as part of a call (i.e. it is being
-    // instantiated), include the constructor arguments within the
-    // hover text.
     let callLeftNode: ParseNode | undefined = node;
-
-    // Allow the left to be a member access chain (e.g. a.b.c) if the
-    // node in question is the last item in the chain.
     if (callLeftNode.parent && callLeftNode.parent.nodeType === ParseNodeType.MemberAccess && node === callLeftNode.parent.memberName) {
       callLeftNode = node.parent;
     }
@@ -225,8 +183,6 @@ export class HoverProvider {
     if (!callLeftNode || !callLeftNode.parent || callLeftNode.parent.nodeType !== ParseNodeType.Call || callLeftNode.parent.leftExpression !== callLeftNode) {
       return false;
     }
-
-    // Get the init method for this class.
     const classType = evaluator.getType(node);
     if (!classType || !isClass(classType)) {
       return false;

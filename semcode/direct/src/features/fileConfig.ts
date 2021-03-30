@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import * as qv from 'vscode';
 import type * as qp from '../protocol';
 import { ITypeScriptServiceClient } from '../../../src/service';
@@ -30,10 +25,6 @@ export default class FileConfigurationManager extends Disposable {
     this.formatOptions = new ResourceMap(undefined, { onCaseInsenitiveFileSystem });
     qv.workspace.onDidCloseTextDocument(
       (textDocument) => {
-        // When a document gets closed delete the cached formatting options.
-        // This is necessary since the tsserver now closed a project when its
-        // last file in it closes which drops the stored formatting options
-        // as well.
         this.formatOptions.delete(textDocument.uri);
       },
       undefined,

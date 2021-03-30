@@ -1,13 +1,3 @@
-/*
- * referencesProvider.ts
- * Copyright (c) Microsoft Corporation.
- * Licensed under the MIT license.
- * Author: Eric Traut
- *
- * Logic that finds all of the references to a symbol specified
- * by a location within a file.
- */
-
 import { CancellationToken } from 'vscode-languageserver';
 
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
@@ -120,15 +110,9 @@ export class FindReferencesTreeWalker extends ParseTreeWalker {
     if (!resolvedDecl) {
       return false;
     }
-
-    // The reference results declarations are already resolved, so we don't
-    // need to call resolveAliasDeclaration on them.
     if (this._referencesResult.declarations.some((decl) => DeclarationUtils.areDeclarationsSame(decl, resolvedDecl))) {
       return true;
     }
-
-    // We didn't find the declaration using local-only alias resolution. Attempt
-    // it again by fully resolving the alias.
     const resolvedDeclNonlocal = this._evaluator.resolveAliasDeclaration(resolvedDecl, /* resolveLocalNames */ true);
     if (!resolvedDeclNonlocal || resolvedDeclNonlocal === resolvedDecl) {
       return false;
@@ -195,25 +179,15 @@ export class ReferencesProvider {
     if (resolvedDeclarations.length === 0) {
       return undefined;
     }
-
-    // Does this symbol require search beyond the current file? Determine whether
-    // the symbol is declared within an evaluation scope that is within the current
-    // file and cannot be imported directly from other modules.
     const requiresGlobalSearch = resolvedDeclarations.some((decl) => {
-      // If the declaration is outside of this file, a global search is needed.
       if (decl.path !== filePath) {
         return true;
       }
 
       const evalScope = ParseTreeUtils.getEvaluationScopeNode(decl.node);
-
-      // If the declaration is at the module level or a class level, it can be seen
-      // outside of the current module, so a global search is needed.
       if (evalScope.nodeType === ParseNodeType.Module || evalScope.nodeType === ParseNodeType.Class) {
         return true;
       }
-
-      // If the name node is a member variable, we need to do a global search.
       if (decl.node?.parent?.nodeType === ParseNodeType.MemberAccess && decl.node === decl.node.parent.memberName) {
         return true;
       }

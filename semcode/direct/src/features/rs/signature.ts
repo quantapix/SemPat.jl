@@ -10,9 +10,6 @@ export class SignatureHelpProvider implements qv.SignatureHelpProvider {
   }
 
   public provideSignatureHelp(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken, context: qv.SignatureHelpContext): qv.ProviderResult<qv.SignatureHelp> {
-    // the current signature help provider uses the hover information from RLS
-    // and it only has a string representation of the function signature.
-    // This check makes sure we can easily show the tooltip for multiple parameters, separated by `,`
     if (context.triggerCharacter === '(') {
       this.previousFunctionPosition = position;
       return this.provideHover(this.languageClient, document, position, token).then((hover) => this.hoverToSignatureHelp(hover, position, document));

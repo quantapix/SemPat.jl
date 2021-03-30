@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import * as qv from 'vscode';
 import * as nls from 'vscode-nls';
 import { Command, CommandManager } from '../commands/commandManager';
@@ -20,7 +15,7 @@ import { snippetForFunctionCall } from '../utils/snippetForFunctionCall';
 import { TelemetryReporter } from '../utils/telemetry';
 import * as qu from '../utils/qu';
 import TypingsStatus from '../utils/typingsStatus';
-import FileConfigurationManager from './fileConfigurationManager';
+import FileConfigurationManager from './fileConfig';
 
 const localize = nls.loadMessageBundle();
 

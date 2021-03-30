@@ -1,13 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
-/* --------------------------------------------------------------------------------------------
- * Includes code from typescript-sublime-plugin project, obtained from
- * https://github.com/microsoft/TypeScript-Sublime-Plugin/blob/master/TypeScript%20Indent.tmPreferences
- * ------------------------------------------------------------------------------------------ */
-
 import * as qv from 'vscode';
 import { Disposable } from '../utils/dispose';
 import * as languageModeIds from '../utils/languageModeIds';
@@ -71,9 +61,6 @@ const jsxTagsLanguageConfiguration: qv.LanguageConfiguration = {
       action: { indentAction: qv.IndentAction.Indent },
     },
     {
-      // `beforeText` only applies to tokens of a given language. Since we are dealing with jsx-tags,
-      // make sure we apply to the closing `>` of a tag so that mixed language spans
-      // such as `<div onclick={1}>` are handled properly.
       beforeText: /^>$/,
       afterText: /^<\/([_:\w][_:\w-.\d]*)\s*>$/i,
       action: { indentAction: qv.IndentAction.IndentOutdent },

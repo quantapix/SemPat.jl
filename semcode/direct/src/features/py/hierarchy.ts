@@ -1,13 +1,3 @@
-/*
- * callHierarchyProvider.ts
- * Copyright (c) Microsoft Corporation.
- * Licensed under the MIT license.
- * Author: Eric Traut
- *
- * Logic that provides a list of callers or callees associated with
- * a position.
- */
-
 import { CancellationToken, SymbolKind } from 'vscode-languageserver';
 import { CallHierarchyIncomingCall, CallHierarchyItem, CallHierarchyOutgoingCall, Range } from 'vscode-languageserver-types';
 
@@ -71,9 +61,6 @@ export class CallHierarchyProvider {
       // Look up the __init__ method for this class.
       const classType = evaluator.getTypeForDeclaration(declaration);
       if (classType && isClass(classType)) {
-        // Don't perform a recursive search of parent classes in this
-        // case because we don't want to find an inherited __init__
-        // method defined in a different module.
         const initMethodMember = lookUpClassMember(
           classType,
           '__init__',
@@ -106,17 +93,11 @@ export class CallHierarchyProvider {
   }
 
   static getTargetDeclaration(declarations: Declaration[], node: ParseNode): Declaration {
-    // If there's more than one declaration, pick the target one.
-    // We'll always prefer one with a declared type, and we'll always
-    // prefer later declarations.
     let targetDecl = declarations[0];
     for (const decl of declarations) {
       if (DeclarationUtils.hasTypeForDeclaration(decl) || !DeclarationUtils.hasTypeForDeclaration(targetDecl)) {
         if (decl.type === DeclarationType.Function || decl.type === DeclarationType.Class) {
           targetDecl = decl;
-
-          // If the specified node is an exact match, use this declaration
-          // as the primary even if it's not the last.
           if (decl.node === node) {
             break;
           }
@@ -155,9 +136,6 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
       const declarations = this._evaluator.getDeclarationsForNameNode(nameNode);
 
       if (declarations) {
-        // TODO - it would be better if we could match the call to the
-        // specific declaration (e.g. a specific overload of a property
-        // setter vs getter). For now, add callees for all declarations.
         declarations.forEach((decl) => {
           this._addOutgoingCallForDeclaration(nameNode!, decl);
         });
@@ -169,16 +147,10 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
 
   visitMemberAccess(node: MemberAccessNode): boolean {
     throwIfCancellationRequested(this._cancellationToken);
-
-    // Determine whether the member corresponds to a property.
-    // If so, we'll treat it as a function call for purposes of
-    // finding outgoing calls.
     const leftHandType = this._evaluator.getType(node.leftExpression);
     if (leftHandType) {
       doForEachSubtype(leftHandType, (subtype) => {
         let baseType = subtype;
-
-        // This could be a bound TypeVar (e.g. used for "self" and "cls").
         baseType = this._evaluator.makeTopLevelTypeVarsConcrete(baseType);
 
         if (!isObject(baseType)) {
@@ -225,9 +197,6 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
       range: resolvedDecl.range,
       selectionRange: resolvedDecl.range,
     };
-
-    // Is there already a call recorded for this destination? If so,
-    // we'll simply add a new range. Otherwise, we'll create a new entry.
     let outgoingCall: CallHierarchyOutgoingCall | undefined = this._outgoingCalls.find((outgoing) => outgoing.to.uri === callDest.uri && rangesAreEqual(outgoing.to.range, callDest.range));
 
     if (!outgoingCall) {
@@ -296,15 +265,10 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
     throwIfCancellationRequested(this._cancellationToken);
 
     if (node.memberName.value === this._symbolName) {
-      // Determine whether the member corresponds to a property.
-      // If so, we'll treat it as a function call for purposes of
-      // finding outgoing calls.
       const leftHandType = this._evaluator.getType(node.leftExpression);
       if (leftHandType) {
         doForEachSubtype(leftHandType, (subtype) => {
           let baseType = subtype;
-
-          // This could be a bound TypeVar (e.g. used for "self" and "cls").
           baseType = this._evaluator.makeTopLevelTypeVarsConcrete(baseType);
 
           if (!isObject(baseType)) {
@@ -372,9 +336,6 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
         selectionRange: functionRange,
       };
     }
-
-    // Is there already a call recorded for this caller? If so,
-    // we'll simply add a new range. Otherwise, we'll create a new entry.
     let incomingCall: CallHierarchyIncomingCall | undefined = this._incomingCalls.find((incoming) => incoming.from.uri === callSource.uri && rangesAreEqual(incoming.from.range, callSource.range));
 
     if (!incomingCall) {
