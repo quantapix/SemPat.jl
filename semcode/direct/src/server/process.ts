@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import * as child_process from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -13,7 +8,8 @@ import type * as qp from '../protocol';
 import { TypeScriptServiceConfiguration } from '../utils/configuration';
 import { Disposable } from '../utils/dispose';
 import { TsServerProcess, TsServerProcessKind } from './server';
-import { TypeScriptVersionManager } from './versionManager';
+import { TypeScriptVersionManager } from './manager';
+import { memoize } from '../utils/memoize';
 
 const localize = nls.loadMessageBundle();
 
@@ -52,7 +48,6 @@ class ProtocolBuffer {
   public tryReadContentLength(): number {
     let result = -1;
     let current = 0;
-    // we are utf8 encoding...
     while (current < this.index && (this.buffer[current] === blank || this.buffer[current] === backslashR || this.buffer[current] === backslashN)) {
       current++;
     }
@@ -188,7 +183,6 @@ export class ChildServerProcess extends Disposable implements TsServerProcess {
 
   private static getDebugPort(kind: TsServerProcessKind): number | undefined {
     if (kind === TsServerProcessKind.Syntax) {
-      // We typically only want to debug the main semantic server
       return undefined;
     }
     const value = ChildServerProcess.getTssDebugBrk() || ChildServerProcess.getTssDebug();
@@ -234,5 +228,59 @@ export class ChildServerProcess extends Disposable implements TsServerProcess {
   kill(): void {
     this._process.kill();
     this._reader.dispose();
+  }
+}
+
+const localize = nls.loadMessageBundle();
+
+declare const Worker: any;
+declare type Worker = any;
+
+export class WorkerServerProcess implements TsServerProcess {
+  public static fork(tsServerPath: string, args: readonly string[], _kind: TsServerProcessKind, _configuration: TypeScriptServiceConfiguration) {
+    const worker = new Worker(tsServerPath);
+    return new WorkerServerProcess(worker, [...args, '--executingFilePath', tsServerPath]);
+  }
+
+  private _onDataHandlers = new Set<(data: qp.Response) => void>();
+  private _onErrorHandlers = new Set<(err: Error) => void>();
+  private _onExitHandlers = new Set<(code: number | null) => void>();
+
+  public constructor(private readonly worker: Worker, args: readonly string[]) {
+    worker.addEventListener('message', (msg: any) => {
+      if (msg.data.type === 'log') {
+        this.output.appendLine(msg.data.body);
+        return;
+      }
+      for (const handler of this._onDataHandlers) {
+        handler(msg.data);
+      }
+    });
+    worker.postMessage(args);
+  }
+
+  @memoize
+  private get output(): qv.OutputChannel {
+    return qv.window.createOutputChannel(localize('channelName', 'TypeScript Server Log'));
+  }
+
+  write(serverRequest: qp.Request): void {
+    this.worker.postMessage(serverRequest);
+  }
+
+  onData(handler: (response: qp.Response) => void): void {
+    this._onDataHandlers.add(handler);
+  }
+
+  onError(handler: (err: Error) => void): void {
+    this._onErrorHandlers.add(handler);
+  }
+
+  onExit(handler: (code: number | null) => void): void {
+    this._onExitHandlers.add(handler);
+  }
+
+  kill(): void {
+    this.worker.terminate();
   }
 }

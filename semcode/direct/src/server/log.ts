@@ -1,13 +1,18 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import * as fs from 'fs';
 import * as path from 'path';
 import * as qv from 'vscode';
 import { ILogDirectoryProvider } from './logDirectoryProvider';
 import { memoize } from '../utils/memoize';
+
+export interface ILogDirectoryProvider {
+  getNewLogDirectory(): string | undefined;
+}
+
+export const noopLogDirectoryProvider = new (class implements ILogDirectoryProvider {
+  public getNewLogDirectory(): undefined {
+    return undefined;
+  }
+})();
 
 export class NodeLogDirectoryProvider implements ILogDirectoryProvider {
   public constructor(private readonly context: qv.ExtensionContext) {}

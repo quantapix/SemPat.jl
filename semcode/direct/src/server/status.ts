@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import * as qv from 'vscode';
 import * as nls from 'vscode-nls';
 import { Command, CommandManager } from '../commands/commandManager';
@@ -12,7 +7,7 @@ import { coalesce } from '../utils/arrays';
 import { Disposable } from '../utils/dispose';
 import { isTypeScriptDocument } from '../utils/languageModeIds';
 import { isImplicitProjectConfigFile, openOrCreateConfig, openProjectConfigForFile, openProjectConfigOrPromptToCreate, ProjectType } from '../utils/tsconfig';
-import { TypeScriptVersion } from './versionProvider';
+import { TypeScriptVersion } from './version';
 
 const localize = nls.loadMessageBundle();
 
@@ -76,7 +71,6 @@ class ProjectStatusCommand implements Command {
     if (!rootPath) {
       return undefined;
     }
-
     if (info.type === ProjectInfoState.Type.Resolved) {
       if (isImplicitProjectConfigFile(info.configFile)) {
         return {
@@ -88,7 +82,6 @@ class ProjectStatusCommand implements Command {
         };
       }
     }
-
     return {
       label: localize('projectQuickPick.version.goProjectConfig', 'Open tsconfig'),
       description: info.type === ProjectInfoState.Type.Resolved ? qv.workspace.asRelativePath(info.configFile) : undefined,

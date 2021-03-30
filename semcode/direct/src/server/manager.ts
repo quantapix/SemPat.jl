@@ -1,13 +1,8 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import * as qv from 'vscode';
 import * as nls from 'vscode-nls';
 import { TypeScriptServiceConfiguration } from '../utils/configuration';
 import { Disposable } from '../utils/dispose';
-import { ITypeScriptVersionProvider, TypeScriptVersion } from './versionProvider';
+import { ITypeScriptVersionProvider, TypeScriptVersion } from './version';
 
 const localize = nls.loadMessageBundle();
 

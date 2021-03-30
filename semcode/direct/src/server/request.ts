@@ -1,27 +1,8 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import type * as qp from '../protocol';
 
 export enum RequestQueueingType {
-  /**
-   * Normal request that is executed in order.
-   */
   Normal = 1,
-
-  /**
-   * Request that normal requests jump in front of in the queue.
-   */
   LowPriority = 2,
-
-  /**
-   * A fence that blocks request reordering.
-   *
-   * Fences are not reordered. Unlike a normal request, a fence will never jump in front of a low priority request
-   * in the request queue.
-   */
   Fence = 3,
 }
 
@@ -51,7 +32,6 @@ export class RequestQueue {
       }
       this.queue.splice(index + 1, 0, item);
     } else {
-      // Only normal priority requests can be reordered. All other requests just go to the end.
       this.queue.push(item);
     }
   }

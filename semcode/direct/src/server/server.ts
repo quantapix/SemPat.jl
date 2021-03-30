@@ -1,22 +1,17 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import * as qv from 'vscode';
 import type * as qp from '../protocol';
 import { EventName } from '../../../src/protocol.const';
-import { CallbackMap } from '../tsServer/callbackMap';
-import { RequestItem, RequestQueue, RequestQueueingType } from '../tsServer/requestQueue';
+import { CallbackMap } from './callback';
+import { RequestItem, RequestQueue, RequestQueueingType } from './request';
 import { TypeScriptServerError } from '../tsServer/serverError';
-import { ServerResponse, ServerType, TypeScriptRequests } from '../../../src/service';
+import { ServerResponse, ServerType, TypeScriptRequests } from '../service';
 import { TypeScriptServiceConfiguration } from '../utils/configuration';
 import { Disposable } from '../utils/dispose';
 import { TelemetryReporter } from '../utils/telemetry';
 import Tracer from '../utils/tracer';
 import { OngoingRequestCanceller } from './cancellation';
-import { TypeScriptVersionManager } from './versionManager';
-import { TypeScriptVersion } from './versionProvider';
+import { TypeScriptVersionManager } from './manager';
+import { TypeScriptVersion } from './version';
 
 export enum ExecutionTarget {
   Semantic,
@@ -68,11 +63,9 @@ export interface TsServerProcessFactory {
 
 export interface TsServerProcess {
   write(serverRequest: qp.Request): void;
-
   onData(handler: (data: qp.Response) => void): void;
   onExit(handler: (code: number | null) => void): void;
   onError(handler: (error: Error) => void): void;
-
   kill(): void;
 }
 
@@ -92,16 +85,13 @@ export class ProcessBasedTsServer extends Disposable implements ITypeScriptServe
     private readonly _tracer: Tracer
   ) {
     super();
-
     this._process.onData((msg) => {
       this.dispatchMessage(msg);
     });
-
     this._process.onExit((code) => {
       this._onExit.fire(code);
       this._callbacks.destroy('server exited');
     });
-
     this._process.onError((error) => {
       this._onError.fire(error);
       this._callbacks.destroy('server errored');
@@ -148,7 +138,6 @@ export class ProcessBasedTsServer extends Disposable implements ITypeScriptServe
             this.dispatchResponse(message as qp.Response);
           }
           break;
-
         case 'event':
           const event = message as qp.Event;
           if (event.event === 'requestCompleted') {
@@ -163,7 +152,6 @@ export class ProcessBasedTsServer extends Disposable implements ITypeScriptServe
             this._onEvent.fire(event);
           }
           break;
-
         default:
           throw new Error(`Unknown message type ${message.type} received`);
       }
@@ -178,11 +166,9 @@ export class ProcessBasedTsServer extends Disposable implements ITypeScriptServe
         this.logTrace(`Canceled request with sequence number ${seq}`);
         return true;
       }
-
       if (this._requestCanceller.tryCancelOngoingRequest(seq)) {
         return true;
       }
-
       this.logTrace(`Tried to cancel request with sequence number ${seq}. But request got already delivered.`);
       return false;
     } finally {
@@ -198,12 +184,10 @@ export class ProcessBasedTsServer extends Disposable implements ITypeScriptServe
     if (!callback) {
       return;
     }
-
     this._tracer.traceResponse(this._serverId, response, callback);
     if (response.success) {
       callback.onSuccess(response);
     } else if (response.message === 'No content available.') {
-      // Special case where response itself is successful but there is not any data to return.
       callback.onSuccess(ServerResponse.NoContent);
     } else {
       callback.onError(TypeScriptServerError.create(this._serverId, this._version, response));
@@ -260,14 +244,11 @@ export class ProcessBasedTsServer extends Disposable implements ITypeScriptServe
             this._telemetryReporter.logTelemetry('languageServiceErrorResponse', err.telemetry);
           }
         }
-
         throw err;
       });
     }
-
     this._requestQueue.enqueue(requestInfo);
     this.sendNextRequests();
-
     return result;
   }
 
@@ -283,11 +264,9 @@ export class ProcessBasedTsServer extends Disposable implements ITypeScriptServe
   private sendRequest(requestItem: RequestItem): void {
     const serverRequest = requestItem.request;
     this._tracer.traceRequest(this._serverId, serverRequest, requestItem.expectsResponse, this._requestQueue.length);
-
     if (requestItem.expectsResponse && !requestItem.isAsync) {
       this._pendingResponses.add(requestItem.request.seq);
     }
-
     try {
       this.write(serverRequest);
     } catch (err) {
@@ -303,7 +282,6 @@ export class ProcessBasedTsServer extends Disposable implements ITypeScriptServe
     if (!callback) {
       return undefined;
     }
-
     this._pendingResponses.delete(seq);
     return callback;
   }
@@ -343,31 +321,21 @@ class RequestRouter {
 
   public execute(command: keyof TypeScriptRequests, args: any, executeInfo: ExecuteInfo): Promise<ServerResponse.Response<qp.Response>> | undefined {
     if (RequestRouter.sharedCommands.has(command) && typeof executeInfo.executionTarget === 'undefined') {
-      // Dispatch shared commands to all servers but only return from first one
-
       const requestStates: RequestState.State[] = this.servers.map(() => RequestState.Unresolved);
-
-      // Also make sure we never cancel requests to just one server
       let token: qv.CancellationToken | undefined = undefined;
       if (executeInfo.token) {
         const source = new qv.CancellationTokenSource();
         executeInfo.token.onCancellationRequested(() => {
           if (requestStates.some((state) => state === RequestState.Resolved)) {
-            // Don't cancel.
-            // One of the servers completed this request so we don't want to leave the other
-            // in a different state.
             return;
           }
           source.cancel();
         });
         token = source.token;
       }
-
       let firstRequest: Promise<ServerResponse.Response<qp.Response>> | undefined;
-
       for (let serverIndex = 0; serverIndex < this.servers.length; ++serverIndex) {
         const server = this.servers[serverIndex].server;
-
         const request = server.executeImpl(command, args, { ...executeInfo, token }) as Promise<ServerResponse.Response<qp.Response>> | undefined;
         if (serverIndex === 0) {
           firstRequest = request;
@@ -378,7 +346,6 @@ class RequestRouter {
               requestStates[serverIndex] = RequestState.Resolved;
               const erroredRequest = requestStates.find((state) => state.type === RequestState.Type.Errored) as RequestState.Errored | undefined;
               if (erroredRequest) {
-                // We've gone out of sync
                 this.delegate.onFatalError(command, erroredRequest.err);
               }
               return result;
@@ -394,16 +361,13 @@ class RequestRouter {
           );
         }
       }
-
       return firstRequest;
     }
-
     for (const { canRun, server } of this.servers) {
       if (!canRun || canRun(command, executeInfo)) {
         return server.executeImpl(command, args, executeInfo);
       }
     }
-
     throw new Error(`Could not find server for command: '${command}'`);
   }
 }
@@ -417,10 +381,8 @@ export class GetErrRoutingTsServer extends Disposable implements ITypeScriptServ
 
   public constructor(servers: { getErr: ITypeScriptServer; primary: ITypeScriptServer }, delegate: TsServerDelegate) {
     super();
-
     this.getErrServer = servers.getErr;
     this.mainServer = servers.primary;
-
     this.router = new RequestRouter(
       [
         { server: this.getErrServer, canRun: (command) => ['geterr', 'geterrForProject'].includes(command) },
@@ -428,13 +390,11 @@ export class GetErrRoutingTsServer extends Disposable implements ITypeScriptServ
       ],
       delegate
     );
-
     this._register(
       this.getErrServer.onEvent((e) => {
         if (GetErrRoutingTsServer.diagnosticEvents.has(e.event)) {
           this._onEvent.fire(e);
         }
-        // Ignore all other events
       })
     );
     this._register(
@@ -442,13 +402,10 @@ export class GetErrRoutingTsServer extends Disposable implements ITypeScriptServ
         if (!GetErrRoutingTsServer.diagnosticEvents.has(e.event)) {
           this._onEvent.fire(e);
         }
-        // Ignore all other events
       })
     );
-
     this._register(this.getErrServer.onError((e) => this._onError.fire(e)));
     this._register(this.mainServer.onError((e) => this._onError.fire(e)));
-
     this._register(
       this.mainServer.onExit((e) => {
         this._onExit.fire(e);
@@ -495,19 +452,8 @@ export class GetErrRoutingTsServer extends Disposable implements ITypeScriptServ
 }
 
 export class SyntaxRoutingTsServer extends Disposable implements ITypeScriptServer {
-  /**
-   * Commands that should always be run on the syntax server.
-   */
   private static readonly syntaxAlwaysCommands = new Set<keyof TypeScriptRequests>(['navtree', 'getOutliningSpans', 'jsxClosingTag', 'selectionRange', 'format', 'formatonkey', 'docCommentTemplate']);
-
-  /**
-   * Commands that should always be run on the semantic server.
-   */
   private static readonly semanticCommands = new Set<keyof TypeScriptRequests>(['geterr', 'geterrForProject', 'projectInfo', 'configurePlugin']);
-
-  /**
-   * Commands that can be run on the syntax server but would benefit from being upgraded to the semantic server.
-   */
   private static readonly syntaxAllowedCommands = new Set<keyof TypeScriptRequests>([
     'completions',
     'completionEntryDetails',
@@ -546,7 +492,6 @@ export class SyntaxRoutingTsServer extends Disposable implements ITypeScriptServ
               case ExecutionTarget.Syntax:
                 return true;
             }
-
             if (SyntaxRoutingTsServer.syntaxAlwaysCommands.has(command)) {
               return true;
             }
@@ -561,25 +506,22 @@ export class SyntaxRoutingTsServer extends Disposable implements ITypeScriptServ
         },
         {
           server: this.semanticServer,
-          canRun: undefined /* gets all other commands */,
+          canRun: undefined,
         },
       ],
       delegate
     );
-
     this._register(
       this.syntaxServer.onEvent((e) => {
         return this._onEvent.fire(e);
       })
     );
-
     this._register(
       this.semanticServer.onEvent((e) => {
         switch (e.event) {
           case EventName.projectLoadingStart:
             this._projectLoading = true;
             break;
-
           case EventName.projectLoadingFinish:
           case EventName.semanticDiag:
           case EventName.syntaxDiag:
@@ -591,7 +533,6 @@ export class SyntaxRoutingTsServer extends Disposable implements ITypeScriptServ
         return this._onEvent.fire(e);
       })
     );
-
     this._register(
       this.semanticServer.onExit((e) => {
         this._onExit.fire(e);
@@ -649,16 +590,11 @@ namespace RequestState {
     Resolved,
     Errored,
   }
-
   export const Unresolved = { type: Type.Unresolved } as const;
-
   export const Resolved = { type: Type.Resolved } as const;
-
   export class Errored {
     readonly type = Type.Errored;
-
     constructor(public readonly err: Error) {}
   }
-
   export type State = typeof Unresolved | typeof Resolved | Errored;
 }

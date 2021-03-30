@@ -1,10 +1,5 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import type * as qp from '../protocol';
-import { TypeScriptVersion } from './versionProvider';
+import { TypeScriptVersion } from './version';
 
 export class TypeScriptServerError extends Error {
   public static create(serverId: string, version: TypeScriptVersion, response: qp.Response): TypeScriptServerError {
@@ -32,15 +27,6 @@ export class TypeScriptServerError extends Error {
   }
 
   public get telemetry() {
-    // The "sanitizedstack" has been purged of error messages, paths, and file names (other than tsserver)
-    // and, thus, can be classified as SystemMetaData, rather than CallstackOrException.
-    /* __GDPR__FRAGMENT__
-			"TypeScriptRequestErrorProperties" : {
-				"command" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
-				"serverid" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" },
-				"sanitizedstack" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" }
-			}
-		*/
     return {
       command: this.serverCommand,
       serverid: this.serverId,
@@ -48,10 +34,6 @@ export class TypeScriptServerError extends Error {
     } as const;
   }
 
-  /**
-   * Given a `errorText` from a tsserver request indicating failure in handling a request,
-   * prepares a payload for telemetry-logging.
-   */
   private static parseErrorText(response: qp.Response) {
     const errorText = response.message;
     if (errorText) {
@@ -60,7 +42,6 @@ export class TypeScriptServerError extends Error {
         const prefixFreeErrorText = errorText.substr(errorPrefix.length);
         const newlineIndex = prefixFreeErrorText.indexOf('\n');
         if (newlineIndex >= 0) {
-          // Newline expected between message and stack.
           const stack = prefixFreeErrorText.substring(newlineIndex + 1);
           return {
             message: prefixFreeErrorText.substring(0, newlineIndex),
@@ -73,9 +54,6 @@ export class TypeScriptServerError extends Error {
     return undefined;
   }
 
-  /**
-   * Drop everything but ".js" and line/column numbers (though retain "tsserver" if that's the filename).
-   */
   private static sanitizeStack(message: string | undefined) {
     if (!message) {
       return '';
@@ -87,8 +65,6 @@ export class TypeScriptServerError extends Error {
       if (!match) {
         break;
       }
-      // [1] is 'tsserver' or undefined
-      // [2] is '.js:{line_number}:{column_number}'
       serverStack += `${match[1] || 'suppressed'}${match[2]}\n`;
     }
     return serverStack;
