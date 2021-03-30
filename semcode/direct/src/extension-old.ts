@@ -32,6 +32,17 @@ export function activate(ctx: qv.ExtensionContext): Api {
 	ctx.subscriptions.push(qv.languages.registerCallHierarchyProvider('plaintext', new FoodPyramid());
 	showSampleText(ctx);
 
+  qv.languages.registerCodeLensProvider("*", new Codelens());
+  qv.commands.registerCommand("semcode.enableCodeLens", () => {
+      qv.workspace.getConfiguration("semcode").update("enableCodeLens", true, true);
+  });
+  qv.commands.registerCommand("semcode.disableCodeLens", () => {
+      qv.workspace.getConfiguration("semcode").update("enableCodeLens", false, true);
+  });
+  qv.commands.registerCommand("semcode.codelensAction", (args: any) => {
+      qv.window.showInformationMessage(`CodeLens action with args=${args}`);
+  });
+
   const pluginManager = new PluginManager();
   ctx.subscriptions.push(pluginManager);
   const commandManager = new CommandManager();

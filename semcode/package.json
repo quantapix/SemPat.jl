@@ -63,6 +63,10 @@
           "description": "Color to use for the status bar item",
           "scope": "resource"
         },
+        "semcode.enableCodeLens": {
+          "type": "boolean",
+          "default": true
+        },
         "semcode.trace.server": {
           "scope": "window",
           "type": "object",
@@ -92,6 +96,16 @@
       }
     },
     "commands": [
+      {
+        "title": "Enable CodeLens",
+        "command": "semcode.enableCodeLens",
+        "category": "Sem Code"
+      },
+      {
+        "title": "Disable Codelens",
+        "command": "semcode.disableCodeLens",
+        "category": "Sem Code"
+      },
       {
         "command": "semcode.helloWorld",
         "title": "Hello World"
