@@ -1,14 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/*---------------------------------------------------------
- * Copyright (C) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See LICENSE in the project root for license information.
- *--------------------------------------------------------*/
-
-'use strict';
-
 import cp = require('child_process');
-import vscode = require('vscode');
+import * as qv from 'vscode';
 import { toolExecutionEnvironment } from './goEnv';
 import { promptForMissingTool } from './goInstallTools';
 import { documentSymbols, GoOutlineImportsOptions } from './goOutline';
@@ -36,12 +27,6 @@ export async function listPackages(excludeImportedPkgs = false): Promise<string[
   return [...stdLibs.sort(), ...nonStdLibs.sort()];
 }
 
-/**
- * Returns the imported packages in the given file
- *
- * @param document TextDocument whose imports need to be returned
- * @returns Array of imported package paths wrapped in a promise
- */
 async function getImports(document: qv.TextDocument): Promise<string[]> {
   const options = {
     fileName: document.fileName,

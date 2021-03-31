@@ -1,25 +1,12 @@
-/*---------------------------------------------------------
- * Copyright (C) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See LICENSE in the project root for license information.
- *--------------------------------------------------------*/
-
-'use strict';
-
-import vscode = require('vscode');
+import * as qv from 'vscode';
 import { getGoConfig } from './config';
 import { getCurrentGoPath, getToolsGopath, resolvePath } from './util';
 import { logVerbose } from './goLogging';
 
-// toolInstallationEnvironment returns the environment in which tools should
-// be installed. It always returns a new object.
 export function toolInstallationEnvironment(): NodeJS.Dict<string> {
   const env = newEnvironment();
-
-  // If the go.toolsGopath is set, use its value as the GOPATH for `go` processes.
-  // Else use the Current Gopath
   let toolsGopath = getToolsGopath();
   if (toolsGopath) {
-    // User has explicitly chosen to use toolsGopath, so ignore GOBIN.
     env['GOBIN'] = '';
   } else {
     toolsGopath = getCurrentGoPath();
@@ -40,9 +27,6 @@ export function toolInstallationEnvironment(): NodeJS.Dict<string> {
   }
   env['GOPATH'] = toolsGopath;
 
-  // Unset env vars that would affect tool build process: 'GOROOT', 'GOOS', 'GOARCH', ...
-  // Tool installation should be done for the host OS/ARCH (GOHOSTOS/GOHOSTARCH) with
-  // the default setup.
   delete env['GOOS'];
   delete env['GOARCH'];
   delete env['GOROOT'];
@@ -52,16 +36,12 @@ export function toolInstallationEnvironment(): NodeJS.Dict<string> {
   return env;
 }
 
-// toolExecutionEnvironment returns the environment in which tools should
-// be executed. It always returns a new object.
 export function toolExecutionEnvironment(uri?: qv.Uri): NodeJS.Dict<string> {
   const env = newEnvironment();
   const gopath = getCurrentGoPath(uri);
   if (gopath) {
     env['GOPATH'] = gopath;
   }
-
-  // Remove json flag (-json or --json=<any>) from GOFLAGS because it will effect to result format of the execution
   if (env['GOFLAGS'] && env['GOFLAGS'].includes('-json')) {
     env['GOFLAGS'] = env['GOFLAGS'].replace(/(^|\s+)-?-json[^\s]*/g, '');
     logVerbose(`removed -json from GOFLAGS: ${env['GOFLAGS']}`);
@@ -76,7 +56,6 @@ function newEnvironment(): NodeJS.Dict<string> {
     Object.keys(toolsEnvVars).forEach((key) => (env[key] = typeof toolsEnvVars[key] === 'string' ? resolvePath(toolsEnvVars[key]) : toolsEnvVars[key]));
   }
 
-  // The http.proxy setting takes precedence over environment variables.
   const httpProxy = qv.workspace.getConfiguration('http', null).get('proxy');
   if (httpProxy && typeof httpProxy === 'string') {
     env['http_proxy'] = httpProxy;

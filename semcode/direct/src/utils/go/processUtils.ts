@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /*---------------------------------------------------------
  * Copyright 2020 The Go Authors. All rights reserved.
  * Licensed under the MIT License. See LICENSE in the project root for license information.
@@ -9,20 +8,20 @@ import kill = require('tree-kill');
 
 // Kill a process and its children, returning a promise.
 export function killProcessTree(p: ChildProcess, logger?: (...args: any[]) => void): Promise<void> {
-	if (!logger) {
-		logger = console.log;
-	}
-	if (!p || !p.pid || p.exitCode !== null) {
-		return Promise.resolve();
-	}
-	return new Promise((resolve) => {
-		kill(p.pid, (err) => {
-			if (err) {
-				logger(`Error killing process ${p.pid}: ${err}`);
-			}
-			resolve();
-		});
-	});
+  if (!logger) {
+    logger = console.log;
+  }
+  if (!p || !p.pid || p.exitCode !== null) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    kill(p.pid, (err) => {
+      if (err) {
+        logger(`Error killing process ${p.pid}: ${err}`);
+      }
+      resolve();
+    });
+  });
 }
 
 // Kill a process.
@@ -35,11 +34,11 @@ export function killProcessTree(p: ChildProcess, logger?: (...args: any[]) => vo
 // See https://go-review.googlesource.com/c/vscode-go/+/242518/ for more
 // details and background.
 export function killProcess(p: ChildProcess) {
-	if (p && p.pid && p.exitCode === null) {
-		try {
-			p.kill();
-		} catch (e) {
-			console.log(`Error killing process ${p.pid}: ${e}`);
-		}
-	}
+  if (p && p.pid && p.exitCode === null) {
+    try {
+      p.kill();
+    } catch (e) {
+      console.log(`Error killing process ${p.pid}: ${e}`);
+    }
+  }
 }

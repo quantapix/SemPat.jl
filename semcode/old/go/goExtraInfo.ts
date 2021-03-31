@@ -1,13 +1,4 @@
-/* eslint-disable prefer-const */
-/* eslint-disable eqeqeq */
-/*---------------------------------------------------------
- * Copyright (C) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See LICENSE in the project root for license information.
- *--------------------------------------------------------*/
-
-'use strict';
-
-import vscode = require('vscode');
+import * as qv from 'vscode';
 import { CancellationToken, Hover, HoverProvider, Position, TextDocument, WorkspaceConfiguration } from 'vscode';
 import { getGoConfig } from './config';
 import { definitionLocation } from './goDeclaration';
@@ -24,8 +15,6 @@ export class GoHoverProvider implements HoverProvider {
       this.goConfig = getGoConfig(document.uri);
     }
     let goConfig = this.goConfig;
-
-    // Temporary fix to fall back to godoc if guru is the set docsTool
     if (goConfig['docsTool'] === 'guru') {
       goConfig = Object.assign({}, goConfig, { docsTool: 'godoc' });
     }

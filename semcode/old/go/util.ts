@@ -1,16 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/*---------------------------------------------------------
- * Copyright (C) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See LICENSE in the project root for license information.
- *--------------------------------------------------------*/
-
 import cp = require('child_process');
 import fs = require('fs');
 import os = require('os');
-import path = require('path');
+import * as path from 'path';
 import semver = require('semver');
 import util = require('util');
-import vscode = require('vscode');
+import * as qv from 'vscode';
 import { NearestNeighborDict, Node } from './avlTree';
 import { DefaultConfig, getGoConfig } from './config';
 import { extensionId } from './const';

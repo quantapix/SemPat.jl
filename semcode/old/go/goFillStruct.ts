@@ -1,18 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/*---------------------------------------------------------
- * Copyright (C) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See LICENSE in the project root for license information.
- *--------------------------------------------------------*/
-
-'use strict';
-
 import cp = require('child_process');
-import vscode = require('vscode');
+import * as qv from 'vscode';
 import { toolExecutionEnvironment } from './goEnv';
 import { promptForMissingTool } from './goInstallTools';
 import { byteOffsetAt, getBinPath, getFileArchive, makeMemoizedByteOffsetConverter } from './util';
 
-// Interface for the output from fillstruct
 interface GoFillStructOutput {
   start: number;
   end: number;

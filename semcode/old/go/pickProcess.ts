@@ -1,10 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable no-async-promise-executor */
-/*---------------------------------------------------------
- * Copyright 2021 The Go Authors. All rights reserved.
- * Licensed under the MIT License. See LICENSE in the project root for license information.
- *--------------------------------------------------------*/
-
 import cp = require('child_process');
 import { QuickPickItem } from 'vscode';
 import { getBinPath } from './util';
@@ -12,7 +5,7 @@ import { lsofDarwinCommand, parseLsofProcesses } from './utils/lsofProcessParser
 import { envPath, getCurrentGoRoot } from './utils/pathUtils';
 import { parsePsProcesses, psDarwinCommand, psLinuxCommand } from './utils/psProcessParser';
 import { parseWmicProcesses, wmicCommand } from './utils/wmicProcessParser';
-import vscode = require('vscode');
+import * as qv from 'vscode';
 
 export async function pickProcess(): Promise<string> {
   const allProcesses = await getAllProcesses();

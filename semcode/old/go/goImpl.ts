@@ -1,18 +1,9 @@
-/* eslint-disable no-useless-escape */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/*---------------------------------------------------------
- * Copyright (C) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See LICENSE in the project root for license information.
- *--------------------------------------------------------*/
-
-'use strict';
-
 import cp = require('child_process');
 import { dirname } from 'path';
 import { toolExecutionEnvironment } from './goEnv';
 import { promptForMissingTool } from './goInstallTools';
 import { getBinPath } from './util';
-import vscode = require('vscode');
+import * as qv from 'vscode';
 
 // Supports only passing interface, see TODO in implCursor to finish
 const inputRegex = /^(\w+\ \*?\w+\ )?([\w./]+)$/;
@@ -38,11 +29,6 @@ export function implCursor() {
         qv.window.showInformationMessage(`Not parsable input: ${implInput}`);
         return;
       }
-
-      // TODO: automatically detect type name at cursor
-      // if matches[1] is undefined then detect receiver type
-      // take first character and use as receiver name
-
       runGoImpl([matches[1], matches[2]], cursor.start, editor);
     });
 }

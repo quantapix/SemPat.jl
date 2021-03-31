@@ -1,16 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/*---------------------------------------------------------
- * Copyright (C) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See LICENSE in the project root for license information.
- *--------------------------------------------------------*/
-
 import { execFile } from 'child_process';
 import * as path from 'path';
 import { getGoConfig } from './config';
 import { promptForMissingTool } from './goInstallTools';
 import { outputChannel } from './goStatus';
 import { getBinPath } from './util';
-import vscode = require('vscode');
+import * as qv from 'vscode';
 
 const TOOL_CMD_NAME = 'goplay';
 

@@ -1,29 +1,14 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/*---------------------------------------------------------
- * Copyright (C) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See LICENSE in the project root for license information.
- *--------------------------------------------------------*/
-
-'use strict';
-
 import cp = require('child_process');
 import { dirname, isAbsolute } from 'path';
 import { toolExecutionEnvironment } from './goEnv';
 import { promptForMissingTool } from './goInstallTools';
 import { getBinPath } from './util';
-import vscode = require('vscode');
+import * as qv from 'vscode';
 
-/**
- * Extracts function out of current selection and replaces the current selection with a call to the extracted function.
- */
 export function extractFunction() {
   extract('extract');
 }
 
-/**
- * Extracts expression out of current selection into a var in the local scope and
- * replaces the current selection with the new var.
- */
 export function extractVariable() {
   extract('var');
 }
@@ -52,12 +37,6 @@ async function extract(type: typeOfExtraction): Promise<void> {
   runGoDoctor(newName, activeEditor.selection, activeEditor.document.fileName, type);
 }
 
-/**
- * @param newName name for the extracted method
- * @param selection the editor selection from which method is to be extracted
- * @param activeEditor the editor that will be used to apply the changes from godoctor
- * @returns errorMessage in case the method fails, null otherwise
- */
 function runGoDoctor(newName: string, selection: qv.Selection, fileName: string, type: typeOfExtraction): Thenable<void> {
   const godoctor = getBinPath('godoctor');
 

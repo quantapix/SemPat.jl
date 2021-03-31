@@ -1,16 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable eqeqeq */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/*---------------------------------------------------------
- * Copyright (C) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See LICENSE in the project root for license information.
- *--------------------------------------------------------*/
-
-'use strict';
-
 import cp = require('child_process');
-import path = require('path');
-import vscode = require('vscode');
+import * as path from 'path';
+import * as qv from 'vscode';
 import { getGoConfig } from './config';
 import { toolExecutionEnvironment } from './goEnv';
 import { promptForMissingTool } from './goInstallTools';
@@ -20,9 +10,6 @@ import { getBinPath } from './util';
 
 const generatedWord = 'Generated ';
 
-/**
- * If current active editor has a Go file, returns the editor.
- */
 function checkActiveEditor(): qv.TextEditor | undefined {
   const editor = qv.window.activeTextEditor;
   if (!editor) {
@@ -40,9 +27,6 @@ function checkActiveEditor(): qv.TextEditor | undefined {
   return editor;
 }
 
-/**
- * Toggles between file in current active editor and the corresponding test file.
- */
 export function toggleTestFile(): void {
   const editor = qv.window.activeTextEditor;
   if (!editor) {
@@ -131,22 +115,9 @@ export async function generateTestCurrentFunction(): Promise<boolean> {
   );
 }
 
-/**
- * Input to goTests.
- */
 interface Config {
-  /**
-   * The working directory for `gotests`.
-   */
   dir: string;
-  /**
-   * Specific function names to generate tests skeleton.
-   */
   func?: string;
-
-  /**
-   * Whether or not the file to generate test functions for is a test file.
-   */
   isTestFile?: boolean;
 }
 

@@ -1,20 +1,11 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/*---------------------------------------------------------
- * Copyright (C) Microsoft Corporation. All rights reserved.
- * Modification copyright 2020 The Go Authors. All rights reserved.
- * Licensed under the MIT License. See LICENSE in the project root for license information.
- *--------------------------------------------------------*/
-
-'use strict';
-
 import cp = require('child_process');
 import deepEqual = require('deep-equal');
 import fs = require('fs');
 import moment = require('moment');
-import path = require('path');
+import * as path from 'path';
 import semver = require('semver');
 import util = require('util');
-import vscode = require('vscode');
+import * as qv from 'vscode';
 import {
   CancellationToken,
   CloseAction,

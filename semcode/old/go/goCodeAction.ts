@@ -1,12 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/*---------------------------------------------------------
- * Copyright (C) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See LICENSE in the project root for license information.
- *--------------------------------------------------------*/
-
-'use strict';
-
-import vscode = require('vscode');
+import * as qv from 'vscode';
 import { listPackages } from './goImport';
 
 export class GoCodeActionProvider implements qv.CodeActionProvider {

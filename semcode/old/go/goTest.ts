@@ -1,12 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/*---------------------------------------------------------
- * Copyright (C) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See LICENSE in the project root for license information.
- *--------------------------------------------------------*/
-'use strict';
-
-import path = require('path');
-import vscode = require('vscode');
+import * as path from 'path';
+import * as qv from 'vscode';
 import { isModSupported } from './goModules';
 import { extractInstanceTestName, findAllTestSuiteRuns, getBenchmarkFunctions, getTestFlags, getTestFunctionDebugArgs, getTestFunctions, getTestTags, goTest, TestConfig } from './testUtils';
 

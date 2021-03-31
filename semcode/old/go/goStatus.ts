@@ -1,14 +1,5 @@
-/* eslint-disable no-case-declarations */
-/*---------------------------------------------------------
- * Copyright (C) Microsoft Corporation. All rights reserved.
- * Modification copyright 2020 The Go Authors. All rights reserved.
- * Licensed under the MIT License. See LICENSE in the project root for license information.
- *--------------------------------------------------------*/
-
-'use strict';
-
-import path = require('path');
-import vscode = require('vscode');
+import * as path from 'path';
+import * as qv from 'vscode';
 import { getGoConfig } from './config';
 import { formatGoVersion, GoEnvironmentOption, terminalCreationListener } from './goEnvironmentStatus';
 import { buildLanguageServerConfig, getLocalGoplsVersion, languageServerIsRunning, serverOutputChannel } from './goLanguageServer';

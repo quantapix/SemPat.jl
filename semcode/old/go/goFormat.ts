@@ -1,14 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/*---------------------------------------------------------
- * Copyright (C) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See LICENSE in the project root for license information.
- *--------------------------------------------------------*/
-
-'use strict';
-
 import cp = require('child_process');
-import path = require('path');
-import vscode = require('vscode');
+import * as path from 'path';
+import * as qv from 'vscode';
 import { getGoConfig } from './config';
 import { toolExecutionEnvironment } from './goEnv';
 import { promptForMissingTool, promptForUpdatingTool } from './goInstallTools';
@@ -32,14 +24,9 @@ export class GoDocumentFormattingEditProvider implements qv.DocumentFormattingEd
 
     const formatTool = getFormatTool(goConfig);
 
-    // Handle issues:
-    //  https://github.com/Microsoft/vscode-go/issues/613
-    //  https://github.com/Microsoft/vscode-go/issues/630
     if (formatTool === 'goimports' || formatTool === 'goreturns' || formatTool === 'gofumports') {
       formatFlags.push('-srcdir', filename);
     }
-
-    // Since goformat supports the style flag, set tabsize if the user hasn't.
     if (formatTool === 'goformat' && formatFlags.length === 0 && options.insertSpaces) {
       formatFlags.push('-style=indent=' + options.tabSize);
     }
@@ -72,8 +59,6 @@ export class GoDocumentFormattingEditProvider implements qv.DocumentFormattingEd
       const cwd = path.dirname(document.fileName);
       let stdout = '';
       let stderr = '';
-
-      // Use spawn instead of exec to avoid maxBufferExceeded error
       const p = cp.spawn(formatCommandBinPath, formatFlags, { env, cwd });
       token.onCancellationRequested(() => !p.killed && killProcessTree(p));
       p.stdout.setEncoding('utf8');
@@ -89,9 +74,6 @@ export class GoDocumentFormattingEditProvider implements qv.DocumentFormattingEd
         if (code !== 0) {
           return reject(stderr);
         }
-
-        // Return the complete file content in the edit.
-        // VS Code will calculate minimal edits to be applied
         const fileStart = new qv.Position(0, 0);
         const fileEnd = document.lineAt(document.lineCount - 1).range.end;
         const textEdits: qv.TextEdit[] = [new qv.TextEdit(new qv.Range(fileStart, fileEnd), stdout)];
@@ -114,10 +96,8 @@ export function usingCustomFormatTool(goConfig: { [key: string]: any }): boolean
     case 'gofmt':
       return false;
     case 'gofumpt':
-      // TODO(rstambler): Prompt to configure setting in gopls.
       return false;
     case 'gofumports':
-      // TODO(rstambler): Prompt to configure setting in gopls.
       return false;
     default:
       return true;

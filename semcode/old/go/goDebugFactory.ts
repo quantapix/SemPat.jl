@@ -1,17 +1,11 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/*---------------------------------------------------------
- * Copyright 2021 The Go Authors. All rights reserved.
- * Licensed under the MIT License. See LICENSE in the project root for license information.
- *--------------------------------------------------------*/
-
 import { ChildProcess, ChildProcessWithoutNullStreams, spawn } from 'child_process';
 import * as fs from 'fs';
 import { DebugConfiguration } from 'vscode';
 import { envPath } from './utils/pathUtils';
 import { killProcessTree } from './utils/processUtils';
 import getPort = require('get-port');
-import path = require('path');
-import vscode = require('vscode');
+import * as path from 'path';
+import * as qv from 'vscode';
 
 export class GoDebugAdapterDescriptorFactory implements qv.DebugAdapterDescriptorFactory {
   private dlvDapServer?: ChildProcess;

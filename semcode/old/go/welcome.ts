@@ -1,13 +1,4 @@
-/* eslint-disable no-case-declarations */
-/*---------------------------------------------------------
- * Copyright 2020 The Go Authors. All rights reserved.
- * Licensed under the MIT License. See LICENSE in the project root for license information.
- *--------------------------------------------------------*/
-
-// This code is modified from:
-// https://github.com/microsoft/vscode-extension-samples/tree/master/webview-sample
-
-import vscode = require('vscode');
+import * as qv from 'vscode';
 import { extensionId } from './const';
 
 export class WelcomePanel {

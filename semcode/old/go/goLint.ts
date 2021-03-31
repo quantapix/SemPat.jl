@@ -1,19 +1,12 @@
-/*---------------------------------------------------------
- * Copyright (C) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See LICENSE in the project root for license information.
- *--------------------------------------------------------*/
-
-import path = require('path');
-import vscode = require('vscode');
+import * as path from 'path';
+import * as qv from 'vscode';
 import { getGoConfig, getGoplsConfig } from './config';
 import { toolExecutionEnvironment } from './goEnv';
 import { lintDiagnosticCollection } from './goMain';
 import { diagnosticsStatusBarItem, outputChannel } from './goStatus';
 import { goplsStaticcheckEnabled } from './goTools';
 import { getWorkspaceFolderPath, handleDiagnosticErrors, ICheckResult, resolvePath, runTool } from './util';
-/**
- * Runs linter on the current file, package or workspace.
- */
+
 export function lintCode(scope?: string) {
   const editor = qv.window.activeTextEditor;
   if (!editor && scope !== 'workspace') {
@@ -44,13 +37,6 @@ export function lintCode(scope?: string) {
     });
 }
 
-/**
- * Runs linter and presents the output in the 'Go' channel and in the diagnostic collections.
- *
- * @param fileUri Document uri.
- * @param goConfig Configuration for the Go extension.
- * @param scope Scope in which to run the linter.
- */
 export function goLint(fileUri: qv.Uri, goConfig: qv.WorkspaceConfiguration, goplsConfig: qv.WorkspaceConfiguration, scope?: string): Promise<ICheckResult[]> {
   const lintTool = goConfig['lintTool'] || 'staticcheck';
   if (lintTool === 'staticcheck' && goplsStaticcheckEnabled(goConfig, goplsConfig)) {

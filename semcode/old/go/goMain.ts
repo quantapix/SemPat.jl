@@ -65,7 +65,7 @@ import {
 import { clearCacheForTools, fileExists, getCurrentGoRoot, setCurrentGoRoot } from './utils/pathUtils';
 import { WelcomePanel } from './welcome';
 import semver = require('semver');
-import vscode = require('vscode');
+import * as qv from 'vscode';
 import { getFormatTool } from './goFormat';
 
 export let buildDiagnosticCollection: qv.DiagnosticCollection;

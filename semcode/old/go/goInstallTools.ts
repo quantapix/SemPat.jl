@@ -1,16 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable eqeqeq */
-/* eslint-disable no-case-declarations */
-/*---------------------------------------------------------
- * Copyright (C) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See LICENSE in the project root for license information.
- *--------------------------------------------------------*/
-
-'use strict';
-
 import cp = require('child_process');
 import fs = require('fs');
-import path = require('path');
+import * as path from 'path';
 import semver = require('semver');
 import { ConfigurationTarget } from 'vscode';
 import { getGoConfig, getGoplsConfig } from './config';
@@ -23,7 +13,7 @@ import { containsTool, getConfiguredTools, getImportPath, getImportPathWithVersi
 import { getBinPath, getBinPathWithExplanation, getCheckForToolsUpdatesConfig, getGoVersion, getTempFilePath, getWorkspaceFolderPath, GoVersion, rmdirRecursive } from './util';
 import { correctBinname, envPath, getCurrentGoRoot, setCurrentGoRoot } from './utils/pathUtils';
 import util = require('util');
-import vscode = require('vscode');
+import * as qv from 'vscode';
 import { isInPreviewMode } from './goLanguageServer';
 
 // declinedUpdates tracks the tools that the user has declined to update.
@@ -77,14 +67,6 @@ export async function installAllTools(updateExistingToolsOnly = false) {
   );
 }
 
-/**
- * Installs given array of missing tools. If no input is given, the all tools are installed
- *
- * @param missing array of tool names and optionally, their versions to be installed.
- *                If a tool's version is not specified, it will install the latest.
- * @param goVersion version of Go that affects how to install the tool. (e.g. modules vs legacy GOPATH mode)
- * @returns a list of tools that failed to install.
- */
 export async function installTools(missing: ToolAtVersion[], goVersion: GoVersion, silent?: boolean): Promise<{ tool: ToolAtVersion; reason: string }[]> {
   if (!missing) {
     return [];
@@ -114,9 +96,6 @@ export async function installTools(missing: ToolAtVersion[], goVersion: GoVersio
     installingMsg += `${p}`;
   }
 
-  // If the user is on Go >= 1.11, tools should be installed with modules enabled.
-  // This ensures that users get the latest tagged version, rather than master,
-  // which may be unstable.
   let modulesOff = false;
   if (goVersion.lt('1.11')) {
     modulesOff = true;
@@ -204,21 +183,12 @@ export async function installTool(tool: ToolAtVersion, goVersion: GoVersion, env
 
   const env = Object.assign({}, envForTools);
   env['GO111MODULE'] = modulesOn ? 'on' : 'off';
-
-  // Some users use direnv-like setup where the choice of go is affected by
-  // the current directory path. In order to avoid choosing a different go,
-  // we will explicitly use `GOROOT/bin/go` instead of goVersion.binaryPath
-  // (which can be a wrapper script that switches 'go').
   const goBinary = getCurrentGoRoot() ? path.join(getCurrentGoRoot(), 'bin', correctBinname('go')) : goVersion.binaryPath;
-
-  // Build the arguments list for the tool installation.
   const args = ['get', '-v'];
   // Only get tools at master if we are not using modules.
   if (!modulesOn) {
     args.push('-u');
   }
-  // dlv-dap or tools with a "mod" suffix can't be installed with
-  // simple `go install` or `go get`. We need to get, build, and rename them.
   if (hasModSuffix(tool) || tool.name === 'dlv-dap') {
     args.push('-d'); // get the version, but don't build.
   }
@@ -430,11 +400,6 @@ export function updateGoVarsFromConfig(): Promise<void> {
             process.env[envName] = envOutput[envName].trim();
           }
         }
-
-        // cgo, gopls, and other underlying tools will inherit the environment and attempt
-        // to locate 'go' from the PATH env var.
-        // Update the PATH only if users configured to use a different
-        // version of go than the system default found from PATH (or Path).
         if (why !== 'path') {
           addGoRuntimeBaseToPATH(path.join(getCurrentGoRoot(), 'bin'));
         } else {
@@ -562,32 +527,12 @@ export async function latestToolVersion(tool: Tool, includePrerelease?: boolean)
   return ret;
 }
 
-// inspectGoToolVersion reads the go version and module version
-// of the given go tool using `go version -m` command.
 export const inspectGoToolVersion = defaultInspectGoToolVersion;
 async function defaultInspectGoToolVersion(binPath: string): Promise<{ goVersion?: string; moduleVersion?: string }> {
   const goCmd = getBinPath('go');
   const execFile = util.promisify(cp.execFile);
   try {
     const { stdout } = await execFile(goCmd, ['version', '-m', binPath]);
-    /* The output format will look like this
-
-		   if the binary was built in module mode.
-			/Users/hakim/go/bin/gopls: go1.16
-			path    golang.org/x/tools/gopls
-			mod     golang.org/x/tools/gopls        v0.6.6  h1:GmCsAKZMEb1BD1BTWnQrMyx4FmNThlEsmuFiJbLBXio=
-			dep     github.com/BurntSushi/toml      v0.3.1  h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
-
-		   if the binary was built in GOPATH mode => the following code will throw an error which will be handled.
-		    /Users/hakim/go/bin/gopls: go1.16
-
-		   if the binary was built in dev branch, in module mode => the following code will not throw an error,
-		   and return (devel) as the moduleVersion.
-		    /Users/hakim/go/bin/gopls: go1.16
-			path    golang.org/x/tools/gopls
-			mod     golang.org/x/tools/gopls        (devel)
-			dep     github.com/BurntSushi/toml      v0.3.1  h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
-		*/
     const lines = stdout.split('\n', 3);
     const goVersion = lines[0].split(/\s+/)[1];
     const moduleVersion = lines[2].split(/\s+/)[3];

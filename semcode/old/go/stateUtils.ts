@@ -1,10 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/*---------------------------------------------------------
- * Copyright (C) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See LICENSE in the project root for license information.
- *--------------------------------------------------------*/
-
-import vscode = require('vscode');
+import * as qv from 'vscode';
 
 let globalState: qv.Memento;
 let workspaceState: qv.Memento;
