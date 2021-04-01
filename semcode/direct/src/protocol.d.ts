@@ -1,4 +1,4 @@
-import * as qp from 'typescript/lib/protocol';
+import Proto from 'typescript/lib/protocol';
 export = Proto;
 
 declare enum ServerType {
