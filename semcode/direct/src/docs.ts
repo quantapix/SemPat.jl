@@ -1,7 +1,7 @@
 import * as markdownit from 'markdown-it';
 import * as path from 'path';
 import * as qv from 'vscode';
-import { withLanguageClient } from './extension';
+import { withLanguageClient } from './extension_rs';
 import { constructCommandString, getVersionedParamsAtPosition, registerCommand } from './utils';
 
 function openArgs(href: string) {

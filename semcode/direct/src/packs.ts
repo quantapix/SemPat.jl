@@ -1,7 +1,7 @@
 import { exec } from 'child-process-promise';
 import { join } from 'path';
 import * as qv from 'vscode';
-import { onDidChangeConfig } from './extension';
+import { onDidChangeConfig } from './extension_rs';
 import * as fs from 'async-file';
 import * as path from 'path';
 import { registerCommand } from './utils';
@@ -10,7 +10,7 @@ import * as os from 'os';
 import * as process from 'process';
 import * as which from 'which';
 import * as vslc from 'vscode-languageclient/node';
-import { onSetLanguageClient } from './extension';
+import { onSetLanguageClient } from './extension_rs';
 
 let juliaPackagePath = '';
 let juliaDepotPath = '';

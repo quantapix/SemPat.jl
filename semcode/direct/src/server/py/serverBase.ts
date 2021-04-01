@@ -66,7 +66,7 @@ import { convertToFlatSymbols, WorkspaceSymbolCallback } from './languageService
 import { convertHoverResults } from './languageService/hoverProvider';
 import { ReferenceCallback } from './languageService/referencesProvider';
 import { Localizer } from './localization/localize';
-import { PyrightFileSystem } from './pyrightFileSystem';
+import { PyrightFileSystem } from './fileSystem';
 import { WorkspaceMap } from './workspaceMap';
 
 export interface ServerSettings {

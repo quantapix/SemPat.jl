@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 //
 // PLEASE DO NOT MODIFY / DELETE UNLESS YOU KNOW WHAT YOU ARE DOING
 //
@@ -20,9 +15,9 @@ const testRunner = require('../../../test/integration/electron/testrunner');
 // You can directly control Mocha options by uncommenting the following lines
 // See https://github.com/mochajs/mocha/wiki/Using-mocha-programmatically#set-options for more info
 testRunner.configure({
-	ui: 'tdd', 		// the TDD UI is being used in extension.test.ts (suite, test, etc.)
-	color: (!process.env.BUILD_ARTIFACTSTAGINGDIRECTORY && process.platform !== 'win32'), // colored output from test results (only windows cannot handle)
-	timeout: 60000,
+  ui: 'tdd', // the TDD UI is being used in extension.test.ts (suite, test, etc.)
+  color: !process.env.BUILD_ARTIFACTSTAGINGDIRECTORY && process.platform !== 'win32', // colored output from test results (only windows cannot handle)
+  timeout: 60000,
 });
 
 export = testRunner;

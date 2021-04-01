@@ -1,12 +1,3 @@
-/*
- * sourceFile.ts
- * Copyright (c) Microsoft Corporation.
- * Licensed under the MIT license.
- * Author: Eric Traut
- *
- * Class that represents a single python source file.
- */
-
 import { CancellationToken, CompletionItem, DocumentHighlight, DocumentSymbol, MarkupKind } from 'vscode-languageserver';
 import { TextDocument, TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import { isMainThread } from 'worker_threads';

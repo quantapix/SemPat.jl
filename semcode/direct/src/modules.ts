@@ -1,7 +1,7 @@
 import * as qv from 'vscode';
 import * as rpc from 'vscode-jsonrpc';
 import * as vslc from 'vscode-languageclient/node';
-import { onSetLanguageClient } from './extension';
+import { onSetLanguageClient } from './extension_rs';
 import { registerCommand } from './utils';
 import { VersionedTextDocumentPositionParams } from './misc';
 import { onExit, onInit } from './repl';

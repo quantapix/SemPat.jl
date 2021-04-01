@@ -7,7 +7,7 @@ import { uuid } from 'uuidv4';
 import * as qv from 'vscode';
 import * as rpc from 'vscode-jsonrpc/node';
 import * as vslc from 'vscode-languageclient/node';
-import { onSetLanguageClient } from './extension';
+import { onSetLanguageClient } from './extension_rs';
 import { switchEnvToPath } from './packs';
 import * as packs from './packs';
 import { generatePipeName, getVersionedParamsAtPosition, inferJuliaNumThreads, registerCommand, setContext } from '../utils';

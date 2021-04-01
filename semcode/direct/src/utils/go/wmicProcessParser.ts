@@ -1,13 +1,3 @@
-/*---------------------------------------------------------
- * Copyright (C) Microsoft Corporation. All rights reserved.
- * Modification copyright 2021 The Go Authors. All rights reserved.
- * Licensed under the MIT License. See LICENSE in the project root for license information.
- *--------------------------------------------------------*/
-
-// Modified from:
-// https://github.com/microsoft/vscode-python/blob/main/src/client/debugger/extension/attachQuickPick/wmicProcessParser.ts.
-// - Added arguments to get the ExecutablePath from wmic.
-
 import { AttachItem, ProcessListCommand } from '../pickProcess';
 
 const wmicNameTitle = 'Name';
@@ -23,13 +13,6 @@ const defaultEmptyEntry: AttachItem = {
   commandLine: '',
 };
 
-// Perf numbers on Win10:
-// | # of processes | Time (ms) |
-// |----------------+-----------|
-// |			309 |	   413 |
-// |			407 |	   463 |
-// |			887 |	   746 |
-// |		   1308 |	  1132 |
 export const wmicCommand: ProcessListCommand = {
   command: 'wmic',
   args: ['process', 'get', 'Name,ProcessId,CommandLine,ExecutablePath', '/FORMAT:list'],
