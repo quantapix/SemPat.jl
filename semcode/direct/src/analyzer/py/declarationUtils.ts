@@ -17,8 +17,7 @@ export function hasTypeForDeclaration(declaration: Declaration): boolean {
       if (parameterParent?.nodeType === ParseNodeType.Function) {
         if (parameterParent.functionAnnotationComment && !parameterParent.functionAnnotationComment.isParamListEllipsis) {
           const paramAnnotations = parameterParent.functionAnnotationComment.paramTypeAnnotations;
-          // Handle the case where the annotation comment is missing an
-          // annotation for the first parameter (self or cls).
+
           if (parameterParent.parameters.length > paramAnnotations.length && declaration.node === parameterParent.parameters[0]) {
             return false;
           }
@@ -49,8 +48,6 @@ export function areDeclarationsSame(decl1: Declaration, decl2: Declaration): boo
     return false;
   }
 
-  // Alias declarations refer to the entire import statement.
-  // We need to further differentiate.
   if (decl1.type === DeclarationType.Alias && decl2.type === DeclarationType.Alias) {
     if (decl1.symbolName !== decl2.symbolName || decl1.firstNamePart !== decl2.firstNamePart || decl1.usesLocalName !== decl2.usesLocalName) {
       return false;

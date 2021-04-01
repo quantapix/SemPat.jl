@@ -33,7 +33,6 @@ export class GoRenameProvider implements qv.RenameProvider {
         gorenameArgs.push('-d');
       }
 
-      // eslint-disable-next-line prefer-const
       let p: cp.ChildProcess;
       if (token) {
         token.onCancellationRequested(() => killProcessTree(p));

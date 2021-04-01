@@ -71,14 +71,12 @@ export class FindReferencesTreeWalker extends ParseTreeWalker {
   }
 
   visitModuleName(node: ModuleNameNode): boolean {
-    // Don't ever look for references within a module name.
     return false;
   }
 
   visitName(node: NameNode): boolean {
     throwIfCancellationRequested(this._cancellationToken);
 
-    // No need to do any more work if the symbol name doesn't match.
     if (node.value !== this._referencesResult.symbolName) {
       return false;
     }
@@ -86,9 +84,7 @@ export class FindReferencesTreeWalker extends ParseTreeWalker {
     const declarations = this._evaluator.getDeclarationsForNameNode(node);
 
     if (declarations && declarations.length > 0) {
-      // Does this name share a declaration with the symbol of interest?
       if (declarations.some((decl) => this._resultsContainsDeclaration(decl))) {
-        // Is it the same symbol?
         if (this._includeDeclaration || node !== this._referencesResult.nodeAtOffset) {
           this._locationsFound.push({
             path: this._filePath,
@@ -105,7 +101,6 @@ export class FindReferencesTreeWalker extends ParseTreeWalker {
   }
 
   private _resultsContainsDeclaration(declaration: Declaration) {
-    // Resolve the declaration.
     const resolvedDecl = this._evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ false);
     if (!resolvedDecl) {
       return false;
@@ -144,12 +139,10 @@ export class ReferencesProvider {
       return undefined;
     }
 
-    // If this isn't a name node, there are no references to be found.
     if (node.nodeType !== ParseNodeType.Name) {
       return undefined;
     }
 
-    // Special case module names, which don't have references.
     if (node.parent?.nodeType === ParseNodeType.ModuleName) {
       return undefined;
     }

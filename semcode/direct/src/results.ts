@@ -114,7 +114,7 @@ export class Result {
         margin: '0 0 0 10px',
         border: '2px solid',
         borderColor: accentColor,
-        // HACK: CSS injection to get custom styling in:
+
         textDecoration: 'none; white-space: pre; border-top: 0px; border-right: 0px; border-bottom: 0px; border-radius: 2px',
       },
       dark: {
@@ -191,17 +191,14 @@ const results: Result[] = [];
 
 export function activate(context: qv.ExtensionContext) {
   context.subscriptions.push(
-    // subscriptions
     qv.workspace.onDidChangeTextDocument((e) => validateResults(e)),
     qv.window.onDidChangeVisibleTextEditors((editors) => refreshResults(editors)),
     qv.window.onDidChangeTextEditorSelection((changeEvent) => updateResultContextKey(changeEvent)),
 
-    // public commands
     registerCommand('language-julia.clearAllInlineResults', removeAll),
     registerCommand('language-julia.clearAllInlineResultsInEditor', () => removeAll(qv.window.activeTextEditor)),
     registerCommand('language-julia.clearCurrentInlineResult', () => removeCurrent(qv.window.activeTextEditor)),
 
-    // internal commands
     registerCommand('language-julia.openFile', (locationArg: { path: string; line: number }) => {
       openFile(locationArg.path, locationArg.line);
     }),
@@ -308,12 +305,7 @@ function setStackFrameHighlight(err: string, frames: Frame[], editors: qv.TextEd
 }
 
 function isEditorPath(editor: qv.TextEditor, path: string) {
-  return (
-    // for untitled editor we need this
-    editor.document.fileName === path ||
-    // more robust than using e.g. `editor.document.fileName`
-    editor.document.uri.toString() === qv.Uri.file(path).toString()
-  );
+  return editor.document.fileName === path || editor.document.uri.toString() === qv.Uri.file(path).toString();
 }
 
 function addErrorResult(err: string, frame: Frame, editor: qv.TextEditor) {
@@ -402,8 +394,6 @@ function isResultInLineRange(editor: qv.TextEditor, result: Result, range: qv.Se
   return intersect !== undefined || lineIntersect !== undefined;
 }
 
-// goto frame utilties
-
 async function openFile(path: string, line: number = undefined) {
   line = line || 1;
   const start = new qv.Position(line - 1, 0);
@@ -412,8 +402,6 @@ async function openFile(path: string, line: number = undefined) {
 
   let uri: qv.Uri;
   if (path.indexOf('Untitled') === 0) {
-    // can't open an untitled file like this:
-    // uri = qv.Uri.parse('untitled:' + path)
   } else {
     uri = qv.Uri.file(path);
   }

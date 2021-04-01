@@ -59,11 +59,6 @@ class JuliaTaskProvider {
         testTaskWithCoverage.group = qv.TaskGroup.Test;
         testTaskWithCoverage.presentationOptions = { echo: false, focus: false, panel: qv.TaskPanelKind.Dedicated, clear: true };
         result.push(testTaskWithCoverage);
-
-        // const livetestTask = new qv.Task({ type: 'julia', command: 'livetest' }, folder, `Run tests live (experimental)`, 'julia', new qv.ProcessExecution(jlexepath, ['--color=yes', `--project=${pkgenvpath}`, path.join(this.context.extensionPath, 'scripts', 'tasks', 'task_liveunittesting.jl'), folder.name, qv.workspace.getConfiguration('julia').get('liveTestFile')], { env: { JULIA_NUM_THREADS: inferJuliaNumThreads() } }), '')
-        // livetestTask.group = qv.TaskGroup.Test
-        // livetestTask.presentationOptions = { echo: false, focus: false, panel: qv.TaskPanelKind.Dedicated, clear: true }
-        // result.push(livetestTask)
       }
 
       const buildJuliaSysimage = new qv.Task(
@@ -138,7 +133,6 @@ class JuliaTaskProvider {
 
       return result;
     } catch (e) {
-      // TODO Let things crash and go to crash reporting
       return emptyTasks;
     }
   }

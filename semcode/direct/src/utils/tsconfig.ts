@@ -116,7 +116,7 @@ export async function openProjectConfigForFile(projectType: ProjectType, client:
   }
 
   const file = client.toPath(resource);
-  // TSServer errors when 'projectInfo' is invoked on a non js/ts file
+
   if (!file || !(await client.toPath(resource))) {
     qv.window.showWarningMessage(localize('typescript.projectConfigUnsupportedFile', 'Could not determine TypeScript or JavaScript project. Unsupported file type'));
     return;
@@ -125,9 +125,7 @@ export async function openProjectConfigForFile(projectType: ProjectType, client:
   let res: ServerResponse.Response<protocol.ProjectInfoResponse> | undefined;
   try {
     res = await client.execute('projectInfo', { file, needFileNameList: false }, nulToken);
-  } catch {
-    // noop
-  }
+  } catch {}
 
   if (res?.type !== 'response' || !res.body) {
     qv.window.showWarningMessage(localize('typescript.projectConfigCouldNotGetInfo', 'Could not determine TypeScript or JavaScript project'));

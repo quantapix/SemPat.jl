@@ -3,19 +3,12 @@ import Char from 'typescript-char';
 import { StringToken, StringTokenFlags } from './tokenizerTypes';
 
 export interface FormatStringSegment {
-  // Offset within the unescaped string where
-  // this format string segment begins.
   offset: number;
 
-  // Length of unescaped string corresponding
-  // to this segment.
   length: number;
 
-  // Unescaped value of segment (without brackets).
   value: string;
 
-  // Indicates whether this segment should be parsed
-  // as an expression.
   isExpression: boolean;
 }
 
@@ -27,14 +20,10 @@ export const enum UnescapeErrorType {
 }
 
 export interface UnescapeError {
-  // Offset within the unescaped string where
-  // this error begins.
   offset: number;
 
-  // Length of section associated with error.
   length: number;
 
-  // Type of error.
   errorType: UnescapeErrorType;
 }
 
@@ -66,7 +55,6 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
   };
 
   const addInvalidEscapeOffset = () => {
-    // Invalid escapes are not reported for raw strings.
     if (!isRaw) {
       output.unescapeErrors.push({
         offset: strOffset - 1,
@@ -121,7 +109,6 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
     if (curChar === Char.EndOfText) {
       if (isFormat) {
         if (formatSegment.isExpression) {
-          // The last format segment was an unterminated expression.
           output.unescapeErrors.push({
             offset: formatSegment.offset,
             length: strOffset - formatSegment.offset,
@@ -129,7 +116,6 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
           });
         }
 
-        // Push the last segment.
         if (strOffset !== formatSegment.offset) {
           formatSegment.length = strOffset - formatSegment.offset;
           output.formatStringSegments.push(formatSegment);
@@ -140,7 +126,6 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
 
     if (curChar === Char.Backslash) {
       if (isFormat && formatSegment.isExpression) {
-        // Backslashes aren't allowed within format string expressions.
         output.unescapeErrors.push({
           offset: strOffset,
           length: 1,
@@ -148,7 +133,6 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
         });
       }
 
-      // Move past the escape (backslash) character.
       strOffset++;
 
       if (isRaw) {
@@ -248,9 +232,6 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                 localValue = '\\' + String.fromCharCode(curChar);
                 strOffset++;
               } else {
-                // We don't have the Unicode name database handy, so
-                // assume that the name is valid and use a '-' as a
-                // replacement character.
                 localValue = '-';
                 strOffset += 1 + charCount;
               }
@@ -294,7 +275,6 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
       output.value += localValue;
       formatSegment.value += localValue;
     } else if (curChar === Char.LineFeed || curChar === Char.CarriageReturn) {
-      // Skip over the escaped new line (either one or two characters).
       if (curChar === Char.CarriageReturn && getEscapedCharacter(1) === Char.LineFeed) {
         appendOutputChar(curChar);
         strOffset++;
@@ -309,15 +289,12 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
         strOffset += 2;
       } else {
         if (formatExpressionNestCount === 0) {
-          // A single open brace within a format literal indicates that
-          // an expression is starting.
           formatSegment.length = strOffset - formatSegment.offset;
           if (formatSegment.length > 0) {
             output.formatStringSegments.push(formatSegment);
           }
           strOffset++;
 
-          // Start a new segment.
           formatSegment = {
             offset: strOffset,
             length: 0,
@@ -345,13 +322,10 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
         formatExpressionNestCount--;
 
         if (formatExpressionNestCount === 0) {
-          // A close brace within a format expression indicates that
-          // the expression is complete.
           formatSegment.length = strOffset - formatSegment.offset;
           output.formatStringSegments.push(formatSegment);
           strOffset++;
 
-          // Start a new segment.
           formatSegment = {
             offset: strOffset,
             length: 0,
@@ -364,8 +338,6 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
         }
       }
     } else if (formatSegment.isExpression && (curChar === Char.SingleQuote || curChar === Char.DoubleQuote)) {
-      // We're within an expression, and we've encountered a string literal.
-      // Skip over it.
       const quoteChar = curChar;
       appendOutputChar(curChar);
       const isTriplicate = getEscapedCharacter(1) === quoteChar && getEscapedCharacter(2) === quoteChar;
@@ -415,7 +387,6 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
         appendOutputChar(strChar);
       }
     } else {
-      // There's nothing to unescape, so output the escaped character directly.
       if (isBytes && curChar >= 128) {
         output.nonAsciiInBytes = true;
       }

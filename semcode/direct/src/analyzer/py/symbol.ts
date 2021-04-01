@@ -5,35 +5,20 @@ import { Type } from './types';
 export const enum SymbolFlags {
   None = 0,
 
-  // Indicates that the symbol is unbound at the start of
-  // execution. Some symbols are initialized by the module
-  // loader, so they are bound even before the first statement
-  // in the module is executed.
   InitiallyUnbound = 1 << 0,
 
-  // Indicates that the symbol is not visible from other files.
-  // Used for module-level symbols.
   ExternallyHidden = 1 << 1,
 
-  // Indicates that the symbol is a class member of a class.
   ClassMember = 1 << 2,
 
-  // Indicates that the symbol is an instance member of a class.
   InstanceMember = 1 << 3,
 
-  // Indicates that the symbol is considered "private" to the
-  // class and should not be accessed outside or overridden.
   PrivateMember = 1 << 5,
 
-  // Indicates that the symbol is not considered for protocol
-  // matching. This applies to some built-in symbols like __class__.
   IgnoredForProtocolMatch = 1 << 6,
 
-  // Indicates that the symbol is a ClassVar, so it cannot be
-  // set when accessed through a class instance.
   ClassVar = 1 << 7,
 
-  // Indicates that the symbol is in __all__.
   InDunderAll = 1 << 8,
 }
 
@@ -42,25 +27,15 @@ function getUniqueSymbolId() {
   return nextSymbolId++;
 }
 
-// Symbol ID that indicates that there is no specific symbol.
 export const indeterminateSymbolId = 0;
 
 export class Symbol {
-  // Information about the node that declared the value -
-  // i.e. where the editor will take the user if "show definition"
-  // is selected. Multiple declarations can exist for variables,
-  // properties, and functions (in the case of @overload).
   private _declarations?: Declaration[];
 
-  // Flags that provide information about the symbol.
   private _flags: SymbolFlags;
 
-  // Unique numeric ID for each symbol allocated.
   readonly id: number;
 
-  // Symbols that are completely synthesized (i.e. have no
-  // corresponding declarations in the program) can have
-  // a specified type.
   private _synthesizedType?: Type;
 
   constructor(flags = SymbolFlags.ClassMember) {
@@ -136,23 +111,16 @@ export class Symbol {
 
   addDeclaration(declaration: Declaration) {
     if (this._declarations) {
-      // See if this node was already identified as a declaration. If so,
-      // replace it. Otherwise, add it as a new declaration to the end of
-      // the list.
       const declIndex = this._declarations.findIndex((decl) => areDeclarationsSame(decl, declaration));
       if (declIndex < 0) {
         this._declarations.push(declaration);
 
-        // If there is more than one declaration for a symbol, we will
-        // assume it is not a type alias.
         this._declarations.forEach((decl) => {
           if (decl.type === DeclarationType.Variable && decl.typeAliasName) {
             delete decl.typeAliasName;
           }
         });
       } else {
-        // If the new declaration has a defined type, it should replace
-        // the existing one.
         const curDecl = this._declarations[declIndex];
         if (hasTypeForDeclaration(declaration)) {
           this._declarations[declIndex] = declaration;
@@ -162,9 +130,6 @@ export class Symbol {
             }
           }
         } else if (declaration.type === DeclarationType.Variable) {
-          // If it's marked "final" or "type alias", this should be reflected
-          // in the existing declaration. Likewise, if the existing declaration
-          // doesn't have a type source, add it.
           if (curDecl.type === DeclarationType.Variable) {
             if (declaration.isFinal) {
               curDecl.isFinal = true;
@@ -194,7 +159,6 @@ export class Symbol {
   }
 
   hasTypedDeclarations() {
-    // We'll treat an synthesized type as an implicit declaration.
     if (this._synthesizedType) {
       return true;
     }
@@ -211,5 +175,4 @@ export class Symbol {
   }
 }
 
-// Maps names to symbol information.
 export type SymbolTable = Map<string, Symbol>;

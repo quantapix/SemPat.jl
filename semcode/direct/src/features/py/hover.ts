@@ -251,7 +251,6 @@ export class HoverProvider {
 
         docStrings.push(getFunctionDocStringInherited(type, resolvedDecl, sourceMapper, classResults?.classType));
       } else if (resolvedDecl?.type === DeclarationType.Class) {
-        // Special case where hover on Class decl returns __init__ docString
         const enclosingClass = resolvedDecl.node.nodeType === ParseNodeType.Class ? resolvedDecl.node : undefined;
         const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
         const fieldSymbol = classResults?.classType.details.fields.get(type.details.name);
@@ -266,7 +265,6 @@ export class HoverProvider {
 
       docStrings.push(...getOverloadedFunctionDocStringsInherited(type, resolvedDecl, sourceMapper, evaluator, classResults?.classType));
     } else if (resolvedDecl?.type === DeclarationType.Function) {
-      // @property functions
       const enclosingClass = resolvedDecl?.type === DeclarationType.Function ? ParseTreeUtils.getEnclosingClass((resolvedDecl as FunctionDeclaration).node.name, false) : undefined;
       const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
 

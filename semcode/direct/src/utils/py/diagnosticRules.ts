@@ -3,7 +3,6 @@ export enum DiagnosticRule {
   strictDictionaryInference = 'strictDictionaryInference',
   strictParameterNoneValue = 'strictParameterNoneValue',
   enableTypeIgnoreComments = 'enableTypeIgnoreComments',
-
   reportGeneralTypeIssues = 'reportGeneralTypeIssues',
   reportPropertyTypeMismatch = 'reportPropertyTypeMismatch',
   reportFunctionMemberAccess = 'reportFunctionMemberAccess',

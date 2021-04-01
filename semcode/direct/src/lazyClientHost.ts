@@ -45,7 +45,7 @@ export function lazilyActivateClient(lazyClientHost: Lazy<TypeScriptServiceClien
   const maybeActivate = (textDocument: qv.TextDocument): boolean => {
     if (!hasActivated && isSupportedDocument(supportedLanguage, textDocument)) {
       hasActivated = true;
-      // Force activation
+
       void lazyClientHost.value;
 
       disposables.push(

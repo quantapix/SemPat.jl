@@ -131,10 +131,8 @@ export interface ServerOptions {
 }
 
 interface InternalFileWatcher extends FileWatcher {
-  // Paths that are being watched within the workspace
   workspacePaths: string[];
 
-  // Event handler to call
   eventHandler: FileWatcherEventHandler;
 }
 
@@ -157,7 +155,6 @@ interface ClientCapabilities {
 }
 
 export abstract class LanguageServerBase implements LanguageServerInterface {
-  // Create a connection for the server. The connection type can be changed by the process's arguments
   protected _connection: Connection = createConnection(this._GetConnectionOptions());
   protected _workspaceMap: WorkspaceMap;
   protected _defaultClientConfig: any;
@@ -180,30 +177,23 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     completionItemResolveSupportsAdditionalTextEdits: false,
   };
 
-  // Tracks active file system watchers.
   private _fileWatchers: InternalFileWatcher[] = [];
 
-  // We support running only one "find all reference" at a time.
   private _pendingFindAllRefsCancellationSource: CancellationTokenSource | undefined;
 
-  // We support running only one command at a time.
   private _pendingCommandCancellationSource: CancellationTokenSource | undefined;
 
   private _progressReporter: ProgressReporter;
 
   private _lastTriggerKind: CompletionTriggerKind | undefined = CompletionTriggerKind.Invoked;
 
-  // Global root path - the basis for all global settings.
   rootPath = '';
 
-  // File system abstraction.
   fs: FileSystem;
 
   readonly console: ConsoleInterface;
 
   constructor(private _serverOptions: ServerOptions) {
-    // Stash the base directory into a global variable.
-    // This must happen before fs.getModulePath().
     (global as any).__rootDirectory = _serverOptions.rootDirectory;
 
     this.console = new ConsoleWithLogLevel(this._connection.console);
@@ -214,23 +204,17 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
     this.fs = new PyrightFileSystem(createFromRealFileSystem(this.console, this));
 
-    // Set the working directory to a known location within
-    // the extension directory. Otherwise the execution of
-    // python can have unintended and surprising results.
     const moduleDirectory = this.fs.getModulePath();
     if (moduleDirectory) {
       this.fs.chdir(moduleDirectory);
     }
 
-    // Create workspace map.
     this._workspaceMap = new WorkspaceMap(this);
 
-    // Set up callbacks.
     this.setupConnection(_serverOptions.supportedCommands ?? [], _serverOptions.supportedCodeActions ?? []);
 
     this._progressReporter = new ProgressReportTracker(this.createProgressReporter());
 
-    // Listen on the connection.
     this._connection.listen();
   }
 
@@ -239,10 +223,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
   protected abstract executeCommand(params: ExecuteCommandParams, token: CancellationToken): Promise<any>;
 
   protected isLongRunningCommand(command: string): boolean {
-    // By default, all commands are considered "long-running" and should
-    // display a cancelable progress dialog. Servers can override this
-    // to avoid showing the progress dialog for commands that are
-    // guaranteed to be quick.
     return true;
   }
 
@@ -307,13 +287,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     this._serverOptions.extension = extension;
   }
 
-  // Provides access to the client's window.
   get window(): RemoteWindow {
     return this._connection.window;
   }
 
-  // Creates a service instance that's used for analyzing a
-  // program within a workspace.
   createAnalyzerService(name: string): AnalyzerService {
     this.console.log(`Starting service instance "${name}"`);
     const service = new AnalyzerService(
@@ -352,12 +329,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
   }
 
   createFileWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher {
-    // Capture "this" so we can reference it within the "close" method below.
     const lsBase = this;
 
-    // Determine which paths are located within one or more workspaces.
-    // Those are already covered by existing file watchers handled by
-    // the client.
     const workspacePaths: string[] = [];
     const nonWorkspacePaths: string[] = [];
     const workspaces = this._workspaceMap.getNonDefaultWorkspaces();
@@ -370,7 +343,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
       }
     });
 
-    // For any non-workspace paths, use the node file watcher.
     let nodeWatchers: FileWatcher[];
 
     try {
@@ -378,19 +350,14 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return fs.watch(path, { recursive: true }, (event, filename) => listener(event as FileWatcherEventType, filename));
       });
     } catch (e) {
-      // Versions of node >= 14 are reportedly throwing exceptions
-      // when calling fs.watch with recursive: true. Just swallow
-      // the exception and proceed.
       this.console.error(`Exception received when installing recursive file system watcher`);
       nodeWatchers = [];
     }
 
     const fileWatcher: InternalFileWatcher = {
       close() {
-        // Stop listening for workspace paths.
         lsBase._fileWatchers = lsBase._fileWatchers.filter((watcher) => watcher !== fileWatcher);
 
-        // Close the node watchers.
         nodeWatchers.forEach((watcher) => {
           watcher.close();
         });
@@ -399,15 +366,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
       eventHandler: listener,
     };
 
-    // Record the file watcher.
     this._fileWatchers.push(fileWatcher);
 
     return fileWatcher;
   }
 
   protected setupConnection(supportedCommands: string[], supportedCodeActions: string[]): void {
-    // After the server has started the client sends an initialize request. The server receives
-    // in the passed params the rootPath of the workspace plus the client capabilities.
     this._connection.onInitialize((params) => this.initialize(params, supportedCommands, supportedCodeActions));
 
     this._connection.onDidChangeConfiguration((params) => {
@@ -452,9 +416,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this._pendingFindAllRefsCancellationSource = undefined;
       }
 
-      // VS Code doesn't support cancellation of "final all references".
-      // We provide a progress bar a cancellation button so the user can cancel
-      // any long-running actions.
       const progress = await this._getProgressReporter(params.workDoneToken, workDoneReporter, Localizer.CodeAction.findingReferences());
 
       const source = CancelAfter(token, progress.token);
@@ -578,8 +539,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return sigInfo;
       });
 
-      // A signature is active if it contains an active parameter,
-      // or if both the signature and its invocation have no parameters.
       const isActive = (sig: SignatureInformation) => sig.activeParameter !== undefined || (!signatureHelpResults.callHasParameters && !sig.parameters?.length);
 
       let activeSignature: number | null = signatures.findIndex(isActive);
@@ -589,15 +548,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
       let activeParameter = activeSignature !== null ? signatures[activeSignature].activeParameter! : null;
 
-      // Check if we should reuse the user's signature selection. If the retrigger was not "invoked"
-      // (i.e., the signature help call was automatically generated by the client due to some navigation
-      // or text change), check to see if the previous signature is still "active". If so, we mark it as
-      // active in our response.
-      //
-      // This isn't a perfect method. For nested calls, we can't tell when we are moving between them.
-      // Ideally, we would include a token in the signature help responses to compare later, allowing us
-      // to know when the user's navigated to a nested call (and therefore the old signature's info does
-      // not apply), but for now manually retriggering the signature help will work around the issue.
       if (params.context?.isRetrigger && params.context.triggerKind !== SignatureHelpTriggerKind.Invoked) {
         const prevActiveSignature = params.context.activeSignatureHelp?.activeSignature ?? null;
         if (prevActiveSignature !== null && prevActiveSignature < signatures.length) {
@@ -610,10 +560,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
       }
 
       if (this.client.hasActiveParameterCapability || activeSignature === null) {
-        // A value of -1 is out of bounds but is legal within the LSP (should be treated
-        // as undefined). It produces a better result in VS Code by preventing it from
-        // highlighting the first parameter when no parameter works, since the LSP client
-        // converts null into zero.
         activeParameter = -1;
       }
 
@@ -623,12 +569,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     this._connection.onCompletion((params, token) => this.onCompletion(params, token));
 
     this._connection.onCompletionResolve(async (params, token) => {
-      // Cancellation bugs in vscode and LSP:
-      // https://github.com/microsoft/vscode-languageserver-node/issues/615
-      // https://github.com/microsoft/vscode/issues/95485
-      //
-      // If resolver throws cancellation exception, LSP and VSCode
-      // cache that result and never call us back.
       const completionItemData = params.data as CompletionItemData;
       if (completionItemData && completionItemData.filePath) {
         const workspace = await this.getWorkspaceForFile(completionItemData.workspacePath);
@@ -677,7 +617,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return null;
       }
 
-      // Convert the file path in the item to proper URI.
       callItem.uri = convertPathToUri(this.fs, callItem.uri);
 
       return [callItem];
@@ -701,7 +640,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return null;
       }
 
-      // Convert the file paths in the items to proper URIs.
       callItems.forEach((item) => {
         item.from.uri = convertPathToUri(this.fs, item.from.uri);
       });
@@ -727,7 +665,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return null;
       }
 
-      // Convert the file paths in the items to proper URIs.
       callItems.forEach((item) => {
         item.to.uri = convertPathToUri(this.fs, item.to.uri);
       });
@@ -739,10 +676,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
       let filePath = convertUriToPath(this.fs, params.textDocument.uri);
       const workspace = await this.getWorkspaceForFile(filePath);
 
-      // Make sure partial stub packages are processed for the given exe environment.
-      // This can happen if a user opens file inside of a partial stub package directly out of band.
       if (workspace.serviceInstance.ensurePartialStubPackages(filePath)) {
-        // If mapping happened, re-check mapped file path.
         filePath = convertUriToPath(this.fs, params.textDocument.uri);
       }
 
@@ -792,7 +726,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         });
       }
 
-      // Set up our file watchers.
       if (this.client.hasWatchFileCapability) {
         this._connection.client.register(DidChangeWatchedFilesNotification.type, {
           watchers: [
@@ -812,7 +745,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     });
 
     this._connection.onExecuteCommand(async (params, token, reporter) => {
-      // Cancel running command if there is one.
       if (this._pendingCommandCancellationSource) {
         this._pendingCommandCancellationSource.cancel();
         this._pendingCommandCancellationSource = undefined;
@@ -821,13 +753,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
       const executeCommand = async (token: CancellationToken) => {
         const result = await this.executeCommand(params, token);
         if (WorkspaceEdit.is(result)) {
-          // Tell client to apply edits.
           this._connection.workspace.applyEdit(result);
         }
       };
 
       if (this.isLongRunningCommand(params.command)) {
-        // Create a progress dialog for long-running commands.
         const progress = await this._getProgressReporter(params.workDoneToken, reporter, Localizer.CodeAction.executingCommand());
         const source = CancelAfter(token, progress.token);
         this._pendingCommandCancellationSource = source;
@@ -893,7 +823,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     this.client.hasGoToDeclarationCapability = !!capabilities.textDocument?.declaration;
     this.client.completionItemResolveSupportsAdditionalTextEdits = !!capabilities.textDocument?.completion?.completionItem?.resolveSupport?.properties.some((p) => p === 'additionalTextEdits');
 
-    // Create a service instance for each of the workspace folders.
     if (params.workspaceFolders) {
       params.workspaceFolders.forEach((folder) => {
         const path = convertUriToPath(this.fs, folder.uri);
@@ -951,7 +880,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
   }
 
   protected onAnalysisCompletedHandler(results: AnalysisResults): void {
-    // Send the computed diagnostics to the client.
     results.diagnostics.forEach((fileDiag) => {
       this._connection.sendDiagnostics({
         uri: convertPathToUri(this.fs, fileDiag.filePath),
@@ -960,15 +888,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     });
 
     if (!this._progressReporter.isEnabled(results)) {
-      // Make sure to disable progress bar if it is currently active.
-      // This can happen if a user changes typeCheckingMode in the middle
-      // of analysis.
-      // end() is noop if there is no active progress bar.
       this._progressReporter.end();
       return;
     }
 
-    // Update progress.
     if (results.filesRequiringAnalysis > 0) {
       this._progressReporter.begin();
 
@@ -987,14 +910,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
   async updateSettingsForWorkspace(workspace: WorkspaceServiceInstance, serverSettings?: ServerSettings): Promise<void> {
     serverSettings = serverSettings ?? (await this.getSettings(workspace));
 
-    // Set logging level first.
     (this.console as ConsoleWithLogLevel).level = serverSettings.logLevel ?? LogLevel.Info;
 
     this.updateOptionsAndRestartService(workspace, serverSettings);
     workspace.disableLanguageServices = !!serverSettings.disableLanguageServices;
     workspace.disableOrganizeImports = !!serverSettings.disableOrganizeImports;
 
-    // The workspace is now open for business.
     workspace.isInitialized.resolve(true);
   }
 
@@ -1003,14 +924,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
   }
 
   protected async onCompletion(params: CompletionParams, token: CancellationToken): Promise<CompletionList | undefined> {
-    // We set completion incomplete for the first invocation and next consecutive call,
-    // but after that we mark it as completed so the client doesn't repeatedly call back.
-    // We mark the first one as incomplete because completion could be invoked without
-    // any meaningful character provided, such as an explicit completion invocation (ctrl+space)
-    // or a period. That might cause us to not include some items (e.g., auto-imports).
-    // The next consecutive call provides some characters to help us to pick
-    // better completion items. After that, we are not going to introduce new items,
-    // so we can let the client to do the filtering and caching.
     const completionIncomplete =
       this._lastTriggerKind !== CompletionTriggerKind.TriggerForIncompleteCompletions || params.context?.triggerKind !== CompletionTriggerKind.TriggerForIncompleteCompletions;
 
@@ -1101,7 +1014,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         vsDiag.tags = [DiagnosticTag.Unnecessary];
         vsDiag.severity = DiagnosticSeverity.Hint;
 
-        // If the client doesn't support "unnecessary" tags, don't report unused code.
         if (!this.client.supportsUnnecessaryDiagnosticTag) {
           return;
         }
@@ -1143,25 +1055,17 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
   }
 
   protected recordUserInteractionTime() {
-    // Tell all of the services that the user is actively
-    // interacting with one or more editors, so they should
-    // back off from performing any work.
     this._workspaceMap.forEach((workspace: { serviceInstance: { recordUserInteractionTime: () => void } }) => {
       workspace.serviceInstance.recordUserInteractionTime();
     });
   }
 
   protected getDocumentationUrlForDiagnosticRule(rule: string): string | undefined {
-    // For now, return the same URL for all rules. We can separate these
-    // in the future.
     return 'https://github.com/microsoft/pyright/blob/master/docs/configuration.md';
   }
 
   protected abstract createProgressReporter(): ProgressReporter;
 
-  // Expands certain predefined variables supported within VS Code settings.
-  // Ideally, VS Code would provide an API for doing this expansion, but
-  // it doesn't. We'll handle the most common variables here as a convenience.
   protected expandPathVariables(rootPath: string, value: string): string {
     const regexp = /\$\{(.*?)\}/g;
     return value.replace(regexp, (match: string, name: string) => {

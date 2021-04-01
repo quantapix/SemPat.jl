@@ -60,12 +60,9 @@ export async function ensureComponents(config: RustupConfig, components: string[
 }
 
 async function hasToolchain({ channel, path }: RustupConfig): Promise<boolean> {
-  // In addition to a regular channel name, also handle shorthands e.g.
-  // `stable-msvc` or `stable-x86_64-msvc` but not `stable-x86_64-pc-msvc`.
   const abiSuffix = ['-gnu', '-msvc'].find((abi) => channel.endsWith(abi));
   const [prefix, suffix] = abiSuffix && channel.split('-').length <= 3 ? [channel.substr(0, channel.length - abiSuffix.length), abiSuffix] : [channel, undefined];
-  // Skip middle target triple components such as vendor as necessary, since
-  // `rustup` output lists toolchains with a full target triple inside
+
   const matcher = new RegExp([prefix, suffix && `.*${suffix}`].join(''));
   try {
     const { stdout } = await exec(`${path} toolchain list`);

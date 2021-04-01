@@ -53,12 +53,10 @@ export class CallHierarchyProvider {
   static getOutgoingCallsForDeclaration(declaration: Declaration, parseResults: ParseResults, evaluator: TypeEvaluator, token: CancellationToken): CallHierarchyOutgoingCall[] | undefined {
     throwIfCancellationRequested(token);
 
-    // Find the parse node root corresponding to the function or class.
     let parseRoot: ParseNode | undefined;
     if (declaration.type === DeclarationType.Function) {
       parseRoot = declaration.node;
     } else if (declaration.type === DeclarationType.Class) {
-      // Look up the __init__ method for this class.
       const classType = evaluator.getTypeForDeclaration(declaration);
       if (classType && isClass(classType)) {
         const initMethodMember = lookUpClassMember(
@@ -242,7 +240,6 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
       nameNode = node.leftExpression.memberName;
     }
 
-    // Don't bother doing any more work if the name doesn't match.
     if (nameNode && nameNode.value === this._symbolName) {
       const declarations = this._evaluator.getDeclarationsForNameNode(nameNode);
 

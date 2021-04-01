@@ -178,11 +178,8 @@ export class BackgroundAnalysisProgram {
 
     this._backgroundAnalysis?.invalidateAndForceReanalysis();
 
-    // Make sure the import resolver doesn't have invalid
-    // cached entries.
     this._importResolver.invalidateCache();
 
-    // Mark all files with one or more errors dirty.
     this._program.markAllFilesDirty(true);
   }
 
@@ -200,8 +197,6 @@ export class BackgroundAnalysisProgram {
       const map = new Map<string, Map<string, IndexResults>>();
       this._indices = {
         setWorkspaceIndex(path: string, indexResults: IndexResults): void {
-          // Index result of workspace file will be cached by each sourceFile
-          // and it will go away when the source file goes away.
           program.getSourceFile(path)?.cacheIndexResults(indexResults);
         },
         getIndex(execEnv: string): Map<string, IndexResults> | undefined {

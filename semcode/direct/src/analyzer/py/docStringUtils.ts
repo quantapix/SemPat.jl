@@ -1,14 +1,10 @@
 export function decodeDocString(rawString: string): string {
-  // Remove carriage returns and replace tabs.
   const unescaped = rawString.replace(/\r/g, '').replace(/\t/g, '        ');
 
-  // Split into lines.
   const lines = unescaped.split('\n');
 
-  // Determine the max indent amount.
   let leftSpacesToRemove = Number.MAX_VALUE;
   lines.forEach((line, index) => {
-    // First line is special.
     if (lines.length <= 1 || index > 0) {
       const trimmed = line.trimLeft();
       if (trimmed) {
@@ -17,12 +13,10 @@ export function decodeDocString(rawString: string): string {
     }
   });
 
-  // Handle the case where there were only empty lines.
   if (leftSpacesToRemove >= Number.MAX_VALUE) {
     leftSpacesToRemove = 0;
   }
 
-  // Trim the lines.
   const trimmedLines: string[] = [];
   lines.forEach((line, index) => {
     if (index === 0) {
@@ -32,7 +26,6 @@ export function decodeDocString(rawString: string): string {
     }
   });
 
-  // Strip off leading and trailing blank lines.
   while (trimmedLines.length > 0 && trimmedLines[0].length === 0) {
     trimmedLines.shift();
   }
@@ -49,43 +42,25 @@ export function extractParameterDocumentation(functionDocString: string, paramNa
     return undefined;
   }
 
-  // Python doesn't have a single standard for param documentation. There are three
-  // popular styles.
-  //
-  // 1. Epytext:
-  //      @param param1: description
-  // 2. reST:
-  //      :param param1: description
-  // 3. Google (variant 1):
-  //      Args:
-  //          param1: description
-  // 4. Google (variant 2):
-  //      Args:
-  //          param1 (type): description
-
   const docStringLines = functionDocString.split('\n');
   for (const line of docStringLines) {
     const trimmedLine = line.trim();
 
-    // Check for Epytext
     let paramOffset = trimmedLine.indexOf('@param ' + paramName);
     if (paramOffset >= 0) {
       return trimmedLine.substr(paramOffset + 7);
     }
 
-    // Check for reST format
     paramOffset = trimmedLine.indexOf(':param ' + paramName);
     if (paramOffset >= 0) {
       return trimmedLine.substr(paramOffset + 7);
     }
 
-    // Check for Google (variant 1) format
     paramOffset = trimmedLine.indexOf(paramName + ': ');
     if (paramOffset >= 0) {
       return trimmedLine.substr(paramOffset);
     }
 
-    // Check for Google (variant 1) format
     paramOffset = trimmedLine.indexOf(paramName + ' (');
     if (paramOffset >= 0) {
       return trimmedLine.substr(paramOffset);

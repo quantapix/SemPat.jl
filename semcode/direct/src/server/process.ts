@@ -159,7 +159,6 @@ export class ChildServerProcess extends Disposable implements TsServerProcess {
     newEnv['ELECTRON_RUN_AS_NODE'] = '1';
     newEnv['NODE_PATH'] = path.join(modulePath, '..', '..', '..');
 
-    // Ensure we always have a PATH set
     newEnv['PATH'] = newEnv['PATH'] || process.env.PATH;
 
     return newEnv;

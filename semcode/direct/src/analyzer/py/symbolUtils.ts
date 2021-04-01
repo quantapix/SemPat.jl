@@ -12,8 +12,6 @@ export function getLastTypedDeclaredForSymbol(symbol: Symbol): Declaration | und
   return undefined;
 }
 
-// Within TypedDict classes, member variables are not accessible as
-// normal attributes. Instead, they are accessed through index operations.
 export function isTypedDictMemberAccessedThroughIndex(symbol: Symbol): boolean {
   const typedDecls = symbol.getTypedDeclarations();
 

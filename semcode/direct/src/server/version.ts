@@ -131,9 +131,7 @@ export class DiskTypeScriptVersionProvider implements ITypeScriptVersionProvider
           return bundledVersion;
         }
       }
-    } catch {
-      // noop
-    }
+    } catch {}
     return undefined;
   }
 
@@ -185,7 +183,6 @@ export class DiskTypeScriptVersionProvider implements ITypeScriptVersionProvider
       return version;
     }
 
-    // Allow TS developers to provide custom version
     const tsdkVersion = qv.workspace.getConfiguration().get<string | undefined>('typescript.tsdk_version', undefined);
     if (tsdkVersion) {
       return API.fromVersionString(tsdkVersion);
@@ -207,7 +204,6 @@ export class DiskTypeScriptVersionProvider implements ITypeScriptVersionProvider
     const modulePath = p2.join(path.sep);
     let fileName = path.join(modulePath, 'package.json');
     if (!fs.existsSync(fileName)) {
-      // Special case for ts dev versions
       if (path.basename(modulePath) === 'built') {
         fileName = path.join(modulePath, '..', 'package.json');
       }

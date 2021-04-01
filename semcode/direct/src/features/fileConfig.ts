@@ -110,7 +110,7 @@ export default class FileConfigurationManager extends Disposable {
       tabSize: options.tabSize,
       indentSize: options.tabSize,
       convertTabsToSpaces: options.insertSpaces,
-      // We can use \n here since the editor normalizes later on to its line endings.
+
       newLineCharacter: '\n',
       insertSpaceAfterCommaDelimiter: config.get<boolean>('insertSpaceAfterCommaDelimiter'),
       insertSpaceAfterConstructor: config.get<boolean>('insertSpaceAfterConstructor'),

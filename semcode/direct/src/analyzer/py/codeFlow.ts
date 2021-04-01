@@ -34,13 +34,10 @@ export interface FlowNode {
   id: number;
 }
 
-// FlowLabel represents a junction with multiple possible
-// preceding control flows.
 export interface FlowLabel extends FlowNode {
   antecedents: FlowNode[];
 }
 
-// FlowAssignment represents a node that assigns a value.
 export interface FlowAssignment extends FlowNode {
   node: CodeFlowReferenceExpressionNode;
   antecedent: FlowNode;
@@ -57,31 +54,23 @@ export interface FlowVariableAnnotation extends FlowNode {
   antecedent: FlowNode;
 }
 
-// Similar to FlowAssignment but used specifically for
-// wildcard "from X import *" statements.
 export interface FlowWildcardImport extends FlowNode {
   node: ImportFromNode;
   names: string[];
   antecedent: FlowNode;
 }
 
-// FlowCondition represents a condition that is known to
-// be true or false at the node's location in the control flow.
 export interface FlowCondition extends FlowNode {
   expression: ExpressionNode;
   reference?: NameNode;
   antecedent: FlowNode;
 }
 
-// Records a call, which may raise exceptions, thus affecting
-// the code flow and making subsequent code unreachable.
 export interface FlowCall extends FlowNode {
   node: CallNode;
   antecedent: FlowNode;
 }
 
-// See comment in the visitTry method in binder.ts for a full
-// explanation of the FlowPreFinally and FlowPostFinally nodes.
 export interface FlowPreFinallyGate extends FlowNode {
   antecedent: FlowNode;
   isGateClosed: boolean;
@@ -108,8 +97,6 @@ export function isCodeFlowSupportedForReference(reference: ExpressionNode): bool
   }
 
   if (reference.nodeType === ParseNodeType.Index) {
-    // Allow index expressions that have a single subscript that is a
-    // literal integer value.
     if (reference.items.length !== 1 || reference.trailingComma || reference.items[0].name !== undefined || reference.items[0].argumentCategory !== ArgumentCategory.Simple) {
       return false;
     }

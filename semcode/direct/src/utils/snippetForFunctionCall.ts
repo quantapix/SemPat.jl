@@ -58,11 +58,10 @@ function getParameterListParts(displayParts: ReadonlyArray<qp.SymbolDisplayPart>
 
       case PConst.DisplayPartKind.parameterName:
         if (parenCount === 1 && braceCount === 0 && isInMethod) {
-          // Only take top level paren names
           const next = displayParts[i + 1];
-          // Skip optional parameters
+
           const nameIsFollowedByOptionalIndicator = next && next.text === '?';
-          // Skip this parameter
+
           const nameIsThis = part.text === 'this';
           if (!nameIsFollowedByOptionalIndicator && !nameIsThis) {
             parts.push(part);
@@ -80,7 +79,6 @@ function getParameterListParts(displayParts: ReadonlyArray<qp.SymbolDisplayPart>
             break outer;
           }
         } else if (part.text === '...' && parenCount === 1) {
-          // Found rest parmeter. Do not fill in any further arguments
           hasOptionalParameters = true;
           break outer;
         } else if (part.text === '{') {

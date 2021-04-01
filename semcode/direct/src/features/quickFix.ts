@@ -242,7 +242,6 @@ class QuickFix implements qv.CodeActionProvider<VsCodeCodeAction> {
 }
 
 const fixAllErrorCodes = new Map<number, number>([
-  // Missing async
   [2339, 2339],
   [2345, 2339],
 ]);

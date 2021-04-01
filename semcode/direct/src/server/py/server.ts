@@ -20,12 +20,8 @@ class PyrightServer extends LanguageServerBase {
   private _controller: CommandController;
 
   constructor() {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const version = require('../package.json').version || '';
 
-    // When executed from CLI command (pyright-langserver), __rootDirectory is
-    // already defined. When executed from VSCode extension, rootDirectory should
-    // be __dirname.
     const rootDirectory = (global as any).__rootDirectory || __dirname;
     super({
       productName: 'Pyright',
@@ -155,8 +151,6 @@ class PyrightServer extends LanguageServerBase {
 
   createBackgroundAnalysis(): BackgroundAnalysisBase | undefined {
     if (isDebugMode() || !getCancellationFolderName()) {
-      // Don't do background analysis if we're in debug mode or an old client
-      // is used where cancellation is not supported.
       return undefined;
     }
 
@@ -180,9 +174,6 @@ class PyrightServer extends LanguageServerBase {
   }
 
   protected createProgressReporter(): ProgressReporter {
-    // The old progress notifications are kept for backwards compatibility with
-    // clients that do not support work done progress.
-
     let workDoneProgress: Promise<WorkDoneProgressServerReporter> | undefined;
     return {
       isEnabled: (data: AnalysisResults) => true,
@@ -227,7 +218,6 @@ class PyrightServer extends LanguageServerBase {
 
 function main() {
   if (process.env.NODE_ENV === 'production') {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     require('source-map-support').install();
   }
 

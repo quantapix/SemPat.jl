@@ -50,7 +50,6 @@ export function analyzeProgram(
     const diagnosticFileCount = diagnostics.length;
     const elapsedTime = duration.getDurationInSeconds();
 
-    // Report any diagnostics or completion.
     if (diagnosticFileCount > 0 || !moreToAnalyze) {
       callback({
         diagnostics,

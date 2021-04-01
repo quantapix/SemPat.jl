@@ -118,7 +118,6 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
     token: qv.CancellationToken,
     config: qv.WorkspaceConfiguration
   ): Promise<qv.CompletionItem[] | qv.CompletionList> {
-    // Completions for the package statement based on the file name
     const pkgStatementCompletions = await getPackageStatementCompletions(document);
     if (pkgStatementCompletions && pkgStatementCompletions.length) {
       return pkgStatementCompletions;
@@ -137,12 +136,11 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
         const lineTillCurrentPosition = lineText.substr(0, position.character);
         const autocompleteUnimportedPackages = config['autocompleteUnimportedPackages'] === true && !lineText.match(/^(\s)*(import|package)(\s)+/);
 
-        // triggering completions in comments on exported members
         const commentCompletion = getCommentCompletion(document, position);
         if (commentCompletion) {
           return resolve([commentCompletion]);
         }
-        // prevent completion when typing in a line comment that doesnt start from the beginning of the line
+
         if (isPositionInComment(document, position)) {
           return resolve([]);
         }
@@ -162,15 +160,11 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
         const includeUnimportedPkgs = autocompleteUnimportedPackages && !inString && currentWord.length > 0;
 
         return this.runGoCode(document, filename, inputText, offset, inString, position, lineText, currentWord, includeUnimportedPkgs, config).then((suggestions) => {
-          // gocode does not suggest keywords, so we have to do it
           suggestions.push(...getKeywordCompletions(currentWord));
 
-          // If no suggestions and cursor is at a dot, then check if preceeding word is a package name
-          // If yes, then import the package in the inputText and run gocode again to get suggestions
           if ((!suggestions || suggestions.length === 0) && lineTillCurrentPosition.endsWith('.')) {
             const pkgPath = this.getPackagePathFromLine(lineTillCurrentPosition);
             if (pkgPath.length === 1) {
-              // Now that we have the package path, import it right after the "package" statement
               const v = parseFilePrelude(qv.window.activeTextEditor.document.getText());
               const pkg = v.pkg;
               const posToAddImport = document.offsetAt(new qv.Position(pkg.start + 1, 0));
@@ -178,12 +172,7 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
               inputText = inputText.substr(0, posToAddImport) + textToAdd + inputText.substr(posToAddImport);
               offset += textToAdd.length;
 
-              // Now that we have the package imported in the inputText, run gocode again
               return this.runGoCode(document, filename, inputText, offset, inString, position, lineText, currentWord, false, config).then((newsuggestions) => {
-                // Since the new suggestions are due to the package that we imported,
-                // add additionalTextEdits to do the same in the actual document in the editor
-                // We use additionalTextEdits instead of command so that 'useCodeSnippetsOnFunctionSuggest'
-                // feature continues to work
                 newsuggestions.forEach((item) => {
                   item.additionalTextEdits = getTextEditForAddImport(pkgPath[0]);
                 });
@@ -243,7 +232,6 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
       let stdout = '';
       let stderr = '';
 
-      // stamblerre/gocode does not support -unimported-packages flags.
       if (this.isGoMod) {
         const unimportedPkgIndex = this.gocodeFlags.indexOf('-unimported-packages');
         if (unimportedPkgIndex >= 0) {
@@ -251,14 +239,12 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
         }
       }
 
-      // -exclude-docs is something we use internally and is not related to gocode
       const excludeDocsIndex = this.gocodeFlags.indexOf('-exclude-docs');
       if (excludeDocsIndex >= 0) {
         this.gocodeFlags.splice(excludeDocsIndex, 1);
         this.excludeDocs = true;
       }
 
-      // Spawn `gocode` process
       const p = cp.spawn(gocode, [...this.gocodeFlags, 'autocomplete', filename, '' + offset], { env });
       p.stdout.on('data', (data) => (stdout += data));
       p.stderr.on('data', (data) => (stderr += data));
@@ -328,7 +314,6 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
                     param = param.replace('${', '\\${').replace('}', '\\}');
                     if (config['useCodeSnippetsOnFunctionSuggestWithoutType']) {
                       if (param.includes(' ')) {
-                        // Separate the variable name from the type
                         param = param.substr(0, param.indexOf(' '));
                       }
                     }
@@ -345,7 +330,6 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
                   if (param) {
                     param = param.replace('${', '\\${').replace('}', '\\}');
                     if (!param.includes(' ')) {
-                      // If we don't have an argument name, we need to create one
                       param = 'arg' + (i + 1) + ' ' + param;
                     }
                     const arg = param.substr(0, param.indexOf(' '));
@@ -367,13 +351,11 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
                 suggestions.push(auxItem);
               }
 
-              // Add same sortText to all suggestions from gocode so that they appear before the unimported packages
               item.sortText = 'a';
               suggestions.push(item);
             }
           }
 
-          // Add importable packages matching currentword to suggestions
           if (includeUnimportedPkgs && !this.isGoMod && !areCompletionsForPackageSymbols) {
             suggestions = suggestions.concat(getPackageCompletions(document, currentWord, this.pkgsList, packageSuggestions));
           }
@@ -388,7 +370,7 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
       }
     });
   }
-  // TODO: Shouldn't lib-path also be set?
+
   private ensureGoCodeConfigured(fileuri: qv.Uri, goConfig: qv.WorkspaceConfiguration): Thenable<void> {
     const currentFile = fileuri.fsPath;
     let checkModSupport = Promise.resolve(this.isGoMod);
@@ -461,7 +443,6 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
     });
   }
 
-  // Given a line ending with dot, return the import paths of packages that match with the word preceeding the dot
   private getPackagePathFromLine(line: string): string[] {
     const pattern = /(\w+)\.$/g;
     const wordmatches = pattern.exec(line);
@@ -470,15 +451,10 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
     }
 
     const [, pkgNameFromWord] = wordmatches;
-    // Word is isolated. Now check pkgsList for a match
+
     return this.getPackageImportPath(pkgNameFromWord);
   }
 
-  /**
-   * Returns import path for given package. Since there can be multiple matches,
-   * this returns an array of matches
-   * @param input Package name
-   */
   private getPackageImportPath(input: string): string[] {
     const matchingPackages: any[] = [];
     this.pkgsList.forEach((info: PackageInfo, pkgPath: string) => {
@@ -490,15 +466,10 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
   }
 }
 
-/**
- * Provides completion item for the exported member in the next line if current line is a comment
- * @param document The current document
- * @param position The cursor position
- */
 function getCommentCompletion(document: qv.TextDocument, position: qv.Position): qv.CompletionItem {
   const lineText = document.lineAt(position.line).text;
   const lineTillCurrentPosition = lineText.substr(0, position.character);
-  // triggering completions in comments on exported members
+
   if (lineCommentFirstWordRegex.test(lineTillCurrentPosition) && position.line + 1 < document.lineCount) {
     const nextLine = document.lineAt(position.line + 1).text.trim();
     const memberType = nextLine.match(exportedMemberRegex);
@@ -511,7 +482,6 @@ function getCommentCompletion(document: qv.TextDocument, position: qv.Position):
 }
 
 function getCurrentWord(document: qv.TextDocument, position: qv.Position): string {
-  // get current word
   const wordAtPosition = document.getWordRangeAtPosition(position);
   let currentWord = '';
   if (wordAtPosition && wordAtPosition.start.character < position.character) {
@@ -535,13 +505,6 @@ function getKeywordCompletions(currentWord: string): qv.CompletionItem[] {
   return completionItems;
 }
 
-/**
- * Return importable packages that match given word as Completion Items
- * @param document Current document
- * @param currentWord The word at the cursor
- * @param allPkgMap Map of all available packages and their import paths
- * @param importedPackages List of imported packages. Used to prune imported packages out of available packages
- */
 function getPackageCompletions(document: qv.TextDocument, currentWord: string, allPkgMap: Map<string, PackageInfo>, importedPackages: string[] = []): qv.CompletionItem[] {
   const cwd = path.dirname(document.fileName);
   const goWorkSpace = getCurrentGoWorkspaceFromGOPATH(getCurrentGoPath(), cwd);
@@ -564,7 +527,6 @@ function getPackageCompletions(document: qv.TextDocument, currentWord: string, a
       };
       item.kind = qv.CompletionItemKind.Module;
 
-      // Unimported packages should appear after the suggestions from gocode
       const isStandardPackage = !item.detail.includes('.');
       item.sortText = isStandardPackage ? 'za' : pkgPath.startsWith(currentPkgRootPath) ? 'zb' : 'zc';
       completionItems.push(item);
@@ -574,7 +536,6 @@ function getPackageCompletions(document: qv.TextDocument, currentWord: string, a
 }
 
 async function getPackageStatementCompletions(document: qv.TextDocument): Promise<qv.CompletionItem[]> {
-  // 'Smart Snippet' for package clause
   const inputText = document.getText();
   if (inputText.match(/package\s+(\w+)/)) {
     return [];

@@ -34,7 +34,6 @@ import { ParseTreeWalker } from './parseTreeWalker';
 export const enum PrintExpressionFlags {
   None = 0,
 
-  // Don't use string literals for forward declarations.
   ForwardDeclarations = 1 << 0,
 }
 
@@ -50,7 +49,6 @@ export function getNodeDepth(node: ParseNode): number {
   return depth;
 }
 
-// Returns the deepest node that contains the specified position.
 export function findNodeByPosition(node: ParseNode, position: Position, lines: TextRangeCollection<TextRange>): ParseNode | undefined {
   const offset = convertPositionToOffset(position, lines);
   if (offset === undefined) {
@@ -60,7 +58,6 @@ export function findNodeByPosition(node: ParseNode, position: Position, lines: T
   return findNodeByOffset(node, offset);
 }
 
-// Returns the deepest node that contains the specified offset.
 export function findNodeByOffset(node: ParseNode, offset: number): ParseNode | undefined {
   if (offset < node.start || offset > TextRange.getEnd(node)) {
     return undefined;
@@ -68,8 +65,6 @@ export function findNodeByOffset(node: ParseNode, offset: number): ParseNode | u
 
   const parseTreeWalker = new ParseTreeWalker();
 
-  // The range is found within this node. See if we can localize it
-  // further by checking its children.
   const children = parseTreeWalker.visitNode(node);
   for (const child of children) {
     if (child) {
@@ -536,8 +531,6 @@ export function getEnclosingSuiteOrModule(node: ParseNode, stopAtFunction = fals
 }
 
 export function getEvaluationNodeForAssignmentExpression(node: AssignmentExpressionNode): LambdaNode | FunctionNode | ModuleNode | undefined {
-  // PEP 572 indicates that the evaluation node for an assignment expression
-  // target is the containing lambda, function or module, but not a class.
   let curNode: ParseNode | undefined = getEvaluationScopeNode(node);
 
   while (curNode !== undefined) {
@@ -557,8 +550,6 @@ export function getEvaluationNodeForAssignmentExpression(node: AssignmentExpress
   return undefined;
 }
 
-// Returns the parse node corresponding to the scope that is used to evaluate
-// a symbol referenced in the specified node.
 export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeNode {
   let prevNode: ParseNode | undefined;
   let curNode: ParseNode | undefined = node;
@@ -566,13 +557,9 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeNode {
 
   while (curNode) {
     if (curNode.nodeType === ParseNodeType.Parameter && prevNode === curNode.name) {
-      // Note that we passed through a parameter name node.
       isParamNameNode = true;
     }
 
-    // We found a scope associated with this node. In most cases,
-    // we'll return this scope, but in a few cases we need to return
-    // the enclosing scope instead.
     switch (curNode.nodeType) {
       case ParseNodeType.Function: {
         if (curNode.parameters.some((param) => param === prevNode)) {
@@ -629,8 +616,6 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeNode {
   return undefined!;
 }
 
-// Returns the parse node corresponding to the function or class that
-// contains the specified typeVar reference.
 export function getTypeVarScopeNode(node: ParseNode, allowInFunctionSignature = false): EvaluationScopeNode {
   let prevNode: ParseNode | undefined;
   let curNode: ParseNode | undefined = node;
@@ -659,14 +644,9 @@ export function getTypeVarScopeNode(node: ParseNode, allowInFunctionSignature = 
   return undefined!;
 }
 
-// Returns the parse node corresponding to the scope that is used
-// for executing the code referenced in the specified node.
 export function getExecutionScopeNode(node: ParseNode): ExecutionScopeNode {
   let evaluationScope = getEvaluationScopeNode(node);
 
-  // Classes are not considered execution scope because they are executed
-  // within the context of their containing module or function. Likewise, list
-  // comprehensions are executed within their container.
   while (evaluationScope.nodeType === ParseNodeType.Class || evaluationScope.nodeType === ParseNodeType.ListComprehension) {
     evaluationScope = getEvaluationScopeNode(evaluationScope.parent!);
   }
@@ -674,8 +654,6 @@ export function getExecutionScopeNode(node: ParseNode): ExecutionScopeNode {
   return evaluationScope;
 }
 
-// Given a node within a type annotation expression, returns the type annotation
-// node that contains it (if applicable).
 export function getTypeAnnotationNode(node: ParseNode): TypeAnnotationNode | undefined {
   let prevNode = node;
   let curNode = node.parent;
@@ -696,17 +674,11 @@ export function getTypeAnnotationNode(node: ParseNode): TypeAnnotationNode | und
   return undefined;
 }
 
-// PEP 591 spells out certain limited cases where an assignment target
-// can be annotated with a "Final" annotation. This function determines
-// whether Final is allowed for the specified node.
 export function isFinalAllowedForAssignmentTarget(targetNode: ExpressionNode): boolean {
-  // Simple names always support Final.
   if (targetNode.nodeType === ParseNodeType.Name) {
     return true;
   }
 
-  // Member access expressions like "self.x" are permitted only
-  // within __init__ methods.
   if (targetNode.nodeType === ParseNodeType.MemberAccess) {
     if (targetNode.leftExpression.nodeType !== ParseNodeType.Name) {
       return false;
@@ -750,9 +722,7 @@ export function isSuiteEmpty(node: SuiteNode): boolean {
     if (statement.nodeType === ParseNodeType.StatementList) {
       for (const substatement of statement.statements) {
         if (substatement.nodeType === ParseNodeType.Ellipsis) {
-          // Allow an ellipsis
         } else if (substatement.nodeType === ParseNodeType.StringList) {
-          // Allow doc strings
         } else {
           return false;
         }
@@ -836,8 +806,6 @@ export function isWithinTypeAnnotation(node: ParseNode, requireQuotedAnnotation:
     }
 
     if (curNode.nodeType === ParseNodeType.Function && prevNode === curNode.functionAnnotationComment) {
-      // Type comments are always considered forward declarations even though
-      // they're not "quoted".
       return true;
     }
 
@@ -846,8 +814,6 @@ export function isWithinTypeAnnotation(node: ParseNode, requireQuotedAnnotation:
     }
 
     if (curNode.nodeType === ParseNodeType.Assignment && prevNode === curNode.typeAnnotationComment) {
-      // Type comments are always considered forward declarations even though
-      // they're not "quoted".
       return true;
     }
 
@@ -872,14 +838,10 @@ export function isWithinAnnotationComment(node: ParseNode) {
 
   while (curNode) {
     if (curNode.nodeType === ParseNodeType.Function && prevNode === curNode.functionAnnotationComment) {
-      // Type comments are always considered forward declarations even though
-      // they're not "quoted".
       return true;
     }
 
     if (curNode.nodeType === ParseNodeType.Assignment && prevNode === curNode.typeAnnotationComment) {
-      // Type comments are always considered forward declarations even though
-      // they're not "quoted".
       return true;
     }
 
@@ -918,7 +880,6 @@ export function isWithinLoop(node: ParseNode): boolean {
 }
 
 export function getDocString(statements: StatementNode[]): string | undefined {
-  // See if the first statement in the suite is a triple-quote string.
   if (statements.length === 0) {
     return undefined;
   }
@@ -927,8 +888,6 @@ export function getDocString(statements: StatementNode[]): string | undefined {
     return undefined;
   }
 
-  // If the first statement in the suite isn't a StringNode,
-  // assume there is no docString.
   const statementList = statements[0];
   if (statementList.statements.length === 0 || statementList.statements[0].nodeType !== ParseNodeType.StringList) {
     return undefined;
@@ -937,7 +896,6 @@ export function getDocString(statements: StatementNode[]): string | undefined {
   const docStringNode = statementList.statements[0];
   const docStringToken = docStringNode.strings[0].token;
 
-  // Ignore f-strings.
   if ((docStringToken.flags & StringTokenFlags.Format) !== 0) {
     return undefined;
   }
@@ -945,11 +903,6 @@ export function getDocString(statements: StatementNode[]): string | undefined {
   return decodeDocString(docStringNode.strings[0].value);
 }
 
-// Sometimes a NamedTuple assignment statement is followed by a statement
-// that looks like the following:
-//    MyNamedTuple.__new__.__defaults__ = ...
-// This pattern is commonly used to set the default values that are
-// not specified in the original list.
 export function isAssignmentToDefaultsFollowingNamedTuple(callNode: ParseNode): boolean {
   if (
     callNode.nodeType !== ParseNodeType.Call ||
@@ -983,7 +936,6 @@ export function isAssignmentToDefaultsFollowingNamedTuple(callNode: ParseNode): 
     }
 
     if (nextStatement.statements[0].nodeType === ParseNodeType.StringList) {
-      // Skip over comments
       statementIndex++;
       continue;
     }
@@ -1009,8 +961,6 @@ export function isAssignmentToDefaultsFollowingNamedTuple(callNode: ParseNode): 
   return false;
 }
 
-// This simple parse tree walker calls a callback function
-// for each NameNode it encounters.
 export class NameNodeWalker extends ParseTreeWalker {
   private _subscriptIndex: number | undefined;
   private _baseExpression: ExpressionNode | undefined;
@@ -1044,7 +994,6 @@ export class NameNodeWalker extends ParseTreeWalker {
 }
 
 export function getCallNodeAndActiveParameterIndex(node: ParseNode, insertionOffset: number, tokens: TextRangeCollection<Token>) {
-  // Find the call node that contains the specified node.
   let curNode: ParseNode | undefined = node;
   let callNode: CallNode | undefined;
   while (curNode !== undefined) {
@@ -1063,7 +1012,6 @@ export function getCallNodeAndActiveParameterIndex(node: ParseNode, insertionOff
   if (index >= 0 && index + 1 < tokens.count) {
     const token = tokens.getItemAt(index + 1);
     if (token.type === TokenType.OpenParenthesis && insertionOffset < TextRange.getEnd(token)) {
-      // position must be after '('
       return undefined;
     }
   }
@@ -1086,7 +1034,6 @@ export function getCallNodeAndActiveParameterIndex(node: ParseNode, insertionOff
       return;
     }
 
-    // Calculate the argument's bounds including whitespace and colons.
     let start = arg.start;
     const startTokenIndex = tokens.getItemAtPosition(start);
     if (startTokenIndex >= 0) {
@@ -1096,8 +1043,6 @@ export function getCallNodeAndActiveParameterIndex(node: ParseNode, insertionOff
     let end = TextRange.getEnd(arg);
     const endTokenIndex = tokens.getItemAtPosition(end);
     if (endTokenIndex >= 0) {
-      // Find the true end of the argument by searching for the
-      // terminating comma or parenthesis.
       for (let i = endTokenIndex; i < tokens.count; i++) {
         const tok = tokens.getItemAt(i);
 
@@ -1141,7 +1086,6 @@ export function getCallNodeAndActiveParameterIndex(node: ParseNode, insertionOff
   }
 }
 
-// Returns the integer subscript if a simple numeric literal is used.
 export function getIntegerSubscriptValue(node: IndexNode): number | undefined {
   if (node.items.length === 1 && !node.trailingComma && node.items[0].argumentCategory === ArgumentCategory.Simple && !node.items[0].name) {
     const expr = node.items[0].valueExpression;

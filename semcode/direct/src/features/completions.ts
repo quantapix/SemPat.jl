@@ -58,11 +58,8 @@ class MyCompletionItem extends qv.CompletionItem {
     super(tsEntry.name, MyCompletionItem.convertKind(tsEntry.kind));
 
     if (tsEntry.source) {
-      // De-prioritze auto-imports
-      // https://github.com/microsoft/vscode/issues/40311
       this.sortText = '\uffff' + tsEntry.sortText;
 
-      // Render "fancy" when source is a workspace path
       const qualifierCandidate = qv.workspace.asRelativePath(tsEntry.source);
       if (qualifierCandidate !== tsEntry.source) {
         this.label2 = { name: tsEntry.name, qualifier: qualifierCandidate };
@@ -142,7 +139,6 @@ class MyCompletionItem extends qv.CompletionItem {
   public async resolveCompletionItem(client: ITypeScriptServiceClient, token: qv.CancellationToken): Promise<ResolvedCompletionItem | undefined> {
     token.onCancellationRequested(() => {
       if (this._resolvedPromise && --this._resolvedPromise.waiting <= 0) {
-        // Give a little extra time for another caller to come in
         setTimeout(() => {
           if (this._resolvedPromise && this._resolvedPromise.waiting <= 0) {
             this._resolvedPromise.requestToken.cancel();
@@ -167,12 +163,11 @@ class MyCompletionItem extends qv.CompletionItem {
       const args: qp.CompletionDetailsRequestArgs = {
         ...qu.Position.toFileLocationRequestArgs(filepath, this.position),
         entryNames: [
-          // @ts-expect-error until TypeScript 4.3 protocol update
           this.tsEntry.source || this.tsEntry.data
             ? {
                 name: this.tsEntry.name,
                 source: this.tsEntry.source,
-                // @ts-expect-error until TypeScript 4.3 protocol update
+
                 data: this.tsEntry.data,
               }
             : this.tsEntry.name,
@@ -209,8 +204,6 @@ class MyCompletionItem extends qv.CompletionItem {
           const { snippet, parameterCount } = snippetForFunctionCall(this, detail.displayParts);
           this.insertText = snippet;
           if (parameterCount > 0) {
-            //Fix for https://github.com/microsoft/vscode/issues/104059
-            //Don't show parameter hints if "editor.parameterHints.enabled": false
             if (qv.workspace.getConfiguration('editor.parameterHints').get('enabled')) {
               commands.push({ title: 'triggerParameterHints', command: 'editor.action.triggerParameterHints' });
             }
@@ -243,8 +236,6 @@ class MyCompletionItem extends qv.CompletionItem {
   }
 
   private async isValidFunctionCompletionContext(client: ITypeScriptServiceClient, filepath: string, position: qv.Position, document: qv.TextDocument, token: qv.CancellationToken): Promise<boolean> {
-    // Workaround for https://github.com/microsoft/TypeScript/issues/12677
-    // Don't complete function calls inside of destructive assignments or imports
     try {
       const args: qp.FileLocationRequestArgs = qu.Position.toFileLocationRequestArgs(filepath, position);
       const response = await client.execute('quickinfo', args, token);
@@ -257,12 +248,8 @@ class MyCompletionItem extends qv.CompletionItem {
             return false;
         }
       }
-    } catch {
-      // Noop
-    }
+    } catch {}
 
-    // Don't complete function call if there is already something that looks like a function call
-    // https://github.com/microsoft/vscode/issues/18131
     const after = document.lineAt(position.line).text.slice(position.character);
     return after.match(/^[a-z_$0-9]*\s*\(/gi) === null;
   }
@@ -272,9 +259,6 @@ class MyCompletionItem extends qv.CompletionItem {
       return {};
     }
 
-    // Try to extract out the additionalTextEdits for the current file.
-    // Also check if we still have to apply other workspace edits and commands
-    // using a vscode command
     const additionalTextEdits: qv.TextEdit[] = [];
     let hasRemainingCommandsOrEdits = false;
     for (const tsAction of detail.codeActions) {
@@ -282,7 +266,6 @@ class MyCompletionItem extends qv.CompletionItem {
         hasRemainingCommandsOrEdits = true;
       }
 
-      // Apply all edits in the current file using `additionalTextEdits`
       if (tsAction.changes) {
         for (const change of tsAction.changes) {
           if (change.fileName === filepath) {
@@ -296,7 +279,6 @@ class MyCompletionItem extends qv.CompletionItem {
 
     let command: qv.Command | undefined = undefined;
     if (hasRemainingCommandsOrEdits) {
-      // Create command that applies all edits not in the current file.
       command = {
         title: '',
         command: ApplyCompletionCodeActionCommand.ID,
@@ -325,12 +307,11 @@ class MyCompletionItem extends qv.CompletionItem {
     }
 
     let replaceRange = qu.Range.fromTextSpan(tsEntry.replacementSpan);
-    // Make sure we only replace a single line at most
+
     if (!replaceRange.isSingleLine) {
       replaceRange = new qv.Range(replaceRange.start.line, replaceRange.start.character, replaceRange.start.line, completionContext.line.length);
     }
 
-    // If TS returns an explicit replacement range, we should use it for both types of completion
     return {
       inserting: replaceRange,
       replacing: replaceRange,
@@ -338,7 +319,6 @@ class MyCompletionItem extends qv.CompletionItem {
   }
 
   private getFilterText(line: string, insertText: string | undefined): string | undefined {
-    // Handle private field completions
     if (this.tsEntry.name.startsWith('#')) {
       const wordRange = this.completionContext.wordRange;
       const wordStart = wordRange ? line.charAt(wordRange.start.character) : undefined;
@@ -353,23 +333,12 @@ class MyCompletionItem extends qv.CompletionItem {
       }
     }
 
-    // For `this.` completions, generally don't set the filter text since we don't want them to be overly prioritized. #74164
     if (insertText?.startsWith('this.')) {
       return undefined;
-    }
-
-    // Handle the case:
-    // ```
-    // const xyz = { 'ab c': 1 };
-    // xyz.ab|
-    // ```
-    // In which case we want to insert a bracket accessor but should use `.abc` as the filter text instead of
-    // the bracketed insert text.
-    else if (insertText?.startsWith('[')) {
+    } else if (insertText?.startsWith('[')) {
       return insertText.replace(/^\[['"](.+)[['"]\]$/, '.$1');
     }
 
-    // In all other cases, fallback to using the insertText
     return insertText;
   }
 
@@ -389,7 +358,6 @@ class MyCompletionItem extends qv.CompletionItem {
 
   private getFuzzyWordRange() {
     if (this.completionContext.useFuzzyWordRangeLogic) {
-      // Try getting longer, prefix based range for completions that span words
       const text = this.completionContext.line.slice(Math.max(0, this.position.character - this.label.length), this.position.character).toLowerCase();
       const entryName = this.label.toLowerCase();
       for (let i = entryName.length; i >= 0; --i) {
@@ -539,9 +507,6 @@ class CompletionAcceptedCommand implements Command {
   }
 }
 
-/**
- * Command fired when an completion item needs to be applied
- */
 class ApplyCompletionCommand implements Command {
   public static readonly ID = '_typescript.applyCompletionCommand';
   public readonly id = ApplyCompletionCommand.ID;
@@ -810,9 +775,6 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
 
   private isInValidCommitCharacterContext(document: qv.TextDocument, position: qv.Position): boolean {
     if (this.client.apiVersion.lt(API.v320)) {
-      // Workaround for https://github.com/microsoft/TypeScript/issues/27742
-      // Only enable dot completions when previous character not a dot preceded by whitespace.
-      // Prevents incorrectly completing while typing spread operators.
       if (position.character > 1) {
         const preText = document.getText(new qv.Range(position.line, 0, position.line, position.character));
         return preText.match(/(\s|^)\.$/gi) === null;
@@ -825,7 +787,6 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
   private shouldTrigger(context: qv.CompletionContext, line: qv.TextLine, position: qv.Position): boolean {
     if (context.triggerCharacter && this.client.apiVersion.lt(API.v290)) {
       if (context.triggerCharacter === '"' || context.triggerCharacter === "'") {
-        // make sure we are in something that looks like the start of an import
         const pre = line.text.slice(0, position.character);
         if (!/\b(from|import)\s*["']$/.test(pre) && !/\b(import|require)\(['"]$/.test(pre)) {
           return false;
@@ -833,7 +794,6 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
       }
 
       if (context.triggerCharacter === '/') {
-        // make sure we are in something that looks like an import path
         const pre = line.text.slice(0, position.character);
         if (!/\b(from|import)\s*["'][^'"]*$/.test(pre) && !/\b(import|require)\(['"][^'"]*$/.test(pre)) {
           return false;
@@ -841,7 +801,6 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
       }
 
       if (context.triggerCharacter === '@') {
-        // make sure we are in something that looks like the start of a jsdoc comment
         const pre = line.text.slice(0, position.character);
         if (!/^\s*\*[ ]?@/.test(pre) && !/\/\*\*+[ ]?@/.test(pre)) {
           return false;

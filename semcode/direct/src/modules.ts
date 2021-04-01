@@ -89,18 +89,15 @@ export async function getModuleForEditor(document: qv.TextDocument, position: qv
         try {
           return await languageClient.sendRequest<string>('julia/getModuleAt', params);
         } catch (err) {
-          // Is this a version mismatch situation? Only if not, rethrow
           if (err.code !== -32099) {
             throw err;
           }
         }
       } else {
-        // We were canceled, so we give up
         return;
       }
     }
 
-    // We tried three times, now give up
     return;
   } catch (err) {
     if (err.message === 'Language client is not ready yet') {

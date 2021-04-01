@@ -34,8 +34,6 @@ export const enum NewLineType {
 }
 
 export const enum OperatorType {
-  // These operators are used with tokens
-  // of type TokenType.Operator.
   Add,
   AddEqual,
   Assign,
@@ -73,8 +71,6 @@ export const enum OperatorType {
   SubtractEqual,
   Walrus,
 
-  // These operators are used with tokens
-  // of type TokenType.Keyword.
   And,
   Or,
   Not,
@@ -136,18 +132,15 @@ export const enum KeywordType {
 export const enum StringTokenFlags {
   None = 0,
 
-  // Quote types
   SingleQuote = 1 << 0,
   DoubleQuote = 1 << 1,
   Triplicate = 1 << 2,
 
-  // String content format
   Raw = 1 << 3,
   Unicode = 1 << 4,
   Bytes = 1 << 5,
   Format = 1 << 6,
 
-  // Error conditions
   Unterminated = 1 << 16,
 }
 
@@ -172,7 +165,6 @@ export namespace Comment {
 export interface TokenBase extends TextRange {
   readonly type: TokenType;
 
-  // Comments prior to the token.
   readonly comments?: Comment[];
 }
 
@@ -275,15 +267,10 @@ export interface StringToken extends Token {
   readonly type: TokenType.String;
   readonly flags: StringTokenFlags;
 
-  // Use StringTokenUtils to convert escaped value to unescaped value.
   readonly escapedValue: string;
 
-  // Number of characters in token that appear before
-  // the quote marks (e.g. "r" or "UR").
   readonly prefixLength: number;
 
-  // Number of characters in token that make up the quote
-  // (either 1 or 3).
   readonly quoteMarkLength: number;
 }
 

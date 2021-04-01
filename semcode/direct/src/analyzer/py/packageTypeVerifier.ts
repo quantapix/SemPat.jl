@@ -38,9 +38,6 @@ export interface PackageModule {
   symbols: PackageSymbol[];
 }
 
-// Used to track types that are re-exported from other
-// modules and therefore have "aliased" full names
-// that don't match the full name of the original declaration.
 export type AlternateSymbolNameMap = Map<string, string[]>;
 
 export interface PackageTypeReport {
@@ -62,12 +59,6 @@ interface TypeVerificationInfo {
   isFullyKnown: boolean;
   diag: DiagnosticAddendum;
 
-  // For classes, the above fields apply only to base types. Field-level
-  // type information and diagnostic information are provided on a per-field
-  // basis. This allows subclasses to potentially override fields that are
-  // missing types, thus making the field properly typed. This can happen
-  // when the base class is a private class (e.g. an abstract class) but the
-  // derived class is public.
   classFields: Map<string, TypeVerificationInfo> | undefined;
 }
 
@@ -126,14 +117,10 @@ export class PackageTypeVerifier {
 
           const publicModules = this._getListOfPublicModules(report.rootDirectory, packageNameParts[0], trimmedPackageName);
 
-          // If the filter eliminated all modules, report an error.
           if (publicModules.length === 0) {
             commonDiagnostics.push(new Diagnostic(DiagnosticCategory.Error, `Module "${trimmedPackageName}" cannot be resolved`, getEmptyRange()));
           }
 
-          // Build a map of all public symbols exported by this package. We'll
-          // use this map to determine which diagnostics to report. We don't want
-          // to report diagnostics many times for types that include public types.
           const publicSymbolMap = new Map<string, string>();
           publicModules.forEach((moduleName) => {
             this._getPublicSymbolsForModule(moduleName, publicSymbolMap, report.alternateSymbolNames);
@@ -234,8 +221,6 @@ export class PackageTypeVerifier {
           const typedDecls = symbol.getTypedDeclarations();
 
           if (typedDecls.length > 0) {
-            // Is this a class declared within this module or class? If so, verify
-            // the symbols defined within it.
             const classDecl = typedDecls.find((decl) => decl.type === DeclarationType.Class);
             if (classDecl) {
               if (isClass(symbolType)) {
@@ -244,7 +229,6 @@ export class PackageTypeVerifier {
             }
           }
 
-          // Is this the re-export of an import? If so, record the alternate name.
           const importDecl = symbol.getDeclarations().find((decl) => decl.type === DeclarationType.Alias);
           if (importDecl && importDecl.type === DeclarationType.Alias) {
             const typeName = getFullNameOfType(this._program.getTypeForSymbol(symbol));
@@ -266,7 +250,6 @@ export class PackageTypeVerifier {
         map.set(name, altNameList);
       }
 
-      // Add the alternate name if it's unique.
       if (!altNameList.some((name) => name === altName)) {
         altNameList.push(altName);
       }
@@ -303,18 +286,13 @@ export class PackageTypeVerifier {
     }
   }
 
-  // Scans the directory structure for a list of public modules
-  // within the package.
   private _getListOfPublicModules(rootPath: string, packageName: string, moduleFilter: string): string[] {
     let publicModules: string[] = [];
     this._addPublicModulesRecursive(rootPath, packageName, publicModules);
 
-    // Make sure modules are unique. There may be duplicates if a ".py" and ".pyi"
-    // exist for some modules.
     const uniqueModules: string[] = [];
     const moduleMap = new Map<string, string>();
 
-    // Apply the filter to limit to only specified submodules.
     publicModules = publicModules.filter((module) => module.startsWith(moduleFilter));
 
     publicModules.forEach((module) => {
@@ -364,14 +342,10 @@ export class PackageTypeVerifier {
   }
 
   private _isLegalModulePartName(name: string): boolean {
-    // PEP8 indicates that all module names should be lowercase
-    // with underscores. It doesn't talk about non-ASCII
-    // characters, but it appears that's the convention.
     return !!name.match(/[a-z_]+/);
   }
 
   private _shouldIgnoreType(report: PackageTypeReport, fullTypeName: string) {
-    // If we're ignoring unknown types from other packages, see if we should skip.
     return report.ignoreUnknownTypesFromImports && !fullTypeName.startsWith(report.packageName);
   }
 
@@ -427,13 +401,10 @@ export class PackageTypeVerifier {
           report.unknownTypeCount++;
         }
 
-        // Is this a class declared within this module or class? If so, verify
-        // the symbols defined within it.
         if (typedDecls.length > 0) {
           const classDecl = typedDecls.find((decl) => decl.type === DeclarationType.Class);
           if (classDecl) {
             if (isClass(symbolType)) {
-              // Determine whether the class has a proper doc string.
               if (!symbolType.details.docString) {
                 diagnostics.push(new Diagnostic(DiagnosticCategory.Warning, `No docstring found for class "${fullName}"`, range));
 
@@ -471,7 +442,6 @@ export class PackageTypeVerifier {
             }
 
             if (isDocStringMissing) {
-              // Don't require docstrings for dunder methods.
               if (!isDunderName(name)) {
                 diagnostics.push(new Diagnostic(DiagnosticCategory.Warning, `No docstring found for function "${fullName}"`, range));
 
@@ -497,8 +467,6 @@ export class PackageTypeVerifier {
     return result;
   }
 
-  // If the type contains a reference to a module or a class, determines
-  // whether all of the types used by that module or class are known.
   private _validateTypeIsCompletelyKnown(report: PackageTypeReport, type: Type, diag: DiagnosticAddendum, publicSymbolMap: PublicSymbolMap, currentSymbol: string, typeStack: string[]): boolean {
     if (typeStack.length > maxTypeRecursionCount) {
       return true;
@@ -552,12 +520,9 @@ export class PackageTypeVerifier {
         }
 
         type.details.parameters.forEach((param) => {
-          // Skip nameless parameters like "*" and "/".
           if (param.name) {
             const subDiag = diag.createAddendum();
             if (!param.hasDeclaredType) {
-              // Allow params (like "self" and "cls") to skip declarations because
-              // we're able to synthesize these.
               const isSynthesized = isTypeVar(param.type) && param.type.details.isSynthesized;
 
               if (!isSynthesized) {
@@ -584,7 +549,6 @@ export class PackageTypeVerifier {
             isKnown = false;
           }
         } else {
-          // Init methods have an implied return type.
           if (type.details.name !== '__init__') {
             const subDiag = diag.createAddendum();
             subDiag.addMessage(`Return type annotation is missing`);
@@ -607,12 +571,10 @@ export class PackageTypeVerifier {
         if (currentSymbol === type.details.fullName || !publicSymbolMap.has(type.details.fullName)) {
           const classDiag = diag.createAddendum();
 
-          // Add any errors for the base classes, type arguments, etc.
           if (!isKnown) {
             classDiag.addAddendum(typeInfo.diag);
           }
 
-          // Add any errors for the fields.
           if (typeInfo.classFields) {
             typeInfo.classFields.forEach((info) => {
               if (!info.isFullyKnown) {
@@ -650,10 +612,6 @@ export class PackageTypeVerifier {
     let typeInfo: TypeVerificationInfo | undefined;
     const diag = new DiagnosticAddendum();
 
-    // Is this class is in the public symbol list and is not the class
-    // that we're explicitly excluding from the public symbol list? If
-    // so, indicate that it is fully known. Any parts of the type that
-    // are unknown will be reported when that public symbol is analyzed.
     if (currentSymbol !== type.details.fullName && publicSymbolMap.has(type.details.fullName)) {
       typeInfo = {
         isFullyKnown: true,
@@ -661,7 +619,6 @@ export class PackageTypeVerifier {
         classFields: undefined,
       };
     } else {
-      // Prevent type recursion.
       if (typeStack.some((entry) => entry === type.details.fullName)) {
         return {
           isFullyKnown: true,
@@ -671,20 +628,16 @@ export class PackageTypeVerifier {
       }
 
       this._pushType(typeStack, type.details.fullName, () => {
-        // See if this class has already been analyzed.
         const cachedTypeInfo = this._typeCache.get(type.details.fullName);
         if (cachedTypeInfo) {
           typeInfo = cachedTypeInfo;
         } else if (ClassType.isBuiltIn(type)) {
-          // Don't bother type-checking built-in types.
           typeInfo = {
             isFullyKnown: true,
             diag: diag,
             classFields: undefined,
           };
         } else {
-          // Create a dummy entry in the cache to handle recursion. We'll replace
-          // this once we fully analyze this class type.
           this._typeCache.set(type.details.fullName, {
             isFullyKnown: true,
             diag: diag,
@@ -719,11 +672,7 @@ export class PackageTypeVerifier {
             }
           });
 
-          // Add field information for base classes if it is not overridden by
-          // earlier classes in the MRO.
           type.details.mro.forEach((mroType, index) => {
-            // Ignore the first entry in the MRO list, which is the current class,
-            // and we've already handled its fields above.
             if (index === 0) {
               return;
             }
@@ -732,10 +681,6 @@ export class PackageTypeVerifier {
               const mroClassInfo = this._validateClassTypeIsCompletelyKnown(report, mroType, publicSymbolMap, currentSymbol, typeStack);
 
               if (mroClassInfo.classFields) {
-                // Determine which base class contributed this ancestor class to the MRO.
-                // We want to determine whether that base class is a public class within
-                // this package. If so, we'll suppress reporting of errors here because
-                // those errors would be redundant.
                 const baseClass = mroType.details.baseClasses.find((baseClass) => {
                   return isClass(baseClass) && baseClass.details.mro.some((baseClassMro) => isClass(baseClassMro) && ClassType.isSameGenericClass(baseClassMro, mroType));
                 }) as ClassType | undefined;
@@ -762,7 +707,6 @@ export class PackageTypeVerifier {
             }
           });
 
-          // Add information for the metaclass.
           if (type.details.effectiveMetaclass) {
             if (!isClass(type.details.effectiveMetaclass)) {
               diag.addMessage(`Type for metaclass is unknown`);
@@ -792,7 +736,6 @@ export class PackageTypeVerifier {
             }
           }
 
-          // Add information for base classes.
           type.details.baseClasses.forEach((baseClass, index) => {
             const baseClassDiag = new DiagnosticAddendum();
             if (!isClass(baseClass)) {
@@ -816,16 +759,13 @@ export class PackageTypeVerifier {
             classFields: classFieldMap,
           };
 
-          // Cache the information so we don't need to evaluate it multiple times.
           this._typeCache.set(type.details.fullName, typeInfo);
         }
       });
     }
 
-    // Analyze type arguments if present to make sure they are known.
     if (type.typeArguments) {
       this._pushType(typeStack, type.details.fullName, () => {
-        // Make a shallow copy of the typeInfo to avoid modifying the cached version.
         const diag = new DiagnosticAddendum();
         typeInfo!.diag.getChildren().forEach((childDiag) => {
           diag.addAddendum(childDiag);
@@ -858,7 +798,6 @@ export class PackageTypeVerifier {
   }
 
   private _validateModuleTypeIsCompletelyKnown(report: PackageTypeReport, type: ModuleType, publicSymbolMap: PublicSymbolMap, typeStack: string[]): TypeVerificationInfo {
-    // See if this module has already been analyzed.
     let typeInfo = this._typeCache.get(type.moduleName);
     if (typeInfo) {
       return typeInfo;
@@ -901,7 +840,6 @@ export class PackageTypeVerifier {
       classFields: undefined,
     };
 
-    // Cache the information so we don't need to evaluate it multiple times.
     this._typeCache.set(type.moduleName, typeInfo);
 
     return typeInfo;

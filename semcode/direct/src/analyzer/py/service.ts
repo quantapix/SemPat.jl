@@ -42,8 +42,6 @@ import { TypeEvaluator } from './typeEvaluator';
 
 export const configFileNames = ['pyrightconfig.json', 'mspythonconfig.json'];
 
-// How long since the last user activity should we wait until running
-// the analyzer on any files that have not yet been analyzed?
 const _userActivityBackoffTimeInMs = 250;
 
 export class AnalyzerService {
@@ -142,7 +140,6 @@ export class AnalyzerService {
     const configOptions = this._getConfigOptions(commandLineOptions);
 
     if (configOptions.pythonPath) {
-      // Make sure we have default python environment set.
       configOptions.ensureDefaultPythonVersion(configOptions.pythonPath, this._console);
     }
 
@@ -287,14 +284,11 @@ export class AnalyzerService {
   recordUserInteractionTime() {
     this._lastUserInteractionTime = Date.now();
 
-    // If we have a pending timer for reanalysis, cancel it
-    // and reschedule for some time in the future.
     if (this._analyzeTimer) {
       this._scheduleReanalysis(false);
     }
   }
 
-  // test only APIs
   get test_program() {
     return this._program;
   }
@@ -307,16 +301,11 @@ export class AnalyzerService {
     return this._getFileNamesFromFileSpecs();
   }
 
-  // Calculates the effective options based on the command-line options,
-  // an optional config file, and default values.
   private _getConfigOptions(commandLineOptions: CommandLineOptions): ConfigOptions {
     let projectRoot = commandLineOptions.executionRoot;
     let configFilePath: string | undefined;
 
     if (commandLineOptions.configFilePath) {
-      // If the config file path was specified, determine whether it's
-      // a directory (in which case the default config file name is assumed)
-      // or a file.
       configFilePath = combinePaths(commandLineOptions.executionRoot, normalizePath(commandLineOptions.configFilePath));
       if (!this._fs.existsSync(configFilePath)) {
         this._console.info(`Configuration file not found at ${configFilePath}.`);
@@ -345,8 +334,6 @@ export class AnalyzerService {
     const configOptions = new ConfigOptions(projectRoot, this._typeCheckingMode);
     const defaultExcludes = ['**/node_modules', '**/__pycache__', '.git'];
 
-    // The pythonPlatform and pythonVersion from the command-line can be overridden
-    // by the config file, so initialize them upfront.
     configOptions.defaultPythonPlatform = commandLineOptions.pythonPlatform;
     configOptions.defaultPythonVersion = commandLineOptions.pythonVersion;
     configOptions.ensureDefaultExtraPaths(this._fs, commandLineOptions.autoSearchPaths || false, commandLineOptions.extraPaths);
@@ -356,13 +343,9 @@ export class AnalyzerService {
         configOptions.include.push(getFileSpec(projectRoot, fileSpec));
       });
     } else if (!configFilePath) {
-      // If no config file was found and there are no explicit include
-      // paths specified, assume the caller wants to include all source
-      // files under the execution root path.
       if (commandLineOptions.executionRoot) {
         configOptions.include.push(getFileSpec(commandLineOptions.executionRoot, '.'));
 
-        // Add a few common excludes to avoid long scan times.
         defaultExcludes.forEach((exclude) => {
           configOptions.exclude.push(getFileSpec(commandLineOptions.executionRoot, exclude));
         });
@@ -371,7 +354,6 @@ export class AnalyzerService {
 
     this._configFilePath = configFilePath;
 
-    // If we found a config file, parse it to compute the effective options.
     if (configFilePath) {
       this._console.info(`Loading configuration file at ${configFilePath}`);
       const configJsonObj = this._parseConfigFile(configFilePath);
@@ -387,14 +369,11 @@ export class AnalyzerService {
 
         const configFileDir = getDirectoryPath(configFilePath);
 
-        // If no include paths were provided, assume that all files within
-        // the project should be included.
         if (configOptions.include.length === 0) {
           this._console.info(`No include entries specified; assuming ${configFileDir}`);
           configOptions.include.push(getFileSpec(configFileDir, '.'));
         }
 
-        // If there was no explicit set of excludes, add a few common ones to avoid long scan times.
         if (configOptions.exclude.length === 0) {
           defaultExcludes.forEach((exclude) => {
             this._console.info(`Auto-excluding ${exclude}`);
@@ -416,9 +395,6 @@ export class AnalyzerService {
       this._console.warn(`The ${settingName} has been specified in both the config file and ` + `${settingSource}. The value in the config file (${configValue}) ` + `will take precedence`);
     };
 
-    // Apply the command-line options if the corresponding
-    // item wasn't already set in the config file. Report any
-    // duplicates.
     if (commandLineOptions.venvPath) {
       if (!configOptions.venvPath) {
         configOptions.venvPath = commandLineOptions.venvPath;
@@ -447,15 +423,12 @@ export class AnalyzerService {
     configOptions.logTypeEvaluationTime = !!commandLineOptions.logTypeEvaluationTime;
     configOptions.typeEvaluationTimeThreshold = commandLineOptions.typeEvaluationTimeThreshold;
 
-    // If useLibraryCodeForTypes was not specified in the config, allow the settings
-    // or command line to override it.
     if (configOptions.useLibraryCodeForTypes === undefined) {
       configOptions.useLibraryCodeForTypes = !!commandLineOptions.useLibraryCodeForTypes;
     } else if (commandLineOptions.useLibraryCodeForTypes !== undefined) {
       reportDuplicateSetting('useLibraryCodeForTypes', configOptions.useLibraryCodeForTypes);
     }
 
-    // If there was no stub path specified, use a default path.
     if (commandLineOptions.stubPath) {
       if (!configOptions.stubPath) {
         configOptions.stubPath = commandLineOptions.stubPath;
@@ -468,16 +441,11 @@ export class AnalyzerService {
       }
     }
 
-    // Do some sanity checks on the specified settings and report missing
-    // or inconsistent information.
     if (configOptions.venvPath) {
       if (!this._fs.existsSync(configOptions.venvPath) || !isDirectory(this._fs, configOptions.venvPath)) {
         this._console.error(`venvPath ${configOptions.venvPath} is not a valid directory.`);
       }
 
-      // venvPath without venv means it won't do anything while resolveImport.
-      // so first, try to set venv from existing configOption if it is null. if both are null,
-      // then, resolveImport won't consider venv
       configOptions.venv = configOptions.venv ?? this._configOptions.venv;
       if (configOptions.venv) {
         const fullVenvPath = combinePaths(configOptions.venvPath, configOptions.venv);
@@ -525,7 +493,6 @@ export class AnalyzerService {
       }
     }
 
-    // Is there a reference to a venv? If so, there needs to be a valid venvPath.
     if (configOptions.venv) {
       if (!configOptions.venvPath) {
         this._console.warn(`venvPath not specified, so venv settings will be ignored.`);
@@ -559,16 +526,10 @@ export class AnalyzerService {
     return this._backgroundAnalysisProgram.writeTypeStub(this._typeStubTargetPath!, this._typeStubTargetIsSingleFile, typingsSubdirPath, token);
   }
 
-  // This is called after a new type stub has been created. It allows
-  // us to invalidate caches and force reanalysis of files that potentially
-  // are affected by the appearance of a new type stub.
   invalidateAndForceReanalysis(rebuildLibraryIndexing = true) {
-    // Mark all files with one or more errors dirty.
     this._backgroundAnalysisProgram.invalidateAndForceReanalysis(rebuildLibraryIndexing);
   }
 
-  // Forces the service to stop all analysis, discard all its caches,
-  // and research for files.
   restart() {
     this._applyConfigOptions();
 
@@ -615,22 +576,17 @@ export class AnalyzerService {
       throw new Error(errMsg);
     }
     if (!stubPath) {
-      // We should never get here because we always generate a
-      // default typings path if none was specified.
       const errMsg = 'No typings path was specified';
       this._console.info(errMsg);
       throw new Error(errMsg);
     }
     const typeStubInputTargetParts = this._typeStubTargetImportName.split('.');
     if (typeStubInputTargetParts[0].length === 0) {
-      // We should never get here because the import resolution
-      // would have failed.
       const errMsg = `Import '${this._typeStubTargetImportName}'` + ` could not be resolved`;
       this._console.error(errMsg);
       throw new Error(errMsg);
     }
     try {
-      // Generate a new typings directory if necessary.
       if (!this._fs.existsSync(stubPath)) {
         this._fs.mkdirSync(stubPath);
       }
@@ -639,10 +595,9 @@ export class AnalyzerService {
       this._console.error(errMsg);
       throw new Error(errMsg);
     }
-    // Generate a typings subdirectory.
+
     const typingsSubdirPath = combinePaths(stubPath, typeStubInputTargetParts[0]);
     try {
-      // Generate a new typings subdirectory if necessary.
       if (!this._fs.existsSync(typingsSubdirPath)) {
         this._fs.mkdirSync(typingsSubdirPath);
       }
@@ -673,7 +628,6 @@ export class AnalyzerService {
     let parseAttemptCount = 0;
 
     while (true) {
-      // Attempt to read the config file contents.
       try {
         configContents = this._fs.readFileSync(configPath, 'utf8');
       } catch {
@@ -682,7 +636,6 @@ export class AnalyzerService {
         return undefined;
       }
 
-      // Attempt to parse the config file.
       let configObj: any;
       let parseFailed = false;
       try {
@@ -696,10 +649,6 @@ export class AnalyzerService {
         break;
       }
 
-      // If we attempt to read the config file immediately after it
-      // was saved, it may have been partially written when we read it,
-      // resulting in parse errors. We'll give it a little more time and
-      // try again.
       if (parseAttemptCount++ >= 5) {
         this._console.error(`Config file "${configPath}" could not be parsed. Verify that JSON is correct.`);
         this._reportConfigParseError();
@@ -709,7 +658,6 @@ export class AnalyzerService {
   }
 
   private _getFileNamesFromFileSpecs(): string[] {
-    // Use a map to generate a list of unique files.
     const fileMap = new Map<string, string>();
 
     timingStats.findFilesTime.timeOperation(() => {
@@ -723,14 +671,7 @@ export class AnalyzerService {
     return [...fileMap.values()];
   }
 
-  // If markFilesDirtyUnconditionally is true, we need to reparse
-  // and reanalyze all files in the program. If false, we will
-  // reparse and reanalyze only those files whose on-disk contents
-  // have changed. Unconditional dirtying is needed in the case where
-  // configuration options have changed.
   private _updateTrackedFileList(markFilesDirtyUnconditionally: boolean) {
-    // Are we in type stub generation mode? If so, we need to search
-    // for a different set of files.
     if (this._typeStubTargetImportName) {
       const execEnv = this._configOptions.findExecEnvironment(this._executionRootPath);
       const moduleDescriptor: ImportedModuleDescriptor = {
@@ -744,11 +685,8 @@ export class AnalyzerService {
       if (importResult.isImportFound) {
         const filesToImport: string[] = [];
 
-        // Namespace packages resolve to a directory name, so
-        // don't include those.
         const resolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
 
-        // Get the directory that contains the root package.
         let targetPath = getDirectoryPath(resolvedPath);
         let prevResolvedPath = resolvedPath;
         for (let i = importResult.resolvedPaths.length - 2; i >= 0; i--) {
@@ -757,9 +695,6 @@ export class AnalyzerService {
             targetPath = getDirectoryPath(resolvedPath);
             prevResolvedPath = resolvedPath;
           } else {
-            // If there was no file corresponding to this portion
-            // of the name path, assume that it's contained
-            // within its parent directory.
             targetPath = getDirectoryPath(prevResolvedPath);
             prevResolvedPath = targetPath;
           }
@@ -776,7 +711,6 @@ export class AnalyzerService {
           this._typeStubTargetIsSingleFile = importResult.resolvedPaths.length === 1 && stripFileExtension(getFileName(importResult.resolvedPaths[0])) !== '__init__';
         }
 
-        // Add the implicit import paths.
         importResult.filteredImplicitImports.forEach((implicitImport) => {
           filesToImport.push(implicitImport.path);
         });
@@ -919,7 +853,6 @@ export class AnalyzerService {
             return;
           }
 
-          // Wholesale ignore events that appear to be from tmp file modification.
           if (path.endsWith('.tmp') || path.endsWith('.git')) {
             return;
           }
@@ -930,16 +863,10 @@ export class AnalyzerService {
             return;
           }
 
-          // Delete comes in as a change event, so try to distinguish here.
           if (event === 'change' && stats) {
             this._backgroundAnalysisProgram.markFilesDirty([path], /* evenIfContentsAreSame */ false);
             this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
           } else {
-            // Determine if this is an add or delete event related to a temporary
-            // file. Some tools (like auto-formatters) create temporary files
-            // alongside the original file and name them "x.py.<temp-id>.py" where
-            // <temp-id> is a 32-character random string of hex digits. We don't
-            // want these events to trigger a full reanalysis.
             const fileName = getFileName(path);
             const fileNameSplit = fileName.split('.');
             let isTemporaryFile = false;
@@ -950,8 +877,6 @@ export class AnalyzerService {
             }
 
             if (!isTemporaryFile) {
-              // Added/deleted/renamed files impact imports,
-              // clear the import resolver cache and reanalyze everything.
               this.invalidateAndForceReanalysis(/* rebuildLibraryIndexing */ false);
               this._scheduleReanalysis(/* requireTrackedFileUpdate */ true);
             }
@@ -979,7 +904,6 @@ export class AnalyzerService {
       return;
     }
 
-    // Watch the library paths for package install/uninstall.
     const importFailureInfo: string[] = [];
     const watchList = findPythonSearchPaths(this._fs, this._backgroundAnalysisProgram.configOptions, importFailureInfo, true, this._executionRootPath);
 
@@ -1016,20 +940,14 @@ export class AnalyzerService {
 
   private _scheduleLibraryAnalysis() {
     if (this._disposed) {
-      // Already disposed.
       return;
     }
 
     this._clearLibraryReanalysisTimer();
 
-    // Wait for a little while, since library changes
-    // tend to happen in big batches when packages
-    // are installed or uninstalled.
     this._libraryReanalysisTimer = setTimeout(() => {
       this._clearLibraryReanalysisTimer();
 
-      // Invalidate import resolver, mark all files dirty unconditionally,
-      // and reanalyze.
       this.invalidateAndForceReanalysis();
       this._scheduleReanalysis(false);
     }, 1000);
@@ -1079,10 +997,6 @@ export class AnalyzerService {
   private _scheduleReloadConfigFile() {
     this._clearReloadConfigTimer();
 
-    // Wait for a little while after we receive the
-    // change update event because it may take a while
-    // for the file to be written out. Plus, there may
-    // be multiple changes.
     this._reloadConfigTimer = setTimeout(() => {
       this._clearReloadConfigTimer();
       this._reloadConfigFile();
@@ -1095,8 +1009,6 @@ export class AnalyzerService {
     if (this._configFilePath) {
       this._console.info(`Reloading configuration file at ${this._configFilePath}`);
 
-      // We can't just reload config file when it is changed; we need to consider
-      // command line options as well to construct new config Options.
       const configOptions = this._getConfigOptions(this._commandLineOptions!);
       this._backgroundAnalysisProgram.setConfigOptions(configOptions);
 
@@ -1105,8 +1017,6 @@ export class AnalyzerService {
   }
 
   private _applyConfigOptions(reanalyze = true) {
-    // Allocate a new import resolver because the old one has information
-    // cached based on the previous config options.
     const importResolver = this._importResolverFactory(this._fs, this._backgroundAnalysisProgram.configOptions);
     this._backgroundAnalysisProgram.setImportResolver(importResolver);
 
@@ -1129,7 +1039,6 @@ export class AnalyzerService {
 
   private _scheduleReanalysis(requireTrackedFileUpdate: boolean) {
     if (this._disposed) {
-      // already disposed
       return;
     }
 
@@ -1139,23 +1048,15 @@ export class AnalyzerService {
 
     this._backgroundAnalysisCancellationSource?.cancel();
 
-    // Remove any existing analysis timer.
     this._clearReanalysisTimer();
 
-    // How long has it been since the user interacted with the service?
-    // If the user is actively typing, back off to let him or her finish.
     const timeSinceLastUserInteractionInMs = Date.now() - this._lastUserInteractionTime;
     const minBackoffTimeInMs = _userActivityBackoffTimeInMs;
 
-    // We choose a small non-zero value here. If this value
-    // is too small (like zero), the VS Code extension becomes
-    // unresponsive during heavy analysis. If this number is too
-    // large, analysis takes longer.
     const minTimeBetweenAnalysisPassesInMs = 20;
 
     const timeUntilNextAnalysisInMs = Math.max(minBackoffTimeInMs - timeSinceLastUserInteractionInMs, minTimeBetweenAnalysisPassesInMs);
 
-    // Schedule a new timer.
     this._analyzeTimer = setTimeout(() => {
       this._analyzeTimer = undefined;
 
@@ -1163,7 +1064,6 @@ export class AnalyzerService {
         this._updateTrackedFileList(false);
       }
 
-      // This creates a cancellation source only if it actually gets used.
       this._backgroundAnalysisCancellationSource = createBackgroundThreadCancellationTokenSource();
       const moreToAnalyze = this._backgroundAnalysisProgram.startAnalysis(this._backgroundAnalysisCancellationSource.token);
       if (moreToAnalyze) {

@@ -19,9 +19,6 @@ let ctx: Ctx | undefined;
 const RUST_PROJECT_CONTEXT_NAME = 'inRustProject';
 
 export async function activate(context: qv.ExtensionContext) {
-  // For some reason vscode not always shows pop-up error notifications
-  // when an extension fails to activate, so we do it explicitly by ourselves.
-  // FIXME: remove this bit of code once vscode fixes this issue: https://github.com/microsoft/vscode/issues/101242
   await tryActivate(context).catch((err) => {
     void qv.window.showErrorMessage(`Cannot activate rust-analyzer: ${err.message}`);
     throw err;
@@ -29,20 +26,6 @@ export async function activate(context: qv.ExtensionContext) {
 }
 
 async function tryActivate(context: qv.ExtensionContext) {
-  // Register a "dumb" onEnter command for the case where server fails to
-  // start.
-  //
-  // FIXME: refactor command registration code such that commands are
-  // **always** registered, even if the server does not start. Use API like
-  // this perhaps?
-  //
-  // ```TypeScript
-  // registerCommand(
-  //    factory: (Ctx) => ((Ctx) => any),
-  //    fallback: () => any = () => qv.window.showErrorMessage(
-  //        "rust-analyzer is not available"
-  //    ),
-  // )
   const defaultOnEnter = qv.commands.registerCommand('rust-analyzer.onEnter', () => qv.commands.executeCommand('default:type', { text: '\n' }));
   context.subscriptions.push(defaultOnEnter);
 
@@ -68,17 +51,10 @@ async function tryActivate(context: qv.ExtensionContext) {
     throw new Error('no folder is opened');
   }
 
-  // Note: we try to start the server before we activate type hints so that it
-  // registers its `onDidChangeDocument` handler before us.
-  //
-  // This a horribly, horribly wrong way to deal with this problem.
   ctx = await Ctx.create(config, context, serverPath, workspaceFolder.uri.fsPath);
 
   setContextValue(RUST_PROJECT_CONTEXT_NAME, true);
 
-  // Commands which invokes manually via command palette, shortcut, etc.
-
-  // Reloading is inspired by @DanTup maneuver: https://github.com/microsoft/vscode/issues/45774#issuecomment-373423895
   ctx.registerCommand('reload', (_) => async () => {
     void qv.window.showInformationMessage('Reloading rust-analyzer...');
     await deactivate();
@@ -111,7 +87,6 @@ async function tryActivate(context: qv.ExtensionContext) {
   ctx.registerCommand('serverVersion', commands.serverVersion);
   ctx.registerCommand('toggleInlayHints', commands.toggleInlayHints);
 
-  // Internal commands which are invoked by the server.
   ctx.registerCommand('runSingle', commands.runSingle);
   ctx.registerCommand('debugSingle', commands.debugSingle);
   ctx.registerCommand('showReferences', commands.showReferences);
@@ -153,8 +128,6 @@ async function bootstrapExtension(config: Config, state: PersistentState): Promi
 
   const now = Date.now();
   if (config.package.releaseTag === NIGHTLY_TAG) {
-    // Check if we should poll github api for the new nightly version
-    // if we haven't done it during the past hour
     const lastCheck = state.lastCheck;
 
     const anHour = 60 * 60 * 1000;
@@ -166,7 +139,6 @@ async function bootstrapExtension(config: Config, state: PersistentState): Promi
   const release = await fetchRelease('nightly').catch((e) => {
     log.error(e);
     if (state.releaseId === undefined) {
-      // Show error only for the initial download
       qv.window.showErrorMessage(`Failed to download rust-analyzer nightly ${e}`);
     }
     return undefined;
@@ -296,7 +268,6 @@ async function getServer(config: Config, state: PersistentState): Promise<string
   const artifact = release.assets.find((artifact) => artifact.name === `rust-analyzer-${platform}.gz`);
   assert(!!artifact, `Bad release: ${JSON.stringify(release)}`);
 
-  // Unlinking the exe file before moving new one on its place should prevent ETXTBSY error.
   await fs.unlink(dest).catch((err) => {
     if (err.code !== 'ENOENT') throw err;
   });
@@ -309,7 +280,6 @@ async function getServer(config: Config, state: PersistentState): Promise<string
     mode: 0o755,
   });
 
-  // Patching executable if that's NixOS.
   if (
     await fs
       .stat('/etc/nixos')

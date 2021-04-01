@@ -4,8 +4,6 @@ import { getEvaluationScopeNode } from './parseTreeUtils';
 import { Scope, ScopeType } from './scope';
 
 export function getBuiltInScope(currentScope: Scope): Scope {
-  // Starting at the current scope, find the built-in scope, which should
-  // be the top-most parent.
   let builtInScope = currentScope;
 
   while (builtInScope.type !== ScopeType.Builtin) {
@@ -15,7 +13,6 @@ export function getBuiltInScope(currentScope: Scope): Scope {
   return builtInScope;
 }
 
-// Locates the evaluation scope associated with the specified parse node.
 export function getScopeForNode(node: ParseNode): Scope | undefined {
   const scopeNode = getEvaluationScopeNode(node);
   return getScope(scopeNode);

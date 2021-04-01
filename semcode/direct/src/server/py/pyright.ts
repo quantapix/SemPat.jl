@@ -1,6 +1,4 @@
-/* eslint-disable */
 import { timingStats } from './common/timing';
-/* eslint-enable */
 
 import chalk from 'chalk';
 import commandLineArgs from 'command-line-args';
@@ -175,7 +173,6 @@ function processArgs() {
 
   const options = new PyrightCommandLineOptions(process.cwd(), false);
 
-  // Assume any relative paths are relative to the working directory.
   if (args.files && Array.isArray(args.files)) {
     options.fileSpecs = args.files;
     options.fileSpecs = options.fileSpecs.map((f) => combinePaths(process.cwd(), f));
@@ -229,7 +226,6 @@ function processArgs() {
   const output = args.outputjson ? new NullConsole() : undefined;
   const fileSystem = new PyrightFileSystem(createFromRealFileSystem(output));
 
-  // The package type verification uses a different path.
   if (args['verifytypes'] !== undefined) {
     verifyPackageTypes(fileSystem, args['verifytypes'] || '', !!args.verbose, !!args.outputjson, args['ignoreexternal']);
   } else if (args['ignoreexternal'] !== undefined) {
@@ -280,12 +276,10 @@ function processArgs() {
 
     if (!args.outputjson) {
       if (!watch) {
-        // Print the total time.
         timingStats.printSummary(console);
       }
 
       if (args.stats !== undefined) {
-        // Print the stats details.
         service.printStats();
         timingStats.printDetails(console);
       }
@@ -302,13 +296,9 @@ function processArgs() {
     }
   });
 
-  // This will trigger the analyzer.
   service.setOptions(options);
 
-  // Sleep indefinitely.
-  const brokenPromise = new Promise(() => {
-    // Do nothing.
-  });
+  const brokenPromise = new Promise(() => {});
   brokenPromise.then().catch();
 }
 
@@ -351,7 +341,6 @@ function buildTypeCompletenessReport(packageName: string, completenessReport: Pa
     },
   };
 
-  // Add the general diagnostics.
   completenessReport.fileDiagnostics.forEach((fileDiagnostics) => {
     fileDiagnostics.diagnostics.forEach((diag) => {
       const jsonDiag = convertDiagnosticToJson(fileDiagnostics.filePath, diag);
@@ -381,7 +370,6 @@ function buildTypeCompletenessReport(packageName: string, completenessReport: Pa
     modules: [],
   };
 
-  // Add the modules.
   completenessReport.modules.forEach((module) => {
     const jsonModule: PyrightPublicModuleReport = {
       name: module.name,
@@ -425,21 +413,18 @@ function printTypeCompletenessReportText(results: PyrightJsonResults, verboseOut
     console.log(`Path of py.typed file: "${completenessReport.pyTypedPath}"`);
   }
 
-  // Print all the errors.
   results.diagnostics.forEach((diag) => {
     if (diag.severity === 'error') {
       logDiagnosticToConsole(diag);
     }
   });
 
-  // Print all the non-errors.
   results.diagnostics.forEach((diag) => {
     if (diag.severity !== 'error') {
       logDiagnosticToConsole(diag);
     }
   });
 
-  // Print other stats.
   if (completenessReport.modules.length > 0) {
     console.log('');
     console.log(`Public modules: ${completenessReport.modules.length}`);
@@ -494,7 +479,6 @@ function printUsage() {
 }
 
 function getVersionString() {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const version = require('package.json').version;
   return version.toString();
 }
@@ -567,7 +551,6 @@ function reportDiagnosticsAsText(fileDiagnostics: FileDiagnostics[]): Diagnostic
   let informationCount = 0;
 
   fileDiagnostics.forEach((fileDiagnostics) => {
-    // Don't report unused code diagnostics.
     const fileErrorsAndWarnings = fileDiagnostics.diagnostics.filter((diag) => diag.category !== DiagnosticCategory.UnusedCode);
 
     if (fileErrorsAndWarnings.length > 0) {
@@ -626,7 +609,6 @@ function logDiagnosticToConsole(diag: PyrightJsonDiagnostic, prefix = '  ') {
 
 export function main() {
   if (process.env.NODE_ENV === 'production') {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     require('source-map-support').install();
   }
 

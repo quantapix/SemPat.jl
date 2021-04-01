@@ -26,7 +26,6 @@ import { lookUpClassMember } from './typeUtils';
 
 type ClassOrFunctionOrVariableDeclaration = ClassDeclaration | FunctionDeclaration | VariableDeclaration;
 
-// Creates and binds a shadowed file within the program.
 export type ShadowFileBinder = (stubFilePath: string, implFilePath: string) => SourceFile | undefined;
 export type BoundSourceGetter = (filePath: string) => SourceFile | undefined;
 
@@ -289,7 +288,6 @@ export class SourceMapper {
   private _findClassDeclarationsByName(sourceFile: SourceFile, fullClassName: string, recursiveDeclCache: Set<string>): ClassOrFunctionOrVariableDeclaration[] {
     let classDecls: ClassOrFunctionOrVariableDeclaration[] = [];
 
-    // fullClassName is period delimited, for example: 'OuterClass.InnerClass'
     const parentNode = sourceFile.getParseResults()?.parseTree;
     if (parentNode) {
       let classNameParts = fullClassName.split('.');
@@ -359,11 +357,8 @@ export class SourceMapper {
         this._addClassOrFunctionDeclarations(resolvedDecl, result, recursiveDeclCache);
       }
     } else if (isVariableDeclaration(decl)) {
-      // Always add decl. This handles a case where function is dynamically generated such as pandas.read_csv or type alias.
       this._addVariableDeclarations(decl, result, recursiveDeclCache);
 
-      // And try to add the real decl if we can. Sometimes, we can't since import resolver can't follow up the type alias or assignment.
-      // Import resolver can't resolve an import that only exists in the lib but not in the stub in certain circumstance.
       const nodeToBind = decl.typeAliasName ?? decl.node;
       const type = this._evaluator.getType(nodeToBind);
       if (!type) {

@@ -109,8 +109,6 @@ async function buildCombinedFix(
   }
 }
 
-// #region Source Actions
-
 abstract class SourceAction extends qv.CodeAction {
   abstract build(client: ServiceClient, file: string, diagnostics: readonly qv.Diagnostic[], token: qv.CancellationToken): Promise<void>;
 }
@@ -167,8 +165,6 @@ class SourceAddMissingImports extends SourceAction {
   }
 }
 
-//#endregion
-
 class TypeScriptAutoFixProvider implements qv.CodeActionProvider {
   private static kindProviders = [SourceFixAll, SourceRemoveUnused, SourceAddMissingImports];
 
@@ -197,7 +193,6 @@ class TypeScriptAutoFixProvider implements qv.CodeActionProvider {
 
     const diagnostics = this.diagnosticsManager.getDiagnostics(document.uri);
     if (!diagnostics.length) {
-      // Actions are a no-op in this case but we still want to return them
       return actions;
     }
 

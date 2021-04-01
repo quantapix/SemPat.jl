@@ -22,14 +22,14 @@ export function getPropertyDocStringInherited(resolvedDecl: Declaration | undefi
   }
 
   const classItr = getClassIterator(classType, ClassIteratorFlags.Default);
-  // Walk the inheritance list starting with the current class searching for docStrings
+
   for (const [mroClass] of classItr) {
     if (!isClass(mroClass)) {
       continue;
     }
 
     const symbol = mroClass.details.fields.get(fieldName);
-    // Get both the setter and getter declarations
+
     const decls = symbol?.getDeclarations();
     if (decls) {
       for (const decl of decls) {
@@ -58,7 +58,6 @@ export function getFunctionDocStringInherited(type: FunctionType, resolvedDecl: 
     docString = getFunctionDocString(type, resolvedDecl, sourceMapper);
   }
 
-  // Search mro
   if (!docString && classType) {
     const funcName = type.details.name;
     const memberIterator = getClassMemberIterator(classType, funcName, DefaultClassIteratorFlagsForFunctions);
@@ -92,7 +91,6 @@ export function getOverloadedFunctionDocStringsInherited(
     return docStrings;
   }
 
-  // Search mro
   if (classType && type.overloads.length > 0) {
     const funcName = type.overloads[0].details.name;
     const memberIterator = getClassMemberIterator(classType, funcName, DefaultClassIteratorFlagsForFunctions);

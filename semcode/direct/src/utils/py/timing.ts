@@ -1,31 +1,23 @@
 import { ConsoleInterface } from './console';
-
 export class Duration {
   private _startTime: number;
-
   constructor() {
     this._startTime = Date.now();
   }
-
   getDurationInMilliseconds() {
     const curTime = Date.now();
     return curTime - this._startTime;
   }
-
   getDurationInSeconds() {
     return this.getDurationInMilliseconds() / 1000;
   }
 }
-
 export class TimingStat {
   totalTime = 0;
   callCount = 0;
   isTiming = false;
-
   timeOperation<T>(callback: () => T): T {
     this.callCount++;
-
-    // Handle reentrancy.
     if (this.isTiming) {
       return callback();
     } else {
@@ -34,11 +26,9 @@ export class TimingStat {
       const result = callback();
       this.totalTime += duration.getDurationInMilliseconds();
       this.isTiming = false;
-
       return result;
     }
   }
-
   subtractFromTime(callback: () => void) {
     if (this.isTiming) {
       this.isTiming = false;
@@ -50,14 +40,12 @@ export class TimingStat {
       callback();
     }
   }
-
   printTime(): string {
     const totalTimeInSec = this.totalTime / 1000;
     const roundedTime = Math.round(totalTimeInSec * 100) / 100;
     return roundedTime.toString() + 'sec';
   }
 }
-
 export class TimingStats {
   totalDuration = new Duration();
   findFilesTime = new TimingStat();
@@ -69,11 +57,9 @@ export class TimingStats {
   bindTime = new TimingStat();
   typeCheckerTime = new TimingStat();
   typeEvaluationTime = new TimingStat();
-
   printSummary(console: ConsoleInterface) {
     console.info(`Completed in ${this.totalDuration.getDurationInSeconds()}sec`);
   }
-
   printDetails(console: ConsoleInterface) {
     console.info('');
     console.info('Timing stats');
@@ -86,10 +72,8 @@ export class TimingStats {
     console.info('Check:                ' + this.typeCheckerTime.printTime());
     console.info('Detect Cycles:        ' + this.cycleDetectionTime.printTime());
   }
-
   getTotalDuration() {
     return this.totalDuration.getDurationInSeconds();
   }
 }
-
 export const timingStats = new TimingStats();

@@ -7,7 +7,6 @@ export async function applySnippetWorkspaceEdit(edit: qv.WorkspaceEdit) {
   const [uri, edits] = edit.entries()[0];
 
   if (qv.window.activeTextEditor?.document.uri !== uri) {
-    // `qv.window.visibleTextEditors` only contains editors whose contents are being displayed
     await qv.window.showTextDocument(uri, {});
   }
   const editor = qv.window.visibleTextEditors.find((it) => it.document.uri.toString() === uri.toString());

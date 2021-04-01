@@ -128,8 +128,6 @@ export class Checker extends ParseTreeWalker {
   private readonly _fileInfo: AnalyzerFileInfo;
   private readonly _evaluator: TypeEvaluator;
 
-  // A list of all nodes that are defined within the module that
-  // have their own scopes.
   private _scopedNodes: AnalyzerNodeInfo.ScopedNode[] = [];
 
   constructor(node: ModuleNode, evaluator: TypeEvaluator) {
@@ -145,14 +143,11 @@ export class Checker extends ParseTreeWalker {
 
     this._walkStatementsAndReportUnreachable(this._moduleNode.statements);
 
-    // Mark symbols accessed by __all__ as accessed.
     const dunderAllNames = AnalyzerNodeInfo.getDunderAllNames(this._moduleNode);
     if (dunderAllNames) {
       this._evaluator.markNamesAccessed(this._moduleNode, dunderAllNames);
     }
 
-    // Perform a one-time validation of symbols in all scopes
-    // defined in this module for things like unaccessed variables.
     this._validateSymbolTables();
 
     this._reportDuplicateImports();
@@ -176,9 +171,6 @@ export class Checker extends ParseTreeWalker {
   visitStatementList(node: StatementListNode) {
     node.statements.forEach((statement) => {
       if (isExpressionNode(statement)) {
-        // Evaluate the expression in case it wasn't otherwise evaluated
-        // through lazy analysis. This will mark referenced symbols as
-        // accessed and report any errors associated with it.
         this._evaluator.getType(statement);
       }
     });
@@ -194,7 +186,6 @@ export class Checker extends ParseTreeWalker {
     this.walkMultiple(node.arguments);
 
     if (classTypeResult) {
-      // Protocol classes cannot derive from non-protocol classes.
       if (ClassType.isProtocolClass(classTypeResult.classType)) {
         node.arguments.forEach((arg) => {
           if (!arg.name) {
@@ -213,8 +204,6 @@ export class Checker extends ParseTreeWalker {
           }
         });
 
-        // If this is a generic protocol class, verify that its type variables
-        // have the proper variance.
         this._validateProtocolTypeParamVariance(node, classTypeResult.classType);
       }
 
@@ -237,14 +226,10 @@ export class Checker extends ParseTreeWalker {
     const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
 
     if (functionTypeResult) {
-      // Track whether we have seen a *args: P.args parameter. Named
-      // parameters after this need to be flagged as an error.
       let sawParamSpecArgs = false;
 
-      // Report any unknown parameter types.
       node.parameters.forEach((param, index) => {
         if (param.name) {
-          // Determine whether this is a P.args parameter.
           if (param.category === ParameterCategory.VarArgList) {
             const annotationExpr = param.typeAnnotation || param.typeAnnotationComment;
             if (annotationExpr && annotationExpr.nodeType === ParseNodeType.MemberAccess && annotationExpr.memberName.value === 'args') {
@@ -267,7 +252,6 @@ export class Checker extends ParseTreeWalker {
           );
         }
 
-        // Allow unknown param types if the param is named '_'.
         if (param.name && param.name.value !== '_') {
           const paramType = functionTypeResult.functionType.details.parameters[index].type;
           if (isUnknown(paramType) || (isTypeVar(paramType) && paramType.details.isSynthesized && !paramType.details.isSynthesizedSelfCls)) {
@@ -293,7 +277,6 @@ export class Checker extends ParseTreeWalker {
           }
         }
 
-        // If it's a stub file, report an issue of the default value expression is not "...".
         if (param.defaultValue && this._fileInfo.isStubFile) {
           const defaultValueType = this._evaluator.getType(param.defaultValue);
           if (!defaultValueType || !isEllipsisType(defaultValueType)) {
@@ -307,7 +290,6 @@ export class Checker extends ParseTreeWalker {
         }
       });
 
-      // Check for invalid use of ParamSpec P.args and P.kwargs.
       const paramSpecParams = node.parameters.filter((param, index) => {
         const paramInfo = functionTypeResult.functionType.details.parameters[index];
         if (paramInfo.typeAnnotation && isTypeVar(paramInfo.type) && isParamSpec(paramInfo.type)) {
@@ -323,7 +305,6 @@ export class Checker extends ParseTreeWalker {
         this._evaluator.addError(Localizer.Diagnostic.paramSpecArgsKwargsUsage(), paramSpecParams[0].typeAnnotation || paramSpecParams[0].typeAnnotationComment!);
       }
 
-      // If this is a stub, ensure that the return type is specified.
       if (this._fileInfo.isStubFile) {
         const returnAnnotation = node.returnTypeAnnotation || node.functionAnnotationComment?.returnTypeAnnotation;
         if (!returnAnnotation) {
@@ -379,13 +360,9 @@ export class Checker extends ParseTreeWalker {
     this.walk(node.suite);
 
     if (functionTypeResult) {
-      // Validate that the function returns the declared type.
       this._validateFunctionReturn(node, functionTypeResult.functionType);
     }
 
-    // If we're at the module level within a stub file, report a diagnostic
-    // if there is a '__getattr__' function defined when in strict mode.
-    // This signifies an incomplete stub file that obscures type errors.
     if (this._fileInfo.isStubFile && node.name.value === '__getattr__') {
       const scope = getScopeForNode(node);
       if (scope?.type === ScopeType.Module) {
@@ -402,9 +379,6 @@ export class Checker extends ParseTreeWalker {
       if (overloads.length > 1) {
         const maxOverloadConsistencyCheckLength = 100;
 
-        // The check is n^2 in time, so if the number of overloads
-        // is very large (which can happen for some generated code),
-        // skip this check to avoid quadratic analysis time.
         if (overloads.length < maxOverloadConsistencyCheckLength) {
           this._validateOverloadConsistency(node, overloads[overloads.length - 1], overloads.slice(0, overloads.length - 1));
         }
@@ -417,7 +391,6 @@ export class Checker extends ParseTreeWalker {
   visitLambda(node: LambdaNode): boolean {
     this._evaluator.getType(node);
 
-    // Walk the children.
     this.walkMultiple([...node.parameters, node.expression]);
 
     node.parameters.forEach((param) => {
@@ -537,12 +510,6 @@ export class Checker extends ParseTreeWalker {
   }
 
   visitIf(node: IfNode): boolean {
-    // Check for expressions where a variable is being compared to
-    // a literal string or number. Look for a common bug where
-    // the comparison will always be False. Don't do this for
-    // expressions like 'sys.platform == "win32"' because those
-    // can change based on the execution environment and are therefore
-    // valid.
     if (
       node.testExpression.nodeType === ParseNodeType.BinaryOperation &&
       node.testExpression.operator === OperatorType.Equals &&
@@ -601,7 +568,6 @@ export class Checker extends ParseTreeWalker {
     if (node.returnExpression) {
       returnType = this._evaluator.getType(node.returnExpression) || UnknownType.create();
     } else {
-      // There is no return expression, so "None" is assumed.
       returnType = NoneType.createInstance();
     }
 
@@ -658,9 +624,6 @@ export class Checker extends ParseTreeWalker {
     const yieldFromType = this._evaluator.getType(node.expression) || UnknownType.create();
     let yieldType = this._evaluator.getTypeFromIterable(yieldFromType, /* isAsync */ false, node) || UnknownType.create();
 
-    // Does the iterator return a Generator? If so, get the yield type from it.
-    // If the iterator doesn't return a Generator, use the iterator return type
-    // directly.
     const generatorTypeArgs = getGeneratorTypeArgs(yieldType);
     if (generatorTypeArgs) {
       yieldType = generatorTypeArgs.length >= 1 ? generatorTypeArgs[0] : UnknownType.create();
@@ -680,7 +643,6 @@ export class Checker extends ParseTreeWalker {
       const baseExceptionType = this._evaluator.getBuiltInType(node, 'BaseException') as ClassType;
       const exceptionType = this._evaluator.getType(node.valueExpression);
 
-      // Validate that the argument of "raise" is an exception object or None.
       if (exceptionType && baseExceptionType && isClass(baseExceptionType)) {
         const diagAddendum = new DiagnosticAddendum();
 
@@ -733,9 +695,6 @@ export class Checker extends ParseTreeWalker {
       this._evaluator.getType(node.exceptionExpression);
     }
 
-    // Specifically look for a common programming error where the two arguments
-    // to an assert are enclosed in parens and interpreted as a two-element tuple.
-    //   assert (x > 3, "bad value x")
     const type = this._evaluator.getType(node.testExpression);
     if (type && isObject(type)) {
       if (isTupleClass(type.classType) && type.classType.tupleTypeArguments) {
@@ -778,8 +737,6 @@ export class Checker extends ParseTreeWalker {
   visitIndex(node: IndexNode): boolean {
     this._evaluator.getType(node);
 
-    // If the index is a literal integer, see if this is a tuple with
-    // a known length and the integer value exceeds the length.
     const subscriptValue = ParseTreeUtils.getIntegerSubscriptValue(node);
     if (subscriptValue !== undefined) {
       const baseType = this._evaluator.getType(node.baseExpression);
@@ -860,7 +817,6 @@ export class Checker extends ParseTreeWalker {
   }
 
   visitName(node: NameNode) {
-    // Determine if we should log information about private usage.
     this._conditionallyReportPrivateUsage(node);
     return true;
   }
@@ -877,7 +833,6 @@ export class Checker extends ParseTreeWalker {
     this._evaluator.getType(node);
     this._conditionallyReportPrivateUsage(node.memberName);
 
-    // Walk the leftExpression but not the memberName.
     this.walk(node.leftExpression);
 
     return false;
@@ -929,25 +884,18 @@ export class Checker extends ParseTreeWalker {
   }
 
   visitError(node: ErrorNode) {
-    // Get the type of the child so it's available to
-    // the completion provider.
     if (node.child) {
       this._evaluator.getType(node.child);
     }
 
-    // Don't explore further.
     return false;
   }
 
-  // Determines whether the specified type is one that should trigger
-  // an "unused" value diagnostic.
   private _isTypeValidForUnusedValueTest(type: Type) {
     return !isNone(type) && !isNoReturnType(type) && !isNever(type) && !isAnyOrUnknown(type);
   }
 
-  // Verifies that each local type variable is used more than once.
   private _validateFunctionTypeVarUsage(node: FunctionNode) {
-    // Skip this check entirely if it's disabled.
     if (this._fileInfo.diagnosticRuleSet.reportInvalidTypeVarUse === 'none') {
       return;
     }
@@ -959,15 +907,9 @@ export class Checker extends ParseTreeWalker {
       ``;
       if (nameType && isTypeVar(nameType)) {
         if (nameType.scopeId === this._evaluator.getScopeIdForNode(node)) {
-          // We exempt constrained TypeVars, bound TypeVars that are type arguments of
-          // other types, and ParamSpecs. There are legitimate uses for singleton
-          // instances in these particular cases.
           let isExempt = nameType.details.constraints.length > 0 || (nameType.details.boundType !== undefined && subscriptIndex !== undefined) || isParamSpec(nameType);
 
           if (!isExempt && baseExpression && subscriptIndex !== undefined) {
-            // Is this a type argument for a generic type alias? If so,
-            // exempt it from the check because the type alias may repeat
-            // the TypeVar multiple times.
             const baseType = this._evaluator.getType(baseExpression);
             if (baseType?.typeAliasInfo && baseType.typeAliasInfo.typeParameters && subscriptIndex < baseType.typeAliasInfo.typeParameters.length) {
               isExempt = true;
@@ -986,7 +928,6 @@ export class Checker extends ParseTreeWalker {
       }
     });
 
-    // Find all of the local type variables in signature.
     node.parameters.forEach((param) => {
       const annotation = param.typeAnnotation || param.typeAnnotationComment;
       if (annotation) {
@@ -998,7 +939,6 @@ export class Checker extends ParseTreeWalker {
       nameWalker.walk(node.returnTypeAnnotation);
     }
 
-    // Report errors for all local type variables that appear only once.
     localTypeVarUsage.forEach((usage) => {
       if (usage.nodes.length === 1 && !usage.isExempt) {
         this._evaluator.addDiagnostic(
@@ -1055,9 +995,6 @@ export class Checker extends ParseTreeWalker {
     }
   }
 
-  // Mypy reports overlapping overload errors on the line that contains the
-  // earlier overload. Typeshed stubs contain type: ignore comments on these
-  // lines, so it is important for us to report them in the same manner.
   private _findNodeForOverload(functionNode: FunctionNode, overloadType: FunctionType): FunctionNode | undefined {
     const decls = this._evaluator.getDeclarationsForNameNode(functionNode.name);
     if (!decls) {
@@ -1087,7 +1024,6 @@ export class Checker extends ParseTreeWalker {
   }
 
   private _isLegalOverloadImplementation(overload: FunctionType, implementation: FunctionType, diag: DiagnosticAddendum): boolean {
-    // First check the parameters to see if they are assignable.
     let isLegal = this._evaluator.canAssignType(
       overload,
       implementation,
@@ -1096,7 +1032,6 @@ export class Checker extends ParseTreeWalker {
       CanAssignFlags.SkipSolveTypeVars | CanAssignFlags.SkipFunctionReturnTypeCheck | CanAssignFlags.DisallowAssignFromAny
     );
 
-    // Now check the return types.
     const overloadReturnType = overload.details.declaredReturnType || this._evaluator.getFunctionInferredReturnType(overload);
     const implementationReturnType = implementation.details.declaredReturnType || this._evaluator.getFunctionInferredReturnType(implementation);
 
@@ -1119,12 +1054,8 @@ export class Checker extends ParseTreeWalker {
     let reportedUnreachable = false;
 
     for (const statement of statements) {
-      // No need to report unreachable more than once since the first time
-      // covers all remaining statements in the statement list.
       if (!reportedUnreachable) {
         if (!this._evaluator.isNodeReachable(statement)) {
-          // Create a text range that covers the next statement through
-          // the end of the statement list.
           const start = statement.start;
           const lastStatement = statements[statements.length - 1];
           const end = TextRange.getEnd(lastStatement);
@@ -1148,7 +1079,6 @@ export class Checker extends ParseTreeWalker {
       case ParseNodeType.Function:
       case ParseNodeType.Class:
       case ParseNodeType.Error: {
-        // These are allowed in a stub file.
         break;
       }
 
@@ -1156,7 +1086,6 @@ export class Checker extends ParseTreeWalker {
       case ParseNodeType.For:
       case ParseNodeType.Try:
       case ParseNodeType.With: {
-        // These are not allowed.
         this._evaluator.addDiagnostic(this._fileInfo.diagnosticRuleSet.reportInvalidStubStatement, DiagnosticRule.reportInvalidStubStatement, Localizer.Diagnostic.invalidStubStatement(), statement);
         break;
       }
@@ -1226,7 +1155,6 @@ export class Checker extends ParseTreeWalker {
     if (isAnyOrUnknown(exceptionType)) {
       resultingExceptionType = exceptionType;
     } else {
-      // Handle the case where we have a Type[X] object.
       if (isObject(exceptionType)) {
         exceptionType = transformTypeObjectToClass(exceptionType);
       }
@@ -1314,7 +1242,6 @@ export class Checker extends ParseTreeWalker {
         const overloadedFunctions = functions.filter((func) => FunctionType.isOverloaded(func));
 
         if (overloadedFunctions.length === 1) {
-          // There should never be a single overload.
           this._evaluator.addDiagnostic(
             this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
             DiagnosticRule.reportGeneralTypeIssues,
@@ -1323,8 +1250,6 @@ export class Checker extends ParseTreeWalker {
           );
         }
 
-        // If the file is not a stub and this is the first overload,
-        // verify that there is an implementation.
         if (!this._fileInfo.isStubFile && overloadedFunctions.length > 0) {
           let implementationFunction: FunctionType | undefined;
 
@@ -1344,7 +1269,6 @@ export class Checker extends ParseTreeWalker {
               primaryDecl.node.name
             );
           } else if (isOverloadedFunction(type)) {
-            // Verify that all overload signatures are assignable to implementation signature.
             type.overloads.forEach((overload, index) => {
               if (overload === implementationFunction || !FunctionType.isOverloaded(overload)) {
                 return;
@@ -1400,7 +1324,6 @@ export class Checker extends ParseTreeWalker {
       }
     });
 
-    // If it's not a stub file, an assignment must be provided.
     if (!sawAssignment && !this._fileInfo.isStubFile) {
       const firstDecl = decls.find((decl) => decl.type === DeclarationType.Variable && decl.isFinal);
       if (firstDecl) {
@@ -1413,7 +1336,6 @@ export class Checker extends ParseTreeWalker {
     const decls = symbol.getDeclarations();
     const typeAliasDecl = decls.find((decl) => isExplicitTypeAliasDeclaration(decl));
 
-    // If this is a type alias, there should be only one declaration.
     if (typeAliasDecl && decls.length > 1) {
       decls.forEach((decl) => {
         if (decl !== typeAliasDecl) {
@@ -1424,20 +1346,14 @@ export class Checker extends ParseTreeWalker {
   }
 
   private _reportIncompatibleDeclarations(name: string, symbol: Symbol) {
-    // If there's one or more declaration with a declared type,
-    // all other declarations should match. The only exception is
-    // for functions that have an overload.
     const primaryDecl = getLastTypedDeclaredForSymbol(symbol);
 
-    // If there's no declaration with a declared type, we're done.
     if (!primaryDecl) {
       return;
     }
 
     let otherDecls = symbol.getDeclarations().filter((decl) => decl !== primaryDecl);
 
-    // If it's a function, we can skip any other declarations
-    // that are overloads or property setters/deleters.
     if (primaryDecl.type === DeclarationType.Function) {
       const primaryDeclTypeInfo = this._evaluator.getTypeOfFunction(primaryDecl.node);
 
@@ -1451,9 +1367,6 @@ export class Checker extends ParseTreeWalker {
           return true;
         }
 
-        // We need to handle properties in a careful manner because of
-        // the way that setters and deleters are often defined using multiple
-        // methods with the same name.
         if (
           primaryDeclTypeInfo &&
           isObject(primaryDeclTypeInfo.decoratedType) &&
@@ -1468,7 +1381,6 @@ export class Checker extends ParseTreeWalker {
       });
     }
 
-    // If there are no other declarations to consider, we're done.
     if (otherDecls.length === 0) {
       return;
     }
@@ -1545,8 +1457,6 @@ export class Checker extends ParseTreeWalker {
           if (otherDecl.node.nodeType === ParseNodeType.Name) {
             let duplicateIsOk = false;
 
-            // If both declarations are variables, it's OK if they
-            // both have the same declared type.
             if (primaryDecl.type === DeclarationType.Variable) {
               const otherType = this._evaluator.getTypeForDeclaration(otherDecl);
               if (primaryType && otherType && isTypeSame(primaryType, otherType)) {
@@ -1585,8 +1495,6 @@ export class Checker extends ParseTreeWalker {
       return;
     }
 
-    // A name of "_" means "I know this symbol isn't used", so
-    // don't report it as unused.
     if (name === '_') {
       return;
     }
@@ -1613,12 +1521,10 @@ export class Checker extends ParseTreeWalker {
         rule = DiagnosticRule.reportUnusedImport;
         if (decl.node.nodeType === ParseNodeType.ImportAs) {
           if (decl.node.alias) {
-            // Aliases in stub files are assumed to be re-exports.
             if (!this._fileInfo.isStubFile) {
               nameNode = decl.node.alias;
             }
           } else {
-            // Handle multi-part names specially.
             const nameParts = decl.node.module.nameParts;
             if (nameParts.length > 0) {
               const multipartName = nameParts.map((np) => np.value).join('.');
@@ -1639,11 +1545,8 @@ export class Checker extends ParseTreeWalker {
         } else if (decl.node.nodeType === ParseNodeType.ImportFromAs) {
           const importFrom = decl.node.parent as ImportFromNode;
 
-          // If this is a stub file that is using the "from A import B as C" or "from . import C",
-          // don't mark "C" as unaccessed because it's assumed to be re-exported.
           const isReexport = this._fileInfo.isStubFile && decl.node.alias !== undefined;
 
-          // If this is a __future__ import, it's OK for the import symbol to be unaccessed.
           const isFuture = importFrom.module.nameParts.length === 1 && importFrom.module.nameParts[0].value === '__future__';
 
           if (!isReexport && !isFuture) {
@@ -1663,8 +1566,6 @@ export class Checker extends ParseTreeWalker {
         }
 
         if (this._fileInfo.isStubFile) {
-          // Don't mark variables or parameters as unaccessed in
-          // stub files. It's typical for them to be unaccessed here.
           return;
         }
 
@@ -1675,7 +1576,6 @@ export class Checker extends ParseTreeWalker {
         } else if (decl.node.nodeType === ParseNodeType.Parameter) {
           nameNode = decl.node.name;
 
-          // Don't emit a diagnostic for unused parameters.
           diagnosticLevel = 'none';
         }
 
@@ -1690,8 +1590,6 @@ export class Checker extends ParseTreeWalker {
           return;
         }
 
-        // If a stub is exporting a private type, we'll assume that the author
-        // knows what he or she is doing.
         if (this._fileInfo.isStubFile) {
           return;
         }
@@ -1707,8 +1605,6 @@ export class Checker extends ParseTreeWalker {
           return;
         }
 
-        // If a stub is exporting a private type, we'll assume that the author
-        // knows what he or she is doing.
         if (this._fileInfo.isStubFile) {
           return;
         }
@@ -1730,9 +1626,6 @@ export class Checker extends ParseTreeWalker {
     }
   }
 
-  // Validates that a call to isinstance or issubclass are necessary. This is a
-  // common source of programming errors. Also validates that arguments passed
-  // to isinstance or issubclass won't generate exceptions.
   private _validateIsInstanceCall(node: CallNode) {
     if (node.leftExpression.nodeType !== ParseNodeType.Name || (node.leftExpression.value !== 'isinstance' && node.leftExpression.value !== 'issubclass') || node.arguments.length !== 2) {
       return;
@@ -1758,8 +1651,6 @@ export class Checker extends ParseTreeWalker {
       return;
     }
 
-    // Create a helper function that determines whether the specified
-    // type is valid for the isinstance or issubclass call.
     const isSupportedTypeForIsInstance = (type: Type) => {
       let isSupported = true;
 
@@ -1777,8 +1668,6 @@ export class Checker extends ParseTreeWalker {
             break;
 
           case TypeCategory.Class:
-            // If it's a class, make sure that it has not been given explicit
-            // type arguments. This will result in a TypeError exception.
             if (subtype.isTypeArgumentExplicit) {
               isSupported = false;
             }
@@ -1822,8 +1711,6 @@ export class Checker extends ParseTreeWalker {
       );
     }
 
-    // If this call is within an assert statement, we won't check whether
-    // it's unnecessary.
     let curNode: ParseNode | undefined = node;
     while (curNode) {
       if (curNode.nodeType === ParseNodeType.Assert) {
@@ -1832,9 +1719,6 @@ export class Checker extends ParseTreeWalker {
       curNode = curNode.parent;
     }
 
-    // Several built-in classes don't follow the normal class hierarchy
-    // rules, so we'll avoid emitting false-positive diagnostics if these
-    // are used.
     const nonstandardClassTypes = ['FunctionType', 'LambdaType', 'BuiltinFunctionType', 'BuiltinMethodType', 'type', 'Type'];
 
     const classTypeList: ClassType[] = [];
@@ -1844,8 +1728,6 @@ export class Checker extends ParseTreeWalker {
         return;
       }
     } else if (isObject(arg1Type)) {
-      // The isinstance and issubclass call supports a variation where the second
-      // parameter is a tuple of classes.
       const objClass = arg1Type.classType;
       if (isTupleClass(objClass) && objClass.tupleTypeArguments) {
         objClass.tupleTypeArguments.forEach((typeArg) => {
@@ -1863,9 +1745,6 @@ export class Checker extends ParseTreeWalker {
       return;
     }
 
-    // According to PEP 544, protocol classes cannot be used as the right-hand
-    // argument to isinstance or issubclass unless they are annotated as
-    // "runtime checkable".
     if (classTypeList.some((type) => ClassType.isProtocolClass(type) && !ClassType.isRuntimeCheckable(type))) {
       this._evaluator.addError(Localizer.Diagnostic.protocolUsedInCall().format({ name: callName }), node.arguments[1].valueExpression);
     }
@@ -1878,29 +1757,16 @@ export class Checker extends ParseTreeWalker {
       const filteredTypes: Type[] = [];
 
       for (const filterType of classTypeList) {
-        // Handle the special case where the variable type is a TypedDict and
-        // we're filtering against 'dict'. TypedDict isn't derived from dict,
-        // but at runtime, isinstance returns True.
         const filterIsSuperclass = ClassType.isDerivedFrom(varType, filterType) || (ClassType.isBuiltIn(filterType, 'dict') && ClassType.isTypedDictClass(varType));
         const filterIsSubclass = ClassType.isDerivedFrom(filterType, varType);
 
-        // Normally, a class should never be both a subclass and a
-        // superclass. However, this can happen if one of the classes
-        // derives from an unknown type. In this case, we'll add an
-        // unknown type into the filtered type list to avoid any
-        // false positives.
         const isClassRelationshipIndeterminate = filterIsSubclass && filterIsSubclass && !ClassType.isSameGenericClass(varType, filterType);
 
         if (isClassRelationshipIndeterminate) {
           filteredTypes.push(UnknownType.create());
         } else if (filterIsSuperclass) {
-          // If the variable type is a subclass of the isinstance
-          // filter, we haven't learned anything new about the
-          // variable type.
           filteredTypes.push(varType);
         } else if (filterIsSubclass) {
-          // If the variable type is a superclass of the isinstance
-          // filter, we can narrow the type to the subclass.
           filteredTypes.push(filterType);
         }
       }
@@ -1909,7 +1775,6 @@ export class Checker extends ParseTreeWalker {
         return filteredTypes;
       }
 
-      // Make all class types into object types before returning them.
       return filteredTypes.map((t) => (isClass(t) ? ObjectType.create(t) : t));
     };
 
@@ -1938,7 +1803,6 @@ export class Checker extends ParseTreeWalker {
 
       filteredType = finalizeFilteredTypeList(remainingTypes);
 
-      // If we found an any or unknown type, all bets are off.
       if (foundAnyType) {
         return;
       }
@@ -1985,19 +1849,15 @@ export class Checker extends ParseTreeWalker {
   }
 
   private _isSymbolPrivate(nameValue: string, scopeType: ScopeType) {
-    // All variables within the scope of a function or a list
-    // comprehension are considered private.
     if (scopeType === ScopeType.Function || scopeType === ScopeType.ListComprehension) {
       return true;
     }
 
-    // See if the symbol is private.
     if (SymbolNameUtils.isPrivateName(nameValue)) {
       return true;
     }
 
     if (SymbolNameUtils.isProtectedName(nameValue)) {
-      // Protected names outside of a class scope are considered private.
       const isClassScope = scopeType === ScopeType.Class;
       return !isClassScope;
     }
@@ -2010,12 +1870,10 @@ export class Checker extends ParseTreeWalker {
       return;
     }
 
-    // Ignore privates in type stubs.
     if (this._fileInfo.isStubFile) {
       return;
     }
 
-    // Ignore privates in named arguments.
     if (node.parent?.nodeType === ParseNodeType.Argument && node.parent.name === node) {
       return;
     }
@@ -2024,8 +1882,6 @@ export class Checker extends ParseTreeWalker {
     const isPrivateName = SymbolNameUtils.isPrivateName(nameValue);
     const isProtectedName = SymbolNameUtils.isProtectedName(nameValue);
 
-    // If it's not a protected or private name, don't bother with
-    // any further checks.
     if (!isPrivateName && !isProtectedName) {
       return;
     }
@@ -2037,8 +1893,6 @@ export class Checker extends ParseTreeWalker {
       return;
     }
 
-    // If this symbol is an import alias (i.e. it's a local name rather than the original
-    // imported name), skip the private check.
     if (primaryDeclaration.type === DeclarationType.Alias && primaryDeclaration.usesLocalName) {
       return;
     }
@@ -2053,19 +1907,15 @@ export class Checker extends ParseTreeWalker {
       classOrModuleNode = ParseTreeUtils.getEnclosingClassOrModule(primaryDeclaration.node);
     }
 
-    // If this is the name of a class, find the module or class that contains it rather
-    // than constraining the use of the class name within the class itself.
     if (primaryDeclaration.node && primaryDeclaration.node.parent && primaryDeclaration.node.parent === classOrModuleNode && classOrModuleNode.nodeType === ParseNodeType.Class) {
       classOrModuleNode = ParseTreeUtils.getEnclosingClassOrModule(classOrModuleNode);
     }
 
-    // If it's a class member, check whether it's a legal protected access.
     let isProtectedAccess = false;
     if (classOrModuleNode && classOrModuleNode.nodeType === ParseNodeType.Class) {
       if (isProtectedName) {
         const declClassTypeInfo = this._evaluator.getTypeOfClass(classOrModuleNode);
         if (declClassTypeInfo && isClass(declClassTypeInfo.decoratedType)) {
-          // Note that the access is to a protected class member.
           isProtectedAccess = true;
 
           const enclosingClassNode = ParseTreeUtils.getEnclosingClass(node);
@@ -2073,8 +1923,6 @@ export class Checker extends ParseTreeWalker {
             isProtectedAccess = true;
             const enclosingClassTypeInfo = this._evaluator.getTypeOfClass(enclosingClassNode);
 
-            // If the referencing class is a subclass of the declaring class, it's
-            // allowed to access a protected name.
             if (enclosingClassTypeInfo && isClass(enclosingClassTypeInfo.decoratedType)) {
               if (derivesFromClassRecursive(enclosingClassTypeInfo.decoratedType, declClassTypeInfo.decoratedType, /* ignoreUnknown */ true)) {
                 return;
@@ -2106,9 +1954,6 @@ export class Checker extends ParseTreeWalker {
     }
   }
 
-  // Verifies the rules specified in PEP 589 about TypedDict classes.
-  // They cannot have statements other than type annotations, doc
-  // strings, and "pass" statements or ellipses.
   private _validateTypedDictClassSuite(suiteNode: SuiteNode) {
     const emitBadStatementError = (node: ParseNode) => {
       this._evaluator.addError(Localizer.Diagnostic.typedDictBadVar(), node);
@@ -2135,8 +1980,6 @@ export class Checker extends ParseTreeWalker {
   }
 
   private _validateFunctionReturn(node: FunctionNode, functionType: FunctionType) {
-    // Stub files are allowed not to return an actual value,
-    // so skip this if it's a stub file.
     if (this._fileInfo.isStubFile) {
       return;
     }
@@ -2179,19 +2022,12 @@ export class Checker extends ParseTreeWalker {
         }
       }
 
-      // Wrap the declared type in a generator type if the function is a generator.
       if (FunctionType.isGenerator(functionType)) {
         declaredReturnType = getDeclaredGeneratorReturnType(functionType);
       }
 
-      // The types of all return statement expressions were already checked
-      // against the declared type, but we need to verify the implicit None
-      // at the end of the function.
       if (declaredReturnType && !functionNeverReturns && implicitlyReturnsNone) {
         if (isNoReturnType(declaredReturnType)) {
-          // If the function consists entirely of "...", assume that it's
-          // an abstract method or a protocol method and don't require that
-          // the return type matches.
           if (!ParseTreeUtils.isSuiteEmpty(node.suite)) {
             this._evaluator.addDiagnostic(
               this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
@@ -2201,15 +2037,9 @@ export class Checker extends ParseTreeWalker {
             );
           }
         } else if (!FunctionType.isAbstractMethod(functionType)) {
-          // Make sure that the function doesn't implicitly return None if the declared
-          // type doesn't allow it. Skip this check for abstract methods.
           const diagAddendum = new DiagnosticAddendum();
 
-          // If the declared type isn't compatible with 'None', flag an error.
           if (!this._evaluator.canAssignType(declaredReturnType, NoneType.createInstance(), diagAddendum)) {
-            // If the function consists entirely of "...", assume that it's
-            // an abstract method or a protocol method and don't require that
-            // the return type matches.
             if (!ParseTreeUtils.isSuiteEmpty(node.suite)) {
               this._evaluator.addDiagnostic(
                 this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
@@ -2259,8 +2089,6 @@ export class Checker extends ParseTreeWalker {
     return !isValid;
   }
 
-  // Validates that any overridden member variables are not marked
-  // as Final in parent classes.
   private _validateFinalMemberOverrides(classType: ClassType) {
     classType.details.fields.forEach((localSymbol, name) => {
       const parentSymbol = lookUpClassMember(classType, name, ClassMemberLookupFlags.SkipOriginalClass);
@@ -2277,13 +2105,9 @@ export class Checker extends ParseTreeWalker {
     });
   }
 
-  // Validates that the type variables used in a generic protocol class have
-  // the proper variance (invariant, covariant, contravariant). See PEP 544
-  // for an explanation for why this is important to enforce.
   private _validateProtocolTypeParamVariance(errorNode: ClassNode, classType: ClassType) {
     const origTypeParams = classType.details.typeParameters;
 
-    // If this isn't a generic protocol, there's nothing to do here.
     if (origTypeParams.length === 0) {
       return;
     }
@@ -2293,21 +2117,16 @@ export class Checker extends ParseTreeWalker {
       return;
     }
 
-    // Replace all of the type parameters with invariant TypeVars.
     const updatedTypeParams = origTypeParams.map((typeParam) => TypeVarType.cloneAsInvariant(typeParam));
     const updatedClassType = ClassType.cloneWithNewTypeParameters(classType, updatedTypeParams);
 
     const objectObject = ObjectType.create(objectType);
 
     updatedTypeParams.forEach((param, paramIndex) => {
-      // Replace all type arguments with Any except for the
-      // TypeVar of interest, which is replaced with an object instance.
       const srcTypeArgs = updatedTypeParams.map((_, i) => {
         return i === paramIndex ? objectObject : AnyType.create();
       });
 
-      // Replace all type arguments with Any except for the
-      // TypeVar of interest, which is replaced with itself.
       const destTypeArgs = updatedTypeParams.map((p, i) => {
         return i === paramIndex ? p : AnyType.create();
       });
@@ -2353,12 +2172,7 @@ export class Checker extends ParseTreeWalker {
     });
   }
 
-  // Validates that any overridden methods contain the same signatures
-  // as the original method. Also marks the class as abstract if one or
-  // more abstract methods are not overridden.
   private _validateClassMethods(classType: ClassType) {
-    // Skip the overrides check for stub files. Many of the built-in
-    // typeshed stub files trigger this diagnostic.
     if (!this._fileInfo.isStubFile) {
       this._validateBaseClassOverrides(classType);
     }
@@ -2370,31 +2184,22 @@ export class Checker extends ParseTreeWalker {
         return;
       }
 
-      // Private symbols do not need to match in type since their
-      // names are mangled, and subclasses can't access the value in
-      // the parent class.
       if (SymbolNameUtils.isPrivateName(name)) {
         return;
       }
 
-      // Get the symbol type defined in this class.
       const typeOfSymbol = this._evaluator.getEffectiveTypeOfSymbol(symbol);
 
-      // If the type of the override symbol isn't known, stop here.
       if (isAnyOrUnknown(typeOfSymbol)) {
         return;
       }
 
-      // Get the symbol defined in the base class.
       const baseClassAndSymbol = lookUpClassMember(classType, name, ClassMemberLookupFlags.SkipOriginalClass);
 
       if (!baseClassAndSymbol || !isClass(baseClassAndSymbol.classType)) {
         return;
       }
 
-      // If the base class doesn't provide a type declaration, we won't bother
-      // proceeding with additional checks. Type inference is too inaccurate
-      // in this case, plus it would be very slow.
       if (!baseClassAndSymbol.symbol.hasTypedDeclarations()) {
         return;
       }
@@ -2408,12 +2213,10 @@ export class Checker extends ParseTreeWalker {
         if (isFunction(typeOfSymbol)) {
           overrideFunction = typeOfSymbol;
         } else if (isOverloadedFunction(typeOfSymbol)) {
-          // Use the last overload.
           overrideFunction = typeOfSymbol.overloads[typeOfSymbol.overloads.length - 1];
         }
 
         if (overrideFunction) {
-          // Don't check magic functions or private symbols.
           if (!SymbolNameUtils.isDunderName(name) && !SymbolNameUtils.isPrivateName(name)) {
             if (!this._evaluator.canOverrideMethod(baseClassSymbolType, overrideFunction, diagAddendum)) {
               const decl = overrideFunction.details.declaration;
@@ -2437,7 +2240,6 @@ export class Checker extends ParseTreeWalker {
           }
 
           if (isFunction(baseClassSymbolType)) {
-            // Private names (starting with double underscore) are exempt from this check.
             if (!SymbolNameUtils.isPrivateName(name) && FunctionType.isFinal(baseClassSymbolType)) {
               const decl = getLastTypedDeclaredForSymbol(symbol);
               if (decl && decl.type === DeclarationType.Function) {
@@ -2478,7 +2280,6 @@ export class Checker extends ParseTreeWalker {
           }
         }
       } else if (isProperty(baseClassSymbolType)) {
-        // Handle properties specially.
         if (!isProperty(typeOfSymbol)) {
           const decls = symbol.getDeclarations();
           if (decls.length > 0) {
@@ -2502,12 +2303,10 @@ export class Checker extends ParseTreeWalker {
             const baseClassPropMethod = basePropFields.get(methodName);
             const subclassPropMethod = subclassPropFields.get(methodName);
 
-            // Is the method present on the base class but missing in the subclass?
             if (baseClassPropMethod) {
               const baseClassMethodType = partiallySpecializeType(this._evaluator.getEffectiveTypeOfSymbol(baseClassPropMethod), baseClassType);
               if (isFunction(baseClassMethodType)) {
                 if (!subclassPropMethod) {
-                  // The method is missing.
                   diagAddendum.addMessage(
                     Localizer.DiagnosticAddendum.propertyMethodMissing().format({
                       name: methodName,
@@ -2564,11 +2363,7 @@ export class Checker extends ParseTreeWalker {
           });
         }
       } else {
-        // This check can be expensive, so don't perform it if the corresponding
-        // rule is disabled.
         if (this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride !== 'none') {
-          // Verify that the override type is assignable to (same or narrower than)
-          // the declared type of the base symbol.
           const diagAddendum = new DiagnosticAddendum();
           if (!this._evaluator.canAssignType(baseClassSymbolType, typeOfSymbol, diagAddendum)) {
             const decls = symbol.getDeclarations();
@@ -2597,11 +2392,8 @@ export class Checker extends ParseTreeWalker {
     });
   }
 
-  // Performs checks on a function that is located within a class
-  // and has been determined not to be a property accessor.
   private _validateMethod(node: FunctionNode, functionType: FunctionType, classNode: ClassNode) {
     if (node.name && node.name.value === '__new__') {
-      // __new__ overrides should have a "cls" parameter.
       if (node.parameters.length === 0 || !node.parameters[0].name || !['cls', '_cls', '__cls', '__mcls'].some((name) => node.parameters[0].name!.value === name)) {
         this._evaluator.addDiagnostic(
           this._fileInfo.diagnosticRuleSet.reportSelfClsParameterName,
@@ -2611,7 +2403,6 @@ export class Checker extends ParseTreeWalker {
         );
       }
     } else if (node.name && node.name.value === '__init_subclass__') {
-      // __init_subclass__ overrides should have a "cls" parameter.
       if (node.parameters.length === 0 || !node.parameters[0].name || node.parameters[0].name.value !== 'cls') {
         this._evaluator.addDiagnostic(
           this._fileInfo.diagnosticRuleSet.reportSelfClsParameterName,
@@ -2621,7 +2412,6 @@ export class Checker extends ParseTreeWalker {
         );
       }
     } else if (node.name && node.name.value === '__class_getitem__') {
-      // __class_getitem__ overrides should have a "cls" parameter.
       if (node.parameters.length === 0 || !node.parameters[0].name || node.parameters[0].name.value !== 'cls') {
         this._evaluator.addDiagnostic(
           this._fileInfo.diagnosticRuleSet.reportSelfClsParameterName,
@@ -2631,7 +2421,6 @@ export class Checker extends ParseTreeWalker {
         );
       }
     } else if (FunctionType.isStaticMethod(functionType)) {
-      // Static methods should not have "self" or "cls" parameters.
       if (node.parameters.length > 0 && node.parameters[0].name) {
         const paramName = node.parameters[0].name.value;
         if (paramName === 'self' || paramName === 'cls') {
@@ -2648,9 +2437,7 @@ export class Checker extends ParseTreeWalker {
       if (node.parameters.length > 0 && node.parameters[0].name) {
         paramName = node.parameters[0].name.value;
       }
-      // Class methods should have a "cls" parameter. We'll exempt parameter
-      // names that start with an underscore since those are used in a few
-      // cases in the stdlib pyi files.
+
       if (paramName !== 'cls') {
         if (!this._fileInfo.isStubFile || (!paramName.startsWith('_') && paramName !== 'metacls')) {
           this._evaluator.addDiagnostic(
@@ -2662,8 +2449,6 @@ export class Checker extends ParseTreeWalker {
         }
       }
     } else {
-      // The presence of a decorator can change the behavior, so we need
-      // to back off from this check if a decorator is present.
       if (node.decorators.length === 0) {
         let paramName = '';
         let firstParamIsSimple = true;
@@ -2677,9 +2462,7 @@ export class Checker extends ParseTreeWalker {
           }
         }
 
-        // Instance methods should have a "self" parameter.
         if (firstParamIsSimple && paramName !== 'self') {
-          // Special-case metaclasses, which can use "cls".
           let isLegalMetaclassName = false;
           if (paramName === 'cls') {
             const classTypeInfo = this._evaluator.getTypeOfClass(classNode);
@@ -2691,8 +2474,6 @@ export class Checker extends ParseTreeWalker {
             }
           }
 
-          // Some typeshed stubs use a name that starts with an underscore to designate
-          // a parameter that cannot be positional.
           const isPrivateName = SymbolNameUtils.isPrivateOrProtectedName(paramName);
 
           if (!isLegalMetaclassName && !isPrivateName) {
@@ -2763,7 +2544,6 @@ export class Checker extends ParseTreeWalker {
         const symbolMap = new Map<string, ImportFromAsNode>();
 
         importStatement.node.imports.forEach((importFromAs) => {
-          // Ignore duplicates if they're aliased.
           if (!importFromAs.alias) {
             const prevImport = symbolMap.get(importFromAs.name.value);
             if (prevImport) {
@@ -2779,7 +2559,6 @@ export class Checker extends ParseTreeWalker {
           }
         });
       } else if (importStatement.subnode) {
-        // Ignore duplicates if they're aliased.
         if (!importStatement.subnode.alias) {
           const prevImport = importModuleMap.get(importStatement.moduleName);
           if (prevImport) {

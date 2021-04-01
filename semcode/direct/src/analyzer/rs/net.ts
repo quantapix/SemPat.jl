@@ -1,5 +1,3 @@
-// Replace with `import fetch from "node-fetch"` once this is fixed in rollup:
-// https://github.com/rollup/plugins/issues/491
 const fetch = require('node-fetch') as typeof import('node-fetch')['default'];
 
 import * as qv from 'vscode';
@@ -40,20 +38,18 @@ export async function fetchRelease(releaseTag: string): Promise<GithubRelease> {
     throw new Error(`Got response ${response.status} when trying to fetch ` + `release info for ${releaseTag} release`);
   }
 
-  // We skip runtime type checks for simplicity (here we cast from `any` to `GithubRelease`)
   const release: GithubRelease = await response.json();
   return release;
 }
 
-// We omit declaration of tremendous amount of fields that we are not using here
 export interface GithubRelease {
   name: string;
   id: number;
-  // eslint-disable-next-line camelcase
+
   published_at: string;
   assets: Array<{
     name: string;
-    // eslint-disable-next-line camelcase
+
     browser_download_url: string;
   }>;
 }
@@ -67,8 +63,6 @@ interface DownloadOpts {
 }
 
 export async function download(opts: DownloadOpts) {
-  // Put artifact into a temporary file (in the same dir for simplicity)
-  // to prevent partially downloaded files when user kills vscode
   const dest = path.parse(opts.dest);
   const randomHex = crypto.randomBytes(5).toString('hex');
   const tempFile = path.join(dest.dir, `${dest.name}${randomHex}`);
@@ -125,7 +119,5 @@ async function downloadFile(url: string, destFilePath: fs.PathLike, mode: number
   await new Promise<void>((resolve) => {
     destFileStream.on('close', resolve);
     destFileStream.destroy();
-    // This workaround is awaiting to be removed when vscode moves to newer nodejs version:
-    // https://github.com/rust-analyzer/rust-analyzer/issues/3167
   });
 }

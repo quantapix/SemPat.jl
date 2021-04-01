@@ -35,7 +35,6 @@ export class GoReferencesCodeLensProvider extends GoBaseCodeLensProvider {
       return symbols.map((symbol) => {
         let position = symbol.range.start;
 
-        // Add offset for functions as go-outline returns position at the keyword func instead of func name
         if (symbol.kind === qv.SymbolKind.Function) {
           const funcDecl = document.lineAt(position.line).text.substr(position.character);
           const match = methodRegex.exec(funcDecl);

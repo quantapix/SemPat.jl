@@ -127,7 +127,6 @@ export function onEnter(ctx: Ctx): Cmd {
         position: client.code2ProtocolConverter.asPosition(editor.selection.active),
       })
       .catch((_error) => {
-        // client.logFailedRequest(OnEnterRequest.type, error);
         return null;
       });
     if (!lcEdits) return false;
@@ -218,9 +217,6 @@ export function toggleInlayHints(ctx: Ctx): Cmd {
   };
 }
 
-// Opens the virtual file that will show the syntax tree
-//
-// The contents of the file come from the `TextDocumentContentProvider`
 export function syntaxTree(ctx: Ctx): Cmd {
   const tdcp = new (class implements qv.TextDocumentContentProvider {
     readonly uri = qv.Uri.parse('rust-analyzer://syntaxtree/tree.rast');
@@ -232,8 +228,6 @@ export function syntaxTree(ctx: Ctx): Cmd {
 
     private onDidChangeTextDocument(event: qv.TextDocumentChangeEvent) {
       if (isRustDocument(event.document)) {
-        // We need to order this after language server updates, but there's no API for that.
-        // Hence, good old sleep().
         void sleep(10).then(() => this.eventEmitter.fire(this.uri));
       }
     }
@@ -247,7 +241,6 @@ export function syntaxTree(ctx: Ctx): Cmd {
       const rustEditor = ctx.activeRustEditor;
       if (!rustEditor) return '';
 
-      // When the range based query is enabled we take the range of the selection
       const range = uri.query === 'range=true' && !rustEditor.selection.isEmpty ? ctx.client.code2ProtocolConverter.asRange(rustEditor.selection) : null;
 
       const params = { textDocument: { uri: rustEditor.document.uri.toString() }, range };
@@ -285,9 +278,6 @@ export function syntaxTree(ctx: Ctx): Cmd {
   };
 }
 
-// Opens the virtual file that will show the syntax tree
-//
-// The contents of the file come from the `TextDocumentContentProvider`
 export function expandMacro(ctx: Ctx): Cmd {
   function codeFormat(expanded: ra.ExpandedMacro): string {
     let result = `// Recursive expansion of ${expanded.name}! macro\n`;
@@ -359,7 +349,7 @@ export function gotoLocation(ctx: Ctx): Cmd {
     if (client) {
       const uri = client.protocol2CodeConverter.asUri(locationLink.targetUri);
       let range = client.protocol2CodeConverter.asRange(locationLink.targetSelectionRange);
-      // collapse the range to a cursor position
+
       range = range.with({ end: range.start });
 
       await qv.window.showTextDocument(uri, { selection: range });

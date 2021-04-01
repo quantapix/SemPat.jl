@@ -36,8 +36,6 @@ export function getTypeShedFallbackPath(fs: FileSystem) {
     return typeshedPath;
   }
 
-  // In the debug version of Pyright, the code is one level
-  // deeper, so we need to look one level up for the typeshed fallback.
   const debugTypeshedPath = combinePaths(getDirectoryPath(moduleDirectory), pathConsts.typeshedFallback);
   if (fs.existsSync(debugTypeshedPath)) {
     return debugTypeshedPath;
@@ -74,7 +72,6 @@ export function findPythonSearchPaths(
       }
     });
 
-    // Now add paths from ".pth" files located in each of the site packages folders.
     sitePackagesPaths.forEach((sitePackagesPath) => {
       const pthPaths = getPathsFromPthFiles(fs, sitePackagesPath);
       pthPaths.forEach((path) => {
@@ -93,7 +90,6 @@ export function findPythonSearchPaths(
     importFailureInfo.push(`Did not find any '${pathConsts.sitePackages}' dirs. Falling back on python interpreter.`);
   }
 
-  // Fall back on the python interpreter.
   const pathResult = getPythonPathFromPythonInterpreter(fs, configOptions.pythonPath, importFailureInfo);
   if (includeWatchPathsOnly && workspaceRoot) {
     const paths = pathResult.paths.filter((p) => !containsPath(workspaceRoot, p, true) || containsPath(pathResult.prefix, p, true));
@@ -110,14 +106,10 @@ export function getPythonPathFromPythonInterpreter(fs: FileSystem, interpreterPa
   if (interpreterPath) {
     result = getPathResultFromInterpreter(fs, interpreterPath, importFailureInfo);
   } else {
-    // On non-Windows platforms, always default to python3 first. We want to
-    // avoid this on Windows because it might invoke a script that displays
-    // a dialog box indicating that python can be downloaded from the app store.
     if (process.platform !== 'win32') {
       result = getPathResultFromInterpreter(fs, 'python3', importFailureInfo);
     }
 
-    // On some platforms, 'python3' might not exist. Try 'python' instead.
     if (!result) {
       result = getPathResultFromInterpreter(fs, 'python', importFailureInfo);
     }
@@ -159,8 +151,6 @@ function findSitePackagesPath(fs: FileSystem, libPath: string, importFailureInfo
     importFailureInfo.push(`Did not find '${sitePackagesPath}', so looking for python subdirectory`);
   }
 
-  // We didn't find a site-packages directory directly in the lib
-  // directory. Scan for a "python*" directory instead.
   const entries = getFileSystemEntries(fs, libPath);
   for (let i = 0; i < entries.directories.length; i++) {
     const dirName = entries.directories[i];
@@ -188,15 +178,13 @@ function getPathResultFromInterpreter(fs: FileSystem, interpreter: string, impor
     importFailureInfo.push(`Executing interpreter: '${interpreter}'`);
     const execOutput = child_process.execFileSync(interpreter, commandLineArgs, { encoding: 'utf8' });
 
-    // Parse the execOutput. It should be a JSON-encoded array of paths.
     try {
       const execSplit = JSON.parse(execOutput);
       for (let execSplitEntry of execSplit.path) {
         execSplitEntry = execSplitEntry.trim();
         if (execSplitEntry) {
           const normalizedPath = normalizePath(execSplitEntry);
-          // Make sure the path exists and is a directory. We don't currently
-          // support zip files and other formats.
+
           if (fs.existsSync(normalizedPath) && isDirectory(fs, normalizedPath)) {
             result.paths.push(normalizedPath);
           } else {
@@ -224,7 +212,6 @@ function getPathResultFromInterpreter(fs: FileSystem, interpreter: string, impor
 function getPathsFromPthFiles(fs: FileSystem, parentDir: string): string[] {
   const searchPaths: string[] = [];
 
-  // Get a list of all *.pth files within the specified directory.
   const pthFiles = fs
     .readdirEntriesSync(parentDir)
     .filter((entry) => (entry.isFile() || entry.isSymbolicLink()) && entry.name.endsWith('.pth'))
@@ -234,7 +221,6 @@ function getPathsFromPthFiles(fs: FileSystem, parentDir: string): string[] {
     const filePath = combinePaths(parentDir, pthFile.name);
     const fileStats = tryStat(fs, filePath);
 
-    // Skip all files that are much larger than expected.
     if (fileStats?.isFile() && fileStats.size > 0 && fileStats.size < 64 * 1024) {
       const data = fs.readFileSync(filePath, 'utf8');
       const lines = data.split(/\r?\n/);

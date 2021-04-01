@@ -116,9 +116,6 @@ export class TypeStubWriter extends ParseTreeWalker {
   constructor(private _stubPath: string, private _sourceFile: SourceFile, private _evaluator: TypeEvaluator) {
     super();
 
-    // As a heuristic, we'll include all of the import statements
-    // in "__init__.pyi" files even if they're not locally referenced
-    // because these are often used as ways to re-export symbols.
     if (this._stubPath.endsWith('__init__.pyi')) {
       this._includeAllImports = true;
     }
@@ -177,7 +174,6 @@ export class TypeStubWriter extends ParseTreeWalker {
   visitFunction(node: FunctionNode) {
     const functionName = node.name.value;
 
-    // Skip if we're already within a function or if the name is private/protected.
     if (this._functionNestCount === 0 && !SymbolNameUtils.isPrivateOrProtectedName(functionName)) {
       this._emittedSuite = true;
       this._emitDocString = true;
@@ -192,7 +188,6 @@ export class TypeStubWriter extends ParseTreeWalker {
       } else if (node.functionAnnotationComment) {
         returnAnnotation = this._printExpression(node.functionAnnotationComment.returnTypeAnnotation, /* treatStringsAsSymbols */ true);
       } else {
-        // Handle a few common cases where we always know the answer.
         if (node.name.value === '__init__') {
           returnAnnotation = 'None';
         } else if (node.name.value === '__str__') {
@@ -212,7 +207,6 @@ export class TypeStubWriter extends ParseTreeWalker {
       this._emitLine(line);
 
       this._emitSuite(() => {
-        // Don't emit any nested functions.
         this._functionNestCount++;
         this.walk(node.suite);
         this._functionNestCount--;
@@ -225,35 +219,28 @@ export class TypeStubWriter extends ParseTreeWalker {
   }
 
   visitWhile(node: WhileNode) {
-    // Don't emit a doc string after the first statement.
     this._emitDocString = false;
     return false;
   }
 
   visitFor(node: ForNode) {
-    // Don't emit a doc string after the first statement.
     this._emitDocString = false;
     return false;
   }
 
   visitTry(node: TryNode) {
-    // Don't emit a doc string after the first statement.
     this._emitDocString = false;
     return false;
   }
 
   visitWith(node: WithNode) {
-    // Don't emit a doc string after the first statement.
     this._emitDocString = false;
     return false;
   }
 
   visitIf(node: IfNode) {
-    // Don't emit a doc string after the first statement.
     this._emitDocString = false;
 
-    // Include if statements if they are located
-    // at the global scope.
     if (this._functionNestCount === 0 && this._ifNestCount === 0) {
       this._ifNestCount++;
       this._emittedSuite = true;
@@ -283,7 +270,6 @@ export class TypeStubWriter extends ParseTreeWalker {
     let line = '';
 
     if (node.leftExpression.nodeType === ParseNodeType.Name) {
-      // Strip out "__all__" assignments.
       if (node.leftExpression.value === '__all__') {
         return false;
       }
@@ -358,7 +344,6 @@ export class TypeStubWriter extends ParseTreeWalker {
 
     const currentScope = getScopeForNode(node);
     if (currentScope) {
-      // Record the input for later.
       node.list.forEach((imp) => {
         const moduleName = this._printModuleName(imp.module);
         if (!this._trackedImportAs.has(moduleName)) {
@@ -382,7 +367,6 @@ export class TypeStubWriter extends ParseTreeWalker {
 
     const currentScope = getScopeForNode(node);
     if (currentScope) {
-      // Record the input for later.
       const moduleName = this._printModuleName(node.module);
       let trackedImportFrom = this._trackedImportFrom.get(moduleName);
       if (!trackedImportFrom) {
@@ -404,14 +388,11 @@ export class TypeStubWriter extends ParseTreeWalker {
 
   visitStatementList(node: StatementListNode) {
     if (node.statements.length > 0 && node.statements[0].nodeType === ParseNodeType.StringList) {
-      // Is this the first statement in a suite? If it's a string
-      // literal, assume it's a doc string and emit it.
       if (!this._emittedSuite && this._emitDocString) {
         this._emitLine(this._printExpression(node.statements[0]));
       }
     }
 
-    // Don't emit a doc string after the first statement.
     this._emitDocString = false;
 
     this.walkMultiple(node.statements);
@@ -489,8 +470,6 @@ export class TypeStubWriter extends ParseTreeWalker {
     }
 
     if (paramNode.defaultValue) {
-      // Follow PEP8 spacing rules. Include spaces if type
-      // annotation is present, no space otherwise.
       if (paramType) {
         line += ' = ...';
       } else {
@@ -512,7 +491,6 @@ export class TypeStubWriter extends ParseTreeWalker {
     let importStr = '';
     let lineEmitted = false;
 
-    // Emit the "import" statements.
     this._trackedImportAs.forEach((imp) => {
       if (this._accessedImportedSymbols.get(imp.alias || imp.importName)) {
         imp.isAccessed = true;
@@ -528,7 +506,6 @@ export class TypeStubWriter extends ParseTreeWalker {
       }
     });
 
-    // Emit the "import from" statements.
     this._trackedImportFrom.forEach((imp) => {
       imp.symbols.forEach((s) => {
         if (this._accessedImportedSymbols.get(s.alias || s.name)) {

@@ -21,7 +21,6 @@ export const log = new (class {
     log.enabled = yes;
   }
 
-  // Hint: the type [T, ...T[]] means a non-empty array
   debug(...msg: [unknown, ...unknown[]]): void {
     if (!log.enabled) return;
     log.write('DEBUG', ...msg);
@@ -91,10 +90,6 @@ export type RustDocument = qv.TextDocument & { languageId: 'rust' };
 export type RustEditor = qv.TextEditor & { document: RustDocument };
 
 export function isRustDocument(document: qv.TextDocument): document is RustDocument {
-  // Prevent corrupted text (particularly via inlay hints) in diff views
-  // by allowing only `file` schemes
-  // unfortunately extensions that use diff views not always set this
-  // to something different than 'file' (see ongoing bug: #4608)
   return document.languageId === 'rust' && document.uri.scheme === 'file';
 }
 
@@ -113,15 +108,10 @@ export function isValidExecutable(path: string): boolean {
   return res.status === 0;
 }
 
-/** Sets ['when'](https://code.visualstudio.com/docs/getstarted/keybindings#_when-clause-contexts) clause contexts */
 export function setContextValue(key: string, value: any): Thenable<void> {
   return qv.commands.executeCommand('setContext', key, value);
 }
 
-/**
- * Returns a higher-order function that caches the results of invoking the
- * underlying function.
- */
 export function memoize<Ret, TThis, Param extends string>(func: (this: TThis, arg: Param) => Ret) {
   const cache = new Map<string, Ret>();
 

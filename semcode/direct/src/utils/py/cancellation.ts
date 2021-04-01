@@ -14,10 +14,8 @@ import {
   LSPErrorCodes,
   ResponseError,
 } from 'vscode-languageserver';
-
 class CancellationThrottle {
   private static _lastCheckTimestamp = 0;
-
   static shouldCheck() {
     const minTimeBetweenChecksInMs = 5;
     const curTimestamp = Date.now().valueOf();
@@ -29,7 +27,6 @@ class CancellationThrottle {
     return false;
   }
 }
-
 class FileBasedToken implements CancellationToken {
   protected isCancelled = false;
   private _emitter: Emitter<any> | undefined;
@@ -43,29 +40,24 @@ class FileBasedToken implements CancellationToken {
       }
     }
   }
-
   get isCancellationRequested(): boolean {
     if (this.isCancelled) return true;
     if (CancellationThrottle.shouldCheck() && this._pipeExists()) this.cancel();
     return this.isCancelled;
   }
-
   get onCancellationRequested(): Event<any> {
     if (!this._emitter) this._emitter = new Emitter<any>();
     return this._emitter.event;
   }
-
   public dispose(): void {
     this._disposeEmitter();
   }
-
   private _disposeEmitter() {
     if (this._emitter) {
       this._emitter.dispose();
       this._emitter = undefined;
     }
   }
-
   private _pipeExists(): boolean {
     try {
       fs.statSync(this.cancellationFilePath);
@@ -75,111 +67,86 @@ class FileBasedToken implements CancellationToken {
     }
   }
 }
-
 class OwningFileToken extends FileBasedToken {
   private _disposed = false;
-
   constructor(cancellationFilePath: string) {
     super(cancellationFilePath);
   }
-
   public cancel() {
     if (!this._disposed && !this.isCancelled) {
       this._createPipe();
       super.cancel();
     }
   }
-
   get isCancellationRequested(): boolean {
     return this.isCancelled;
   }
-
   public dispose(): void {
     this._disposed = true;
     super.dispose();
     this._removePipe();
   }
-
   private _createPipe() {
     try {
       fs.writeFileSync(this.cancellationFilePath, '', { flag: 'w' });
-    } catch {
-      // Ignore the exception.
-    }
+    } catch {}
   }
-
   private _removePipe() {
     try {
       fs.unlinkSync(this.cancellationFilePath);
-    } catch {
-      // Ignore the exception.
-    }
+    } catch {}
   }
 }
-
 class FileBasedCancellationTokenSource implements AbstractCancellationTokenSource {
   private _token: CancellationToken | undefined;
   constructor(private _cancellationFilePath: string, private _ownFile: boolean = false) {}
-
   get token(): CancellationToken {
     if (!this._token) {
       this._token = this._ownFile ? new OwningFileToken(this._cancellationFilePath) : new FileBasedToken(this._cancellationFilePath);
     }
     return this._token;
   }
-
   cancel(): void {
     if (!this._token) this._token = CancellationToken.Cancelled;
     else (this._token as FileBasedToken).cancel();
   }
-
   dispose(): void {
     if (!this._token) this._token = CancellationToken.None;
     else if (this._token instanceof FileBasedToken) this._token.dispose();
   }
 }
-
 function getCancellationFolderPath(folderName: string) {
   return path.join(os.tmpdir(), 'python-languageserver-cancellation', folderName);
 }
-
 function getCancellationFilePath(folderName: string, id: CancellationId) {
   return path.join(getCancellationFolderPath(folderName), `cancellation-${String(id)}.tmp`);
 }
-
 class FileCancellationReceiverStrategy implements CancellationReceiverStrategy {
   constructor(readonly folderName: string) {}
   createCancellationTokenSource(id: CancellationId): AbstractCancellationTokenSource {
     return new FileBasedCancellationTokenSource(getCancellationFilePath(this.folderName, id));
   }
 }
-
 export class OperationCanceledException extends ResponseError<void> {
   constructor() {
     super(LSPErrorCodes.RequestCancelled, 'request cancelled');
   }
-
   static is(e: any) {
     return e.code === LSPErrorCodes.RequestCancelled;
   }
 }
-
 export function throwIfCancellationRequested(token: CancellationToken) {
   if (token.isCancellationRequested) {
     throw new OperationCanceledException();
   }
 }
-
 let cancellationFolderName: string | undefined;
-
 export function getCancellationFolderName() {
   return cancellationFolderName;
 }
-
 export function setCancellationFolderName(folderName?: string) {
   cancellationFolderName = folderName;
 }
-
 export function getCancellationStrategyFromArgv(argv: string[]): CancellationStrategy {
   let receiver: CancellationReceiverStrategy | undefined;
   for (let i = 0; i < argv.length; i++) {
@@ -191,41 +158,33 @@ export function getCancellationStrategyFromArgv(argv: string[]): CancellationStr
     }
   }
   if (receiver && !cancellationFolderName) setCancellationFolderName((receiver as FileCancellationReceiverStrategy).folderName);
-
   receiver = receiver ? receiver : CancellationReceiverStrategy.Message;
   return { receiver, sender: CancellationSenderStrategy.Message };
-
   function createReceiverStrategyFromArgv(arg: string): CancellationReceiverStrategy | undefined {
     const folderName = extractCancellationFolderName(arg);
     return folderName ? new FileCancellationReceiverStrategy(folderName) : undefined;
   }
-
   function extractCancellationFolderName(arg: string): string | undefined {
     const fileRegex = /^file:(.+)$/;
     const folderName = arg.match(fileRegex);
     return folderName ? folderName[1] : undefined;
   }
 }
-
 let cancellationSourceId = 0;
 export function createBackgroundThreadCancellationTokenSource(): AbstractCancellationTokenSource {
   if (!cancellationFolderName) return new CancellationTokenSource();
   return new FileBasedCancellationTokenSource(getCancellationFilePath(cancellationFolderName, `source-${String(cancellationSourceId++)}`), true);
 }
-
 export function disposeCancellationToken(token: CancellationToken) {
   if (token instanceof FileBasedToken) token.dispose();
 }
-
 export function getCancellationTokenFromId(cancellationId: string) {
   if (!cancellationId) return CancellationToken.None;
   return new FileBasedToken(cancellationId);
 }
-
 export function getCancellationTokenId(token: CancellationToken) {
   return token instanceof FileBasedToken ? token.cancellationFilePath : undefined;
 }
-
 export function CancelAfter(...tokens: CancellationToken[]) {
   const source = new CancellationTokenSource();
   const disposables: Disposable[] = [];

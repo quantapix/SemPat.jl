@@ -6,7 +6,6 @@ import { promptForMissingTool, promptForUpdatingTool } from '../goInstallTools';
 import { getBinPath, getFileArchive, makeMemoizedByteOffsetConverter } from '../util';
 import { killProcess } from './utils/processUtils';
 
-// Keep in sync with https://github.com/ramya-rao-a/go-outline
 export interface GoOutlineRange {
   start: number;
   end: number;
@@ -69,7 +68,6 @@ export function runGoOutline(options: GoOutlineOptions, token: qv.CancellationTo
       token.onCancellationRequested(() => killProcess(p));
     }
 
-    // Spawn `go-outline` process
     p = cp.execFile(gooutline, gooutlineFlags, { env: toolExecutionEnvironment() }, (err, stdout, stderr) => {
       try {
         if (err && (<any>err).code === 'ENOENT') {

@@ -5,7 +5,6 @@ import { ImportLookup } from './analyzerFileInfo';
 import { PrintableType, TracePrinter } from './tracePrinter';
 import { createTypeEvaluator, EvaluatorOptions, TypeEvaluator } from './typeEvaluator';
 
-// We don't want to track calls from the type evaluator itself, but only entry points.
 export function createTypeEvaluatorWithTracker(importLookup: ImportLookup, evaluatorOptions: EvaluatorOptions, logger: LogTracker, printer?: TracePrinter) {
   if (!evaluatorOptions.logCalls && isDebugMode()) {
     return createTypeEvaluator(importLookup, evaluatorOptions, logger, undefined);

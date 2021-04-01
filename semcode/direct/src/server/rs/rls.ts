@@ -75,11 +75,10 @@ export function createLanguageClient(
   };
 
   const clientOptions: lc.LanguageClientOptions = {
-    // Register the server for Rust files
     documentSelector: [{ language: 'rust', scheme: 'untitled' }, documentFilter(folder)],
     diagnosticCollectionName: `rust-${folder.uri}`,
     synchronize: { configurationSection: OBSERVED_SETTINGS },
-    // Controls when to focus the channel rather than when to reveal it in the drop-down list
+
     revealOutputChannelOn: config.revealOutputChannelOn,
     initializationOptions: {
       omitInitBuild: true,

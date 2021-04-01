@@ -113,68 +113,44 @@ export interface BinderResults {
 export class Binder extends ParseTreeWalker {
   private readonly _fileInfo: AnalyzerFileInfo;
 
-  // A queue of deferred analysis operations.
   private _deferredBindingTasks: DeferredBindingTask[] = [];
 
-  // The current scope in effect.
   private _currentScope!: Scope;
 
-  // Number of nested except statements at current point of analysis.
-  // Used to determine if a naked "raise" statement is allowed.
   private _nestedExceptDepth = 0;
 
-  // Current control-flow node.
   private _currentFlowNode: FlowNode | undefined;
 
-  // Current target function declaration, if currently binding
-  // a function. This allows return and yield statements to be
-  // added to the function declaration.
   private _targetFunctionDeclaration: FunctionDeclaration | undefined;
 
-  // Flow node label that is the target of a "break" statement.
   private _currentBreakTarget?: FlowLabel;
 
-  // Flow node label that is the target of a "continue" statement.
   private _currentContinueTarget?: FlowLabel;
 
-  // Flow nodes used for if/else and while/else statements.
   private _currentTrueTarget?: FlowLabel;
   private _currentFalseTarget?: FlowLabel;
 
-  // Flow nodes used within try blocks.
   private _currentExceptTargets?: FlowLabel[];
 
-  // Flow nodes used within try/finally flows.
   private _finallyTargets: FlowLabel[] = [];
 
-  // Flow nodes used for return statements.
   private _currentReturnTarget?: FlowLabel;
 
-  // Map of symbols within the current execution scope
-  // and require code flow analysis to resolve.
   private _currentExecutionScopeReferenceMap: Map<string, string> | undefined;
 
-  // Aliases of "typing" and "typing_extensions".
   private _typingImportAliases: string[] = [];
 
-  // Aliases of "sys".
   private _sysImportAliases: string[] = [];
 
-  // Map of imports of specific symbols imported from "typing" and "typing_extensions"
-  // and the names they alias to.
   private _typingSymbolAliases: Map<string, string> = new Map<string, string>();
 
-  // List of names statically assigned to __all__ symbol.
   private _dunderAllNames: string[] | undefined;
 
-  // Flow node that is used for unreachable code.
   private static _unreachableFlowNode: FlowNode = {
     flags: FlowFlags.Unreachable,
     id: getUniqueFlowNodeId(),
   };
 
-  // Map of symbols at the module level that may be private depending
-  // on whether they are listed in the __all__ list.
   private _potentialPrivateSymbols = new Map<string, Symbol>();
 
   constructor(fileInfo: AnalyzerFileInfo) {
@@ -184,16 +160,12 @@ export class Binder extends ParseTreeWalker {
   }
 
   bindModule(node: ModuleNode): BinderResults {
-    // We'll assume that if there is no builtins scope provided, we must be
-    // binding the builtins module itself.
     const isBuiltInModule = this._fileInfo.builtinsScope === undefined;
 
     this._createNewScope(isBuiltInModule ? ScopeType.Builtin : ScopeType.Module, this._fileInfo.builtinsScope, () => {
       AnalyzerNodeInfo.setScope(node, this._currentScope);
       AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
 
-      // Bind implicit names.
-      // List taken from https://docs.python.org/3/reference/import.html#__name__
       this._addBuiltInSymbolToCurrentScope('__doc__', node, 'str');
       this._addBuiltInSymbolToCurrentScope('__name__', node, 'str');
       this._addBuiltInSymbolToCurrentScope('__loader__', node, 'Any');
@@ -204,25 +176,18 @@ export class Binder extends ParseTreeWalker {
       this._addBuiltInSymbolToCurrentScope('__cached__', node, 'str');
       this._addBuiltInSymbolToCurrentScope('__dict__', node, 'Dict[str, Any]');
 
-      // Create a start node for the module.
       this._currentFlowNode = this._createStartFlowNode();
 
       this._walkStatementsAndReportUnreachable(node.statements);
 
       AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentExecutionScopeReferenceMap!);
 
-      // Associate the code flow node at the end of the module with the module.
       AnalyzerNodeInfo.setAfterFlowNode(node, this._currentFlowNode);
     });
 
-    // Perform all analysis that was deferred during the first pass.
     this._bindDeferred();
 
-    // Use the __all__ list to determine whether any potential private
-    // symbols should be made externally invisible.
     this._potentialPrivateSymbols.forEach((symbol, name) => {
-      // If this symbol was found in the dunder all, don't mark it
-      // as externally hidden.
       if (!this._dunderAllNames?.some((sym) => sym === name)) {
         symbol.setIsExternallyHidden();
       }
@@ -230,7 +195,6 @@ export class Binder extends ParseTreeWalker {
 
     AnalyzerNodeInfo.setDunderAllNames(node, this._dunderAllNames);
 
-    // Set __all__ flags on the module symbols.
     const scope = AnalyzerNodeInfo.getScope(node);
     if (scope && this._dunderAllNames) {
       for (const name of this._dunderAllNames) {
@@ -244,8 +208,6 @@ export class Binder extends ParseTreeWalker {
   }
 
   visitModule(node: ModuleNode): boolean {
-    // Tree walking should start with the children of
-    // the node, so we should never get here.
     fail('We should never get here');
     return false;
   }
@@ -273,7 +235,6 @@ export class Binder extends ParseTreeWalker {
       return true;
     }
 
-    // Source found, but type stub is missing
     if (!importResult.isStubFile && importResult.importType === ImportType.ThirdParty && !importResult.pyTypedInfo) {
       const diagnostic = this._addDiagnostic(
         this._fileInfo.diagnosticRuleSet.reportMissingTypeStubs,
@@ -282,7 +243,6 @@ export class Binder extends ParseTreeWalker {
         node
       );
       if (diagnostic) {
-        // Add a diagnostic action for resolving this diagnostic.
         const createTypeStubAction: CreateTypeStubFileAction = {
           action: Commands.createTypeStub,
           moduleName: importResult.importName,
@@ -291,9 +251,7 @@ export class Binder extends ParseTreeWalker {
       }
     }
 
-    // Type stub found, but source is missing.
     if (importResult.isStubFile && importResult.importType !== ImportType.BuiltIn && importResult.nonStubImportResult && !importResult.nonStubImportResult.isImportFound) {
-      // Don't report this for stub files.
       if (!this._fileInfo.isStubFile) {
         this._addDiagnostic(
           this._fileInfo.diagnosticRuleSet.reportMissingModuleSource,
@@ -325,13 +283,10 @@ export class Binder extends ParseTreeWalker {
       symbol.addDeclaration(classDeclaration);
     }
 
-    // Stash the declaration in the parse node for later access.
     AnalyzerNodeInfo.setDeclaration(node, classDeclaration);
 
     this.walkMultiple(node.arguments);
 
-    // For nested classes, use the scope that contains the outermost
-    // class rather than the immediate parent.
     let parentScope = this._currentScope;
     while (parentScope.type === ScopeType.Class) {
       parentScope = parentScope.parent!;
@@ -340,7 +295,6 @@ export class Binder extends ParseTreeWalker {
     this._createNewScope(ScopeType.Class, parentScope, () => {
       AnalyzerNodeInfo.setScope(node, this._currentScope);
 
-      // Analyze the suite.
       this.walk(node.suite);
     });
 
@@ -368,7 +322,6 @@ export class Binder extends ParseTreeWalker {
       symbol.addDeclaration(functionDeclaration);
     }
 
-    // Stash the declaration in the parse node for later access.
     AnalyzerNodeInfo.setDeclaration(node, functionDeclaration);
 
     this.walkMultiple(node.decorators);
@@ -394,9 +347,6 @@ export class Binder extends ParseTreeWalker {
       this.walk(node.functionAnnotationComment);
     }
 
-    // Find the function or module that contains this function and use its scope.
-    // We can't simply use this._currentScope because functions within a class use
-    // the scope of the containing function or module when they execute.
     let functionOrModuleNode: ParseNode | undefined = node.parent;
     while (functionOrModuleNode) {
       if (functionOrModuleNode.nodeType === ParseNodeType.Module || functionOrModuleNode.nodeType === ParseNodeType.Function) {
@@ -410,19 +360,15 @@ export class Binder extends ParseTreeWalker {
     const functionOrModuleScope = AnalyzerNodeInfo.getScope(functionOrModuleNode!);
     assert(functionOrModuleScope !== undefined);
 
-    // Don't walk the body of the function until we're done analyzing
-    // the current scope.
     this._createNewScope(ScopeType.Function, functionOrModuleScope, () => {
       AnalyzerNodeInfo.setScope(node, this._currentScope);
 
       const enclosingClass = ParseTreeUtils.getEnclosingClass(node);
       if (enclosingClass) {
-        // Add the implicit "__class__" symbol described in PEP 3135.
         this._addBuiltInSymbolToCurrentScope('__class__', node, 'class');
       }
 
       this._deferBinding(() => {
-        // Create a start node for the function.
         this._currentFlowNode = this._createStartFlowNode();
 
         node.parameters.forEach((paramNode) => {
@@ -448,16 +394,10 @@ export class Binder extends ParseTreeWalker {
         this._targetFunctionDeclaration = functionDeclaration;
         this._currentReturnTarget = this._createBranchLabel();
 
-        // Walk the statements that make up the function.
         this.walk(node.suite);
 
-        // Associate the code flow node at the end of the suite with
-        // the suite.
         AnalyzerNodeInfo.setAfterFlowNode(node.suite, this._currentFlowNode);
 
-        // Compute the final return flow node and associate it with
-        // the function's parse node. If this node is unreachable, then
-        // the function never returns.
         this._addAntecedent(this._currentReturnTarget, this._currentFlowNode);
         const returnFlowNode = this._finishFlowLabel(this._currentReturnTarget);
         AnalyzerNodeInfo.setAfterFlowNode(node, returnFlowNode);
@@ -468,13 +408,10 @@ export class Binder extends ParseTreeWalker {
 
     this._createAssignmentTargetFlowNodes(node.name, /* walkTargets */ false, /* unbound */ false);
 
-    // We'll walk the child nodes in a deferred manner, so don't walk them now.
     return false;
   }
 
   visitLambda(node: LambdaNode): boolean {
-    // Analyze the parameter defaults in the context of the parent's scope
-    // before we add any names from the function's scope.
     node.parameters.forEach((param) => {
       if (param.defaultValue) {
         this.walk(param.defaultValue);
@@ -485,7 +422,6 @@ export class Binder extends ParseTreeWalker {
       AnalyzerNodeInfo.setScope(node, this._currentScope);
 
       this._deferBinding(() => {
-        // Create a start node for the lambda.
         this._currentFlowNode = this._createStartFlowNode();
 
         node.parameters.forEach((paramNode) => {
@@ -509,14 +445,12 @@ export class Binder extends ParseTreeWalker {
           }
         });
 
-        // Walk the expression that make up the lambda body.
         this.walk(node.expression);
 
         AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentExecutionScopeReferenceMap!);
       });
     });
 
-    // We'll walk the child nodes in a deferred manner.
     return false;
   }
 
@@ -525,7 +459,6 @@ export class Binder extends ParseTreeWalker {
     this.walkMultiple(node.arguments);
     this._createCallFlowNode(node);
 
-    // Is this an manipulation of dunder all?
     if (
       this._currentScope.type === ScopeType.Module &&
       node.leftExpression.nodeType === ParseNodeType.MemberAccess &&
@@ -534,11 +467,9 @@ export class Binder extends ParseTreeWalker {
     ) {
       let emitDunderAllWarning = true;
 
-      // Is this a call to "__all__.extend()"?
       if (node.leftExpression.memberName.value === 'extend' && node.arguments.length === 1) {
         const argExpr = node.arguments[0].valueExpression;
 
-        // Is this a call to "__all__.extend([<list>])"?
         if (argExpr.nodeType === ParseNodeType.List) {
           argExpr.entries.forEach((listEntryNode) => {
             if (listEntryNode.nodeType === ParseNodeType.StringList && listEntryNode.strings.length === 1 && listEntryNode.strings[0].nodeType === ParseNodeType.String) {
@@ -547,7 +478,6 @@ export class Binder extends ParseTreeWalker {
             }
           });
         } else if (argExpr.nodeType === ParseNodeType.MemberAccess && argExpr.leftExpression.nodeType === ParseNodeType.Name && argExpr.memberName.value === '__all__') {
-          // Is this a call to "__all__.extend(<mod>.__all__)"?
           const namesToAdd = this._getDunderAllNamesFromImport(argExpr.leftExpression.value);
           if (namesToAdd && namesToAdd.length > 0) {
             namesToAdd.forEach((name) => {
@@ -557,14 +487,12 @@ export class Binder extends ParseTreeWalker {
           }
         }
       } else if (node.leftExpression.memberName.value === 'remove' && node.arguments.length === 1) {
-        // Is this a call to "__all__.remove()"?
         const argExpr = node.arguments[0].valueExpression;
         if (argExpr.nodeType === ParseNodeType.StringList && argExpr.strings.length === 1 && argExpr.strings[0].nodeType === ParseNodeType.String && this._dunderAllNames) {
           this._dunderAllNames = this._dunderAllNames.filter((name) => name !== argExpr.strings[0].value);
           emitDunderAllWarning = false;
         }
       } else if (node.leftExpression.memberName.value === 'append' && node.arguments.length === 1) {
-        // Is this a call to "__all__.append()"?
         const argExpr = node.arguments[0].valueExpression;
         if (argExpr.nodeType === ParseNodeType.StringList && argExpr.strings.length === 1 && argExpr.strings[0].nodeType === ParseNodeType.String) {
           this._dunderAllNames?.push(argExpr.strings[0].value);
@@ -596,16 +524,10 @@ export class Binder extends ParseTreeWalker {
 
     let isPossibleTypeAlias = true;
     if (ParseTreeUtils.getEnclosingFunction(node)) {
-      // We will assume that type aliases are defined only at the module level
-      // or as class variables, not as local variables within a function.
       isPossibleTypeAlias = false;
     } else if (node.rightExpression.nodeType === ParseNodeType.Call && this._fileInfo.isTypingStubFile) {
-      // Some special built-in types defined in typing.pyi use
-      // assignments of the form List = _Alias(). We don't want to
-      // treat these as type aliases.
       isPossibleTypeAlias = false;
     } else if (ParseTreeUtils.isWithinLoop(node)) {
-      // Assume that it's not a type alias if it's within a loop.
       isPossibleTypeAlias = false;
     }
 
@@ -613,7 +535,6 @@ export class Binder extends ParseTreeWalker {
 
     this._createAssignmentTargetFlowNodes(node.leftExpression, /* walkTargets */ true, /* unbound */ false);
 
-    // Is this an assignment to dunder all?
     if (this._currentScope.type === ScopeType.Module) {
       if (
         (node.leftExpression.nodeType === ParseNodeType.Name && node.leftExpression.value === '__all__') ||
@@ -655,10 +576,7 @@ export class Binder extends ParseTreeWalker {
   }
 
   visitAssignmentExpression(node: AssignmentExpressionNode) {
-    // Temporarily disable true/false targets in case this assignment
-    // expression is located within an if/else conditional.
     this._disableTrueFalseTargets(() => {
-      // Evaluate the operand expression.
       this.walk(node.rightExpression);
     });
 
@@ -667,15 +585,8 @@ export class Binder extends ParseTreeWalker {
       this._addError(Localizer.Diagnostic.assignmentExprContext(), node);
       this.walk(node.name);
     } else {
-      // Bind the name to the containing scope. This special logic is required
-      // because of the behavior defined in PEP 572. Targets of assignment
-      // expressions don't bind to a list comprehension's scope but instead
-      // bind to its containing scope.
       const containerScope = AnalyzerNodeInfo.getScope(evaluationNode)!;
 
-      // If we're in a list comprehension (possibly nested), make sure that
-      // local for targets don't collide with the target of the assignment
-      // expression.
       let curScope: Scope | undefined = this._currentScope;
       while (curScope && curScope !== containerScope) {
         const localSymbol = curScope.lookUpSymbol(node.name.value);
@@ -704,14 +615,11 @@ export class Binder extends ParseTreeWalker {
     this._bindPossibleTupleNamedTarget(node.destExpression);
     this._createAssignmentTargetFlowNodes(node.destExpression, /* walkTargets */ false, /* unbound */ false);
 
-    // Is this an assignment to dunder all of the form
-    // __all__ += <expression>?
     if (node.operator === OperatorType.AddEqual && this._currentScope.type === ScopeType.Module && node.leftExpression.nodeType === ParseNodeType.Name && node.leftExpression.value === '__all__') {
       const expr = node.rightExpression;
       let emitDunderAllWarning = true;
 
       if (expr.nodeType === ParseNodeType.List) {
-        // Is this the form __all__ += ["a", "b"]?
         expr.entries.forEach((listEntryNode) => {
           if (listEntryNode.nodeType === ParseNodeType.StringList && listEntryNode.strings.length === 1 && listEntryNode.strings[0].nodeType === ParseNodeType.String) {
             this._dunderAllNames?.push(listEntryNode.strings[0].value);
@@ -719,7 +627,6 @@ export class Binder extends ParseTreeWalker {
         });
         emitDunderAllWarning = false;
       } else if (expr.nodeType === ParseNodeType.MemberAccess && expr.leftExpression.nodeType === ParseNodeType.Name && expr.memberName.value === '__all__') {
-        // Is this using the form "__all__ += <mod>.__all__"?
         const namesToAdd = this._getDunderAllNamesFromImport(expr.leftExpression.value);
         if (namesToAdd) {
           namesToAdd.forEach((name) => {
@@ -753,18 +660,12 @@ export class Binder extends ParseTreeWalker {
       return false;
     }
 
-    // Walk the type annotation first so it is "before" the target
-    // in the code flow graph.
     this.walk(node.typeAnnotation);
     this._createVariableAnnotationFlowNode();
 
     this._bindPossibleTupleNamedTarget(node.valueExpression);
     this._addTypeDeclarationForVariable(node.valueExpression, node.typeAnnotation);
 
-    // For type annotations that are not part of assignments (e.g. simple variable
-    // annotations), we need to populate the reference map. Otherwise the type
-    // analyzer's code flow engine won't run and detect cases where the variable
-    // is unbound.
     const expressionList: CodeFlowReferenceExpressionNode[] = [];
     if (this._isNarrowingExpression(node.valueExpression, expressionList)) {
       expressionList.forEach((expr) => {
@@ -814,7 +715,6 @@ export class Binder extends ParseTreeWalker {
     }
     this._currentFlowNode = Binder._unreachableFlowNode;
 
-    // Continue nodes don't have any children.
     return false;
   }
 
@@ -824,7 +724,6 @@ export class Binder extends ParseTreeWalker {
     }
     this._currentFlowNode = Binder._unreachableFlowNode;
 
-    // Break nodes don't have any children.
     return false;
   }
 
@@ -877,7 +776,6 @@ export class Binder extends ParseTreeWalker {
   visitName(node: NameNode): boolean {
     AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
 
-    // Name nodes have no children.
     return false;
   }
 
@@ -891,20 +789,14 @@ export class Binder extends ParseTreeWalker {
     const elseLabel = this._createBranchLabel();
     const postIfLabel = this._createBranchLabel();
 
-    // Determine if the test condition is always true or always false. If so,
-    // we can treat either the then or the else clause as unconditional.
     const constExprValue = StaticExpressions.evaluateStaticBoolLikeExpression(node.testExpression, this._fileInfo.executionEnvironment, this._typingImportAliases, this._sysImportAliases);
 
     this._bindConditional(node.testExpression, thenLabel, elseLabel);
 
-    // Handle the if clause.
     this._currentFlowNode = constExprValue === false ? Binder._unreachableFlowNode : this._finishFlowLabel(thenLabel);
     this.walk(node.ifSuite);
     this._addAntecedent(postIfLabel, this._currentFlowNode);
 
-    // Now handle the else clause if it's present. If there
-    // are chained "else if" statements, they'll be handled
-    // recursively here.
     this._currentFlowNode = constExprValue === true ? Binder._unreachableFlowNode : this._finishFlowLabel(elseLabel);
     if (node.elseSuite) {
       this.walk(node.elseSuite);
@@ -922,8 +814,6 @@ export class Binder extends ParseTreeWalker {
     const elseLabel = this._createBranchLabel();
     const postWhileLabel = this._createBranchLabel();
 
-    // Determine if the test condition is always true or always false. If so,
-    // we can treat either the while or the else clause as unconditional.
     const constExprValue = StaticExpressions.evaluateStaticBoolLikeExpression(node.testExpression, this._fileInfo.executionEnvironment, this._typingImportAliases, this._sysImportAliases);
 
     const preLoopLabel = this._createLoopLabel();
@@ -932,7 +822,6 @@ export class Binder extends ParseTreeWalker {
 
     this._bindConditional(node.testExpression, thenLabel, elseLabel);
 
-    // Handle the while clause.
     this._currentFlowNode = constExprValue === false ? Binder._unreachableFlowNode : this._finishFlowLabel(thenLabel);
     this._bindLoopStatement(preLoopLabel, postWhileLabel, () => {
       this.walk(node.whileSuite);
@@ -990,8 +879,6 @@ export class Binder extends ParseTreeWalker {
     this.walk(node.exceptSuite);
 
     if (node.name) {
-      // The exception name is implicitly unbound at the end of
-      // the except block.
       this._createFlowAssignment(node.name, /* unbound */ true);
     }
 
@@ -1029,48 +916,9 @@ export class Binder extends ParseTreeWalker {
   }
 
   visitTry(node: TryNode): boolean {
-    // The try/except/else/finally statement is tricky to model using static code
-    // flow rules because the finally clause is executed regardless of whether an
-    // exception is raised or a return statement is executed. Code within the finally
-    // clause needs to be reachable always, and we conservatively assume that any
-    // statement within the try block can generate an exception, so we assume that its
-    // antecedent is the pre-try flow. We implement this with a "gate" node in the
-    // control flow graph. If analysis starts within the finally clause, the gate is
-    // opened, and all raise/return statements within try/except/else blocks are
-    // considered antecedents. If analysis starts outside (after) the finally clause,
-    // the gate is closed, and only paths that don't hit a raise/return statement
-    // in try/except/else blocks are considered.
-    //
-    //
-    //                               1. PostElse
-    //                                    ^
-    //                                    |
-    // 3. TryExceptElseReturnOrExcept     |
-    //       ^                            |
-    //       |                            |     2. PostExcept (for each except)
-    //       |                            |            ^
-    // 4. ReturnOrRaiseLabel              |            |
-    //       ^                            |            |
-    //       |                            |   |---------
-    // 5. PreFinallyGate                  |   |
-    //       ^                            |   |
-    //       |------------------          |   |
-    //                         |          |   |
-    //                        6. PreFinallyLabel
-    //                                ^
-    //                         (finally block)
-    //                                ^
-    //                        7. PostFinally
-    //                                ^    (only if isAfterElseAndExceptsReachable)
-    //                         (after finally)
-
-    // Create one flow label for every except clause.
     const curExceptTargets = node.exceptClauses.map(() => this._createBranchLabel());
     const preFinallyLabel = this._createBranchLabel();
 
-    // Create a label for all of the return or raise labels that are
-    // encountered within the try/except/else blocks. This conditionally
-    // connects the return/raise statement to the finally clause.
     const preFinallyReturnOrRaiseLabel = this._createBranchLabel();
     let isAfterElseAndExceptsReachable = false;
 
@@ -1084,36 +932,23 @@ export class Binder extends ParseTreeWalker {
       this._addAntecedent(preFinallyLabel, preFinallyGate);
     }
 
-    // Add the finally target as an exception target unless there is
-    // a "bare" except clause that accepts all exception types.
     const hasBareExceptClause = node.exceptClauses.some((except) => !except.typeExpression);
     if (!hasBareExceptClause) {
       curExceptTargets.push(preFinallyReturnOrRaiseLabel);
     }
 
-    // An exception may be generated before the first flow node
-    // added by the try block, so all of the exception targets
-    // must have the pre-try flow node as an antecedent.
     curExceptTargets.forEach((exceptLabel) => {
       this._addAntecedent(exceptLabel, this._currentFlowNode!);
     });
 
-    // We don't perfectly handle nested finally clauses, which are not
-    // possible to model fully within a static analyzer, but we do handle
-    // a single level of finally statements, and we handle most cases
-    // involving nesting. Returns or raises within the try/except/raise
-    // block will execute the finally target(s).
     if (node.finallySuite) {
       this._finallyTargets.push(preFinallyReturnOrRaiseLabel);
     }
 
-    // Handle the try block.
     this._useExceptTargets(curExceptTargets, () => {
       this.walk(node.trySuite);
     });
 
-    // Handle the else block, which is executed only if
-    // execution falls through the try block.
     if (node.elseSuite) {
       this.walk(node.elseSuite);
     }
@@ -1122,7 +957,6 @@ export class Binder extends ParseTreeWalker {
       isAfterElseAndExceptsReachable = true;
     }
 
-    // Handle the except blocks.
     this._nestedExceptDepth++;
     node.exceptClauses.forEach((exceptNode, index) => {
       this._currentFlowNode = this._finishFlowLabel(curExceptTargets[index]);
@@ -1138,13 +972,10 @@ export class Binder extends ParseTreeWalker {
       this._finallyTargets.pop();
     }
 
-    // Handle the finally block.
     this._currentFlowNode = this._finishFlowLabel(preFinallyLabel);
     if (node.finallySuite) {
       this.walk(node.finallySuite);
 
-      // Add a post-finally node at the end. If we traverse this node,
-      // we'll set the "ignore" flag in the pre-finally node.
       const postFinallyNode: FlowPostFinally = {
         flags: FlowFlags.PostFinally,
         id: getUniqueFlowNodeId(),
@@ -1159,7 +990,6 @@ export class Binder extends ParseTreeWalker {
   }
 
   visitAwait(node: AwaitNode) {
-    // Make sure this is within an async lambda or function.
     const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
     if (enclosingFunction === undefined || !enclosingFunction.isAsync) {
       this._addError(Localizer.Diagnostic.awaitNotInAsync(), node);
@@ -1204,19 +1034,16 @@ export class Binder extends ParseTreeWalker {
     node.nameList.forEach((name) => {
       const nameValue = name.value;
 
-      // Is the binding inconsistent?
       if (this._currentScope.getBindingType(nameValue) === NameBindingType.Nonlocal) {
         this._addError(Localizer.Diagnostic.nonLocalRedefinition().format({ name: nameValue }), name);
       }
 
       const valueWithScope = this._currentScope.lookUpSymbolRecursive(nameValue);
 
-      // Was the name already assigned within this scope before it was declared global?
       if (valueWithScope && valueWithScope.scope === this._currentScope) {
         this._addError(Localizer.Diagnostic.globalReassignment().format({ name: nameValue }), name);
       }
 
-      // Add it to the global scope if it's not already added.
       this._bindNameToScope(globalScope, nameValue);
 
       if (this._currentScope !== globalScope) {
@@ -1236,14 +1063,12 @@ export class Binder extends ParseTreeWalker {
       node.nameList.forEach((name) => {
         const nameValue = name.value;
 
-        // Is the binding inconsistent?
         if (this._currentScope.getBindingType(nameValue) === NameBindingType.Global) {
           this._addError(Localizer.Diagnostic.globalRedefinition().format({ name: nameValue }), name);
         }
 
         const valueWithScope = this._currentScope.lookUpSymbolRecursive(nameValue);
 
-        // Was the name already assigned within this scope before it was declared nonlocal?
         if (valueWithScope && valueWithScope.scope === this._currentScope) {
           this._addError(Localizer.Diagnostic.nonLocalReassignment().format({ name: nameValue }), name);
         } else if (!valueWithScope || valueWithScope.scope === globalScope) {
@@ -1265,21 +1090,14 @@ export class Binder extends ParseTreeWalker {
 
       let symbolName: string | undefined;
       if (node.alias) {
-        // The symbol name is defined by the alias.
         symbolName = node.alias.value;
       } else {
-        // There was no alias, so we need to use the first element of
-        // the name parts as the symbol.
         symbolName = firstNamePartValue;
       }
 
       const symbol = this._bindNameToScope(this._currentScope, symbolName);
       if (symbol && (!node.alias || node.module.nameParts.length !== 1 || node.module.nameParts[0].value !== node.alias.value)) {
         if (this._fileInfo.isStubFile) {
-          // PEP 484 indicates that imported symbols should not be
-          // considered "reexported" from a type stub file unless
-          // they are imported using the "as" form and the aliased
-          // name is entirely redundant.
           symbol.setIsExternallyHidden();
         } else if (this._fileInfo.isInPyTypedPackage && this._currentScope.type === ScopeType.Module) {
           this._potentialPrivateSymbols.set(symbolName, symbol);
@@ -1316,12 +1134,6 @@ export class Binder extends ParseTreeWalker {
       resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
     }
 
-    // If this file is a module __init__.py(i), relative imports of submodules
-    // using the syntax "from .x import y" introduce a symbol x into the
-    // module namespace. We do this first (before adding the individual imported
-    // symbols below) in case one of the imported symbols is the same name as the
-    // submodule. In that case, we want to the symbol to appear later in the
-    // declaration list because it should "win" when resolving the alias.
     const fileName = stripFileExtension(getFileName(this._fileInfo.filePath));
     const isModuleInitFile = fileName === '__init__' && node.module.leadingDots === 1 && node.module.nameParts.length > 0;
 
@@ -1346,8 +1158,6 @@ export class Binder extends ParseTreeWalker {
           const wildcardNames = this._getWildcardImportNames(lookupInfo);
 
           if (isModuleInitFile) {
-            // If the symbol is going to be immediately replaced with a same-named
-            // imported symbol, skip this.
             const isImmediatelyReplaced = wildcardNames.some((name) => {
               return name === node.module.nameParts[0].value;
             });
@@ -1363,8 +1173,6 @@ export class Binder extends ParseTreeWalker {
             if (localSymbol) {
               const importedSymbol = lookupInfo.symbolTable.get(name)!;
 
-              // Is the symbol in the target module's symbol table? If so,
-              // alias it.
               if (importedSymbol) {
                 const aliasDecl: AliasDeclaration = {
                   type: DeclarationType.Alias,
@@ -1378,8 +1186,6 @@ export class Binder extends ParseTreeWalker {
                 localSymbol.addDeclaration(aliasDecl);
                 names.push(name);
               } else {
-                // The symbol wasn't in the target module's symbol table. It's probably
-                // an implicitly-imported submodule referenced by __all__.
                 if (importInfo && importInfo.filteredImplicitImports) {
                   const implicitImport = importInfo.filteredImplicitImports.find((imp) => imp.name === name);
 
@@ -1431,26 +1237,16 @@ export class Binder extends ParseTreeWalker {
         const symbol = this._bindNameToScope(this._currentScope, nameNode.value);
 
         if (symbol) {
-          // All import statements of the form `from . import x` treat x
-          // as an externally-visible (not hidden) symbol.
           if (node.module.nameParts.length > 0) {
             if (!importSymbolNode.alias || importSymbolNode.alias.value !== importSymbolNode.name.value) {
               if (this._fileInfo.isStubFile) {
-                // PEP 484 indicates that imported symbols should not be
-                // considered "reexported" from a type stub file unless
-                // they are imported using the "as" form using a redundant form.
                 symbol.setIsExternallyHidden();
               } else if (this._fileInfo.isInPyTypedPackage && this._currentScope.type === ScopeType.Module) {
-                // Py.typed packages follow the same rule as PEP 484 except
-                // that if the symbol appears in the __all__ list, it is overridden
-                // and becomes a externally-visible symbol. For now, add it to
-                // the "potentially private" map.
                 this._potentialPrivateSymbols.set(nameNode.value, symbol);
               }
             }
           }
 
-          // Is the import referring to an implicitly-imported module?
           let implicitImport: ImplicitImport | undefined;
           if (importInfo && importInfo.filteredImplicitImports) {
             implicitImport = importInfo.filteredImplicitImports.find((imp) => imp.name === importedName);
@@ -1467,9 +1263,6 @@ export class Binder extends ParseTreeWalker {
               moduleName: this._fileInfo.moduleName,
             };
 
-            // Handle the case of "from . import X" within an __init__ file.
-            // In this case, we want to always resolve to the submodule rather
-            // than the resolved path.
             if (fileName === '__init__' && node.module.leadingDots === 1 && node.module.nameParts.length === 0) {
               resolvedPath = '';
             }
@@ -1511,28 +1304,6 @@ export class Binder extends ParseTreeWalker {
       }
     });
 
-    // We need to treat the "with" body as though it is wrapped in a try/except
-    // block because some context managers catch and suppress exceptions.
-    // We'll make use of a special "context manager label" which acts like
-    // a regular branch label in most respects except that it is disabled
-    // if none of the context managers support exception suppression. We won't
-    // be able to determine whether any context managers support exception
-    // processing until the type evaluation phase.
-    //
-    //  (pre with suite)
-    //         ^
-    //         |<--------------------|
-    //    (with suite)<--------------|
-    //         ^                     |
-    //         |        ContextManagerExceptionTarget
-    //         |                     ^
-    //         |           PostContextManagerLabel
-    //         |                     ^
-    //         |---------------------|
-    //         |
-    //   (after with)
-    //
-
     const contextManagerExceptionTarget = this._createContextManagerLabel(
       node.withItems.map((item) => item.expression),
       !!node.isAsync
@@ -1557,15 +1328,12 @@ export class Binder extends ParseTreeWalker {
     const falseLabel = this._createBranchLabel();
     const postExpressionLabel = this._createBranchLabel();
 
-    // Handle the test expression.
     this._bindConditional(node.testExpression, trueLabel, falseLabel);
 
-    // Handle the "true" portion (the "if" expression).
     this._currentFlowNode = this._finishFlowLabel(trueLabel);
     this.walk(node.ifExpression);
     this._addAntecedent(postExpressionLabel, this._currentFlowNode);
 
-    // Handle the "false" portion (the "else" expression).
     this._currentFlowNode = this._finishFlowLabel(falseLabel);
     this.walk(node.elseExpression);
     this._addAntecedent(postExpressionLabel, this._currentFlowNode);
@@ -1577,14 +1345,9 @@ export class Binder extends ParseTreeWalker {
 
   visitUnaryOperation(node: UnaryOperationNode): boolean {
     if (node.operator === OperatorType.Not && this._currentFalseTarget && this._currentTrueTarget) {
-      // Swap the existing true/false targets.
       this._bindConditional(node.expression, this._currentFalseTarget, this._currentTrueTarget);
     } else {
-      // Temporarily set the true/false targets to undefined because
-      // this unary operation is not part of a chain of logical expressions
-      // (AND/OR/NOT subexpressions).
       this._disableTrueFalseTargets(() => {
-        // Evaluate the operand expression.
         this.walk(node.expression);
       });
     }
@@ -1615,9 +1378,6 @@ export class Binder extends ParseTreeWalker {
         this._currentFlowNode = this._finishFlowLabel(postRightLabel);
       }
     } else {
-      // Temporarily set the true/false targets to undefined because
-      // this binary operation is not part of a chain of logical expressions
-      // (AND/OR/NOT subexpressions).
       this._disableTrueFalseTargets(() => {
         this.walk(node.leftExpression);
         this.walk(node.rightExpression);
@@ -1633,9 +1393,6 @@ export class Binder extends ParseTreeWalker {
 
       const falseLabel = this._createBranchLabel();
 
-      // We'll walk the comprehensions list twice. The first time we'll
-      // bind targets of for statements. The second time we'll walk
-      // expressions and create the control flow graph.
       const boundSymbols: Map<string, Symbol>[] = [];
       for (let i = 0; i < node.comprehensions.length; i++) {
         const compr = node.comprehensions[i];
@@ -1652,9 +1409,6 @@ export class Binder extends ParseTreeWalker {
         if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
           const addedSymbols = boundSymbols[i];
 
-          // Determine if we added a new symbol to this scope. If so, see
-          // if it's the same name as a symbol in an outer scope. If so, we'll
-          // create an alias node in the control flow graph.
           for (const addedSymbol of addedSymbols) {
             const aliasSymbol = this._currentScope.parent!.lookUpSymbol(addedSymbol[0]);
             if (aliasSymbol) {
@@ -1681,20 +1435,15 @@ export class Binder extends ParseTreeWalker {
   }
 
   visitMatch(node: MatchNode) {
-    // Evaluate the subject expression.
     this.walk(node.subjectExpression);
 
     const postMatchLabel = this._createBranchLabel();
 
-    // Model the match statement as a series of if/elif clauses
-    // each of which tests for the specified pattern (and optionally
-    // for the guard condition).
     node.cases.forEach((caseStatement) => {
       const postCaseLabel = this._createBranchLabel();
       const preGuardLabel = this._createBranchLabel();
       const preSuiteLabel = this._createBranchLabel();
 
-      // Evaluate the pattern.
       this._addAntecedent(preGuardLabel, this._currentFlowNode!);
 
       const isWildcardPattern =
@@ -1709,10 +1458,8 @@ export class Binder extends ParseTreeWalker {
 
       this._currentFlowNode = this._finishFlowLabel(preGuardLabel);
 
-      // Bind the pattern.
       this.walk(caseStatement.pattern);
 
-      // Apply the guard expression.
       if (caseStatement.guardExpression) {
         this._bindConditional(caseStatement.guardExpression, preSuiteLabel, postCaseLabel);
       } else {
@@ -1721,7 +1468,6 @@ export class Binder extends ParseTreeWalker {
 
       this._currentFlowNode = this._finishFlowLabel(preSuiteLabel);
 
-      // Bind the body of the case statement.
       this.walk(caseStatement.suite);
       this._addAntecedent(postMatchLabel, this._currentFlowNode);
 
@@ -1831,15 +1577,12 @@ export class Binder extends ParseTreeWalker {
     this._currentTrueTarget = savedTrueTarget;
   }
 
-  // Attempts to resolve the module name, import it, and return
-  // its __all__ symbols.
   private _getDunderAllNamesFromImport(varName: string): string[] | undefined {
     const varSymbol = this._currentScope.lookUpSymbol(varName);
     if (!varSymbol) {
       return undefined;
     }
 
-    // There should be only one declaration for the variable.
     const aliasDecl = varSymbol.getDeclarations().find((decl) => decl.type === DeclarationType.Alias) as AliasDeclaration | undefined;
     const resolvedPath = aliasDecl?.path || aliasDecl?.submoduleFallback?.path;
     if (!resolvedPath) {
@@ -1868,13 +1611,6 @@ export class Binder extends ParseTreeWalker {
     const firstNamePartValue = node.module.nameParts[0].value;
 
     if (importInfo && importInfo.isImportFound && !importInfo.isNativeLib && importInfo.resolvedPaths.length > 0) {
-      // See if there's already a matching alias declaration for this import.
-      // if so, we'll update it rather than creating a new one. This is required
-      // to handle cases where multiple import statements target the same
-      // starting symbol such as "import a.b.c" and "import a.d". In this case,
-      // we'll build a single declaration that describes the combined actions
-      // of both import statements, thus reflecting the behavior of the
-      // python module loader.
       const existingDecl = symbol.getDeclarations().find((decl) => decl.type === DeclarationType.Alias && decl.firstNamePart === firstNamePartValue);
 
       let newDecl: AliasDeclaration;
@@ -1892,13 +1628,10 @@ export class Binder extends ParseTreeWalker {
         };
       }
 
-      // Add the implicit imports for this module if it's the last
-      // name part we're resolving.
       if (importAlias || node.module.nameParts.length === 1) {
         newDecl.path = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
         this._addImplicitImportsToLoaderActions(importInfo, newDecl);
       } else {
-        // Fill in the remaining name parts.
         let curLoaderActions: ModuleLoaderActions = newDecl;
 
         for (let i = 1; i < node.module.nameParts.length; i++) {
@@ -1908,10 +1641,8 @@ export class Binder extends ParseTreeWalker {
 
           const namePartValue = node.module.nameParts[i].value;
 
-          // Is there an existing loader action for this name?
           let loaderActions = curLoaderActions.implicitImports ? curLoaderActions.implicitImports.get(namePartValue) : undefined;
           if (!loaderActions) {
-            // Allocate a new loader action.
             loaderActions = {
               path: '',
               implicitImports: new Map<string, ModuleLoaderActions>(),
@@ -1922,8 +1653,6 @@ export class Binder extends ParseTreeWalker {
             curLoaderActions.implicitImports.set(namePartValue, loaderActions);
           }
 
-          // If this is the last name part we're resolving, add in the
-          // implicit imports as well.
           if (i === node.module.nameParts.length - 1) {
             loaderActions.path = importInfo.resolvedPaths[i];
             this._addImplicitImportsToLoaderActions(importInfo, loaderActions);
@@ -1937,9 +1666,6 @@ export class Binder extends ParseTreeWalker {
         symbol.addDeclaration(newDecl);
       }
     } else {
-      // If we couldn't resolve the import, create a dummy declaration with a
-      // bogus path so it gets an unknown type (rather than an unbound type) at
-      // analysis time.
       const newDecl: AliasDeclaration = {
         type: DeclarationType.Alias,
         node,
@@ -1954,12 +1680,10 @@ export class Binder extends ParseTreeWalker {
   }
 
   private _getWildcardImportNames(lookupInfo: ImportLookupResult): string[] {
-    // If a dunder all symbol is defined, it takes precedence.
     if (lookupInfo.dunderAllNames) {
       return lookupInfo.dunderAllNames;
     }
 
-    // Import all names that don't begin with an underscore.
     const namesToImport: string[] = [];
     lookupInfo.symbolTable.forEach((symbol, name) => {
       if (!symbol.isExternallyHidden()) {
@@ -1983,9 +1707,6 @@ export class Binder extends ParseTreeWalker {
       if (!foundUnreachableStatement) {
         this.walk(statement);
       } else {
-        // If we're within a function, we need to look for unreachable yield
-        // statements because they affect the behavior of the function (making
-        // it a generator) even if they're never executed.
         if (this._targetFunctionDeclaration && !this._targetFunctionDeclaration.isGenerator) {
           const yieldFinder = new YieldFinder();
           if (yieldFinder.checkContainsYield(statement)) {
@@ -2036,13 +1757,10 @@ export class Binder extends ParseTreeWalker {
   }
 
   private _finishFlowLabel(node: FlowLabel) {
-    // If there were no antecedents, this is unreachable.
     if (node.antecedents.length === 0) {
       return Binder._unreachableFlowNode;
     }
 
-    // If there was only one antecedent and this is a simple
-    // branch label, there's no need for a label to exist.
     if (node.antecedents.length === 1 && node.flags === FlowFlags.BranchLabel) {
       return node.antecedents[0];
     }
@@ -2050,9 +1768,6 @@ export class Binder extends ParseTreeWalker {
     return node;
   }
 
-  // Creates a node that creates a "gate" that is closed (doesn't allow for code
-  // flow) if the specified expression is never once it is narrowed (in either the
-  // positive or negative case).
   private _bindNeverCondition(node: ExpressionNode, target: FlowLabel, isPositiveTest: boolean) {
     const expressionList: CodeFlowReferenceExpressionNode[] = [];
 
@@ -2060,8 +1775,6 @@ export class Binder extends ParseTreeWalker {
       this._bindNeverCondition(node.expression, target, !isPositiveTest);
     } else if (node.nodeType === ParseNodeType.BinaryOperation && (node.operator === OperatorType.And || node.operator === OperatorType.Or)) {
       if (node.operator === OperatorType.And) {
-        // In the And case, we need to gate the synthesized else clause if both
-        // of the operands evaluate to never once they are narrowed.
         const savedCurrentFlowNode = this._currentFlowNode;
         this._bindNeverCondition(node.leftExpression, target, isPositiveTest);
         this._currentFlowNode = savedCurrentFlowNode;
@@ -2069,30 +1782,21 @@ export class Binder extends ParseTreeWalker {
       } else {
         const initialCurrentFlowNode = this._currentFlowNode;
 
-        // In the Or case, we need to gate the synthesized else clause if either
-        // of the operands evaluate to never.
         const afterLabel = this._createBranchLabel();
         this._bindNeverCondition(node.leftExpression, afterLabel, isPositiveTest);
 
-        // If the condition didn't result in any new flow nodes, we can skip
-        // checking the other condition.
         if (initialCurrentFlowNode !== this._currentFlowNode) {
           this._currentFlowNode = this._finishFlowLabel(afterLabel);
 
           const prevCurrentNode = this._currentFlowNode;
           this._bindNeverCondition(node.rightExpression, target, isPositiveTest);
 
-          // If the second condition resulted in no new control flow node, we can
-          // eliminate this entire subgraph.
           if (prevCurrentNode === this._currentFlowNode) {
             this._currentFlowNode = initialCurrentFlowNode;
           }
         }
       }
     } else {
-      // Limit only to expressions that contain a narrowable subexpression
-      // that is a name. This avoids complexities with composite expressions like
-      // member access or index expressions.
       if (this._isNarrowingExpression(node, expressionList, /* neverNarrowingExpressions */ true)) {
         const filteredExprList = expressionList.filter((expr) => expr.nodeType === ParseNodeType.Name);
         if (filteredExprList.length > 0) {
@@ -2140,7 +1844,6 @@ export class Binder extends ParseTreeWalker {
       this._currentExecutionScopeReferenceMap!.set(referenceKey, referenceKey);
     });
 
-    // Select the first name expression.
     const filteredExprList = expressionList.filter((expr) => expr.nodeType === ParseNodeType.Name);
 
     const conditionalFlowNode: FlowCondition = {
@@ -2156,7 +1859,6 @@ export class Binder extends ParseTreeWalker {
     return conditionalFlowNode;
   }
 
-  // Indicates whether the expression is a NOT, AND or OR expression.
   private _isLogicalExpression(expression: ExpressionNode): boolean {
     switch (expression.nodeType) {
       case ParseNodeType.UnaryOperation: {
@@ -2171,29 +1873,16 @@ export class Binder extends ParseTreeWalker {
     return false;
   }
 
-  // Determines whether the specified expression can be used for conditional
-  // type narrowing. The expression atoms (names, member accesses and index)
-  // are provided as an output in the expressionList.
-  // If filterForNeverNarrowing is true, we limit some types of narrowing
-  // expressions for performance reasons.
-  // The isComplexExpression parameter is used internally to determine whether
-  // the call is an atom (name, member access, index - plus a "not" form of
-  // these) or something more complex (binary operator, call, etc.).
   private _isNarrowingExpression(expression: ExpressionNode, expressionList: CodeFlowReferenceExpressionNode[], filterForNeverNarrowing = false, isComplexExpression = false): boolean {
     switch (expression.nodeType) {
       case ParseNodeType.Name:
       case ParseNodeType.MemberAccess:
       case ParseNodeType.Index: {
         if (filterForNeverNarrowing) {
-          // Never narrowing doesn't support member access or index
-          // expressions.
           if (expression.nodeType !== ParseNodeType.Name) {
             return false;
           }
 
-          // Never narrowing doesn't support simple names (falsy
-          // or truthy narrowing) because it's too expensive and
-          // provides relatively little utility.
           if (!isComplexExpression) {
             return false;
           }
@@ -2217,13 +1906,10 @@ export class Binder extends ParseTreeWalker {
         const equalsOrNotEqualsOperator = expression.operator === OperatorType.Equals || expression.operator === OperatorType.NotEquals;
 
         if (isOrIsNotOperator || equalsOrNotEqualsOperator) {
-          // Look for "X is None", "X is not None", "X == None", "X != None".
-          // These are commonly-used patterns used in control flow.
           if (expression.rightExpression.nodeType === ParseNodeType.Constant && expression.rightExpression.constType === KeywordType.None) {
             return this._isNarrowingExpression(expression.leftExpression, expressionList, filterForNeverNarrowing, /* isComplexExpression */ true);
           }
 
-          // Look for "type(X) is Y" or "type(X) is not Y".
           if (
             isOrIsNotOperator &&
             expression.leftExpression.nodeType === ParseNodeType.Call &&
@@ -2237,26 +1923,22 @@ export class Binder extends ParseTreeWalker {
 
           const isLeftNarrowing = this._isNarrowingExpression(expression.leftExpression, expressionList, filterForNeverNarrowing, /* isComplexExpression */ true);
 
-          // Look for "X is Y" or "X is not Y".
           if (isOrIsNotOperator) {
             return isLeftNarrowing;
           }
 
-          // Look for X == <literal>, X != <literal> or <literal> == X, <literal> != X
           if (equalsOrNotEqualsOperator) {
             const isRightNarrowing = this._isNarrowingExpression(expression.rightExpression, expressionList, filterForNeverNarrowing, /* isComplexExpression */ true);
             return isLeftNarrowing || isRightNarrowing;
           }
         }
 
-        // Look for "<string> in Y" or "<string> not in Y".
         if (expression.operator === OperatorType.In || expression.operator === OperatorType.NotIn) {
           if (this._isNarrowingExpression(expression.rightExpression, expressionList, filterForNeverNarrowing, /* isComplexExpression */ true)) {
             return true;
           }
         }
 
-        // Look for "X in Y".
         if (expression.operator === OperatorType.In) {
           return this._isNarrowingExpression(expression.leftExpression, expressionList, filterForNeverNarrowing, /* isComplexExpression */ true);
         }
@@ -2285,10 +1967,7 @@ export class Binder extends ParseTreeWalker {
           return this._isNarrowingExpression(expression.arguments[0].valueExpression, expressionList, filterForNeverNarrowing, /* isComplexExpression */ true);
         }
 
-        // Is this potentially a call to a user-defined type guard function?
         if (expression.arguments.length >= 1) {
-          // Never narrowing doesn't support type guards because they do not
-          // offer negative narrowing.
           if (filterForNeverNarrowing) {
             return false;
           }
@@ -2428,19 +2107,12 @@ export class Binder extends ParseTreeWalker {
         flowNode.flags |= FlowFlags.Unbind;
       }
 
-      // Assume that an assignment to a member access expression
-      // can potentially generate an exception.
       if (node.nodeType === ParseNodeType.MemberAccess) {
         this._addExceptTargets(flowNode);
       }
       this._currentFlowNode = flowNode;
     }
 
-    // If we're marking the node as unbound and there is already a flow node
-    // associated with the node, don't replace it. This case applies for symbols
-    // introduced in except clauses. If there is no use the previous flow node
-    // associated, use the previous flow node (applies in the del case).
-    // Otherwise, the node will be evaluated as unbound at this point in the flow.
     if (!unbound || AnalyzerNodeInfo.getFlowNode(node) === undefined) {
       AnalyzerNodeInfo.setFlowNode(node, unbound ? prevFlowNode : this._currentFlowNode!);
     }
@@ -2468,8 +2140,6 @@ export class Binder extends ParseTreeWalker {
   }
 
   private _addExceptTargets(flowNode: FlowNode) {
-    // If there are any except targets, then we're in a try block, and we
-    // have to assume that an exception can be raised after every assignment.
     if (this._currentExceptTargets) {
       this._currentExceptTargets.forEach((label) => {
         this._addAntecedent(label, flowNode);
@@ -2491,7 +2161,6 @@ export class Binder extends ParseTreeWalker {
 
   private _addAntecedent(label: FlowLabel, antecedent: FlowNode) {
     if (!(this._currentFlowNode!.flags & FlowFlags.Unreachable)) {
-      // Don't add the same antecedent twice.
       if (!label.antecedents.some((existing) => existing.id === antecedent.id)) {
         label.antecedents.push(antecedent);
       }
@@ -2499,7 +2168,6 @@ export class Binder extends ParseTreeWalker {
   }
 
   private _bindNameToScope(scope: Scope, name: string, addedSymbols?: Map<string, Symbol>) {
-    // Is this name already bound to a scope other than the local one?
     const bindingType = this._currentScope.getBindingType(name);
 
     if (bindingType !== undefined) {
@@ -2509,14 +2177,10 @@ export class Binder extends ParseTreeWalker {
         return symbolWithScope.symbol;
       }
     } else {
-      // Don't overwrite an existing symbol.
       let symbol = scope.lookUpSymbol(name);
       if (!symbol) {
         symbol = scope.addSymbol(name, SymbolFlags.InitiallyUnbound | SymbolFlags.ClassMember);
 
-        // Handle the case where a new symbol is being added to a class
-        // but the expression assigned to it uses a symbol of the same
-        // name that is declared in an outer scope.
         if (scope.type === ScopeType.Class) {
           const aliasSymbol = scope.parent!.lookUpSymbol(name);
           if (aliasSymbol) {
@@ -2591,7 +2255,6 @@ export class Binder extends ParseTreeWalker {
     }
   }
 
-  // Adds a new symbol with the specified name if it doesn't already exist.
   private _addSymbolToCurrentScope(nameValue: string, isInitiallyUnbound: boolean) {
     let symbol = this._currentScope.lookUpSymbol(nameValue);
 
@@ -2610,8 +2273,6 @@ export class Binder extends ParseTreeWalker {
         symbolFlags |= SymbolFlags.ExternallyHidden;
       }
 
-      // Add the symbol. Assume that symbols with a default type source ID
-      // are "implicit" symbols added to the scope. These are not initially unbound.
       symbol = this._currentScope.addSymbol(nameValue, symbolFlags);
     }
 
@@ -2623,7 +2284,6 @@ export class Binder extends ParseTreeWalker {
     const newScope = new Scope(scopeType, parentScope);
     this._currentScope = newScope;
 
-    // If this scope is an execution scope, allocate a new reference map.
     const isExecutionScope = scopeType === ScopeType.Builtin || scopeType === ScopeType.Module || scopeType === ScopeType.Function;
     const prevReferenceMap = this._currentExecutionScopeReferenceMap;
 
@@ -2675,10 +2335,6 @@ export class Binder extends ParseTreeWalker {
           }
 
           if (memberAccessInfo.isInstanceMember) {
-            // If a method (which has a declared type) is being overwritten
-            // by an expression with no declared type, don't mark it as
-            // an instance member because the type evaluator will think
-            // that it doesn't need to perform object binding.
             if (!symbol.isClassMember() || !symbol.getDeclarations().some((decl) => decl.type === DeclarationType.Function && decl.isMethod)) {
               symbol.setIsInstanceMember();
             }
@@ -2742,7 +2398,6 @@ export class Binder extends ParseTreeWalker {
           if (isExplicitTypeAlias) {
             typeAnnotationNode = undefined;
 
-            // Type aliases are allowed only in the global scope.
             if (this._currentScope.type !== ScopeType.Module) {
               this._addError(Localizer.Diagnostic.typeAliasNotInModule(), typeAnnotation);
             }
@@ -2766,9 +2421,6 @@ export class Binder extends ParseTreeWalker {
           };
           symbolWithScope.symbol.addDeclaration(declaration);
 
-          // Is this annotation indicating that the variable is a "ClassVar"? Note
-          // that this check is somewhat fragile because we can't verify here that
-          // "ClassVar" maps to the typing module symbol by this name.
           const isClassVar = typeAnnotation.nodeType === ParseNodeType.Index && this._isTypingAnnotation(typeAnnotation.baseExpression, 'ClassVar');
 
           if (isClassVar) {
@@ -2783,14 +2435,6 @@ export class Binder extends ParseTreeWalker {
       }
 
       case ParseNodeType.MemberAccess: {
-        // We need to determine whether this expression is declaring a class or
-        // instance variable. This is difficult because python doesn't provide
-        // a keyword for accessing "this". Instead, it uses naming conventions
-        // of "cls" and "self", but we don't want to rely on these naming
-        // conventions here. Instead, we'll apply some heuristics to determine
-        // whether the symbol on the LHS is a reference to the current class
-        // or an instance of the current class.
-
         const memberAccessInfo = this._getMemberAccessInfo(target);
         if (memberAccessInfo) {
           const name = target.memberName;
@@ -2835,10 +2479,6 @@ export class Binder extends ParseTreeWalker {
     }
   }
 
-  // Determines whether the expression refers to a type exported by the typing
-  // or typing_extensions modules. We can directly evaluate the types at binding
-  // time. We assume here that the code isn't making use of some custom type alias
-  // to refer to the typing types.
   private _isTypingAnnotation(typeAnnotation: ExpressionNode, name: string): boolean {
     if (typeAnnotation.nodeType === ParseNodeType.Name) {
       const alias = this._typingSymbolAliases.get(typeAnnotation.value);
@@ -2855,9 +2495,6 @@ export class Binder extends ParseTreeWalker {
     return false;
   }
 
-  // Determines if the specified type annotation expression is a "Final".
-  // It returns a value indicating whether the expression is a "Final"
-  // expression and whether it's a "raw" Final with no type arguments.
   private _isAnnotationFinal(typeAnnotation: ExpressionNode | undefined): FinalInfo {
     let isFinal = false;
     let finalTypeNode: ExpressionNode | undefined;
@@ -2866,7 +2503,6 @@ export class Binder extends ParseTreeWalker {
       if (this._isTypingAnnotation(typeAnnotation, 'Final')) {
         isFinal = true;
       } else if (typeAnnotation.nodeType === ParseNodeType.Index && typeAnnotation.items.length === 1) {
-        // Recursively call to see if the base expression is "Final".
         const finalInfo = this._isAnnotationFinal(typeAnnotation.baseExpression);
         if (finalInfo.isFinal && typeAnnotation.items[0].argumentCategory === ArgumentCategory.Simple && !typeAnnotation.items[0].name && !typeAnnotation.trailingComma) {
           isFinal = true;
@@ -2878,7 +2514,6 @@ export class Binder extends ParseTreeWalker {
     return { isFinal, finalTypeNode };
   }
 
-  // Determines if the specified type annotation is wrapped in a "Required".
   private _isRequiredAnnotation(typeAnnotation: ExpressionNode | undefined): boolean {
     if (typeAnnotation && typeAnnotation.nodeType === ParseNodeType.Index && typeAnnotation.items.length === 1) {
       if (this._isTypingAnnotation(typeAnnotation.baseExpression, 'Required')) {
@@ -2889,7 +2524,6 @@ export class Binder extends ParseTreeWalker {
     return false;
   }
 
-  // Determines if the specified type annotation is wrapped in a "NotRequired".
   private _isNotRequiredAnnotation(typeAnnotation: ExpressionNode | undefined): boolean {
     if (typeAnnotation && typeAnnotation.nodeType === ParseNodeType.Index && typeAnnotation.items.length === 1) {
       if (this._isTypingAnnotation(typeAnnotation.baseExpression, 'NotRequired')) {
@@ -2908,20 +2542,13 @@ export class Binder extends ParseTreeWalker {
     return this._isTypingAnnotation(typeAnnotation, 'TypeAlias');
   }
 
-  // Determines whether a member access expression is referring to a
-  // member of a class (either a class or instance member). This will
-  // typically take the form "self.x" or "cls.x".
   private _getMemberAccessInfo(node: MemberAccessNode): MemberAccessInfo | undefined {
-    // We handle only simple names on the left-hand side of the expression,
-    // not calls, nested member accesses, index expressions, etc.
     if (node.leftExpression.nodeType !== ParseNodeType.Name) {
       return undefined;
     }
 
     const leftSymbolName = node.leftExpression.value;
 
-    // Make sure the expression is within a function (i.e. a method) that's
-    // within a class definition.
     const methodNode = ParseTreeUtils.getEnclosingFunction(node);
     if (!methodNode) {
       return undefined;
@@ -2932,8 +2559,6 @@ export class Binder extends ParseTreeWalker {
       return undefined;
     }
 
-    // Determine whether the left-hand side indicates a class or
-    // instance member.
     let isInstanceMember = false;
 
     if (methodNode.parameters.length < 1 || !methodNode.parameters[0].name) {
@@ -2950,26 +2575,17 @@ export class Binder extends ParseTreeWalker {
         return undefined;
       }
 
-      // To determine whether the first parameter of the method
-      // refers to the class or the instance, we need to apply
-      // some heuristics.
       if (methodNode.name.value === '__new__') {
-        // The __new__ method is special. It acts as a classmethod even
-        // though it doesn't have a @classmethod decorator.
         isInstanceMember = false;
       } else {
-        // Assume that it's an instance member unless we find
-        // a decorator that tells us otherwise.
         isInstanceMember = true;
         for (const decorator of methodNode.decorators) {
           if (decorator.expression.nodeType === ParseNodeType.Name) {
             const decoratorName = decorator.expression.value;
 
             if (decoratorName === 'staticmethod') {
-              // A static method doesn't have a "self" or "cls" parameter.
               return undefined;
             } else if (decoratorName === 'classmethod') {
-              // A classmethod implies that the first parameter is "cls".
               isInstanceMember = false;
               break;
             }
@@ -3006,8 +2622,6 @@ export class Binder extends ParseTreeWalker {
     });
   }
 
-  // Handles some special-case assignment statements that are found
-  // within the typings.pyi file.
   private _handleTypingStubAssignmentOrAnnotation(node: AssignmentNode | TypeAnnotationNode) {
     if (!this._fileInfo.isTypingStubFile) {
       return false;
@@ -3081,7 +2695,6 @@ export class Binder extends ParseTreeWalker {
     while (this._deferredBindingTasks.length > 0) {
       const nextItem = this._deferredBindingTasks.shift()!;
 
-      // Reset the state
       this._currentScope = nextItem.scope;
       this._nestedExceptDepth = 0;
       this._currentExecutionScopeReferenceMap = nextItem.codeFlowExpressionMap;
@@ -3098,8 +2711,6 @@ export class Binder extends ParseTreeWalker {
         this._addError(Localizer.Diagnostic.yieldOutsideFunction(), node);
       }
     } else if (functionNode.isAsync && node.nodeType === ParseNodeType.YieldFrom) {
-      // PEP 525 indicates that 'yield from' is not allowed in an
-      // async function.
       this._addError(Localizer.Diagnostic.yieldFromOutsideAsync(), node);
     }
 

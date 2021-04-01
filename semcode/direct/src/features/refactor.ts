@@ -326,9 +326,7 @@ class Refactor implements qv.CodeActionProvider<TsCodeAction> {
   }
 
   private appendInvalidActions(actions: qv.CodeAction[]): qv.CodeAction[] {
-    if (this.client.apiVersion.gte(API.v400))
-      // Invalid actions come from TS server instead
-      return actions;
+    if (this.client.apiVersion.gte(API.v400)) return actions;
     if (!actions.some((action) => action.kind && Extract_Constant.kind.contains(action.kind))) {
       const disabledAction = new qv.CodeAction('extractConstant.disabled.title', Extract_Constant.kind);
       disabledAction.disabled = {

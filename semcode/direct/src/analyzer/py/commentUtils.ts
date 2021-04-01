@@ -37,7 +37,6 @@ function _applyStrictRules(ruleSet: DiagnosticRuleSet) {
   const diagRuleNames = getDiagLevelDiagnosticRules();
   const skipRuleNames = getStrictModeNotOverriddenRules();
 
-  // Enable the strict rules as appropriate.
   for (const ruleName of boolRuleNames) {
     if (skipRuleNames.find((r) => r === ruleName)) {
       continue;
@@ -63,15 +62,12 @@ function _applyStrictRules(ruleSet: DiagnosticRuleSet) {
 }
 
 function _parsePyrightComment(commentValue: string, ruleSet: DiagnosticRuleSet) {
-  // Is this a pyright or mspython-specific comment?
   const validPrefixes = ['pyright:', 'mspython:'];
   const prefix = validPrefixes.find((p) => commentValue.startsWith(p));
   if (prefix) {
     const operands = commentValue.substr(prefix.length).trim();
     const operandList = operands.split(',').map((s) => s.trim());
 
-    // If it contains a "strict" operand, replace the existing
-    // diagnostic rules with their strict counterparts.
     if (operandList.some((s) => s === 'strict')) {
       _applyStrictRules(ruleSet);
     }

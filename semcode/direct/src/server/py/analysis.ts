@@ -142,18 +142,13 @@ export class BackgroundAnalysisBase {
   private _worker: Worker | undefined;
   private _onAnalysisCompletion: AnalysisCompleteCallback = nullCallback;
 
-  protected constructor(protected console: ConsoleInterface) {
-    // Don't allow instantiation of this type directly.
-  }
+  protected constructor(protected console: ConsoleInterface) {}
 
   protected setup(worker: Worker) {
     this._worker = worker;
 
-    // global channel to communicate from BG channel to main thread.
     worker.on('message', (msg: AnalysisResponse) => this.onMessage(msg));
 
-    // this will catch any exception thrown from background thread,
-    // print log and ignore exception
     worker.on('error', (msg) => {
       this.log(LogLevel.Error, `Error occurred on background thread: ${JSON.stringify(msg)}`);
     });
@@ -168,8 +163,6 @@ export class BackgroundAnalysisBase {
       }
 
       case 'analysisResult': {
-        // Change in diagnostics due to host such as file closed rather than
-        // analyzing files.
         this._onAnalysisCompletion(convertAnalysisResults(msg.data));
         break;
       }
@@ -222,7 +215,6 @@ export class BackgroundAnalysisBase {
   private _startOrResumeAnalysis(requestType: 'analyze' | 'resumeAnalysis', indices: Indices | undefined, token: CancellationToken) {
     const { port1, port2 } = new MessageChannel();
 
-    // Handle response from background thread to main thread.
     port1.on('message', (msg: AnalysisResponse) => {
       switch (msg.requestType) {
         case 'analysisResult': {
@@ -235,8 +227,6 @@ export class BackgroundAnalysisBase {
           port2.close();
           port1.close();
 
-          // Analysis request has completed, but there is more to
-          // analyze, so queue another message to resume later.
           this._startOrResumeAnalysis('resumeAnalysis', indices, token);
           break;
         }
@@ -347,7 +337,6 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
   protected constructor(private _extension?: LanguageServiceExtension) {
     super(workerData as InitializationData);
 
-    // Stash the base directory into a global variable.
     const data = workerData as InitializationData;
     this.log(LogLevel.Info, `Background analysis(${threadId}) root directory: ${data.rootDirectory}`);
 
@@ -363,7 +352,6 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
   start() {
     this.log(LogLevel.Info, `Background analysis(${threadId}) started`);
 
-    // Get requests from main thread.
     parentPort?.on('message', (msg: AnalysisRequest) => this.onMessage(msg));
 
     parentPort?.on('error', (msg) => debug.fail(`failed ${msg}`));
@@ -382,7 +370,6 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
         const port = msg.port!;
         const token = getCancellationTokenFromId(msg.data);
 
-        // Report files to analyze first.
         const filesLeftToAnalyze = this.program.getFilesToAnalyzeCount();
 
         this._onAnalysisCompletion(port, {
@@ -478,17 +465,13 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
       }
 
       case 'invalidateAndForceReanalysis': {
-        // Make sure the import resolver doesn't have invalid
-        // cached entries.
         this._importResolver.invalidateCache();
 
-        // Mark all files with one or more errors dirty.
         this.program.markAllFilesDirty(true);
         break;
       }
 
       case 'restart': {
-        // recycle import resolver
         this._importResolver = this.createImportResolver(this.fs, this._configOptions);
         this.program.setImportResolver(this._importResolver);
         break;
@@ -501,14 +484,10 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
   }
 
   private _analyzeOneChunk(port: MessagePort, token: CancellationToken, msg: AnalysisRequest) {
-    // Report results at the interval of the max analysis time.
     const maxTime = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
     const moreToAnalyze = analyzeProgram(this.program, maxTime, this._configOptions, (result) => this._onAnalysisCompletion(port, result), this.getConsole(), token);
 
     if (moreToAnalyze) {
-      // There's more to analyze after we exceeded max time,
-      // so report that we are paused. The foreground thread will
-      // then queue up a message to resume the analysis.
       this._analysisPaused(port, msg.data);
     } else {
       this.processIndexing(port, token);
@@ -567,8 +546,6 @@ function convertAnalysisResults(result: AnalysisResults): AnalysisResults {
 }
 
 function convertDiagnostics(diagnostics: Diagnostic[]) {
-  // Elements are typed as "any" since data crossing the process
-  // boundary loses type info.
   return diagnostics.map<Diagnostic>((d: any) => {
     const diag = new Diagnostic(d.category, d.message, d.range);
     if (d._actions) {

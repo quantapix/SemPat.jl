@@ -37,7 +37,6 @@ export default class API {
       return new API(localize('invalidVersion', 'invalid version'), '1.0.0', '1.0.0');
     }
 
-    // Cut off any prerelease tag since we sometimes consume those on purpose.
     const index = versionString.indexOf('-');
     if (index >= 0) {
       version = version.substr(0, index);

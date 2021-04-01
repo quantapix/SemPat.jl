@@ -5,8 +5,6 @@ import { doForEachSubtype } from './typeUtils';
 export interface TypeVarMapEntry {
   typeVar: TypeVarType;
 
-  // The final type must "fit" between the narrow and
-  // wide type bound.
   narrowBound?: Type;
   wideBound?: Type;
 
@@ -68,7 +66,6 @@ export class TypeVarMap {
     return newTypeVarMap;
   }
 
-  // Copies a cloned type var map back into this object.
   copyFromClone(clone: TypeVarMap) {
     this._typeVarMap = clone._typeVarMap;
     this._paramSpecMap = clone._paramSpecMap;
@@ -76,7 +73,6 @@ export class TypeVarMap {
     this._isLocked = clone._isLocked;
   }
 
-  // Returns the list of scopes this type var map is "solving".
   getSolveForScopes() {
     return this._solveForScopes;
   }
@@ -102,19 +98,12 @@ export class TypeVarMap {
     return this._typeVarMap.size === 0 && this._paramSpecMap.size === 0;
   }
 
-  // Provides a "score" - a value that values completeness (number
-  // of type variables that are assigned) and completeness.
   getScore() {
     let score = 0;
 
-    // Sum the scores for the defined type vars.
     this._typeVarMap.forEach((value) => {
-      // Add 1 to the score for each type variable defined.
       score += 1;
 
-      // Add a fractional amount based on the complexity of the definition.
-      // The more complex, the lower the score. In the spirit of Occam's
-      // Razor, we always want to favor simple answers.
       const typeVarType = this.getTypeVarType(value.typeVar)!;
       score += this._getComplexityScoreForType(typeVarType);
     });
@@ -150,7 +139,6 @@ export class TypeVarMap {
     assert(!this._isLocked);
     const key = this._getKey(reference);
 
-    // Allocate variadic map on demand since most classes don't use it.
     if (!this._variadicTypeVarMap) {
       this._variadicTypeVarMap = new Map<string, VariadicTypeVarMapEntry>();
     }
@@ -204,7 +192,6 @@ export class TypeVarMap {
   }
 
   lock() {
-    // Locks the type var map, preventing any further changes.
     assert(!this._isLocked);
     this._isLocked = true;
   }
@@ -217,10 +204,6 @@ export class TypeVarMap {
     return TypeVarType.getNameWithScope(reference);
   }
 
-  // Returns a "score" for a type that captures the relative complexity
-  // of the type. Scores should all be between 0 and 1 where 0 means
-  // very complex and 1 means simple. This is a heuristic, so there's
-  // often no objectively correct answer.
   private _getComplexityScoreForType(type: Type, recursionCount = 0): number {
     if (recursionCount > maxTypeRecursionCount) {
       return 0;
@@ -229,8 +212,6 @@ export class TypeVarMap {
     switch (type.category) {
       case TypeCategory.Function:
       case TypeCategory.OverloadedFunction: {
-        // For now, return a constant for functions. We may want
-        // to make this heuristic in the future.
         return 0.5;
       }
 
@@ -243,14 +224,10 @@ export class TypeVarMap {
           }
         });
 
-        // Assume that a union is more complex than a non-union,
-        // and return half of the minimum score of the subtypes.
         return minScore / 2;
       }
 
       case TypeCategory.Class: {
-        // Score a class as 0.5 plus half of the average complexity
-        // score of its type arguments.
         return this._getComplexityScoreForClass(type, recursionCount + 1);
       }
 
@@ -259,7 +236,6 @@ export class TypeVarMap {
       }
     }
 
-    // For all other types, return a score of 0.
     return 0;
   }
 

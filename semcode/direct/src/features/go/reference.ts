@@ -14,7 +14,6 @@ export class GoReferenceProvider implements qv.ReferenceProvider {
 
   private doFindReferences(document: qv.TextDocument, position: qv.Position, options: { includeDeclaration: boolean }, token: qv.CancellationToken): Thenable<qv.Location[]> {
     return new Promise<qv.Location[]>((resolve, reject) => {
-      // get current word
       const wordRange = document.getWordRangeAtPosition(position);
       if (!wordRange) {
         return resolve([]);

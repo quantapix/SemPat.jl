@@ -68,9 +68,6 @@ export interface LanguageServerConfig {
   checkForUpdates: string;
 }
 
-// Global variables used for management of the language client.
-// They are global so that the server can be easily restarted with
-// new configurations.
 export let languageClient: LanguageClient;
 let languageServerDisposable: qv.Disposable;
 export let latestConfig: LanguageServerConfig;
@@ -82,23 +79,15 @@ const languageServerStartMutex = new Mutex();
 let serverTraceChannel: qv.OutputChannel;
 let crashCount = 0;
 
-// Some metrics for automated issue reports:
 let manualRestartCount = 0;
 let totalStartCount = 0;
 
-// defaultLanguageProviders is the list of providers currently registered.
 let defaultLanguageProviders: qv.Disposable[] = [];
 
-// restartCommand is the command used by the user to restart the language
-// server.
 let restartCommand: qv.Disposable;
 
-// lastUserAction is the time of the last user-triggered change.
-// A user-triggered change is a didOpen, didChange, didSave, or didClose event.
 let lastUserAction: Date = new Date();
 
-// startLanguageServerWithFallback starts the language server, if enabled,
-// or falls back to the default language providers.
 export async function startLanguageServerWithFallback(ctx: qv.ExtensionContext, activation: boolean) {
   for (const folder of qv.workspace.workspaceFolders || []) {
     switch (folder.uri.scheme) {
@@ -114,19 +103,13 @@ export async function startLanguageServerWithFallback(ctx: qv.ExtensionContext, 
   const goConfig = getGoConfig();
   const cfg = buildLanguageServerConfig(goConfig);
 
-  // We have some extra prompts for gopls users and for people who have opted
-  // out of gopls.
   if (activation) {
     scheduleGoplsSuggestions();
   }
 
-  // If the language server is gopls, we enable a few additional features.
-  // These include prompting for updates and surveys.
   if (cfg.serverName === 'gopls') {
     const tool = getTool(cfg.serverName);
     if (tool) {
-      // If the language server is turned on because it is enabled by default,
-      // make sure that the user is using a new enough version.
       if (cfg.enabled && languageServerUsingDefault(goConfig)) {
         suggestUpdateGopls(tool, cfg);
       }
@@ -136,9 +119,6 @@ export async function startLanguageServerWithFallback(ctx: qv.ExtensionContext, 
   try {
     const started = await startLanguageServer(ctx, cfg);
 
-    // If the server has been disabled, or failed to start,
-    // fall back to the default providers, while making sure not to
-    // re-register any providers.
     if (!started && defaultLanguageProviders.length === 0) {
       registerDefaultProviders(ctx);
     }
@@ -149,15 +129,11 @@ export async function startLanguageServerWithFallback(ctx: qv.ExtensionContext, 
   }
 }
 
-// scheduleGoplsSuggestions sets timeouts for the various gopls-specific
-// suggestions. We check user's gopls versions once per day to prompt users to
-// update to the latest version. We also check if we should prompt users to
-// fill out the survey.
 function scheduleGoplsSuggestions() {
   if (IsInCloudIDE) {
     return;
   }
-  // Some helper functions.
+
   const usingGopls = (cfg: LanguageServerConfig): boolean => {
     return cfg.enabled && cfg.serverName === 'gopls';
   };
@@ -167,8 +143,7 @@ function scheduleGoplsSuggestions() {
     if (!versionToUpdate) {
       return;
     }
-    // If the user has opted in to automatic tool updates, we can update
-    // without prompting.
+
     const toolsManagementConfig = getGoConfig()['toolsManagement'];
     if (toolsManagementConfig && toolsManagementConfig['autoUpdate'] === true) {
       const goVersion = await getGoVersion();
@@ -183,15 +158,12 @@ function scheduleGoplsSuggestions() {
 
     let cfg = buildLanguageServerConfig(getGoConfig());
     if (!usingGopls(cfg)) {
-      // This shouldn't happen, but if the user has a non-gopls language
-      // server enabled, we shouldn't prompt them to change.
       if (cfg.serverName !== '' && cfg.serverName !== 'gopls') {
         return;
       }
-      // Prompt the user to enable gopls and record what actions they took.
+
       await promptAboutGoplsOptOut(false);
-      // Check if the language server has now been enabled, and if so,
-      // it will be installed below.
+
       cfg = buildLanguageServerConfig(getGoConfig());
       if (!cfg.enabled) {
         return;
@@ -213,7 +185,6 @@ function scheduleGoplsSuggestions() {
 }
 
 export async function promptAboutGoplsOptOut(surveyOnly: boolean) {
-  // Check if the configuration is set in the workspace.
   const useLanguageServer = getGoConfig().inspect('useLanguageServer');
   const workspace = useLanguageServer.workspaceFolderValue === false || useLanguageServer.workspaceValue === false;
 
@@ -222,7 +193,7 @@ export async function promptAboutGoplsOptOut(surveyOnly: boolean) {
     if (cfg.prompt === false) {
       return cfg;
     }
-    // Prompt the user ~once a month.
+
     if (cfg.lastDatePrompted && daysBetween(new Date(), cfg.lastDatePrompted) < 30) {
       return cfg;
     }
@@ -249,8 +220,6 @@ Would you like to enable it now?`,
     switch (selected.title) {
       case 'Enable':
         {
-          // Change the user's Go configuration to enable the language server.
-          // Remove the setting entirely, since it's on by default now.
           const goConfig = getGoConfig();
           await goConfig.update('useLanguageServer', undefined, qv.ConfigurationTarget.Global);
           if (goConfig.inspect('useLanguageServer').workspaceValue === false) {
@@ -322,8 +291,6 @@ function flushGoplsOptOutConfig(cfg: GoplsOptOutConfig, workspace: boolean) {
 }
 
 async function startLanguageServer(ctx: qv.ExtensionContext, config: LanguageServerConfig): Promise<boolean> {
-  // If the client has already been started, make sure to clear existing
-  // diagnostics and stop it.
   if (languageClient) {
     if (languageClient.diagnostics) {
       languageClient.diagnostics.clear();
@@ -334,23 +301,16 @@ async function startLanguageServer(ctx: qv.ExtensionContext, config: LanguageSer
     }
   }
 
-  // Check if we should recreate the language client. This may be necessary
-  // if the user has changed settings in their config.
   if (!deepEqual(latestConfig, config)) {
-    // Track the latest config used to start the language server,
-    // and rebuild the language client.
     latestConfig = config;
     languageClient = await buildLanguageClient(buildLanguageClientOption(config));
     crashCount = 0;
   }
 
-  // If the user has not enabled the language server, return early.
   if (!config.enabled) {
     return false;
   }
 
-  // Set up the command to allow the user to manually restart the
-  // language server.
   if (!restartCommand) {
     restartCommand = qv.commands.registerCommand('go.languageserver.restart', async () => {
       await suggestGoplsIssueReport("Looks like you're about to manually restart the language server.", errorKind.manualRestart);
@@ -361,8 +321,6 @@ async function startLanguageServer(ctx: qv.ExtensionContext, config: LanguageSer
     ctx.subscriptions.push(restartCommand);
   }
 
-  // Before starting the language server, make sure to deregister any
-  // currently registered language providers.
   disposeDefaultProviders();
 
   languageServerDisposable = languageClient.start();
@@ -377,11 +335,7 @@ export interface BuildLanguageClientOption extends LanguageServerConfig {
   traceOutputChannel?: qv.OutputChannel;
 }
 
-// buildLanguageClientOption returns the default, extra configuration
-// used in building a new LanguageClient instance. Options specified
-// in LanguageServerConfig
 function buildLanguageClientOption(cfg: LanguageServerConfig): BuildLanguageClientOption {
-  // Reuse the same output channel for each instance of the server.
   if (cfg.enabled) {
     if (!serverOutputChannel) {
       serverOutputChannel = qv.window.createOutputChannel(cfg.serverName + ' (server)');
@@ -399,26 +353,19 @@ function buildLanguageClientOption(cfg: LanguageServerConfig): BuildLanguageClie
   );
 }
 
-// buildLanguageClient returns a language client built using the given language server config.
-// The returned language client need to be started before use.
 export async function buildLanguageClient(cfg: BuildLanguageClientOption): Promise<LanguageClient> {
   const goplsWorkspaceConfig = await adjustGoplsWorkspaceConfiguration(cfg, getGoplsConfig(), 'gopls', undefined);
 
   const documentSelector = [
-    // Filter out unsupported document types, e.g. vsls, git, ssh.
-    // https://docs.microsoft.com/en-us/visualstudio/liveshare/reference/extensions#visual-studio-code-1
-    //
-    // - files
     { language: 'go', scheme: 'file' },
     { language: 'go.mod', scheme: 'file' },
     { language: 'go.sum', scheme: 'file' },
-    // - unsaved files
+
     { language: 'go', scheme: 'untitled' },
     { language: 'go.mod', scheme: 'untitled' },
     { language: 'go.sum', scheme: 'untitled' },
   ];
 
-  // Let gopls know about .tmpl - this is experimental, so enable it only in the experimental mode now.
   if (isInPreviewMode()) {
     documentSelector.push({ language: 'tmpl', scheme: 'file' }, { language: 'tmpl', scheme: 'untitled' });
   }
@@ -434,7 +381,6 @@ export async function buildLanguageClient(cfg: BuildLanguageClientOption): Promi
       initializationOptions: goplsWorkspaceConfig,
       documentSelector,
       uriConverters: {
-        // Apply file:/// scheme to all file paths.
         code2Protocol: (uri: qv.Uri): string => (uri.scheme ? uri : uri.with({ scheme: 'file' })).toString(),
         protocol2Code: (uri: string) => qv.Uri.parse(uri),
       },
@@ -448,7 +394,6 @@ export async function buildLanguageClient(cfg: BuildLanguageClientOption): Promi
       },
       errorHandler: {
         error: (error: Error, message: Message, count: number): ErrorAction => {
-          // Allow 5 crashes before shutdown.
           if (count < 5) {
             return ErrorAction.Continue;
           }
@@ -456,7 +401,6 @@ export async function buildLanguageClient(cfg: BuildLanguageClientOption): Promi
           return ErrorAction.Shutdown;
         },
         closed: (): CloseAction => {
-          // Allow 5 crashes before shutdown.
           crashCount++;
           if (crashCount < 5) {
             return CloseAction.Restart;
@@ -520,7 +464,7 @@ export async function buildLanguageClient(cfg: BuildLanguageClientOption): Promi
           if (!cfg.features.diagnostics) {
             return null;
           }
-          // Deduplicate diagnostics with those found by the other tools.
+
           removeDuplicateDiagnostics(vetDiagnosticCollection, uri, diagnostics);
           removeDuplicateDiagnostics(buildDiagnosticCollection, uri, diagnostics);
           removeDuplicateDiagnostics(lintDiagnosticCollection, uri, diagnostics);
@@ -534,37 +478,16 @@ export async function buildLanguageClient(cfg: BuildLanguageClientOption): Promi
           }
           const items = Array.isArray(list) ? list : list.items;
 
-          // Give all the candidates the same filterText to trick VSCode
-          // into not reordering our candidates. All the candidates will
-          // appear to be equally good matches, so VSCode's fuzzy
-          // matching/ranking just maintains the natural "sortText"
-          // ordering. We can only do this in tandem with
-          // "incompleteResults" since otherwise client side filtering is
-          // important.
           if (!Array.isArray(list) && list.isIncomplete && list.items.length > 1) {
             let hardcodedFilterText = items[0].filterText;
             if (!hardcodedFilterText) {
-              // tslint:disable:max-line-length
-              // According to LSP spec,
-              // https://microsoft.github.io/language-server-protocol/specifications/specification-current/#textDocument_completion
-              // if filterText is falsy, the `label` should be used.
-              // But we observed that's not the case.
-              // Even if vscode picked the label value, that would
-              // cause to reorder candiates, which is not ideal.
-              // Force to use non-empty `label`.
-              // https://github.com/golang/vscode-go/issues/441
               hardcodedFilterText = items[0].label;
             }
             for (const item of items) {
               item.filterText = hardcodedFilterText;
             }
           }
-          // TODO(hyangah): when v1.42+ api is available, we can simplify
-          // language-specific configuration lookup using the new
-          // ConfigurationScope.
-          //    const paramHintsEnabled = qv.workspace.getConfiguration(
-          //          'editor.parameterHints',
-          //          { languageId: 'go', uri: document.uri });
+
           const editorParamHintsEnabled = qv.workspace.getConfiguration('editor.parameterHints', document.uri)['enabled'];
           const goParamHintsEnabled = qv.workspace.getConfiguration('[go]', document.uri)['editor.parameterHints.enabled'];
           let paramHintsEnabled = false;
@@ -573,8 +496,7 @@ export async function buildLanguageClient(cfg: BuildLanguageClientOption): Promi
           } else {
             paramHintsEnabled = goParamHintsEnabled;
           }
-          // If the user has parameterHints (signature help) enabled,
-          // trigger it for function or method completion items.
+
           if (paramHintsEnabled) {
             for (const item of items) {
               if (item.kind === CompletionItemKind.Method || item.kind === CompletionItemKind.Function) {
@@ -587,8 +509,7 @@ export async function buildLanguageClient(cfg: BuildLanguageClientOption): Promi
           }
           return list;
         },
-        // Keep track of the last file change in order to not prompt
-        // user if they are actively working.
+
         didOpen: (e, next) => {
           lastUserAction = new Date();
           next(e);
@@ -631,10 +552,6 @@ export async function buildLanguageClient(cfg: BuildLanguageClientOption): Promi
   return c;
 }
 
-// filterGoplsDefaultConfigValues removes the entries filled based on the default values
-// and selects only those the user explicitly specifies in their settings.
-// This returns a new object created based on the filtered properties of workspaceConfig.
-// Exported for testing.
 export function filterGoplsDefaultConfigValues(workspaceConfig: any, resource: qv.Uri): any {
   if (!workspaceConfig) {
     workspaceConfig = {};
@@ -646,14 +563,10 @@ export function filterGoplsDefaultConfigValues(workspaceConfig: any, resource: q
       continue;
     }
     const c = cfg.inspect(key);
-    // select only the field whose current value comes from non-default setting.
+
     if (
       !c ||
       !deepEqual(c.defaultValue, value) ||
-      // c.defaultValue !== value would be most likely sufficient, except
-      // when gopls' default becomes different from extension's default.
-      // So, we also forward the key if ever explicitely stated in one of the
-      // settings layers.
       c.globalLanguageValue !== undefined ||
       c.globalValue !== undefined ||
       c.workspaceFolderLanguageValue !== undefined ||
@@ -667,12 +580,6 @@ export function filterGoplsDefaultConfigValues(workspaceConfig: any, resource: q
   return filtered;
 }
 
-// passGoConfigToGoplsConfigValues passes some of the relevant 'go.' settings to gopls settings.
-// This assumes `goplsWorkspaceConfig` is an output of filterGoplsDefaultConfigValues,
-// so it is modifiable and doesn't contain properties that are not explicitly set.
-//   - go.buildTags and go.buildFlags are passed as gopls.build.buildFlags
-//     if goplsWorkspaceConfig doesn't explicitly set it yet.
-// Exported for testing.
 export function passGoConfigToGoplsConfigValues(goplsWorkspaceConfig: any, goWorkspaceConfig: any): any {
   if (!goplsWorkspaceConfig) {
     goplsWorkspaceConfig = {};
@@ -685,31 +592,26 @@ export function passGoConfigToGoplsConfigValues(goplsWorkspaceConfig: any, goWor
   if (goWorkspaceConfig?.buildTags && buildFlags.indexOf('-tags') === -1) {
     buildFlags.push('-tags', goWorkspaceConfig?.buildTags);
   }
-  // If gopls.build.buildFlags is set, don't touch it.
+
   if (buildFlags.length > 0 && goplsWorkspaceConfig['build.buildFlags'] === undefined) {
     goplsWorkspaceConfig['build.buildFlags'] = buildFlags;
   }
   return goplsWorkspaceConfig;
 }
 
-// adjustGoplsWorkspaceConfiguration filters unnecessary options and adds any necessary, additional
-// options to the gopls config. See filterGoplsDefaultConfigValues, passGoConfigToGoplsConfigValues.
-// If this is for the nightly extension, we also request to activate features under experiments.
 async function adjustGoplsWorkspaceConfiguration(cfg: LanguageServerConfig, workspaceConfig: any, section: string, resource: qv.Uri): Promise<any> {
-  // We process only gopls config
   if (section !== 'gopls') {
     return workspaceConfig;
   }
 
   workspaceConfig = filterGoplsDefaultConfigValues(workspaceConfig, resource);
-  // note: workspaceConfig is a modifiable, valid object.
+
   workspaceConfig = passGoConfigToGoplsConfigValues(workspaceConfig, getGoConfig(resource));
 
-  // Only modify the user's configurations for the Nightly.
   if (!isInPreviewMode()) {
     return workspaceConfig;
   }
-  // allExperiments is only available with gopls/v0.5.2 and above.
+
   const version = await getLocalGoplsVersion(cfg);
   if (!version) {
     return workspaceConfig;
@@ -724,11 +626,7 @@ async function adjustGoplsWorkspaceConfiguration(cfg: LanguageServerConfig, work
   return workspaceConfig;
 }
 
-// createTestCodeLens adds the go.test.cursor and go.debug.cursor code lens
 function createTestCodeLens(lens: qv.CodeLens): qv.CodeLens[] {
-  // CodeLens argument signature in gopls is [fileName: string, testFunctions: string[], benchFunctions: string[]],
-  // so this needs to be deconstructured here
-  // Note that there will always only be one test function name in this context
   if (lens.command.arguments.length < 2 || lens.command.arguments[1].length < 1) {
     return [lens];
   }
@@ -747,9 +645,6 @@ function createTestCodeLens(lens: qv.CodeLens): qv.CodeLens[] {
 }
 
 function createBenchmarkCodeLens(lens: qv.CodeLens): qv.CodeLens[] {
-  // CodeLens argument signature in gopls is [fileName: string, testFunctions: string[], benchFunctions: string[]],
-  // so this needs to be deconstructured here
-  // Note that there will always only be one benchmark function name in this context
   if (lens.command.arguments.length < 3 || lens.command.arguments[2].length < 1) {
     return [lens];
   }
@@ -767,7 +662,6 @@ function createBenchmarkCodeLens(lens: qv.CodeLens): qv.CodeLens[] {
   ];
 }
 
-// registerUsualProviders registers the language feature providers if the language server is not enabled.
 function registerDefaultProviders(ctx: qv.ExtensionContext) {
   const completionProvider = new GoCompletionItemProvider(ctx.globalState);
   defaultLanguageProviders.push(completionProvider);
@@ -809,7 +703,6 @@ export async function watchLanguageServerConfiguration(e: qv.ConfigurationChange
     e.affectsConfiguration('go.alternateTools') ||
     e.affectsConfiguration('go.toolsEnvVars') ||
     e.affectsConfiguration('go.formatTool')
-    // TODO: Should we check http.proxy too? That affects toolExecutionEnvironment too.
   ) {
     restartLanguageServer();
   }
@@ -832,8 +725,6 @@ export function buildLanguageServerConfig(goConfig: qv.WorkspaceConfiguration): 
     enabled: goConfig['useLanguageServer'] === true,
     flags: goConfig['languageServerFlags'] || [],
     features: {
-      // TODO: We should have configs that match these names.
-      // Ultimately, we should have a centralized language server config rather than separate fields.
       diagnostics: goConfig['languageServerExperimentalFeatures']['diagnostics'],
       formatter: formatter,
     },
@@ -842,8 +733,6 @@ export function buildLanguageServerConfig(goConfig: qv.WorkspaceConfiguration): 
   };
   const languageServerPath = getLanguageServerToolPath();
   if (!languageServerPath) {
-    // Assume the getLanguageServerToolPath will show the relevant
-    // errors to the user. Disable the language server.
     cfg.enabled = false;
     return cfg;
   }
@@ -854,13 +743,11 @@ export function buildLanguageServerConfig(goConfig: qv.WorkspaceConfiguration): 
     return cfg;
   }
 
-  // Get the mtime of the language server binary so that we always pick up
-  // the right version.
   const stats = fs.statSync(languageServerPath);
   if (!stats) {
     qv.window.showErrorMessage(`Unable to stat path to language server binary: ${languageServerPath}.
 Please try reinstalling it.`);
-    // Disable the language server.
+
     cfg.enabled = false;
     return cfg;
   }
@@ -869,26 +756,20 @@ Please try reinstalling it.`);
   return cfg;
 }
 
-/**
- *
- * Return the absolute path to the correct binary. If the required tool is not available,
- * prompt the user to install it. Only gopls is officially supported.
- */
 export function getLanguageServerToolPath(): string {
   const goConfig = getGoConfig();
-  // Check that all workspace folders are configured with the same GOPATH.
+
   if (!allFoldersHaveSameGopath()) {
     qv.window.showInformationMessage('The Go language server is currently not supported in a multi-root set-up with different GOPATHs.');
     return;
   }
-  // Get the path to gopls (getBinPath checks for alternate tools).
+
   const goplsBinaryPath = getBinPath('gopls');
   if (path.isAbsolute(goplsBinaryPath)) {
     return goplsBinaryPath;
   }
   const alternateTools = goConfig['alternateTools'];
   if (alternateTools) {
-    // The user's alternate language server was not found.
     const goplsAlternate = alternateTools['gopls'];
     if (goplsAlternate) {
       qv.window.showErrorMessage(
@@ -899,7 +780,6 @@ Please install it and reload this VS Code window.`
     }
   }
 
-  // Prompt the user to install gopls.
   promptForMissingTool('gopls');
 }
 
@@ -912,7 +792,6 @@ function allFoldersHaveSameGopath(): boolean {
 }
 
 export async function shouldUpdateLanguageServer(tool: Tool, cfg: LanguageServerConfig, mustCheck?: boolean): Promise<semver.SemVer> {
-  // Only support updating gopls for now.
   if (tool.name !== 'gopls' || (!mustCheck && (cfg.checkForUpdates === 'off' || IsInCloudIDE))) {
     return null;
   }
@@ -920,35 +799,24 @@ export async function shouldUpdateLanguageServer(tool: Tool, cfg: LanguageServer
     return null;
   }
 
-  // First, run the "gopls version" command and parse its results.
-  // TODO(rstambler): Confirm that the gopls binary's modtime matches the
-  // modtime in the config. Update it if needed.
   const usersVersion = await getLocalGoplsVersion(cfg);
 
-  // We might have a developer version. Don't make the user update.
   if (usersVersion === '(devel)') {
     return null;
   }
 
-  // Get the latest gopls version. If it is for nightly, using the prereleased version is ok.
   let latestVersion = cfg.checkForUpdates === 'local' ? tool.latestVersion : await latestToolVersion(tool, isInPreviewMode());
 
-  // If we failed to get the gopls version, pick the one we know to be latest at the time of this extension's last update
   if (!latestVersion) {
     latestVersion = tool.latestVersion;
   }
 
-  // If "gopls" is so old that it doesn't have the "gopls version" command,
-  // or its version doesn't match our expectations, usersVersion will be empty or invalid.
-  // Suggest the latestVersion.
   if (!usersVersion || !semver.valid(usersVersion)) {
     return latestVersion;
   }
 
-  // The user may have downloaded golang.org/x/tools/gopls@master,
-  // which means that they have a pseudoversion.
   const usersTime = parseTimestampFromPseudoversion(usersVersion);
-  // If the user has a pseudoversion, get the timestamp for the latest gopls version and compare.
+
   if (usersTime) {
     let latestTime = cfg.checkForUpdates ? await getTimestampForVersion(tool, latestVersion) : tool.latestVersionTimestamp;
     if (!latestTime) {
@@ -957,8 +825,6 @@ export async function shouldUpdateLanguageServer(tool: Tool, cfg: LanguageServer
     return usersTime.isBefore(latestTime) ? latestVersion : null;
   }
 
-  // If the user's version does not contain a timestamp,
-  // default to a semver comparison of the two versions.
   const usersVersionSemver = semver.parse(usersVersion, {
     includePrerelease: true,
     loose: true,
@@ -966,30 +832,20 @@ export async function shouldUpdateLanguageServer(tool: Tool, cfg: LanguageServer
   return semver.lt(usersVersionSemver, latestVersion) ? latestVersion : null;
 }
 
-/**
- * suggestUpdateGopls will make sure the user is using the latest version of `gopls`,
- * when go.useLanguageServer is changed to true by default.
- *
- * @param tool	Object of type `Tool` for gopls tool.
- * @param cfg	Object of type `Language Server Config` for the users language server
- * 				configuration.
- * @returns		true if the tool was updated
- */
 async function suggestUpdateGopls(tool: Tool, cfg: LanguageServerConfig): Promise<boolean> {
   const forceUpdatedGoplsKey = 'forceUpdateForGoplsOnDefault';
-  // forceUpdated is true when the process of updating has been succesfully completed.
+
   const forceUpdated = getFromGlobalState(forceUpdatedGoplsKey, false);
-  // TODO: If we want to force update again, switch this to be a comparison for a newer version.
+
   if (forceUpdated) {
     return false;
   }
-  // Update the state to the latest version to show the last version that was checked.
+
   await updateGlobalState(forceUpdatedGoplsKey, tool.latestVersion);
 
   const latestVersion = await shouldUpdateLanguageServer(tool, cfg);
 
   if (!latestVersion) {
-    // The user is using a new enough version
     return;
   }
 
@@ -998,12 +854,8 @@ async function suggestUpdateGopls(tool: Tool, cfg: LanguageServerConfig): Promis
   promptForUpdatingTool(tool.name, latestVersion, false, updateMsg);
 }
 
-// Copied from src/cmd/go/internal/modfetch.go.
 const pseudoVersionRE = /^v[0-9]+\.(0\.0-|\d+\.\d+-([^+]*\.)?0\.)\d{14}-[A-Za-z0-9]+(\+incompatible)?$/;
 
-// parseTimestampFromPseudoversion returns the timestamp for the given
-// pseudoversion. The timestamp is the center component, and it has the
-// format "YYYYMMDDHHmmss".
 function parseTimestampFromPseudoversion(version: string): moment.Moment {
   const split = version.split('-');
   if (split.length < 2) {
@@ -1019,7 +871,7 @@ function parseTimestampFromPseudoversion(version: string): moment.Moment {
   if (!sv) {
     return null;
   }
-  // Copied from src/cmd/go/internal/modfetch.go.
+
   const build = sv.build.join('.');
   const buildIndex = version.lastIndexOf(build);
   if (buildIndex >= 0) {
@@ -1031,10 +883,8 @@ function parseTimestampFromPseudoversion(version: string): moment.Moment {
   const dotIndex = version.lastIndexOf('.');
   let timestamp: string;
   if (dotIndex > firstDashIndex) {
-    // "vX.Y.Z-pre.0" or "vX.Y.(Z+1)-0"
     timestamp = version.substring(dotIndex + 1);
   } else {
-    // "vX.0.0"
     timestamp = version.substring(firstDashIndex + 1);
   }
   return moment.utc(timestamp, 'YYYYMMDDHHmmss');
@@ -1049,11 +899,6 @@ export const getTimestampForVersion = async (tool: Tool, version: semver.SemVer)
   return time;
 };
 
-// getLocalGoplsVersion returns the version of gopls that is currently
-// installed on the user's machine. This is determined by running the
-// `gopls version` command.
-//
-// If this command has already been executed, it returns the saved result.
 export const getLocalGoplsVersion = async (cfg: LanguageServerConfig) => {
   if (!cfg) {
     return null;
@@ -1072,64 +917,38 @@ export const getLocalGoplsVersion = async (cfg: LanguageServerConfig) => {
     const { stdout } = await execFile(cfg.path, ['version'], { env, cwd });
     output = stdout;
   } catch (e) {
-    // The "gopls version" command is not supported, or something else went wrong.
-    // TODO: Should we propagate this error?
     return null;
   }
 
   const lines = <string>output.trim().split('\n');
   switch (lines.length) {
     case 0:
-      // No results, should update.
-      // Worth doing anything here?
       return null;
     case 1:
-      // Built in $GOPATH mode. Should update.
-      // TODO: Should we check the Go version here?
-      // Do we even allow users to enable gopls if their Go version is too low?
       return null;
     case 2:
-      // We might actually have a parseable version.
       break;
     default:
       return null;
   }
 
-  // The second line should be the sum line.
-  // It should look something like this:
-  //
-  //    golang.org/x/tools/gopls@v0.1.3 h1:CB5ECiPysqZrwxcyRjN+exyZpY0gODTZvNiqQi3lpeo=
-  //
-  // TODO(stamblerre): We should use a regex to match this, but for now, we split on the @ symbol.
-  // The reasoning for this is that gopls still has a golang.org/x/tools/cmd/gopls binary,
-  // so users may have a developer version that looks like "golang.org/x/tools@(devel)".
   const moduleVersion = lines[1].trim().split(' ')[0];
 
-  // Get the relevant portion, that is:
-  //
-  //    golang.org/x/tools/gopls@v0.1.3
-  //
   const split = moduleVersion.trim().split('@');
   if (split.length < 2) {
     return null;
   }
-  // The version comes after the @ symbol:
-  //
-  //    v0.1.3
-  //
+
   cfg.version = split[1];
   return cfg.version;
 };
 
 async function goProxyRequest(tool: Tool, endpoint: string): Promise<any> {
-  // Get the user's value of GOPROXY.
-  // If it is not set, we cannot make the request.
   const output: string = process.env['GOPROXY'];
   if (!output || !output.trim()) {
     return null;
   }
-  // Try each URL set in the user's GOPROXY environment variable.
-  // If none is set, don't make the request.
+
   const proxies = output.trim().split(/,|\|/);
   for (const proxy of proxies) {
     if (proxy === 'direct') {
@@ -1150,31 +969,17 @@ async function goProxyRequest(tool: Tool, endpoint: string): Promise<any> {
   return null;
 }
 
-// SurveyConfig is the set of global properties used to determine if
-// we should prompt a user to take the gopls survey.
 export interface SurveyConfig {
-  // prompt is true if the user can be prompted to take the survey.
-  // It is false if the user has responded "Never" to the prompt.
   prompt?: boolean;
 
-  // promptThisMonth is true if we have used a random number generator
-  // to determine if the user should be prompted this month.
-  // It is undefined if we have not yet made the determination.
   promptThisMonth?: boolean;
 
-  // dateToPromptThisMonth is the date on which we should prompt the user
-  // this month.
   dateToPromptThisMonth?: Date;
 
-  // dateComputedPromptThisMonth is the date on which the values of
-  // promptThisMonth and dateToPromptThisMonth were set.
   dateComputedPromptThisMonth?: Date;
 
-  // lastDatePrompted is the most recent date that the user has been prompted.
   lastDatePrompted?: Date;
 
-  // lastDateAccepted is the most recent date that the user responded "Yes"
-  // to the survey prompt. The user need not have completed the survey.
   lastDateAccepted?: Date;
 }
 
@@ -1191,7 +996,6 @@ function maybePromptForGoplsSurvey() {
   const callback = async () => {
     const currentTime = new Date();
 
-    // Make sure the user has been idle for at least a minute.
     if (minutesBetween(lastUserAction, currentTime) < 1) {
       setTimeout(callback, 5 * timeMinute);
       return;
@@ -1206,8 +1010,6 @@ function maybePromptForGoplsSurvey() {
 }
 
 export function shouldPromptForGoplsSurvey(now: Date, cfg: SurveyConfig): SurveyConfig {
-  // If the prompt value is not set, assume we haven't prompted the user
-  // and should do so.
   if (cfg.prompt === undefined) {
     cfg.prompt = true;
   }
@@ -1215,44 +1017,30 @@ export function shouldPromptForGoplsSurvey(now: Date, cfg: SurveyConfig): Survey
     return;
   }
 
-  // Check if the user has taken the survey in the last year.
-  // Don't prompt them if they have been.
   if (cfg.lastDateAccepted) {
     if (daysBetween(now, cfg.lastDateAccepted) < 365) {
       return;
     }
   }
 
-  // Check if the user has been prompted for the survey in the last 90 days.
-  // Don't prompt them if they have been.
   if (cfg.lastDatePrompted) {
     if (daysBetween(now, cfg.lastDatePrompted) < 90) {
       return;
     }
   }
 
-  // Check if the extension has been activated this month.
   if (cfg.dateComputedPromptThisMonth) {
-    // The extension has been activated this month, so we should have already
-    // decided if the user should be prompted.
     if (daysBetween(now, cfg.dateComputedPromptThisMonth) < 30) {
       return cfg;
     }
   }
-  // This is the first activation this month (or ever), so decide if we
-  // should prompt the user. This is done by generating a random number in
-  // the range [0, 1) and checking if it is < probability, which varies
-  // depending on whether the default or the nightly is in use.
-  // We then randomly pick a day in the rest of the month on which to prompt
-  // the user.
+
   let probability = 0.01; // lower probability for the regular extension
   if (isInPreviewMode()) {
     probability = 0.0275;
   }
   cfg.promptThisMonth = Math.random() < probability;
   if (cfg.promptThisMonth) {
-    // end is the last day of the month, day is the random day of the
-    // month on which to prompt.
     const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     const day = randomIntInRange(now.getUTCDate(), end.getUTCDate());
     cfg.dateToPromptThisMonth = new Date(now.getFullYear(), now.getMonth(), day);
@@ -1272,7 +1060,6 @@ Would you be willing to fill out a quick survey about your experience with gopls
     'Never'
   );
 
-  // Update the time last asked.
   cfg.lastDatePrompted = now;
 
   switch (selected) {
@@ -1295,8 +1082,6 @@ Would you be willing to fill out a quick survey about your experience with gopls
       qv.window.showInformationMessage("No problem! We won't ask again.");
       break;
     default:
-      // If the user closes the prompt without making a selection, treat it
-      // like a "Not now" response.
       cfg.prompt = true;
 
       break;
@@ -1334,7 +1119,6 @@ function getStateConfig(globalStateKey: string, workspace?: boolean): any {
   }
   try {
     const cfg = JSON.parse(saved, (key: string, value: any) => {
-      // Make sure values that should be dates are correctly converted.
       if (key.toLowerCase().includes('date') || key.toLowerCase().includes('timestamp')) {
         return new Date(value);
       }
@@ -1365,22 +1149,17 @@ export async function showSurveyConfig() {
   }
 }
 
-// errorKind refers to the different possible kinds of gopls errors.
 enum errorKind {
   initializationFailure,
   crash,
   manualRestart,
 }
 
-// suggestGoplsIssueReport prompts users to file an issue with gopls.
 async function suggestGoplsIssueReport(msg: string, reason: errorKind, initializationError?: WebRequest.ResponseError<InitializeError>) {
-  // Don't prompt users who manually restart to file issues until gopls/v1.0.
   if (reason === errorKind.manualRestart) {
     return;
   }
 
-  // The user may have an outdated version of gopls, in which case we should
-  // just prompt them to update, not file an issue.
   const tool = getTool('gopls');
   if (tool) {
     const versionToUpdate = await shouldUpdateLanguageServer(tool, latestConfig, true);
@@ -1390,7 +1169,6 @@ async function suggestGoplsIssueReport(msg: string, reason: errorKind, initializ
     }
   }
 
-  // Show the user the output channel content to alert them to the issue.
   serverOutputChannel.show();
 
   if (latestConfig.serverName !== 'gopls') {
@@ -1404,8 +1182,7 @@ async function suggestGoplsIssueReport(msg: string, reason: errorKind, initializ
     console.log(`Failed to parse as JSON ${getFromGlobalState(promptForIssueOnGoplsRestartKey, true)}: ${err}`);
     return;
   }
-  // If the user has already seen this prompt, they may have opted-out for
-  // the future. Only prompt again if it's been more than a year since.
+
   if (saved) {
     const dateSaved = new Date(saved['date']);
     const prompt = <boolean>saved['prompt'];
@@ -1416,8 +1193,6 @@ async function suggestGoplsIssueReport(msg: string, reason: errorKind, initializ
 
   const { sanitizedLog, failureReason } = await collectGoplsLog();
 
-  // If the user has invalid values for "go.languageServerFlags", we may get
-  // this error. Prompt them to double check their flags.
   let selected: string;
   if (failureReason === GoplsFailureModes.INCORRECT_COMMAND_USAGE) {
     const languageServerFlags = getGoConfig()['languageServerFlags'] as string[];
@@ -1434,7 +1209,6 @@ It is currently set to [${languageServerFlags}]. Please correct the setting by n
           await qv.commands.executeCommand('workbench.action.openSettings', 'go.languageServerFlags');
           return;
         case 'I need more help':
-          // Fall through the automated issue report.
           break;
       }
     }
@@ -1449,7 +1223,6 @@ You will be asked to provide additional information and logs, so PLEASE READ THE
   switch (selected) {
     case 'Yes':
       {
-        // Prefill an issue title and report.
         let errKind: string;
         switch (reason) {
           case errorKind.crash:
@@ -1459,7 +1232,7 @@ You will be asked to provide additional information and logs, so PLEASE READ THE
             errKind = 'initialization';
             break;
         }
-        // Get the user's version in case the update prompt above failed.
+
         const usersGoplsVersion = await getLocalGoplsVersion(latestConfig);
         const extInfo = getExtensionInfo();
         const goVersion = await getGoVersion();
@@ -1520,7 +1293,6 @@ DO NOT SHARE LOGS IF YOU ARE WORKING IN A PRIVATE REPOSITORY.
   }
 }
 
-// randomIntInRange returns a random integer between min and max, inclusive.
 function randomIntInRange(min: number, max: number): number {
   const low = Math.ceil(min);
   const high = Math.floor(max);
@@ -1531,12 +1303,10 @@ export const timeMinute = 1000 * 60;
 const timeHour = timeMinute * 60;
 const timeDay = timeHour * 24;
 
-// daysBetween returns the number of days between a and b.
 function daysBetween(a: Date, b: Date): number {
   return msBetween(a, b) / timeDay;
 }
 
-// minutesBetween returns the number of minutes between a and b.
 function minutesBetween(a: Date, b: Date): number {
   return msBetween(a, b) / timeMinute;
 }
@@ -1550,12 +1320,11 @@ export function showServerOutputChannel() {
     qv.window.showInformationMessage('gopls is not running');
     return;
   }
-  // likely show() is asynchronous, despite the documentation
+
   serverOutputChannel.show();
   let found: qv.TextDocument;
   for (const doc of qv.workspace.textDocuments) {
     if (doc.fileName.indexOf('extension-output-') !== -1) {
-      // despite show() above, this might not get the output we want, so check
       const contents = doc.getText();
       if (contents.indexOf('[Info  - ') === -1) {
         continue;
@@ -1564,7 +1333,7 @@ export function showServerOutputChannel() {
         qv.window.showInformationMessage('multiple docs named extension-output-...');
       }
       found = doc;
-      // .log, as some decoration is better than none
+
       qv.workspace.openTextDocument({ language: 'log', content: contents });
     }
   }
@@ -1579,13 +1348,9 @@ function sleep(ms: number) {
 
 async function collectGoplsLog(): Promise<{ sanitizedLog?: string; failureReason?: string }> {
   serverOutputChannel.show();
-  // Find the logs in the output channel. There is no way to read
-  // an output channel directly, but we can find the open text
-  // document, since we just surfaced the output channel to the user.
-  // See https://github.com/microsoft/vscode/issues/65108.
+
   let logs: string;
   for (let i = 0; i < 10; i++) {
-    // try a couple of times until successfully finding the channel.
     for (const doc of qv.workspace.textDocuments) {
       if (doc.languageId !== 'Log') {
         continue;
@@ -1593,7 +1358,7 @@ async function collectGoplsLog(): Promise<{ sanitizedLog?: string; failureReason
       if (doc.isDirty || doc.isClosed) {
         continue;
       }
-      // The document's name should look like 'extension-output-#X'.
+
       if (doc.fileName.indexOf('extension-output-') === -1) {
         continue;
       }
@@ -1603,7 +1368,7 @@ async function collectGoplsLog(): Promise<{ sanitizedLog?: string; failureReason
     if (logs) {
       break;
     }
-    // sleep a bit before the next try. The choice of the sleep time is arbitrary.
+
     await sleep((i + 1) * 100);
   }
 
@@ -1618,15 +1383,12 @@ enum GoplsFailureModes {
   UNRECOGNIZED_CRASH_PATTERN = 'unrecognized crash pattern',
 }
 
-// capture only panic stack trace and the initialization error message.
-// exported for testing.
 export function sanitizeGoplsTrace(logs?: string): { sanitizedLog?: string; failureReason?: string } {
   if (!logs) {
     return { failureReason: GoplsFailureModes.NO_GOPLS_LOG };
   }
   const panicMsgBegin = logs.lastIndexOf('panic: ');
   if (panicMsgBegin > -1) {
-    // panic message was found.
     const panicMsgEnd = logs.indexOf('Connection to server got closed.', panicMsgBegin);
     if (panicMsgEnd > -1) {
       const panicTrace = logs.substr(panicMsgBegin, panicMsgEnd - panicMsgBegin);
@@ -1634,11 +1396,6 @@ export function sanitizeGoplsTrace(logs?: string): { sanitizedLog?: string; fail
       const sanitized = panicTrace
         .split('\n')
         .map((line: string) => {
-          // Even though this is a crash from gopls, the file path
-          // can contain user names and user's filesystem directory structure.
-          // We can still locate the corresponding file if the file base is
-          // available because the full package path is part of the function
-          // name. So, leave only the file base.
           const m = line.match(filePattern);
           if (!m) {
             return line;
@@ -1658,7 +1415,6 @@ export function sanitizeGoplsTrace(logs?: string): { sanitizedLog?: string; fail
   }
   const initFailMsgBegin = logs.lastIndexOf('Starting client failed');
   if (initFailMsgBegin > -1) {
-    // client start failed. Capture up to the 'Code:' line.
     const initFailMsgEnd = logs.indexOf('Code: ', initFailMsgBegin);
     if (initFailMsgEnd > -1) {
       const lineEnd = logs.indexOf('\n', initFailMsgEnd);
@@ -1692,9 +1448,6 @@ function getExtensionInfo(): ExtensionInfo {
   return { version, appName, isPreview };
 }
 
-// isInPreviewMode returns true if the extension's preview mode is set to true.
-// In the Nightly extension and the dev extension built from master, the preview
-// is set to true.
 export function isInPreviewMode(): boolean {
   return getExtensionInfo().isPreview;
 }

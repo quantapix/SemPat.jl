@@ -27,7 +27,6 @@ export class ImportSorter {
       });
 
     if (sortedStatements.length === 0) {
-      // Nothing to do.
       return [];
     }
 
@@ -88,7 +87,6 @@ export class ImportSorter {
     let prevImportGroup = getImportGroup(sortedStatements[0]);
 
     for (const statement of sortedStatements) {
-      // Insert a blank space between import type groups.
       const curImportType = getImportGroup(statement);
       if (prevImportGroup !== curImportType) {
         importText += this._parseResults.tokenizerOutput.predominantEndOfLineSequence;
@@ -102,7 +100,6 @@ export class ImportSorter {
         importLine = this._formatImportFromNode(statement.node, statement.moduleName);
       }
 
-      // If this isn't the last statement, add a newline.
       if (statement !== sortedStatements[sortedStatements.length - 1]) {
         importLine += this._parseResults.tokenizerOutput.predominantEndOfLineSequence;
       }
@@ -144,7 +141,6 @@ export class ImportSorter {
       return cumulativeText + symbolText;
     }
 
-    // We need to split across multiple lines with parens.
     cumulativeText += '(' + this._parseResults.tokenizerOutput.predominantEndOfLineSequence;
 
     for (const symbol of symbols) {

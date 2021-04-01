@@ -41,7 +41,6 @@ class FileDiagnostics {
 
     const existing = this._diagnostics.get(kind);
     if (arrays.equals(existing || arrays.empty, diagnostics, diagnosticsEquals)) {
-      // No need to update
       return false;
     }
 
@@ -61,7 +60,6 @@ class FileDiagnostics {
     const enableSuggestions = settings.getEnableSuggestions(this.language);
     return this.get(DiagnosticKind.Suggestion).filter((x) => {
       if (!enableSuggestions) {
-        // Still show unused
         return x.tags && (x.tags.includes(qv.DiagnosticTag.Unnecessary) || x.tags.includes(qv.DiagnosticTag.Deprecated));
       }
       return true;

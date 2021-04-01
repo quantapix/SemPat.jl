@@ -194,8 +194,6 @@ export const onStartEval = g_onStartEval.event;
 const g_onFinishEval = new qv.EventEmitter<null>();
 export const onFinishEval = g_onFinishEval.event;
 
-// code execution start
-
 function startREPLMsgServer(pipename: string) {
   const connected = new Subject();
 
@@ -693,7 +691,6 @@ export function activate(context: qv.ExtensionContext) {
   g_context = context;
 
   context.subscriptions.push(
-    // listeners
     onSetLanguageClient((languageClient) => {
       g_languageClient = languageClient;
     }),
@@ -754,7 +751,7 @@ export function activate(context: qv.ExtensionContext) {
         g_terminal = null;
       }
     }),
-    // commands
+
     registerCommand('language-julia.startREPL', startREPLCommand),
     registerCommand('language-julia.stopREPL', killREPL),
     registerCommand('language-julia.selectBlock', selectJuliaBlock),

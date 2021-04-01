@@ -2,19 +2,15 @@ import * as qv from 'vscode';
 import type * as qp from '../protocol';
 
 function replaceLinks(text: string): string {
-  return (
-    text
-      // Http(s) links
-      .replace(/\{@(link|linkplain|linkcode) (https?:\/\/[^ |}]+?)(?:[| ]([^{}\n]+?))?\}/gi, (_, tag: string, link: string, text?: string) => {
-        switch (tag) {
-          case 'linkcode':
-            return `[\`${text ? text.trim() : link}\`](${link})`;
+  return text.replace(/\{@(link|linkplain|linkcode) (https?:\/\/[^ |}]+?)(?:[| ]([^{}\n]+?))?\}/gi, (_, tag: string, link: string, text?: string) => {
+    switch (tag) {
+      case 'linkcode':
+        return `[\`${text ? text.trim() : link}\`](${link})`;
 
-          default:
-            return `[${text ? text.trim() : link}](${link})`;
-        }
-      })
-  );
+      default:
+        return `[${text ? text.trim() : link}](${link})`;
+    }
+  });
 }
 
 function processInlineTags(text: string): string {
@@ -26,7 +22,6 @@ function getTagBodyText(tag: qp.JSDocTagInfo): string | undefined {
     return undefined;
   }
 
-  // Convert to markdown code block if it is not already one
   function makeCodeblock(text: string): string {
     if (text.match(/^\s*[~`]{3}/g)) {
       return text;
@@ -36,7 +31,6 @@ function getTagBodyText(tag: qp.JSDocTagInfo): string | undefined {
 
   switch (tag.name) {
     case 'example':
-      // check for caption tags, fix for #79704
       const captionTagMatches = tag.text.match(/<caption>(.*?)<\/caption>\s*(\r\n|\n)/);
       if (captionTagMatches && captionTagMatches.index === 0) {
         return captionTagMatches[1] + '\n\n' + makeCodeblock(tag.text.substr(captionTagMatches[0].length));
@@ -44,7 +38,6 @@ function getTagBodyText(tag: qp.JSDocTagInfo): string | undefined {
         return makeCodeblock(tag.text);
       }
     case 'author':
-      // fix obsucated email address, #80898
       const emailMatch = tag.text.match(/(.+)\s<([-.\w]+@[-.\w]+)>/);
 
       if (emailMatch === null) {
@@ -77,7 +70,6 @@ function getTagDocumentation(tag: qp.JSDocTagInfo): string | undefined {
       }
   }
 
-  // Generic tag
   const label = `*@${tag.name}*`;
   const text = getTagBodyText(tag);
   if (!text) {

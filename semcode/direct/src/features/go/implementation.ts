@@ -30,8 +30,6 @@ interface GuruImplementsOutput {
 
 export class GoImplementationProvider implements qv.ImplementationProvider {
   public provideImplementation(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): Thenable<qv.Definition> {
-    // To keep `guru implements` fast we want to restrict the scope of the search to current workspace
-    // If no workspace is open, then no-op
     const root = getWorkspaceFolderPath(document.uri);
     if (!root) {
       qv.window.showInformationMessage('Cannot find implementations when there is no workspace open.');
@@ -90,7 +88,6 @@ export class GoImplementationProvider implements qv.ImplementationProvider {
             });
           };
 
-          // If we looked for implementation of method go to method implementations only
           if (guruOutput.to_method) {
             addResults(guruOutput.to_method);
           } else if (guruOutput.to) {

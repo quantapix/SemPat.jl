@@ -20,9 +20,6 @@ export function createTracePrinter(roots: string[]): TracePrinter {
     return value ? `${ch}${value}${ch}` : '';
   }
 
-  // Sort roots in desc order so that we compare longer path first
-  // when getting relative path.
-  // ex) d:/root/.env/lib/site-packages, d:/root/.env
   roots = roots
     .map((r) => ensureTrailingDirectorySeparator(r))
     .sort((a, b) => a.localeCompare(b))

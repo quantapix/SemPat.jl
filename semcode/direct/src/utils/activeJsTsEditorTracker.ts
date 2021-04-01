@@ -3,13 +3,6 @@ import { Disposable } from './dispose';
 import { isJsConfigOrTsConfigFileName } from './languageDescription';
 import { isSupportedLanguageMode } from './languageModeIds';
 
-/**
- * Tracks the active JS/TS editor.
- *
- * This tries to handle the case where the user focuses in the output view / debug console.
- * When this happens, we want to treat the last real focused editor as the active editor,
- * instead of using `qv.window.activeTextEditor`
- */
 export class ActiveJsTsEditorTracker extends Disposable {
   private _activeJsTsEditor: qv.TextEditor | undefined;
 
@@ -21,8 +14,6 @@ export class ActiveJsTsEditorTracker extends Disposable {
     qv.window.onDidChangeActiveTextEditor(this.onDidChangeActiveTextEditor, this, this._disposables);
     qv.window.onDidChangeVisibleTextEditors(
       () => {
-        // Make sure the active editor is still in the visible set.
-        // This can happen if the output view is focused and the last active TS file is closed
         if (this._activeJsTsEditor) {
           if (!qv.window.visibleTextEditors.some((visibleEditor) => visibleEditor === this._activeJsTsEditor)) {
             this.onDidChangeActiveTextEditor(undefined);
@@ -46,8 +37,6 @@ export class ActiveJsTsEditorTracker extends Disposable {
     }
 
     if (editor && !editor.viewColumn) {
-      // viewColumn is undefined for the debug/output panel, but we still want
-      // to show the version info for the previous editor
       return;
     }
 

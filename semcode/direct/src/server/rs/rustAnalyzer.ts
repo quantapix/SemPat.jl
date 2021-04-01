@@ -18,13 +18,8 @@ const writeFile = promisify(fs.writeFile);
 
 const REQUIRED_COMPONENTS = ['rust-src'];
 
-/** Returns a path where rust-analyzer should be installed. */
 function installDir(): string | undefined {
   if (process.platform === 'linux' || process.platform === 'darwin') {
-    // Prefer, in this order:
-    // 1. $XDG_BIN_HOME (proposed addition to XDG spec)
-    // 2. $XDG_DATA_HOME/../bin/
-    // 3. $HOME/.local/bin/
     const { HOME, XDG_DATA_HOME, XDG_BIN_HOME } = process.env;
     if (XDG_BIN_HOME) {
       return path.resolve(XDG_BIN_HOME);
@@ -33,7 +28,6 @@ function installDir(): string | undefined {
     const baseDir = XDG_DATA_HOME ? path.join(XDG_DATA_HOME, '..') : HOME && path.join(HOME, '.local');
     return baseDir && path.resolve(path.join(baseDir, 'bin'));
   } else if (process.platform === 'win32') {
-    // %LocalAppData%\rust-analyzer\
     const { LocalAppData } = process.env;
     return LocalAppData && path.resolve(path.join(LocalAppData, 'rust-analyzer'));
   }
@@ -41,18 +35,13 @@ function installDir(): string | undefined {
   return undefined;
 }
 
-/** Returns a path where persistent data for rust-analyzer should be installed. */
 function metadataDir(): string | undefined {
   if (process.platform === 'linux' || process.platform === 'darwin') {
-    // Prefer, in this order:
-    // 1. $XDG_CONFIG_HOME/rust-analyzer
-    // 2. $HOME/.config/rust-analyzer
     const { HOME, XDG_CONFIG_HOME } = process.env;
     const baseDir = XDG_CONFIG_HOME || (HOME && path.join(HOME, '.config'));
 
     return baseDir && path.resolve(path.join(baseDir, 'rust-analyzer'));
   } else if (process.platform === 'win32') {
-    // %LocalAppData%\rust-analyzer\
     const { LocalAppData } = process.env;
     return LocalAppData && path.resolve(path.join(LocalAppData, 'rust-analyzer'));
   }
@@ -171,16 +160,8 @@ export async function getServer({ askBeforeDownload, package: pkg }: RustAnalyze
   return dest;
 }
 
-/**
- * Rust Analyzer does not work in an isolated environment and greedily analyzes
- * the workspaces itself, so make sure to spawn only a single instance.
- */
 let INSTANCE: lc.LanguageClient | undefined;
 
-/**
- * TODO:
- * Global observable progress
- */
 const PROGRESS: Observable<WorkspaceProgress> = new Observable<WorkspaceProgress>({ state: 'standby' });
 
 export async function createLanguageClient(
@@ -230,25 +211,21 @@ export async function createLanguageClient(
   };
 
   const clientOptions: lc.LanguageClientOptions = {
-    // Register the server for Rust files
     documentSelector: [
       { language: 'rust', scheme: 'file' },
       { language: 'rust', scheme: 'untitled' },
     ],
     diagnosticCollectionName: `rust`,
-    // synchronize: { configurationSection: 'rust' },
-    // Controls when to focus the channel rather than when to reveal it in the drop-down list
+
     revealOutputChannelOn: config.revealOutputChannelOn,
-    // TODO: Support and type out supported settings by the rust-analyzer
+
     initializationOptions: vs.workspace.getConfiguration('rust.rust-analyzer'),
   };
 
   INSTANCE = new lc.LanguageClient('rust-client', 'Rust Analyzer', serverOptions, clientOptions);
 
-  // Enable semantic highlighting which is available in stable VSCode
   INSTANCE.registerProposedFeatures();
-  // We can install only one progress handler so make sure to do that when
-  // setting up the singleton instance
+
   setupGlobalProgress(INSTANCE);
 
   return INSTANCE;
@@ -285,9 +262,7 @@ export function setupClient(_client: lc.LanguageClient, _folder: vs.WorkspaceFol
 
 export function setupProgress(_client: lc.LanguageClient, workspaceProgress: Observable<WorkspaceProgress>) {
   workspaceProgress.value = PROGRESS.value;
-  // We can only ever install one progress handler per language client and since
-  // we can only ever have one instance of Rust Analyzer, fake the global
-  // progress as a workspace one.
+
   PROGRESS.observe((progress) => {
     workspaceProgress.value = progress;
   });

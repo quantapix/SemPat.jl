@@ -17,7 +17,6 @@ export class GoDocumentFormattingEditProvider implements qv.DocumentFormattingEd
     const goConfig = getGoConfig(document.uri);
     const formatFlags = goConfig['formatFlags'].slice() || [];
 
-    // Ignore -w because we don't want to write directly to disk.
     if (formatFlags.indexOf('-w') > -1) {
       formatFlags.splice(formatFlags.indexOf('-w'), 1);
     }

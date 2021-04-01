@@ -35,14 +35,12 @@ class HighlightSymbolTreeWalker extends ParseTreeWalker {
   }
 
   visitModuleName(node: ModuleNameNode): boolean {
-    // Don't ever look for references within a module name.
     return false;
   }
 
   visitName(node: NameNode): boolean {
     throwIfCancellationRequested(this._cancellationToken);
 
-    // No need to do any more work if the symbol name doesn't match.
     if (node.value !== this._symbolName) {
       return false;
     }
@@ -51,13 +49,11 @@ class HighlightSymbolTreeWalker extends ParseTreeWalker {
       const declarations = this._evaluator.getDeclarationsForNameNode(node);
 
       if (declarations && declarations.length > 0) {
-        // Does this name share a declaration with the symbol of interest?
         if (declarations.some((decl) => this._resultsContainsDeclaration(decl))) {
           this._addResult(node);
         }
       }
     } else {
-      // There were no declarations
       this._addResult(node);
     }
 

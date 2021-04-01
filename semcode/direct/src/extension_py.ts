@@ -40,7 +40,6 @@ export function activate(context: ExtensionContext) {
   const bundlePath = context.asAbsolutePath(path.join('dist', 'server.js'));
   const debugOptions = { execArgv: ['--nolazy', '--inspect=6600'] };
 
-  // If the extension is launched in debug mode, then the debug server options are used.
   const serverOptions: ServerOptions = {
     run: { module: bundlePath, transport: TransportKind.ipc, args: cancellationStrategy.getCommandLineArguments() },
     debug: {
@@ -52,7 +51,6 @@ export function activate(context: ExtensionContext) {
   };
 
   const clientOptions: LanguageClientOptions = {
-    // Register the server for python source files.
     documentSelector: [
       {
         scheme: 'file',
@@ -60,7 +58,6 @@ export function activate(context: ExtensionContext) {
       },
     ],
     synchronize: {
-      // Synchronize the setting section to the server.
       configurationSection: ['python', 'pyright'],
     },
     connectionOptions: { cancellationStrategy: cancellationStrategy },
@@ -134,9 +131,7 @@ export function activate(context: ExtensionContext) {
             }
           });
         },
-        () => {
-          // Error received. For now, do nothing.
-        }
+        () => {}
       )
     );
   });

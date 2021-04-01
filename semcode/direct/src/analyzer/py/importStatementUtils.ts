@@ -27,15 +27,12 @@ export interface ImportStatements {
 }
 
 export const enum ImportGroup {
-  // The ordering here is important because this is the order
-  // in which PEP8 specifies that imports should be ordered.
   BuiltIn = 0,
   ThirdParty = 1,
   Local = 2,
   LocalRelative = 3,
 }
 
-// Determines which import grouping should be used when sorting imports.
 export function getImportGroup(statement: ImportStatement): ImportGroup {
   if (statement.importResult) {
     if (statement.importResult.importType === ImportType.BuiltIn) {
@@ -54,7 +51,6 @@ export function getImportGroup(statement: ImportStatement): ImportGroup {
   }
 }
 
-// Compares sort order of two import statements.
 export function compareImportStatements(a: ImportStatement, b: ImportStatement) {
   const aImportGroup = getImportGroup(a);
   const bImportGroup = getImportGroup(b);
@@ -68,8 +64,6 @@ export function compareImportStatements(a: ImportStatement, b: ImportStatement) 
   return a.moduleName < b.moduleName ? -1 : 1;
 }
 
-// Looks for top-level 'import' and 'import from' statements and provides
-// an ordered list and a map (by file path).
 export function getTopLevelImports(parseTree: ModuleNode, includeImplicitImports = false): ImportStatements {
   const localImports: ImportStatements = {
     orderedImports: [],
@@ -105,13 +99,9 @@ export function getTopLevelImports(parseTree: ModuleNode, includeImplicitImports
 export function getTextEditsForAutoImportSymbolAddition(symbolName: string, importStatement: ImportStatement, parseResults: ParseResults, aliasName?: string) {
   const textEditList: TextEditAction[] = [];
 
-  // Scan through the import symbols to find the right insertion point,
-  // assuming we want to keep the imports alphabetized.
   let priorImport: ImportFromAsNode | undefined;
 
   if (importStatement.node && importStatement.node.nodeType === ParseNodeType.ImportFrom) {
-    // Make sure we're not attempting to auto-import a symbol that
-    // already exists in the import list.
     if (!importStatement.node.imports.some((importAs) => importAs.name.value === symbolName)) {
       for (const curImport of importStatement.node.imports) {
         if (curImport.name.value > symbolName) {
@@ -151,7 +141,6 @@ export function getTextEditsForAutoImportInsertion(
 ): TextEditAction[] {
   const textEditList: TextEditAction[] = [];
 
-  // We need to emit a new 'from import' statement if symbolName is given. otherwise, use 'import' statement.
   const importText = symbolName ? symbolName : moduleName;
   const importTextWithAlias = aliasName ? `${importText} as ${aliasName}` : importText;
   let newImportStatement = symbolName ? `from ${moduleName} import ${importTextWithAlias}` : `import ${importTextWithAlias}`;
@@ -162,19 +151,12 @@ export function getTextEditsForAutoImportInsertion(
     let insertBefore = true;
     let insertionImport = importStatements.orderedImports[0];
 
-    // Find a good spot to insert the new import statement. Follow
-    // the PEP8 standard sorting order whereby built-in imports are
-    // followed by third-party, which are followed by local.
     let prevImportGroup = ImportGroup.BuiltIn;
     for (const curImport of importStatements.orderedImports) {
-      // If the import was resolved, use its import type. If it wasn't
-      // resolved, assume that it's the same import type as the previous
-      // one.
       const curImportGroup: ImportGroup = curImport.importResult ? getImportGroup(curImport) : prevImportGroup;
 
       if (importGroup < curImportGroup) {
         if (!insertBefore && prevImportGroup < importGroup) {
-          // Add an extra line to create a new group.
           newImportStatement = parseResults.tokenizerOutput.predominantEndOfLineSequence + newImportStatement;
         }
         break;
@@ -184,25 +166,19 @@ export function getTextEditsForAutoImportInsertion(
         break;
       }
 
-      // If we're about to hit the end of the import statements, don't go
-      // any further.
       if (curImport.followsNonImportStatement) {
         if (importGroup > prevImportGroup) {
-          // Add an extra line to create a new group.
           newImportStatement = parseResults.tokenizerOutput.predominantEndOfLineSequence + newImportStatement;
         }
         break;
       }
 
-      // If this is the last import, see if we need to create a new group.
       if (curImport === importStatements.orderedImports[importStatements.orderedImports.length - 1]) {
         if (importGroup > curImportGroup) {
-          // Add an extra line to create a new group.
           newImportStatement = parseResults.tokenizerOutput.predominantEndOfLineSequence + newImportStatement;
         }
       }
 
-      // Are we starting a new group?
       if (!insertBefore && importGroup < prevImportGroup && importGroup === curImportGroup) {
         insertBefore = true;
       } else {
@@ -225,8 +201,6 @@ export function getTextEditsForAutoImportInsertion(
       insertionPosition = { line: 0, character: 0 };
     }
   } else {
-    // Insert at or near the top of the file. See if there's a doc string and
-    // copyright notice, etc. at the top. If so, move past those.
     insertionPosition = { line: 0, character: 0 };
     let addNewLineBefore = false;
 
@@ -236,12 +210,10 @@ export function getTextEditsForAutoImportInsertion(
         const simpleStatement = statement.statements[0];
 
         if (simpleStatement.nodeType === ParseNodeType.StringList) {
-          // Assume that it's a file header doc string.
           stopHere = false;
         } else if (simpleStatement.nodeType === ParseNodeType.Assignment) {
           if (simpleStatement.leftExpression.nodeType === ParseNodeType.Name) {
             if (SymbolNameUtils.isDunderName(simpleStatement.leftExpression.value)) {
-              // Assume that it's an assignment of __copyright__, __author__, etc.
               stopHere = false;
             }
           }
@@ -295,11 +267,7 @@ function _processImportNode(node: ImportNode, localImports: ImportStatements, fo
 
     localImports.orderedImports.push(localImport);
 
-    // Add it to the map.
     if (resolvedPath) {
-      // Don't overwrite existing import or import from statements
-      // because we always want to prefer 'import from' over 'import'
-      // in the map.
       if (!localImports.mapByFilePath.has(resolvedPath)) {
         localImports.mapByFilePath.set(resolvedPath, localImport);
       }
@@ -336,12 +304,9 @@ function _processImportFromNode(node: ImportFromNode, localImports: ImportStatem
 
   localImports.orderedImports.push(localImport);
 
-  // Add it to the map.
   if (resolvedPath) {
     const prevEntry = localImports.mapByFilePath.get(resolvedPath);
-    // Overwrite existing import statements because we always want to prefer
-    // 'import from' over 'import'. Also, overwrite existing 'import from' if
-    // the module name is shorter.
+
     if (!prevEntry || prevEntry.node.nodeType === ParseNodeType.Import || prevEntry.moduleName.length > localImport.moduleName.length) {
       localImports.mapByFilePath.set(resolvedPath, localImport);
     }

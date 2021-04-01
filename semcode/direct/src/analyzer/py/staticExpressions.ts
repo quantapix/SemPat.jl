@@ -2,8 +2,6 @@ import { ExecutionEnvironment, PythonPlatform } from '../common/configOptions';
 import { ArgumentCategory, ExpressionNode, NameNode, NumberNode, ParseNodeType, TupleNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 
-// Returns undefined if the expression cannot be evaluated
-// statically as a bool value or true/false if it can.
 export function evaluateStaticBoolExpression(node: ExpressionNode, execEnv: ExecutionEnvironment, typingImportAliases?: string[], sysImportAliases?: string[]): boolean | undefined {
   if (node.nodeType === ParseNodeType.UnaryOperation) {
     if (node.operator === OperatorType.Or || node.operator === OperatorType.And) {
@@ -13,7 +11,6 @@ export function evaluateStaticBoolExpression(node: ExpressionNode, execEnv: Exec
       }
     }
   } else if (node.nodeType === ParseNodeType.BinaryOperation) {
-    // Is it an OR or AND expression?
     if (node.operator === OperatorType.Or || node.operator === OperatorType.And) {
       const leftValue = evaluateStaticBoolExpression(node.leftExpression, execEnv, typingImportAliases, sysImportAliases);
       const rightValue = evaluateStaticBoolExpression(node.rightExpression, execEnv, typingImportAliases, sysImportAliases);
@@ -30,7 +27,6 @@ export function evaluateStaticBoolExpression(node: ExpressionNode, execEnv: Exec
     }
 
     if (_isSysVersionInfoExpression(node.leftExpression, sysImportAliases) && node.rightExpression.nodeType === ParseNodeType.Tuple) {
-      // Handle the special case of "sys.version_info >= (3, x)"
       const comparisonVersion = _convertTupleToVersion(node.rightExpression);
       return _evaluateNumericBinaryOperation(node.operator, execEnv.pythonVersion, comparisonVersion);
     } else if (
@@ -45,15 +41,12 @@ export function evaluateStaticBoolExpression(node: ExpressionNode, execEnv: Exec
       node.leftExpression.items[0].valueExpression.value === 0 &&
       node.rightExpression.nodeType === ParseNodeType.Number
     ) {
-      // Handle the special case of "sys.version_info[0] >= X"
       return _evaluateNumericBinaryOperation(node.operator, Math.floor(execEnv.pythonVersion / 256), node.rightExpression.value);
     } else if (_isSysPlatformInfoExpression(node.leftExpression, sysImportAliases) && node.rightExpression.nodeType === ParseNodeType.StringList) {
-      // Handle the special case of "sys.platform != 'X'"
       const comparisonPlatform = node.rightExpression.strings.map((s) => s.value).join('');
       const expectedPlatformName = _getExpectedPlatformNameFromPlatform(execEnv);
       return _evaluateStringBinaryOperation(node.operator, expectedPlatformName, comparisonPlatform);
     } else if (_isOsNameInfoExpression(node.leftExpression) && node.rightExpression.nodeType === ParseNodeType.StringList) {
-      // Handle the special case of "os.name == 'X'"
       const comparisonOsName = node.rightExpression.strings.map((s) => s.value).join('');
       const expectedOsName = _getExpectedOsNameFromPlatform(execEnv);
       if (expectedOsName !== undefined) {
@@ -83,9 +76,6 @@ export function evaluateStaticBoolExpression(node: ExpressionNode, execEnv: Exec
   return undefined;
 }
 
-// Similar to evaluateStaticBoolExpression except that it handles
-// other non-bool values that are statically falsy or truthy
-// (like "None").
 export function evaluateStaticBoolLikeExpression(node: ExpressionNode, execEnv: ExecutionEnvironment, typingImportAliases?: string[], sysImportAliases?: string[]): boolean | undefined {
   if (node.nodeType === ParseNodeType.Constant) {
     if (node.constType === KeywordType.None) {
@@ -98,7 +88,7 @@ export function evaluateStaticBoolLikeExpression(node: ExpressionNode, execEnv: 
 
 function _convertTupleToVersion(node: TupleNode): number | undefined {
   let comparisonVersion: number | undefined;
-  // Ignore patch versions.
+
   if (node.expressions.length >= 2) {
     if (node.expressions[0].nodeType === ParseNodeType.Number && !node.expressions[0].isImaginary && node.expressions[1].nodeType === ParseNodeType.Number && !node.expressions[1].isImaginary) {
       const majorVersion = node.expressions[0];

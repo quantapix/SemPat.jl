@@ -456,7 +456,6 @@ export default class BufferSyncSupport extends qu.Disposable {
     syncedBuffer.onContentChanged(e.contentChanges);
     const didTrigger = this.requestDiagnostic(syncedBuffer);
     if (!didTrigger && this.pendingGetErr) {
-      // In this case we always want to re-trigger all diagnostics
       this.pendingGetErr.cancel();
       this.pendingGetErr = undefined;
       this.triggerDiagnostics();

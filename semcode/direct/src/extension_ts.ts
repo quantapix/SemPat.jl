@@ -124,7 +124,7 @@ async function showSampleText(ctx: qv.ExtensionContext): Promise<void> {
 class StaticVersionProvider implements ITypeScriptVersionProvider {
   constructor(private readonly _version: TypeScriptVersion) {}
   updateConfiguration(_configuration: TypeScriptServiceConfiguration): void {
-    // noop
+
   }
   get defaultVersion() {
     return this._version;

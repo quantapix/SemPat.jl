@@ -113,26 +113,18 @@ const _operatorInfo: { [key: number]: OperatorFlags } = {
 const _byteOrderMarker = 0xfeff;
 
 export interface TokenizerOutput {
-  // List of all tokens.
   tokens: TextRangeCollection<Token>;
 
-  // List of ranges that comprise the lines.
   lines: TextRangeCollection<TextRange>;
 
-  // Map of all line numbers that end in a "type: ignore" comment.
   typeIgnoreLines: { [line: number]: boolean };
 
-  // Program starts with a "type: ignore" comment.
   typeIgnoreAll: boolean;
 
-  // Line-end sequence ('/n', '/r', or '/r/n').
   predominantEndOfLineSequence: string;
 
-  // Tab sequence ('/t or consecutive spaces).
   predominantTabSequence: string;
 
-  // Does the code mostly use single or double quote
-  // characters for string literals?
   predominantSingleQuoteCharacter: string;
 }
 
@@ -159,25 +151,16 @@ export class Tokenizer {
   private _typeIgnoreLines: { [line: number]: boolean } = {};
   private _comments: Comment[] | undefined;
 
-  // Total times CR, CR/LF, and LF are used to terminate
-  // lines. Used to determine the predominant line ending.
   private _crCount = 0;
   private _crLfCount = 0;
   private _lfCount = 0;
 
-  // Number of times an indent token is emitted.
   private _indentCount = 0;
 
-  // Number of times an indent token is emitted and a tab character
-  // is present (used to determine predominant tab sequence).
   private _indentTabCount = 0;
 
-  // Number of spaces that are added for an indent token
-  // (used to determine predominant tab sequence).
   private _indentSpacesTotal = 0;
 
-  // Number of single or double quote string literals found
-  // in the code.
   private _singleQuoteCount = 0;
   private _doubleQuoteCount = 0;
 
@@ -213,18 +196,14 @@ export class Tokenizer {
       }
     }
 
-    // Insert an implied new line to make parsing easier.
     if (this._tokens.length === 0 || this._tokens[this._tokens.length - 1].type !== TokenType.NewLine) {
       this._tokens.push(NewLineToken.create(this._cs.position, 0, NewLineType.Implied, this._getComments()));
     }
 
-    // Insert any implied dedent tokens.
     this._setIndent(0, 0, true, false);
 
-    // Add a final end-of-stream token to make parsing easier.
     this._tokens.push(Token.create(TokenType.EndOfStream, this._cs.position, 0, this._getComments()));
 
-    // Add the final line range.
     this._addLineRange();
 
     let predominantEndOfLineSequence = '\n';
@@ -235,13 +214,10 @@ export class Tokenizer {
     }
 
     let predominantTabSequence = '    ';
-    // If more than half of the indents use tab sequences,
-    // assume we're using tabs rather than spaces.
+
     if (this._indentTabCount > this._indentCount / 2) {
       predominantTabSequence = '\t';
     } else if (this._indentCount > 0) {
-      // Compute the average number of spaces per indent
-      // to estimate the predominant tab value.
       let averageSpacePerIndent = Math.round(this._indentSpacesTotal / this._indentCount);
       if (averageSpacePerIndent < 1) {
         averageSpacePerIndent = 1;
@@ -296,14 +272,13 @@ export class Tokenizer {
   }
 
   private _handleCharacter(): boolean {
-    // f-strings, b-strings, etc
     const stringPrefixLength = this._getStringPrefixLength();
 
     if (stringPrefixLength >= 0) {
       let stringPrefix = '';
       if (stringPrefixLength > 0) {
         stringPrefix = this._cs.getText().substr(this._cs.position, stringPrefixLength);
-        // Indeed a string
+
         this._cs.advance(stringPrefixLength);
       }
 
@@ -321,7 +296,6 @@ export class Tokenizer {
 
     switch (this._cs.currentChar) {
       case _byteOrderMarker: {
-        // Skip the BOM if it's at the start of the file.
         if (this._cs.position === 0) {
           return false;
         }
@@ -463,8 +437,6 @@ export class Tokenizer {
 
   private _handleNewLine(length: number, newLineType: NewLineType) {
     if (this._parenDepth === 0 && newLineType !== NewLineType.Implied) {
-      // New lines are ignored within parentheses.
-      // We'll also avoid adding multiple newlines in a row to simplify parsing.
       if (this._tokens.length === 0 || this._tokens[this._tokens.length - 1].type !== TokenType.NewLine) {
         this._tokens.push(NewLineToken.create(this._cs.position, length, newLineType, this._getComments()));
       }
@@ -497,8 +469,6 @@ export class Tokenizer {
           break;
 
         case Char.Tab:
-          // Translate tabs into spaces assuming both 1-space
-          // and 8-space tab stops.
           tab1Spaces++;
           tab8Spaces += 8 - (tab8Spaces % 8);
           isTabPresent = true;
@@ -514,29 +484,22 @@ export class Tokenizer {
           break;
 
         default:
-          // Non-blank line. Set the current indent level.
           this._setIndent(tab1Spaces, tab8Spaces, isSpacePresent, isTabPresent);
           return;
 
         case Char.Hash:
         case Char.LineFeed:
         case Char.CarriageReturn:
-          // Blank line -- no need to adjust indentation.
           return;
       }
     }
   }
 
-  // The caller must specify two space count values. The first assumes
-  // that tabs are translated into one-space tab stops. The second assumes
-  // that tabs are translated into eight-space tab stops.
   private _setIndent(tab1Spaces: number, tab8Spaces: number, isSpacePresent: boolean, isTabPresent: boolean) {
-    // Indentations are ignored within a parenthesized clause.
     if (this._parenDepth > 0) {
       return;
     }
 
-    // Insert indent or dedent tokens as necessary.
     if (this._indentAmounts.length === 0) {
       if (tab8Spaces > 0) {
         this._indentCount++;
@@ -556,10 +519,6 @@ export class Tokenizer {
     } else {
       const prevTabInfo = this._indentAmounts[this._indentAmounts.length - 1];
       if (prevTabInfo.tab8Spaces < tab8Spaces) {
-        // The Python spec says that if there is ambiguity about how tabs should
-        // be translated into spaces because the user has intermixed tabs and
-        // spaces, it should be an error. We'll record this condition in the token
-        // so the parser can later report it.
         const isIndentAmbiguous = ((prevTabInfo.isSpacePresent && isTabPresent) || (prevTabInfo.isTabPresent && isSpacePresent)) && prevTabInfo.tab1Spaces >= tab1Spaces;
 
         this._indentCount++;
@@ -577,10 +536,6 @@ export class Tokenizer {
 
         this._tokens.push(IndentToken.create(this._cs.position, 0, tab8Spaces, isIndentAmbiguous, this._getComments()));
       } else {
-        // The Python spec says that dedent amounts need to match the indent
-        // amount exactly. An error is generated at runtime if it doesn't.
-        // We'll record that error condition within the token, allowing the
-        // parser to report it later.
         const dedentPoints: number[] = [];
         while (this._indentAmounts.length > 0 && this._indentAmounts[this._indentAmounts.length - 1].tab8Spaces > tab8Spaces) {
           dedentPoints.push(this._indentAmounts.length > 1 ? this._indentAmounts[this._indentAmounts.length - 2].tab8Spaces : 0);
@@ -635,7 +590,6 @@ export class Tokenizer {
       let radix = 0;
       let leadingChars = 0;
 
-      // Try hex => hexinteger: "0" ("x" | "X") (["_"] hexdigit)+
       if ((this._cs.nextChar === Char.x || this._cs.nextChar === Char.X) && isHex(this._cs.lookAhead(2))) {
         this._cs.advance(2);
         leadingChars = 2;
@@ -645,7 +599,6 @@ export class Tokenizer {
         radix = 16;
       }
 
-      // Try binary => bininteger: "0" ("b" | "B") (["_"] bindigit)+
       if ((this._cs.nextChar === Char.b || this._cs.nextChar === Char.B) && isBinary(this._cs.lookAhead(2))) {
         this._cs.advance(2);
         leadingChars = 2;
@@ -655,7 +608,6 @@ export class Tokenizer {
         radix = 2;
       }
 
-      // Try octal => octinteger: "0" ("o" | "O") (["_"] octdigit)+
       if ((this._cs.nextChar === Char.o || this._cs.nextChar === Char.O) && isOctal(this._cs.lookAhead(2))) {
         this._cs.advance(2);
         leadingChars = 2;
@@ -677,10 +629,7 @@ export class Tokenizer {
 
     let isDecimalInteger = false;
     let mightBeFloatingPoint = false;
-    // Try decimal int =>
-    //    decinteger: nonzerodigit (["_"] digit)* | "0" (["_"] "0")*
-    //    nonzerodigit: "1"..."9"
-    //    digit: "0"..."9"
+
     if (this._cs.currentChar >= Char._1 && this._cs.currentChar <= Char._9) {
       while (isDecimal(this._cs.currentChar)) {
         mightBeFloatingPoint = true;
@@ -689,7 +638,6 @@ export class Tokenizer {
       isDecimalInteger = this._cs.currentChar !== Char.Period && this._cs.currentChar !== Char.e && this._cs.currentChar !== Char.E;
     }
 
-    // "0" (["_"] "0")*
     if (this._cs.currentChar === Char._0) {
       mightBeFloatingPoint = true;
       while (this._cs.currentChar === Char._0 || this._cs.currentChar === Char.Underscore) {
@@ -713,7 +661,6 @@ export class Tokenizer {
       }
     }
 
-    // Floating point. Sign and leading digits were already skipped over.
     this._cs.position = start;
     if (mightBeFloatingPoint || (this._cs.currentChar === Char.Period && this._cs.nextChar >= Char._0 && this._cs.nextChar <= Char._9)) {
       if (this._skipFloatingPointCandidate()) {
@@ -882,10 +829,6 @@ export class Tokenizer {
     const value = this._cs.getText().substr(start, length);
     const comment = Comment.create(start, length, value);
 
-    // We include "[" in the regular expression because mypy supports
-    // ignore comments of the form ignore[errorCode, ...]. We'll treat
-    // these as regular ignore statements (as though no errorCodes were
-    // included).
     if (value.match(/^\s*type:\s*ignore(\s|\[|$)/)) {
       if (this._tokens.findIndex((t) => t.type !== TokenType.NewLine && t && t.type !== TokenType.Indent) < 0) {
         this._typeIgnoreAll = true;
@@ -903,7 +846,6 @@ export class Tokenizer {
 
   private _getStringPrefixLength(): number {
     if (this._cs.currentChar === Char.SingleQuote || this._cs.currentChar === Char.DoubleQuote) {
-      // Simple string, no prefix
       return 0;
     }
 
@@ -917,7 +859,6 @@ export class Tokenizer {
         case Char.B:
         case Char.u:
         case Char.U:
-          // Single-char prefix like u"" or r""
           return 1;
         default:
           break;
@@ -1009,7 +950,6 @@ export class Tokenizer {
 
     while (true) {
       if (this._cs.isEndOfStream()) {
-        // Hit the end of file without a termination.
         flags |= StringTokenFlags.Unterminated;
         return { escapedValue, flags };
       }
@@ -1017,7 +957,6 @@ export class Tokenizer {
       if (this._cs.currentChar === Char.Backslash) {
         escapedValue += String.fromCharCode(this._cs.currentChar);
 
-        // Move past the escape (backslash) character.
         this._cs.moveNext();
 
         if (this._cs.getCurrentChar() === Char.CarriageReturn || this._cs.getCurrentChar() === Char.LineFeed) {
@@ -1034,12 +973,10 @@ export class Tokenizer {
         }
       } else if (this._cs.currentChar === Char.LineFeed || this._cs.currentChar === Char.CarriageReturn) {
         if (!isTriplicate) {
-          // Unterminated single-line string
           flags |= StringTokenFlags.Unterminated;
           return { escapedValue, flags };
         }
 
-        // Skip over the new line (either one or two characters).
         if (this._cs.currentChar === Char.CarriageReturn && this._cs.nextChar === Char.LineFeed) {
           escapedValue += String.fromCharCode(this._cs.currentChar);
           this._cs.moveNext();
@@ -1064,15 +1001,12 @@ export class Tokenizer {
   }
 
   private _skipFloatingPointCandidate(): boolean {
-    // Determine end of the potential floating point number
     const start = this._cs.position;
     this._skipFractionalNumber();
     if (this._cs.position > start) {
-      // Optional exponent sign
       if (this._cs.currentChar === Char.e || this._cs.currentChar === Char.E) {
         this._cs.moveNext();
 
-        // Skip exponent value
         this._skipDecimalNumber(true);
       }
     }
@@ -1082,7 +1016,6 @@ export class Tokenizer {
   private _skipFractionalNumber(): void {
     this._skipDecimalNumber(false);
     if (this._cs.currentChar === Char.Period) {
-      // Optional period
       this._cs.moveNext();
     }
     this._skipDecimalNumber(false);
@@ -1090,11 +1023,9 @@ export class Tokenizer {
 
   private _skipDecimalNumber(allowSign: boolean): void {
     if (allowSign && (this._cs.currentChar === Char.Hyphen || this._cs.currentChar === Char.Plus)) {
-      // Optional sign
       this._cs.moveNext();
     }
     while (isDecimal(this._cs.currentChar)) {
-      // Skip integer part
       this._cs.moveNext();
     }
   }

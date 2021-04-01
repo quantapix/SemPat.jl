@@ -388,7 +388,6 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
 
     handle.onError((err: Error) => {
       if (this.token !== mytoken) {
-        // this is coming from an old process
         return;
       }
 
@@ -415,15 +414,12 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
 
     handle.onExit((code: any) => {
       if (this.token !== mytoken) {
-        // this is coming from an old process
         return;
       }
 
       if (code === null || typeof code === 'undefined') {
         this.info('TSServer exited');
       } else {
-        // In practice, the exit code is an integer with no ties to any identity,
-        // so it can be classified as SystemMetaData, rather than CallstackOrException.
         this.error(`TSServer exited with code: ${code}`);
         /* __GDPR__
 					"tsserver.exitWithCode" : {
@@ -493,9 +489,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
       const doc = await qv.workspace.openTextDocument(qv.Uri.file(this.serverState.server.tsServerLogFile));
       await qv.window.showTextDocument(doc);
       return true;
-    } catch {
-      // noop
-    }
+    } catch {}
 
     try {
       await qv.commands.executeCommand('revealFileInOS', qv.Uri.file(this.serverState.server.tsServerLogFile));
@@ -528,7 +522,6 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
       this.bufferSyncSupport.requestAllDiagnostics();
     }
 
-    // Reconfigure any plugins
     for (const [config, pluginName] of this.pluginManager.configurations()) {
       this.configurePlugin(config, pluginName);
     }
@@ -591,7 +584,6 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
           prompt = qv.window.showWarningMessage(localize('serverDied', 'The TypeScript language service died unexpectedly 5 times in the last 5 Minutes.'), reportIssueItem);
         }
       } else if (['vscode-insiders', 'code-oss'].includes(qv.env.uriScheme)) {
-        // Prompt after a single restart
         if (!this._isPromptingAfterCrash && previousState.type === ServerState.Type.Errored && previousState.error instanceof TypeScriptServerError) {
           this.numberRestarts = 0;
           this._isPromptingAfterCrash = true;
@@ -630,7 +622,6 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
         }
         result = path.normalize(result);
 
-        // Both \ and / must be escaped in regular expressions
         return result.replace(new RegExp('\\' + this.pathSeparator, 'g'), '/');
       }
       default: {
@@ -667,7 +658,6 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
 
   public toResource(filepath: string): qv.Uri {
     if (isWeb()) {
-      // On web, treat absolute paths as pointing to standard lib files
       if (filepath.startsWith('/')) {
         return qv.Uri.joinPath(this.context.extensionUri, 'node_modules', 'typescript', 'lib', filepath.slice(1));
       }
@@ -809,7 +799,6 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
       case EventName.syntaxDiag:
       case EventName.semanticDiag:
       case EventName.suggestionDiag:
-        // This event also roughly signals that projects have been loaded successfully (since the TS server is synchronous)
         this.loadingIndicator.reset();
 
         const diagnosticEvent = event as qp.DiagnosticEvent;
@@ -896,9 +885,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
               if (payload.hasOwnProperty(key)) {
                 properties[key] = typeof payload[key] === 'string' ? payload[key] : JSON.stringify(payload[key]);
               }
-            } catch (e) {
-              // noop
-            }
+            } catch (e) {}
           });
         }
         break;
@@ -919,7 +906,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
 				]
 			}
 		*/
-    // __GDPR__COMMENT__: Other events are defined by TypeScript.
+
     this.logTelemetry(telemetryData.telemetryEventName, properties);
   }
 

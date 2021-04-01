@@ -6,35 +6,30 @@ const jsTsLanguageConfiguration: qv.LanguageConfiguration = {
   indentationRules: {
     decreaseIndentPattern: /^((?!.*?\/\*).*\*\/)?\s*[\}\]].*$/,
     increaseIndentPattern: /^((?!\/\/).)*(\{([^}"'`]*|(\t|[ ])*\/\/.*)|\([^)"'`]*|\[[^\]"'`]*)$/,
-    // e.g.  * ...| or */| or *-----*/|
+
     unIndentedLinePattern: /^(\t|[ ])*[ ]\*[^/]*\*\/\s*$|^(\t|[ ])*[ ]\*\/\s*$|^(\t|[ ])*[ ]\*([ ]([^\*]|\*(?!\/))*)?$/,
   },
   wordPattern: /(-?\d*\.\d\w*)|([^\`\~\!\@\%\^\&\*\(\)\-\=\+\[\{\]\}\\\|\;\:\'\"\,\.\<\>\/\?\s]+)/g,
   onEnterRules: [
     {
-      // e.g. /** | */
       beforeText: /^\s*\/\*\*(?!\/)([^\*]|\*(?!\/))*$/,
       afterText: /^\s*\*\/$/,
       action: { indentAction: qv.IndentAction.IndentOutdent, appendText: ' * ' },
     },
     {
-      // e.g. /** ...|
       beforeText: /^\s*\/\*\*(?!\/)([^\*]|\*(?!\/))*$/,
       action: { indentAction: qv.IndentAction.None, appendText: ' * ' },
     },
     {
-      // e.g.  * ...|
       beforeText: /^(\t|[ ])*[ ]\*([ ]([^\*]|\*(?!\/))*)?$/,
       previousLineText: /(?=^(\s*(\/\*\*|\*)).*)(?=(?!(\s*\*\/)))/,
       action: { indentAction: qv.IndentAction.None, appendText: '* ' },
     },
     {
-      // e.g.  */|
       beforeText: /^(\t|[ ])*[ ]\*\/\s*$/,
       action: { indentAction: qv.IndentAction.None, removeText: 1 },
     },
     {
-      // e.g.  *-----*/|
       beforeText: /^(\t|[ ])*[ ]\*[^/]*\*\/\s*$/,
       action: { indentAction: qv.IndentAction.None, removeText: 1 },
     },

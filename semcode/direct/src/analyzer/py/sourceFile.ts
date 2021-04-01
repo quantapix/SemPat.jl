@@ -58,63 +58,37 @@ interface ResolveImportResult {
 }
 
 export class SourceFile {
-  // Console interface to use for debugging.
   private _console: ConsoleInterface;
 
-  // File path on disk.
   private readonly _filePath: string;
 
-  // Period-delimited import path for the module.
   private readonly _moduleName: string;
 
-  // True if file is a type-hint (.pyi) file versus a python
-  // (.py) file.
   private readonly _isStubFile: boolean;
 
-  // True if the file was imported as a third-party import.
   private readonly _isThirdPartyImport: boolean;
 
-  // True if the file is the "typing.pyi" file, which needs
-  // special-case handling.
   private readonly _isTypingStubFile: boolean;
 
-  // True if the file is the "typing_extensions.pyi" file, which needs
-  // special-case handling.
   private readonly _isTypingExtensionsStubFile: boolean;
 
-  // True if the file one of the other built-in stub files
-  // that require special-case handling: "collections.pyi",
-  // "dataclasses.pyi", "abc.pyi", "asyncio/coroutines.pyi".
   private readonly _isBuiltInStubFile: boolean;
 
-  // True if the file is part of a package that contains a
-  // "py.typed" file.
   private readonly _isThirdPartyPyTypedPresent: boolean;
 
-  // True if the file appears to have been deleted.
   private _isFileDeleted = false;
 
-  // Number that is incremented every time the diagnostics
-  // are updated.
   private _diagnosticVersion = 0;
 
-  // Generation count of the file contents. When the contents
-  // change, this is incremented.
   private _fileContentsVersion = 0;
 
-  // Length and hash of the file the last time it was read from disk.
   private _lastFileContentLength: number | undefined = undefined;
   private _lastFileContentHash: number | undefined = undefined;
 
-  // Client's version of the file. Undefined implies that contents
-  // need to be read from disk.
   private _clientDocument?: TextDocument;
 
-  // Version of file contents that have been analyzed.
   private _analyzedFileContentsVersion = -1;
 
-  // Do we need to walk the parse tree and clean
-  // the binder information hanging from it?
   private _parseTreeNeedsCleaning = false;
 
   private _parseResults?: ParseResults;
@@ -122,33 +96,24 @@ export class SourceFile {
   private _binderResults?: BinderResults;
   private _cachedIndexResults?: IndexResults;
 
-  // Reentrancy check for binding.
   private _isBindingInProgress = false;
 
-  // Diagnostics generated during different phases of analysis.
   private _parseDiagnostics: Diagnostic[] = [];
   private _bindDiagnostics: Diagnostic[] = [];
   private _checkerDiagnostics: Diagnostic[] = [];
 
-  // Settings that control which diagnostics should be output.
   private _diagnosticRuleSet = getBasicDiagnosticRuleSet();
 
-  // Circular dependencies that have been reported in this file.
   private _circularDependencies: CircularDependency[] = [];
 
-  // Did we hit the maximum import depth?
   private _hitMaxImportDepth?: number;
 
-  // Do we need to perform a binding step?
   private _isBindingNeeded = true;
 
-  // Do we have valid diagnostic results from a checking pass?
   private _isCheckingNeeded = true;
 
-  // Do we need to perform an indexing step?
   private _indexingNeeded = true;
 
-  // Information about implicit and explicit imports from this file.
   private _imports?: ImportResult[];
   private _builtinsImport?: ImportResult;
   private _typingModulePath?: string;
@@ -187,7 +152,6 @@ export class SourceFile {
       }
     }
 
-    // 'FG' or 'BG' based on current thread.
     this._logTracker = logTracker ?? new LogTracker(console, isMainThread ? 'FG' : 'BG');
   }
 
@@ -203,9 +167,6 @@ export class SourceFile {
     return this._isStubFile;
   }
 
-  // Returns a list of cached diagnostics from the latest analysis job.
-  // If the prevVersion is specified, the method returns undefined if
-  // the diagnostics haven't changed.
   getDiagnostics(options: ConfigOptions, prevDiagnosticVersion?: number): Diagnostic[] | undefined {
     if (this._diagnosticVersion === prevDiagnosticVersion) {
       return undefined;
@@ -213,8 +174,6 @@ export class SourceFile {
 
     let includeWarningsAndErrors = true;
 
-    // If a file was imported as a third-party file, don't report
-    // any errors for it. The user can't fix them anyway.
     if (this._isThirdPartyImport) {
       includeWarningsAndErrors = false;
     }
@@ -222,7 +181,6 @@ export class SourceFile {
     let diagList: Diagnostic[] = [];
     diagList = diagList.concat(this._parseDiagnostics, this._bindDiagnostics, this._checkerDiagnostics);
 
-    // Filter the diagnostics based on "type: ignore" lines.
     if (options.diagnosticRuleSet.enableTypeIgnoreComments) {
       const typeIgnoreLines = this._parseResults ? this._parseResults.tokenizerOutput.typeIgnoreLines : {};
       if (Object.keys(typeIgnoreLines).length > 0) {
@@ -263,22 +221,16 @@ export class SourceFile {
       diagList.push(new Diagnostic(DiagnosticCategory.Error, Localizer.Diagnostic.importDepthExceeded().format({ depth: this._hitMaxImportDepth }), getEmptyRange()));
     }
 
-    // If the file is in the ignore list, clear the diagnostic list.
     if (options.ignore.find((ignoreFileSpec) => ignoreFileSpec.regExp.test(this._filePath))) {
       diagList = [];
     }
 
-    // If there is a "type: ignore" comment at the top of the file, clear
-    // the diagnostic list.
     if (options.diagnosticRuleSet.enableTypeIgnoreComments) {
       if (this._parseResults && this._parseResults.tokenizerOutput.typeIgnoreAll) {
         diagList = [];
       }
     }
 
-    // If we're not returning any diagnostics, filter out all of
-    // the errors and warnings, leaving only the unreachable code
-    // diagnostics.
     if (!includeWarningsAndErrors) {
       diagList = diagList.filter((diag) => diag.category === DiagnosticCategory.UnusedCode);
     }
@@ -302,25 +254,16 @@ export class SourceFile {
     return this._binderResults ? this._binderResults.moduleDocString : undefined;
   }
 
-  // Indicates whether the contents of the file have changed since
-  // the last analysis was performed.
   didContentsChangeOnDisk(): boolean {
-    // If this is an open file any content changes will be
-    // provided through the editor. We can assume contents
-    // didn't change without us knowing about them.
     if (this._clientDocument) {
       return false;
     }
 
-    // If the file was never read previously, no need to check for a change.
     if (this._lastFileContentLength === undefined) {
       return false;
     }
 
-    // Read in the latest file contents and see if the hash matches
-    // that of the previous contents.
     try {
-      // Read the file's contents.
       const fileContents = this.fileSystem.readFileSync(this._filePath, 'utf8');
 
       if (fileContents.length !== this._lastFileContentLength) {
@@ -337,9 +280,6 @@ export class SourceFile {
     return false;
   }
 
-  // Drop parse and binding info to save memory. It is used
-  // in cases where memory is low. When info is needed, the file
-  // will be re-parsed and rebound.
   dropParseAndBindInfo(): void {
     this._parseResults = undefined;
     this._moduleSymbolTable = undefined;
@@ -358,11 +298,8 @@ export class SourceFile {
   }
 
   markReanalysisRequired(): void {
-    // Keep the parse info, but reset the analysis to the beginning.
     this._isCheckingNeeded = true;
 
-    // If the file contains a wildcard import or __all__ symbols,
-    // we need to rebind because a dependent import may have changed.
     if (this._parseResults) {
       if (this._parseResults.containsWildcardImport || AnalyzerNodeInfo.getDunderAllNames(this._parseResults.parseTree)) {
         this._parseTreeNeedsCleaning = true;
@@ -395,9 +332,7 @@ export class SourceFile {
     }
   }
 
-  prepareForClose() {
-    // Nothing to do currently.
-  }
+  prepareForClose() {}
 
   isFileDeleted() {
     return this._isFileDeleted;
@@ -443,12 +378,9 @@ export class SourceFile {
     this._cachedIndexResults = indexResults;
   }
 
-  // Adds a new circular dependency for this file but only if
-  // it hasn't already been added.
   addCircularDependency(circDependency: CircularDependency) {
     let updatedDependencyList = false;
 
-    // Some topologies can result in a massive number of cycles. We'll cut it off.
     if (this._circularDependencies.length < _maxImportCyclesPerFile) {
       if (!this._circularDependencies.some((dep) => dep.isEqual(circDependency))) {
         this._circularDependencies.push(circDependency);
@@ -465,12 +397,8 @@ export class SourceFile {
     this._hitMaxImportDepth = maxImportDepth;
   }
 
-  // Parse the file and update the state. Callers should wait for completion
-  // (or at least cancel) prior to calling again. It returns true if a parse
-  // was required and false if the parse information was up to date already.
   parse(configOptions: ConfigOptions, importResolver: ImportResolver, content?: string): boolean {
     return this._logTracker.log(`parsing: ${this._getPathForLogging(this._filePath)}`, (logState) => {
-      // If the file is already parsed, we can skip.
       if (!this.isParseRequired()) {
         logState.suppress();
         return false;
@@ -482,10 +410,8 @@ export class SourceFile {
         try {
           const startTime = timingStats.readFileTime.totalTime;
           timingStats.readFileTime.timeOperation(() => {
-            // Read the file's contents.
             fileContents = content ?? this.fileSystem.readFileSync(this._filePath, 'utf8');
 
-            // Remember the length and hash for comparison purposes.
             this._lastFileContentLength = fileContents.length;
             this._lastFileContentHash = StringUtils.hashString(fileContents);
           });
@@ -500,8 +426,6 @@ export class SourceFile {
         }
       }
 
-      // Use the configuration options to determine the environment in which
-      // this source file will be executed.
       const execEnvironment = configOptions.findExecEnvironment(this._filePath);
 
       const parseOptions = new ParseOptions();
@@ -511,13 +435,11 @@ export class SourceFile {
       parseOptions.pythonVersion = execEnvironment.pythonVersion;
 
       try {
-        // Parse the token stream, building the abstract syntax tree.
         const parser = new Parser();
         const parseResults = parser.parseSourceFile(fileContents!, parseOptions, diagSink);
         assert(parseResults !== undefined && parseResults.tokenizerOutput !== undefined);
         this._parseResults = parseResults;
 
-        // Resolve imports.
         timingStats.resolveImportsTime.timeOperation(() => {
           const importResult = this._resolveImports(importResolver, parseResults.importedModules, execEnvironment);
 
@@ -530,7 +452,6 @@ export class SourceFile {
           this._parseDiagnostics = diagSink.fetchAndClear();
         });
 
-        // Is this file in a "strict" path?
         const useStrict = configOptions.strict.find((strictFileSpec) => strictFileSpec.regExp.test(this._filePath)) !== undefined;
 
         this._diagnosticRuleSet = CommentUtils.getFileLevelDirectives(this._parseResults.tokenizerOutput.tokens, configOptions.diagnosticRuleSet, useStrict);
@@ -538,7 +459,6 @@ export class SourceFile {
         const message: string = (e.stack ? e.stack.toString() : undefined) || (typeof e.message === 'string' ? e.message : undefined) || JSON.stringify(e);
         this._console.error(Localizer.Diagnostic.internalParseError().format({ file: this.getFilePath(), message }));
 
-        // Create dummy parse results.
         this._parseResults = {
           text: '',
           parseTree: ModuleNode.create({ start: 0, length: 0 }),
@@ -561,9 +481,6 @@ export class SourceFile {
         const diagSink = new DiagnosticSink();
         diagSink.addError(Localizer.Diagnostic.internalParseError().format({ file: this.getFilePath(), message }), getEmptyRange());
         this._parseDiagnostics = diagSink.fetchAndClear();
-
-        // Do not rethrow the exception, swallow it here. Callers are not
-        // prepared to handle an exception.
       }
 
       this._analyzedFileContentsVersion = this._fileContentsVersion;
@@ -580,7 +497,6 @@ export class SourceFile {
 
   index(options: IndexOptions, token: CancellationToken): IndexResults | undefined {
     return this._logTracker.log(`indexing: ${this._getPathForLogging(this._filePath)}`, (ls) => {
-      // If we have no completed analysis job, there's nothing to do.
       if (!this._parseResults || !this.isIndexingRequired()) {
         ls.suppress();
         return undefined;
@@ -598,7 +514,6 @@ export class SourceFile {
   }
 
   getDefinitionsForPosition(sourceMapper: SourceMapper, position: Position, filter: DefinitionFilter, evaluator: TypeEvaluator, token: CancellationToken): DocumentRange[] | undefined {
-    // If we have no completed analysis job, there's nothing to do.
     if (!this._parseResults) {
       return undefined;
     }
@@ -607,7 +522,6 @@ export class SourceFile {
   }
 
   getDeclarationForPosition(sourceMapper: SourceMapper, position: Position, evaluator: TypeEvaluator, reporter: ReferenceCallback | undefined, token: CancellationToken): ReferencesResult | undefined {
-    // If we have no completed analysis job, there's nothing to do.
     if (!this._parseResults) {
       return undefined;
     }
@@ -616,7 +530,6 @@ export class SourceFile {
   }
 
   addReferences(referencesResult: ReferencesResult, includeDeclaration: boolean, evaluator: TypeEvaluator, token: CancellationToken): void {
-    // If we have no completed analysis job, there's nothing to do.
     if (!this._parseResults) {
       return;
     }
@@ -625,7 +538,6 @@ export class SourceFile {
   }
 
   addHierarchicalSymbolsForDocument(symbolList: DocumentSymbol[], token: CancellationToken) {
-    // If we have no completed analysis job, there's nothing to do.
     if (!this._parseResults && !this._cachedIndexResults) {
       return;
     }
@@ -640,7 +552,6 @@ export class SourceFile {
   }
 
   getSymbolsForDocument(query: string, token: CancellationToken) {
-    // If we have no completed analysis job, there's nothing to do.
     if (!this._parseResults && !this._cachedIndexResults) {
       return [];
     }
@@ -656,7 +567,6 @@ export class SourceFile {
   }
 
   getHoverForPosition(sourceMapper: SourceMapper, position: Position, format: MarkupKind, evaluator: TypeEvaluator, token: CancellationToken): HoverResults | undefined {
-    // If this file hasn't been bound, no hover info is available.
     if (this._isBindingNeeded || !this._parseResults) {
       return undefined;
     }
@@ -665,7 +575,6 @@ export class SourceFile {
   }
 
   getDocumentHighlight(sourceMapper: SourceMapper, position: Position, evaluator: TypeEvaluator, token: CancellationToken): DocumentHighlight[] | undefined {
-    // If this file hasn't been bound, no hover info is available.
     if (this._isBindingNeeded || !this._parseResults) {
       return undefined;
     }
@@ -674,7 +583,6 @@ export class SourceFile {
   }
 
   getSignatureHelpForPosition(position: Position, importLookup: ImportLookup, evaluator: TypeEvaluator, format: MarkupKind, token: CancellationToken): SignatureHelpResults | undefined {
-    // If we have no completed analysis job, there's nothing to do.
     if (!this._parseResults) {
       return undefined;
     }
@@ -696,13 +604,10 @@ export class SourceFile {
     moduleSymbolsCallback: () => ModuleSymbolMap,
     token: CancellationToken
   ): CompletionResults | undefined {
-    // If we have no completed analysis job, there's nothing to do.
     if (!this._parseResults) {
       return undefined;
     }
 
-    // This command should be called only for open files, in which
-    // case we should have the file contents already loaded.
     const fileContents = this.getFileContents();
     if (fileContents === undefined) {
       return undefined;
@@ -774,13 +679,10 @@ export class SourceFile {
   }
 
   performQuickAction(command: string, args: any[], token: CancellationToken): TextEditAction[] | undefined {
-    // If we have no completed analysis job, there's nothing to do.
     if (!this._parseResults) {
       return undefined;
     }
 
-    // This command should be called only for open files, in which
-    // case we should have the file contents already loaded.
     if (this.getClientVersion() === undefined) {
       return undefined;
     }
@@ -796,7 +698,6 @@ export class SourceFile {
 
     return this._logTracker.log(`binding: ${this._getPathForLogging(this._filePath)}`, () => {
       try {
-        // Perform name binding.
         timingStats.bindTime.timeOperation(() => {
           this._cleanParseTreeIfRequired();
 
@@ -807,8 +708,6 @@ export class SourceFile {
           this._isBindingInProgress = true;
           this._binderResults = binder.bindModule(this._parseResults!.parseTree);
 
-          // If we're in "test mode" (used for unit testing), run an additional
-          // "test walker" over the parse tree to validate its internal consistency.
           if (configOptions.internalTestMode) {
             const testWalker = new TestWalker();
             testWalker.walk(this._parseResults!.parseTree);
@@ -826,14 +725,10 @@ export class SourceFile {
         const diagSink = new DiagnosticSink();
         diagSink.addError(Localizer.Diagnostic.internalBindError().format({ file: this.getFilePath(), message }), getEmptyRange());
         this._bindDiagnostics = diagSink.fetchAndClear();
-
-        // Do not rethrow the exception, swallow it here. Callers are not
-        // prepared to handle an exception.
       } finally {
         this._isBindingInProgress = false;
       }
 
-      // Prepare for the next stage of the analysis.
       this._diagnosticVersion++;
       this._isCheckingNeeded = true;
       this._indexingNeeded = true;
@@ -868,15 +763,11 @@ export class SourceFile {
 
           this._checkerDiagnostics = diagSink.fetchAndClear();
 
-          // Mark the file as complete so we don't get into an infinite loop.
           this._isCheckingNeeded = false;
         }
 
         throw e;
       } finally {
-        // Clear any circular dependencies associated with this file.
-        // These will be detected by the program module and associated
-        // with the source file right before it is finalized.
         this._circularDependencies = [];
         this._diagnosticVersion++;
       }
@@ -924,35 +815,30 @@ export class SourceFile {
   private _resolveImports(importResolver: ImportResolver, moduleImports: ModuleImport[], execEnv: ExecutionEnvironment): ResolveImportResult {
     const imports: ImportResult[] = [];
 
-    // Always include an implicit import of the builtins module.
     let builtinsImportResult: ImportResult | undefined = importResolver.resolveImport(this._filePath, execEnv, {
       leadingDots: 0,
       nameParts: ['builtins'],
       importedSymbols: undefined,
     });
 
-    // Avoid importing builtins from the builtins.pyi file itself.
     if (builtinsImportResult.resolvedPaths.length === 0 || builtinsImportResult.resolvedPaths[0] !== this.getFilePath()) {
       imports.push(builtinsImportResult);
     } else {
       builtinsImportResult = undefined;
     }
 
-    // Always include an implicit import of the typing module.
     const typingImportResult: ImportResult | undefined = importResolver.resolveImport(this._filePath, execEnv, {
       leadingDots: 0,
       nameParts: ['typing'],
       importedSymbols: undefined,
     });
 
-    // Avoid importing typing from the typing.pyi file itself.
     let typingModulePath: string | undefined;
     if (typingImportResult.resolvedPaths.length === 0 || typingImportResult.resolvedPaths[0] !== this.getFilePath()) {
       imports.push(typingImportResult);
       typingModulePath = typingImportResult.resolvedPaths[0];
     }
 
-    // Always include an implicit import of the _typeshed module.
     const typeshedImportResult: ImportResult | undefined = importResolver.resolveImport(this._filePath, execEnv, {
       leadingDots: 0,
       nameParts: ['_typeshed'],
@@ -974,9 +860,6 @@ export class SourceFile {
         importedSymbols: moduleImport.importedSymbols,
       });
 
-      // If the file imports the stdlib 'collections' module, stash
-      // away its file path. The type analyzer may need this to
-      // access types defined in the collections module.
       if (importResult.isImportFound && importResult.isTypeshedFile) {
         if (moduleImport.nameParts.length >= 1 && moduleImport.nameParts[0] === 'collections') {
           collectionsModulePath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
@@ -985,9 +868,6 @@ export class SourceFile {
 
       imports.push(importResult);
 
-      // Associate the import results with the module import
-      // name node in the parse tree so we can access it later
-      // (for hover and definition support).
       AnalyzerNodeInfo.setImportInfo(moduleImport.nameNode, importResult);
     }
 

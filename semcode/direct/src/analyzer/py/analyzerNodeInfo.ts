@@ -6,44 +6,25 @@ import { ImportResult } from './importResult';
 import { Scope } from './scope';
 
 interface AnalyzerNodeInfo {
-  //---------------------------------------------------------------
-  // Set as part of import resolution
-
-  // Information about an import; used for import nodes only.
   importInfo?: ImportResult;
 
-  //---------------------------------------------------------------
-  // Set by Binder
-
-  // Scope for nodes that introduce scopes: modules, functions,
-  // classes, lambdas, and list comprehensions. A scope is used
-  // to store symbol names and their associated types and declarations.
   scope?: Scope;
 
-  // Declaration (for functions and classes only).
   declaration?: Declaration;
 
-  // Control flow information for this node.
   flowNode?: FlowNode;
 
-  // Control flow information at the end of this node.
   afterFlowNode?: FlowNode;
 
-  // Info about the source file, used only on module nodes.
   fileInfo?: AnalyzerFileInfo;
 
-  // Map of expressions used within an execution scope (module,
-  // function or lambda) that requires code flow analysis.
   codeFlowExpressions?: Map<string, string>;
 
-  // List of __all__ symbols in the module.
   dunderAllNames?: string[];
 }
 
 export type ScopedNode = ModuleNode | ClassNode | FunctionNode | LambdaNode | ListComprehensionNode;
 
-// Cleans out all fields that are added by the analyzer phases
-// (after the post-parse walker).
 export function cleanNodeAnalysisInfo(node: ParseNode) {
   const analyzerNode = node as AnalyzerNodeInfo;
   delete analyzerNode.scope;
@@ -136,8 +117,6 @@ export function setDunderAllNames(node: ModuleNode, names: string[] | undefined)
 export function isCodeUnreachable(node: ParseNode): boolean {
   let curNode: ParseNode | undefined = node;
 
-  // Walk up the parse tree until we find a node with
-  // an associated flow node.
   while (curNode) {
     const flowNode = getFlowNode(curNode);
     if (flowNode) {

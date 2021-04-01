@@ -27,20 +27,14 @@ const tripleTickRegEx = /'''/g;
 export const enum PrintTypeFlags {
   None = 0,
 
-  // Avoid printing "Unknown" and always use "Any" instead.
   PrintUnknownWithAny = 1 << 0,
 
-  // Omit type arguments for generic classes if they are "Any".
   OmitTypeArgumentsIfAny = 1 << 1,
 
-  // Omit printing type for param if type is not specified.
   OmitUnannotatedParamType = 1 << 2,
 
-  // Print Union and Optional in PEP 604 format.
   PEP604 = 1 << 3,
 
-  // Include a parentheses around a union if there's more than
-  // one subtype.
   ParenthesizeUnion = 1 << 4,
 }
 
@@ -54,8 +48,6 @@ export function printType(type: Type, printTypeFlags: PrintTypeFlags, returnType
     return '...';
   }
 
-  // If this is a type alias, use its name rather than the type
-  // it represents.
   if (type.typeAliasInfo && !expandTypeAlias) {
     let aliasName = type.typeAliasInfo.name;
     const typeParams = type.typeAliasInfo.typeParameters;
@@ -63,15 +55,12 @@ export function printType(type: Type, printTypeFlags: PrintTypeFlags, returnType
     if (typeParams) {
       let argumentStrings: string[] | undefined;
 
-      // If there is a type arguments array, it's a specialized type alias.
       if (type.typeAliasInfo.typeArguments) {
         if ((printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 || type.typeAliasInfo.typeArguments.some((typeArg) => !isAnyOrUnknown(typeArg))) {
           argumentStrings = [];
           type.typeAliasInfo.typeArguments.forEach((typeArg, index) => {
-            // Which type parameter does this map to?
             const typeParam = index < typeParams.length ? typeParams[index] : typeParams[typeParams.length - 1];
 
-            // If this type argument maps to a variadic type parameter, unpack it.
             if (isVariadicTypeVar(typeParam) && isObject(typeArg) && isTupleClass(typeArg.classType) && typeArg.classType.tupleTypeArguments) {
               typeArg.classType.tupleTypeArguments.forEach((tupleTypeArg) => {
                 argumentStrings!.push(printType(tupleTypeArg, printTypeFlags, returnTypeCallback, /* expandTypeAlias */ false, recursionCount + 1));
@@ -99,8 +88,6 @@ export function printType(type: Type, printTypeFlags: PrintTypeFlags, returnType
       }
     }
 
-    // If it's a TypeVar, don't use the alias name. Instead, use the full
-    // name, which may have a scope associated with it.
     if (type.category !== TypeCategory.TypeVar) {
       return aliasName;
     }
@@ -136,12 +123,9 @@ export function printType(type: Type, printTypeFlags: PrintTypeFlags, returnType
     }
 
     case TypeCategory.Function: {
-      // If it's a Callable with a ParamSpec, use the
-      // Callable notation.
       const parts = printFunctionParts(type, printTypeFlags, returnTypeCallback, recursionCount);
       if (type.details.paramSpec) {
         if (type.details.parameters.length > 0) {
-          // Remove the args and kwargs parameters from the end.
           const paramTypes = type.details.parameters.map((param) => printType(param.type, printTypeFlags, returnTypeCallback));
           return `Callable[Concatenate[${paramTypes.join(', ')}, ${type.details.paramSpec.details.name}], ${parts[1]}]`;
         }
@@ -162,8 +146,6 @@ export function printType(type: Type, printTypeFlags: PrintTypeFlags, returnType
     }
 
     case TypeCategory.Union: {
-      // If the union has constraints, throw them out to avoid duplicate
-      // types (e.g. "float | float | float | int").
       if (type.constraints) {
         type = combineTypes(type.subtypes);
       }
@@ -183,9 +165,6 @@ export function printType(type: Type, printTypeFlags: PrintTypeFlags, returnType
         subtypes.push(subtype);
       });
 
-      // If one or more subtypes are pseudo-generic, remove any other pseudo-generics
-      // of the same type because we don't print type arguments for pseudo-generic
-      // types, and we'll end up displaying seemingly-duplicated types.
       const isPseudoGeneric = (type: Type) => (isClass(type) && ClassType.isPseudoGenericClass(type)) || (isObject(type) && ClassType.isPseudoGenericClass(type.classType));
       if (subtypes.some((t) => isPseudoGeneric(t))) {
         const filteredSubtypes: Type[] = [];
@@ -212,25 +191,20 @@ export function printType(type: Type, printTypeFlags: PrintTypeFlags, returnType
       while (subtypes.length > 0) {
         const subtype = subtypes.shift()!;
         if (isLiteralObject(subtype)) {
-          // Combine all literal objects. Rather than printing Union[Literal[1],
-          // Literal[2]], print Literal[1, 2].
           const literals = subtypes.filter((t) => isLiteralObject(t));
           literals.unshift(subtype);
           const literalValues = literals.map((t) => printLiteralValue((t as ObjectType).classType));
           subtypeStrings.push(`Literal[${literalValues.join(', ')}]`);
 
-          // Remove the items we've handled.
           if (literals.length > 1) {
             subtypes = subtypes.filter((t) => !isLiteralObject(t));
           }
         } else if (isLiteralClass(subtype)) {
-          // Combine all literal classes.
           const literals = subtypes.filter((t) => isLiteralClass(t));
           literals.unshift(subtype);
           const literalValues = literals.map((t) => printLiteralValue(t as ClassType));
           subtypeStrings.push(`Type[Literal[${literalValues.join(', ')}]]`);
 
-          // Remove the items we've handled.
           if (literals.length > 1) {
             subtypes = subtypes.filter((t) => !isLiteralClass(t));
           }
@@ -239,8 +213,6 @@ export function printType(type: Type, printTypeFlags: PrintTypeFlags, returnType
         }
       }
 
-      // Remove any duplicates, which can happen if we're replacing
-      // Unknown with Any or are hiding type arguments.
       const redundancyMap = new Map<string, string>();
       const dedupedSubtypeStrings: string[] = [];
       subtypeStrings.forEach((subtype) => {
@@ -266,13 +238,7 @@ export function printType(type: Type, printTypeFlags: PrintTypeFlags, returnType
     }
 
     case TypeCategory.TypeVar: {
-      // If it's synthesized, don't expose the internal name we generated.
-      // This will confuse users. The exception is if it's a bound synthesized
-      // type, in which case we'll print the bound type. This is used for
-      // "self" and "cls" parameters.
       if (type.details.isSynthesized) {
-        // If it's a synthesized type var used to implement recursive type
-        // aliases, return the type alias name.
         if (type.details.recursiveTypeAliasName) {
           if (expandTypeAlias && type.details.boundType) {
             return printType(type.details.boundType, printTypeFlags, returnTypeCallback, expandTypeAlias, recursionCount + 1);
@@ -356,17 +322,13 @@ export function printLiteralValue(type: ClassType): string {
 export function printObjectTypeForClass(type: ClassType, printTypeFlags: PrintTypeFlags, returnTypeCallback: FunctionReturnTypeCallback, recursionCount = 0): string {
   let objName = type.aliasName || type.details.name;
 
-  // If this is a pseudo-generic class, don't display the type arguments
-  // or type parameters because it will confuse users.
   if (!ClassType.isPseudoGenericClass(type)) {
     const typeParams = ClassType.getTypeParameters(type);
     const lastTypeParam = typeParams.length > 0 ? typeParams[typeParams.length - 1] : undefined;
     const isVariadic = lastTypeParam ? lastTypeParam.details.isVariadic : false;
 
-    // If there is a type arguments array, it's a specialized class.
     const typeArgs = type.tupleTypeArguments || type.typeArguments;
     if (typeArgs) {
-      // Handle Tuple[()] as a special case.
       if (typeArgs.length > 0) {
         const typeArgStrings: string[] = [];
         let isAllAny = true;
@@ -374,7 +336,6 @@ export function printObjectTypeForClass(type: ClassType, printTypeFlags: PrintTy
         typeArgs.forEach((typeArg, index) => {
           const typeParam = index < typeParams.length ? typeParams[index] : undefined;
           if (typeParam && typeParam.details.isVariadic && isObject(typeArg) && ClassType.isBuiltIn(typeArg.classType, 'tuple') && typeArg.classType.tupleTypeArguments) {
-            // Expand the tuple type that maps to the variadic type parameter.
             if (typeArg.classType.tupleTypeArguments.length === 0) {
               if (!isAnyOrUnknown(typeArg)) {
                 isAllAny = false;
@@ -431,7 +392,6 @@ export function printObjectTypeForClass(type: ClassType, printTypeFlags: PrintTy
 export function printFunctionParts(type: FunctionType, printTypeFlags: PrintTypeFlags, returnTypeCallback: FunctionReturnTypeCallback, recursionCount = 0): [string[], string] {
   const paramTypeStrings: string[] = [];
   type.details.parameters.forEach((param, index) => {
-    // Handle specialized variadic type parameters specially.
     if (index === type.details.parameters.length - 1 && param.category === ParameterCategory.VarArgList && isVariadicTypeVar(param.type)) {
       const specializedParamType = FunctionType.getEffectiveParameterType(type, index);
       if (isObject(specializedParamType) && ClassType.isBuiltIn(specializedParamType.classType, 'tuple') && specializedParamType.classType.tupleTypeArguments) {
@@ -456,7 +416,6 @@ export function printFunctionParts(type: FunctionType, printTypeFlags: PrintType
 
     let defaultValueAssignment = '=';
     if (param.name) {
-      // Avoid printing type types if parameter have unknown type.
       if (param.hasDeclaredType || param.isTypeInferred) {
         const paramType = FunctionType.getEffectiveParameterType(type, index);
         const paramTypeString = recursionCount < maxTypeRecursionCount ? printType(paramType, printTypeFlags, returnTypeCallback, /* expandTypeAlias */ false, recursionCount + 1) : '';
@@ -470,8 +429,6 @@ export function printFunctionParts(type: FunctionType, printTypeFlags: PrintType
           }
         }
 
-        // PEP8 indicates that the "=" for the default value should have surrounding
-        // spaces when used with a type annotation.
         defaultValueAssignment = ' = ';
       } else if ((printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0) {
         paramString += ': Unknown';
@@ -485,9 +442,6 @@ export function printFunctionParts(type: FunctionType, printTypeFlags: PrintType
       if (param.defaultValueExpression) {
         paramString += defaultValueAssignment + ParseTreeUtils.printExpression(param.defaultValueExpression);
       } else {
-        // If the function doesn't originate from a function declaration (e.g. it is
-        // synthesized), we can't get to the default declaration, but we can still indicate
-        // that there is a default value provided.
         paramString += defaultValueAssignment + '...';
       }
     }

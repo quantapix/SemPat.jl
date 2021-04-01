@@ -26,9 +26,6 @@ interface TypeScriptTaskDefinition extends qv.TaskDefinition {
   option?: string;
 }
 
-/**
- * Provides tasks for building `tsconfig.json` files in a project.
- */
 class TscTaskProvider extends Disposable implements qv.TaskProvider {
   private readonly projectInfoRequestTimeout = 2000;
   private readonly findConfigFilesTimeout = 5000;
@@ -64,7 +61,6 @@ class TscTaskProvider extends Disposable implements qv.TaskProvider {
   public async resolveTask(task: qv.Task): Promise<qv.Task | undefined> {
     const definition = <TypeScriptTaskDefinition>task.definition;
     if (/\\tsconfig.*\.json/.test(definition.tsconfig)) {
-      // Warn that the task has the wrong slash type
       qv.window.showWarningMessage(localize('badTsConfig', 'TypeScript Task in tasks.json contains "\\\\". TypeScript tasks tsconfig must use "/"'));
       return undefined;
     }
@@ -75,7 +71,6 @@ class TscTaskProvider extends Disposable implements qv.TaskProvider {
     }
 
     if (task.scope === undefined || task.scope === qv.TaskScope.Global || task.scope === qv.TaskScope.Workspace) {
-      // scope is required to be a WorkspaceFolder for resolveTask
       return undefined;
     }
     const tsconfigUri = task.scope.uri.with({ path: task.scope.uri.path + '/' + tsconfigPath });
@@ -167,7 +162,6 @@ class TscTaskProvider extends Disposable implements qv.TaskProvider {
       }
     }
 
-    // Use global tsc version
     return 'tsc';
   }
 
@@ -257,9 +251,7 @@ class TscTaskProvider extends Disposable implements qv.TaskProvider {
       if (tsconfig?.references) {
         return ['-b', project.fsPath];
       }
-    } catch {
-      // noops
-    }
+    } catch {}
     return defaultArgs;
   }
 

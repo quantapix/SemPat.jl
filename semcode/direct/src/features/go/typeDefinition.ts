@@ -66,7 +66,6 @@ export class GoTypeDefinitionProvider implements qv.TypeDefinitionProvider {
               console.log("no typespos from guru's output - try to update guru tool");
             }
 
-            // Fall back to position of declaration
             return definitionLocation(document, position, null, false, token).then(
               (definitionInfo) => {
                 if (definitionInfo === null || definitionInfo.file === null) {

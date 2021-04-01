@@ -1,7 +1,4 @@
 export enum PythonVersion {
-  // The order of this enumeration is significant. We assume
-  // that we can use comparison operators to check for older
-  // or newer versions.
   V3_0 = 0x0300,
   V3_1 = 0x0301,
   V3_2 = 0x0302,
@@ -14,50 +11,38 @@ export enum PythonVersion {
   V3_9 = 0x0309,
   V3_10 = 0x030a,
 }
-
 export const latestStablePythonVersion = PythonVersion.V3_9;
 export const latestPythonVersion = PythonVersion.V3_9;
-
 export function versionToString(version: PythonVersion): string {
   const majorVersion = (version >> 8) & 0xff;
   const minorVersion = version & 0xff;
   return `${majorVersion}.${minorVersion}`;
 }
-
 export function versionFromString(verString: string): PythonVersion | undefined {
   const split = verString.split('.');
   if (split.length < 2) {
     return undefined;
   }
-
   const majorVersion = parseInt(split[0], 10);
   const minorVersion = parseInt(split[1], 10);
-
   return versionFromMajorMinor(majorVersion, minorVersion);
 }
-
 export function versionFromMajorMinor(major: number, minor: number): PythonVersion | undefined {
   if (isNaN(major) || isNaN(minor)) {
     return undefined;
   }
-
   if (major > 255 || minor > 255) {
     return undefined;
   }
-
   const value = major * 256 + minor;
   if (PythonVersion[value] === undefined) {
     return undefined;
   }
-
-  // Pyright currently supports only 3.x.
   if (!is3x(value)) {
     return undefined;
   }
-
   return value;
 }
-
 export function is3x(version: PythonVersion): boolean {
   return version >> 8 === 3;
 }

@@ -353,7 +353,6 @@ class RequestRouter {
             (err) => {
               requestStates[serverIndex] = new RequestState.Errored(err);
               if (requestStates.some((state) => state === RequestState.Resolved)) {
-                // We've gone out of sync
                 this.delegate.onFatalError(command, err);
               }
               throw err;

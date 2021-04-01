@@ -73,13 +73,8 @@ export class SignatureHelpProvider implements qv.SignatureHelpProvider {
     See https://github.com/rust-lang/rls/blob/master/rls/src/actions/hover.rs#L487-L508.
     */
 
-    // we remove the markdown formatting for the label, as it only accepts strings
     const label = (hover.contents[0] as qv.MarkdownString).value.replace('```rust', '').replace('```', '');
 
-    // the signature help tooltip is activated on `(` or `,`
-    // here we make sure the label received is for a function,
-    // and that we are not showing the hover for the same line
-    // where we are declaring a function.
     if (!label.includes('fn') || document.lineAt(position.line).text.includes('fn ')) {
       return undefined;
     }
@@ -87,8 +82,6 @@ export class SignatureHelpProvider implements qv.SignatureHelpProvider {
     const doc = hover.contents.length > 1 ? (hover.contents.slice(-1)[0] as qv.MarkdownString) : undefined;
     const si = new qv.SignatureInformation(label, doc);
 
-    // without parsing the function definition, we don't have a way to get more info on parameters.
-    // If RLS supports signature help requests in the future, we can update this.
     si.parameters = [];
 
     const sh = new qv.SignatureHelp();

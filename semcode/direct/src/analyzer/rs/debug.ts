@@ -105,8 +105,6 @@ async function getDebugConfiguration(ctx: Ctx, runnable: ra.Runnable): Promise<q
   }
 
   if (debugConfig.name === 'run binary') {
-    // The LSP side: crates\rust-analyzer\src\main_loop\handlers.rs,
-    // fn to_lsp_runnable(...) with RunnableKind::Bin
     debugConfig.name = `run ${path.basename(executable)}`;
   }
 
@@ -121,7 +119,6 @@ async function getDebugExecutable(runnable: ra.Runnable): Promise<string> {
   const cargo = new Cargo(runnable.args.workspaceRoot || '.', debugOutput);
   const executable = await cargo.executableFromArgs(runnable.args.cargoArgs);
 
-  // if we are here, there were no compilation errors.
   return executable;
 }
 

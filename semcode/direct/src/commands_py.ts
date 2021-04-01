@@ -38,7 +38,6 @@ export class CreateTypeStubCommand implements ServerCommand {
 
       const service = await this._createTypeStubService(callingFile);
 
-      // Allocate a temporary pseudo-workspace to perform this job.
       const workspace: WorkspaceServiceInstance = {
         workspaceName: `Create Type Stub ${importName}`,
         rootPath: workspaceRoot,

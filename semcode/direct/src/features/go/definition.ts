@@ -97,7 +97,7 @@ const godefImportDefinitionRegex = /^import \(.* ".*"\)$/;
 function definitionLocation_godef(
   input: GoDefinitionInput,
   token: qv.CancellationToken,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   useReceivers = true
 ): Promise<GoDefinitionInformation> {
   const godefTool = 'godef';
@@ -114,11 +114,8 @@ function definitionLocation_godef(
   }
 
   return new Promise<GoDefinitionInformation>((resolve, reject) => {
-    // Spawn `godef` process
     const args = ['-t', '-i', '-f', input.document.fileName, '-o', offset.toString()];
-    // if (useReceivers) {
-    // 	args.push('-r');
-    // }
+
     p = cp.execFile(godefPath, args, { env, cwd: input.cwd }, (err, stdout, stderr) => {
       try {
         if (err && (<any>err).code === 'ENOENT') {
@@ -140,8 +137,6 @@ function definitionLocation_godef(
         const lines = result.split('\n');
         let match = /(.*):(\d+):(\d+)/.exec(lines[0]);
         if (!match) {
-          // TODO: Gotodef on pkg name:
-          // /usr/local/go/src/html/template\n
           return resolve(null);
         }
         const [, file, line, col] = match;
@@ -274,7 +269,7 @@ function definitionLocation_guru(input: GoDefinitionInput, token: qv.Cancellatio
         if (!match) {
           return resolve(definitionInfo);
         }
-        // const [_, file, line, col] = match;
+
         definitionInfo.file = match[1];
         definitionInfo.line = +match[2] - 1;
         definitionInfo.column = +match[3] - 1;
@@ -291,8 +286,6 @@ function definitionLocation_guru(input: GoDefinitionInput, token: qv.Cancellatio
 
 export function parseMissingError(err: any): [boolean, string] {
   if (err) {
-    // Prompt for missing tool is located here so that the
-    // prompts dont show up on hover or signature help
     if (typeof err === 'string' && err.startsWith(missingToolMsg)) {
       return [true, err.substr(missingToolMsg.length)];
     }

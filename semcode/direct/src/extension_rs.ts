@@ -172,39 +172,27 @@ function configureLanguage(): qv.Disposable {
   return qv.languages.setLanguageConfiguration('rust', {
     onEnterRules: [
       {
-        // Doc single-line comment
-        // e.g. ///|
         beforeText: /^\s*\/{3}.*$/,
         action: { indentAction: qv.IndentAction.None, appendText: '/// ' },
       },
       {
-        // Parent doc single-line comment
-        // e.g. //!|
         beforeText: /^\s*\/{2}\!.*$/,
         action: { indentAction: qv.IndentAction.None, appendText: '//! ' },
       },
       {
-        // Begins an auto-closed multi-line comment (standard or parent doc)
-        // e.g. /** | */ or /*! | */
         beforeText: /^\s*\/\*(\*|\!)(?!\/)([^\*]|\*(?!\/))*$/,
         afterText: /^\s*\*\/$/,
         action: { indentAction: qv.IndentAction.IndentOutdent, appendText: ' * ' },
       },
       {
-        // Begins a multi-line comment (standard or parent doc)
-        // e.g. /** ...| or /*! ...|
         beforeText: /^\s*\/\*(\*|\!)(?!\/)([^\*]|\*(?!\/))*$/,
         action: { indentAction: qv.IndentAction.None, appendText: ' * ' },
       },
       {
-        // Continues a multi-line comment
-        // e.g.  * ...|
         beforeText: /^(\ \ )*\ \*(\ ([^\*]|\*(?!\/))*)?$/,
         action: { indentAction: qv.IndentAction.None, appendText: '* ' },
       },
       {
-        // Dedents after closing a multi-line comment
-        // e.g.  */|
         beforeText: /^(\ \ )*\ \*\/\s*$/,
         action: { indentAction: qv.IndentAction.None, removeText: 1 },
       },
@@ -218,12 +206,6 @@ let g_watchedEnvironmentFile: string = null;
 let g_startupNotification: qv.StatusBarItem = null;
 
 export async function activate(ctx: qv.ExtensionContext) {
-  //console.log('Congratulations, your extension "semcode2" is now active!');
-  //let disposable = qv.commands.registerCommand('semcode2.helloWorld', () => {
-  //  qv.window.showInformationMessage('Hello World from SemCode2!');
-  //});
-  //ctx.subscriptions.push(disposable);
-
   if (qv.extensions.getExtension('julialang.language-julia') && qv.extensions.getExtension('julialang.language-julia-insider')) {
     qv.window.showErrorMessage(
       'You have both the Julia Insider and regular Julia extension installed at the same time, which is not supported. Please uninstall or disable one of the two extensions.'

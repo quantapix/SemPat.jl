@@ -48,7 +48,6 @@ export class DefinitionProvider {
         declarations.forEach((decl) => {
           let resolvedDecl = evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
           if (resolvedDecl && resolvedDecl.path) {
-            // If the decl is an unresolved import, skip it.
             if (resolvedDecl.type === DeclarationType.Alias && resolvedDecl.isUnresolved) {
               return;
             }
@@ -61,7 +60,6 @@ export class DefinitionProvider {
             });
 
             if (isFunctionDeclaration(resolvedDecl)) {
-              // Handle overloaded function case
               const functionType = evaluator.getTypeForDeclaration(resolvedDecl);
               if (functionType && isOverloadedFunction(functionType)) {
                 for (const overloadDecl of functionType.overloads.map((o) => o.details.declaration).filter(isDefined)) {
@@ -75,7 +73,6 @@ export class DefinitionProvider {
 
             if (isStubFile(resolvedDecl.path)) {
               if (resolvedDecl.type === DeclarationType.Alias) {
-                // Add matching source module
                 sourceMapper
                   .findModules(resolvedDecl.path)
                   .map((m) => getFileInfo(m)?.filePath)

@@ -32,11 +32,6 @@ export class CharacterStream {
     return this._currentChar;
   }
 
-  // We also expose a (non-property) method that is
-  // the equivalent of currentChar above. This allows
-  // us to work around assumptions in the TypeScript
-  // compiler that method calls (e.g. moveNext()) don't
-  // modify properties.
   getCurrentChar(): number {
     return this._currentChar;
   }
@@ -64,7 +59,6 @@ export class CharacterStream {
 
   moveNext(): boolean {
     if (this._position < this._text.length - 1) {
-      // Most common case, no need to check bounds extensively
       this._position += 1;
       this._currentChar = this._text.charCodeAt(this._position);
       return true;

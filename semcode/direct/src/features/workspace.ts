@@ -39,9 +39,7 @@ class WsSymbol implements qv.WorkspaceSymbolProvider {
           const x = await qv.workspace.openTextDocument(p);
           return this.client.toOpenedFilePath(x);
         }
-      } catch {
-        // noop
-      }
+      } catch {}
     }
     return this.client.toOpenedFilePath(d);
   }

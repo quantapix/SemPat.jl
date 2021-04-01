@@ -80,8 +80,6 @@ import {
   YieldNode,
 } from '../parser/parseNodes';
 
-// To use this class, create a subclass and override the
-// visitXXX methods that you want to handle.
 export class ParseTreeWalker {
   walk(node: ParseNode): void {
     const childrenToWalk = this.visitNode(node);
@@ -98,11 +96,6 @@ export class ParseTreeWalker {
     });
   }
 
-  // Calls the node-specific method (visitXXXX). If the method
-  // returns true, all child nodes for the node are returned.
-  // If the method returns false, we assume that the handler
-  // has already handled the child nodes, so an empty list is
-  // returned.
   visitNode(node: ParseNode): ParseNodeArray {
     switch (node.nodeType) {
       case ParseNodeType.Argument:
@@ -563,7 +556,6 @@ export class ParseTreeWalker {
     return [];
   }
 
-  // Override these methods as necessary.
   visitArgument(node: ArgumentNode) {
     return true;
   }

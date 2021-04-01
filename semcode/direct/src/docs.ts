@@ -91,9 +91,8 @@ class DocumentationViewProvider implements qv.WebviewViewProvider {
   }
 
   async showDocumentationPane() {
-    // this forces the webview to be resolved:
     await qv.commands.executeCommand('julia-documentation.focus');
-    // should always be true, but better safe than sorry
+
     if (this.view) {
       this.view.show?.(true);
     }
@@ -274,7 +273,6 @@ class DocumentationViewProvider implements qv.WebviewViewProvider {
   }
 
   setHTML(html: string) {
-    // set current stack
     this.backStack.push(html);
 
     if (this.view) {

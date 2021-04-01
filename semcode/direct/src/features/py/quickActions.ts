@@ -60,11 +60,9 @@ function _addMissingOptionalToParam(parseResults: ParseResults, offset: number, 
     replacementText: ']',
   });
 
-  // Add the import statement if necessary.
   const importStatements = getTopLevelImports(parseResults.parseTree);
   const importStatement = importStatements.orderedImports.find((imp) => imp.moduleName === 'typing');
 
-  // If there's an existing import statement, insert into it.
   if (importStatement && importStatement.node.nodeType === ParseNodeType.ImportFrom) {
     const additionalEditActions = getTextEditsForAutoImportSymbolAddition('Optional', importStatement, parseResults);
     editActions.push(...additionalEditActions);

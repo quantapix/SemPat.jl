@@ -38,8 +38,6 @@ export async function selectRunnable(ctx: Ctx, prevRunnable?: RunnableQuickPick,
   }
 
   if (items.length === 0) {
-    // it is the debug case, run always has at least 'cargo check ...'
-    // see crates\rust-analyzer\src\main_loop\handlers.rs, handle_runnables
     qv.window.showErrorMessage("There's no debug target!");
     return;
   }
@@ -67,7 +65,6 @@ export async function selectRunnable(ctx: Ctx, prevRunnable?: RunnableQuickPick,
       quickPick.onDidChangeActive((active) => {
         if (showButtons && active.length > 0) {
           if (active[0].label.startsWith('cargo')) {
-            // save button makes no sense for `cargo test` or `cargo check`
             quickPick.buttons = [];
           } else if (quickPick.buttons.length === 0) {
             quickPick.buttons = quickPickButtons;
@@ -117,9 +114,6 @@ export function prepareEnv(runnable: ra.Runnable, runnableEnvCfg: RunnableEnvCfg
 
 export async function createTask(runnable: ra.Runnable, config: Config): Promise<qv.Task> {
   if (runnable.kind !== 'cargo') {
-    // rust-analyzer supports only one kind, "cargo"
-    // do not use tasks.TASK_TYPE here, these are completely different meanings.
-
     throw `Unexpected runnable kind: ${runnable.kind}`;
   }
 

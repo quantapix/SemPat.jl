@@ -33,7 +33,6 @@ export class PyrightFileSystem implements FileSystem {
 
   readdirEntriesSync(path: string): fs.Dirent[] {
     const entries = this._realFS.readdirEntriesSync(path).filter((item) => {
-      // Filter out the stub package directory.
       const dirPath = combinePaths(path, item.name);
       return !this._partialStubPackagePaths.has(dirPath);
     });
@@ -48,7 +47,6 @@ export class PyrightFileSystem implements FileSystem {
 
   readdirSync(path: string): string[] {
     const entries = this._realFS.readdirSync(path).filter((item) => {
-      // Filter out the stub package directory.
       const dirPath = combinePaths(path, item);
       return !this._partialStubPackagePaths.has(dirPath);
     });
@@ -103,7 +101,6 @@ export class PyrightFileSystem implements FileSystem {
     this._realFS.copyFileSync(this.getOriginalFilePath(src), this.getOriginalFilePath(dst));
   }
 
-  // Async I/O
   readFile(path: string): Promise<Buffer> {
     return this._realFS.readFile(this.getOriginalFilePath(path));
   }
@@ -112,7 +109,6 @@ export class PyrightFileSystem implements FileSystem {
     return this._realFS.readFileText(this.getOriginalFilePath(path), encoding);
   }
 
-  // The directory returned by tmpdir must exist and be the same each time tmpdir is called.
   tmpdir(): string {
     return this._realFS.tmpdir();
   }
@@ -147,14 +143,11 @@ export class PyrightFileSystem implements FileSystem {
 
         const pyTypedInfo = getPyTypedInfo(this._realFS, partialStubPackagePath);
         if (!pyTypedInfo || !pyTypedInfo.isPartiallyTyped) {
-          // Stub-Package is fully typed.
           continue;
         }
 
-        // We found partially typed stub-packages.
         this._partialStubPackagePaths.add(partialStubPackagePath);
 
-        // 1. Search the root to see whether we have matching package installed.
         let partialStubs: string[] | undefined;
         const packageName = entry.name.substr(0, entry.name.length - stubsSuffix.length);
         for (const root of roots) {
@@ -165,19 +158,15 @@ export class PyrightFileSystem implements FileSystem {
               continue;
             }
 
-            // 2. Check py.typed of the package.
             const packagePyTyped = getPyTypedInfo(this._realFS, packagePath);
             if (packagePyTyped && !packagePyTyped.isPartiallyTyped) {
-              // We have fully typed package.
               continue;
             }
 
-            // 3. Merge partial stub packages to the library (py.typed not exist or partially typed).
             partialStubs = partialStubs ?? this._getRelativePathPartialStubs(partialStubPackagePath);
             for (const partialStub of partialStubs) {
               const mappedPyiFile = combinePaths(packagePath, partialStub);
               if (this.existsSync(mappedPyiFile)) {
-                // Found existing pyi file, skip.
                 continue;
               }
 
@@ -196,9 +185,7 @@ export class PyrightFileSystem implements FileSystem {
                 folderInfo.push(pyiFileName);
               }
             }
-          } catch {
-            // ignore
-          }
+          } catch {}
         }
       }
     }
@@ -212,17 +199,14 @@ export class PyrightFileSystem implements FileSystem {
     this._partialStubPackagePaths.clear();
   }
 
-  // See whether the file is mapped to another location.
   isMappedFilePath(filepath: string): boolean {
     return this._fileMap.has(filepath);
   }
 
-  // Get original filepath if the given filepath is mapped.
   getOriginalFilePath(mappedFilepath: string) {
     return this._fileMap.get(mappedFilepath) ?? mappedFilepath;
   }
 
-  // Get mapped filepath if the given filepath is mapped.
   getMappedFilePath(originalFilepath: string) {
     return this._reverseFileMap.get(originalFilepath) ?? originalFilepath;
   }

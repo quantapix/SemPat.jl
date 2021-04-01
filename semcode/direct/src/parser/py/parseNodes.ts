@@ -106,7 +106,6 @@ export const enum ErrorExpressionCategory {
 export interface ParseNodeBase extends TextRange {
   readonly nodeType: ParseNodeType;
 
-  // A unique ID given to each parse node.
   id: number;
 
   parent?: ParseNode;
@@ -455,9 +454,6 @@ export namespace ClassNode {
     return node;
   }
 
-  // This variant is used to create a dummy class
-  // when the parser encounters decorators with no
-  // function or class declaration.
   export function createDummyForDecorators(decorators: DecoratorNode[]) {
     const node: ClassNode = {
       start: 0,
@@ -877,9 +873,6 @@ export interface AugmentedAssignmentNode extends ParseNodeBase {
   operator: OperatorType;
   rightExpression: ExpressionNode;
 
-  // The destExpression is a copy of the leftExpression
-  // node. We use it as a place to hang the result type,
-  // as opposed to the source type.
   destExpression: ExpressionNode;
 }
 
@@ -1332,9 +1325,6 @@ export interface StringListNode extends ParseNodeBase {
   readonly nodeType: ParseNodeType.StringList;
   strings: (StringNode | FormatStringNode)[];
 
-  // If strings are found within the context of
-  // a type annotation, they are further parsed
-  // into an expression.
   typeAnnotation?: ExpressionNode;
 }
 
@@ -1557,7 +1547,6 @@ export interface ModuleNameNode extends ParseNodeBase {
   leadingDots: number;
   nameParts: NameNode[];
 
-  // This is an error condition used only for type completion.
   hasTrailingDot?: boolean;
 }
 

@@ -146,8 +146,6 @@ export interface ModuleImport {
   leadingDots: number;
   nameParts: string[];
 
-  // Used for "from X import Y" pattern. An empty
-  // array implies "from X import *".
   importedSymbols: string[] | undefined;
 }
 
@@ -186,7 +184,6 @@ export class Parser {
     timingStats.parseFileTime.timeOperation(() => {
       while (!this._atEof()) {
         if (!this._consumeTokenIfType(TokenType.NewLine)) {
-          // Handle a common error case and try to recover.
           const nextToken = this._peekToken();
           if (nextToken.type === TokenType.Indent) {
             this._getNextToken();
@@ -200,7 +197,6 @@ export class Parser {
 
           const statement = this._parseStatement();
           if (!statement) {
-            // Perform basic error recovery to get to the next line.
             this._consumeTokensUntilType([TokenType.NewLine]);
           } else {
             statement.parent = moduleNode;
@@ -269,18 +265,12 @@ export class Parser {
     this._parseOptions = parseOptions;
     this._diagSink = diagSink;
 
-    // Tokenize the file contents.
     const tokenizer = new Tokenizer();
     this._tokenizerOutput = tokenizer.tokenize(fileContents, textOffset, textLength, initialParenDepth);
     this._tokenIndex = 0;
   }
 
-  // stmt: simple_stmt | compound_stmt
-  // compound_stmt: if_stmt | while_stmt | for_stmt | try_stmt | with_stmt
-  //   | funcdef | classdef | decorated | async_stmt
   private _parseStatement(): StatementNode | ErrorNode | undefined {
-    // Handle the errant condition of a dedent token here to provide
-    // better recovery.
     if (this._consumeTokenIfType(TokenType.Dedent)) {
       this._addError(Localizer.Diagnostic.unexpectedUnindent(), this._peekToken());
     }
@@ -311,9 +301,6 @@ export class Parser {
         return this._parseAsyncStatement();
 
       case KeywordType.Match: {
-        // Match is considered a "soft" keyword, so we will treat
-        // it as an identifier if it is followed by an unexpected
-        // token.
         const peekToken = this._peekToken(1);
         let isInvalidMatchToken = false;
 
@@ -334,8 +321,6 @@ export class Parser {
         }
 
         if (!isInvalidMatchToken) {
-          // Try to parse the match statement. If it doesn't appear to
-          // be a match statement, treat as a non-keyword and reparse.
           const matchStatement = this._parseMatchStatement();
           if (matchStatement) {
             return matchStatement;
@@ -351,7 +336,6 @@ export class Parser {
     return this._parseSimpleStatement();
   }
 
-  // async_stmt: 'async' (funcdef | with_stmt | for_stmt)
   private _parseAsyncStatement(): StatementNode | undefined {
     const asyncToken = this._getKeywordToken(KeywordType.Async);
 
@@ -371,25 +355,15 @@ export class Parser {
     return undefined;
   }
 
-  // match_stmt: "match" subject_expr ':' NEWLINE INDENT case_block+ DEDENT
-  // subject_expr:
-  //     | star_named_expression ',' star_named_expressions?
-  //     | named_expression
   private _parseMatchStatement(): MatchNode | undefined {
     const matchToken = this._getKeywordToken(KeywordType.Match);
 
-    // Parse the subject expression with errors suppressed. If it's not
-    // followed by a colon, we'll assume this is not a match statement.
-    // We need to do this because "match" is considered a soft keyword,
-    // and we need to distinguish between "match(2)" and "match (2):"
-    // and between "match[2]" and "match [2]:"
     let smellsLikeMatchStatement = false;
     this._suppressErrors(() => {
       const curTokenIndex = this._tokenIndex;
       this._parseTestOrStarListAsExpression(/* allowAssignmentExpression */ true, ErrorExpressionCategory.MissingPatternSubject, Localizer.Diagnostic.expectedReturnExpr());
       smellsLikeMatchStatement = this._peekToken().type === TokenType.Colon;
 
-      // Set the token index back to the start.
       this._tokenIndex = curTokenIndex;
     });
 
@@ -405,8 +379,6 @@ export class Parser {
     if (!this._consumeTokenIfType(TokenType.Colon)) {
       this._addError(Localizer.Diagnostic.expectedColon(), nextToken);
 
-      // Try to perform parse recovery by consuming tokens until
-      // we find the end of the line.
       if (this._consumeTokensUntilType([TokenType.NewLine, TokenType.Colon])) {
         this._getNextToken();
       }
@@ -424,7 +396,6 @@ export class Parser {
       }
 
       while (true) {
-        // Handle a common error here and see if we can recover.
         const nextToken = this._peekToken();
         if (nextToken.type === TokenType.Indent) {
           this._getNextToken();
@@ -438,7 +409,6 @@ export class Parser {
 
         const caseStatement = this._parseCaseStatement();
         if (!caseStatement) {
-          // Perform basic error recovery to get to the next line.
           if (this._consumeTokensUntilType([TokenType.NewLine, TokenType.Colon])) {
             this._getNextToken();
           }
@@ -467,12 +437,10 @@ export class Parser {
       }
     }
 
-    // This feature requires Python 3.10.
     if (this._getLanguageVersion() < PythonVersion.V3_10) {
       this._addError(Localizer.Diagnostic.matchIncompatible(), matchToken);
     }
 
-    // Validate that only the last entry uses an irrefutable pattern.
     for (let i = 0; i < matchNode.cases.length - 1; i++) {
       const caseNode = matchNode.cases[i];
       if (!caseNode.guardExpression && this._isPatternIrrefutable(caseNode.pattern)) {
@@ -483,9 +451,6 @@ export class Parser {
     return matchNode;
   }
 
-  // case_block: "case" patterns [guard] ':' block
-  // patterns: sequence_pattern | as_pattern
-  // guard: 'if' named_expression
   private _parseCaseStatement(): CaseNode | undefined {
     const caseToken = this._peekToken();
 
@@ -523,8 +488,6 @@ export class Parser {
     return CaseNode.create(caseToken, casePattern, guardExpression, suite);
   }
 
-  // PEP 634 defines the concept of an "irrefutable" pattern - a pattern that
-  // will always be matched.
   private _isPatternIrrefutable(node: PatternAtomNode): boolean {
     if (node.nodeType === ParseNodeType.PatternCapture) {
       return true;
@@ -593,13 +556,11 @@ export class Parser {
   private _parsePatternSequence() {
     const patternList = this._parseExpressionListGeneric(() => this._parsePatternAs());
 
-    // Check for more than one star entry.
     const starEntries = patternList.list.filter((entry) => entry.orPatterns.length === 1 && entry.orPatterns[0].nodeType === ParseNodeType.PatternCapture && entry.orPatterns[0].isStar);
     if (starEntries.length > 1) {
       this._addError(Localizer.Diagnostic.duplicateStarPattern(), starEntries[1].orPatterns[0]);
     }
 
-    // Look for redundant capture targets.
     const captureTargetMap = new Map<string, PatternAtomNode>();
     patternList.list.forEach((asPattern) => {
       asPattern.orPatterns.forEach((patternAtom) => {
@@ -621,8 +582,6 @@ export class Parser {
     return patternList;
   }
 
-  // as_pattern: or_pattern ['as' NAME]
-  // or_pattern: '|'.pattern_atom+
   private _parsePatternAs(): PatternAsNode {
     const orPatterns: PatternAtomNode[] = [];
 
@@ -636,7 +595,6 @@ export class Parser {
     }
 
     if (orPatterns.length > 1) {
-      // Star patterns cannot be ORed with other patterns.
       orPatterns.forEach((patternAtom) => {
         if (patternAtom.nodeType === ParseNodeType.PatternCapture && patternAtom.isStar) {
           this._addError(Localizer.Diagnostic.starPatternInOrPattern(), patternAtom);
@@ -654,19 +612,16 @@ export class Parser {
       }
     }
 
-    // Star patterns cannot be used with AS pattern.
     if (target && orPatterns.length === 1 && orPatterns[0].nodeType === ParseNodeType.PatternCapture && orPatterns[0].isStar) {
       this._addError(Localizer.Diagnostic.starPatternInAsPattern(), orPatterns[0]);
     }
 
-    // Validate that irrefutable patterns are not in any entries other than the last.
     orPatterns.forEach((orPattern, index) => {
       if (index < orPatterns.length - 1 && this._isPatternIrrefutable(orPattern)) {
         this._addError(Localizer.Diagnostic.orPatternIrrefutable(), orPattern);
       }
     });
 
-    // Validate that all bound variables are the same within all or patterns.
     const fullNameMap = new Map<string, boolean>();
     orPatterns.forEach((orPattern) => {
       this._getPatternTargetNames(orPattern, fullNameMap);
@@ -691,19 +646,6 @@ export class Parser {
     return PatternAsNode.create(orPatterns, target);
   }
 
-  // pattern_atom:
-  //     | literal_pattern
-  //     | name_or_attr
-  //     | '(' as_pattern ')'
-  //     | '[' [sequence_pattern] ']'
-  //     | '(' [sequence_pattern] ')'
-  //     | '{' [items_pattern] '}'
-  //     | name_or_attr '(' [pattern_arguments ','?] ')'
-  // name_or_attr: attr | NAME
-  // attr: name_or_attr '.' NAME
-  // sequence_pattern: ','.maybe_star_pattern+ ','?
-  // maybe_star_pattern: '*' NAME | pattern
-  // items_pattern: ','.key_value_pattern+ ','?
   private _parsePatternAtom(): PatternAtomNode {
     const patternLiteral = this._parsePatternLiteral();
     if (patternLiteral) {
@@ -724,12 +666,8 @@ export class Parser {
       if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
         this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
 
-        // Consume the remainder of tokens on the line for error
-        // recovery.
         this._consumeTokensUntilType([TokenType.NewLine]);
 
-        // Extend the node's range to include the rest of the line.
-        // This helps the signatureHelpProvider.
         extendRange(classPattern, this._peekToken());
       }
 
@@ -798,11 +736,6 @@ export class Parser {
     return this._handleExpressionParseError(ErrorExpressionCategory.MissingPattern, Localizer.Diagnostic.expectedPatternExpr());
   }
 
-  // pattern_arguments:
-  //     | positional_patterns [',' keyword_patterns]
-  //     | keyword_patterns
-  // positional_patterns: ','.as_pattern+
-  // keyword_patterns: ','.keyword_pattern+
   private _parseClassPatternArgList(): PatternClassArgumentNode[] {
     const argList: PatternClassArgumentNode[] = [];
     let sawKeywordArg = false;
@@ -829,7 +762,6 @@ export class Parser {
     return argList;
   }
 
-  // keyword_pattern: NAME '=' as_pattern
   private _parseClassPatternArgument(): PatternClassArgumentNode {
     const firstToken = this._peekToken();
     const secondToken = this._peekToken(1);
@@ -851,14 +783,6 @@ export class Parser {
     return PatternClassArgumentNode.create(pattern, keywordName);
   }
 
-  // literal_pattern:
-  //     | signed_number
-  //     | signed_number '+' NUMBER
-  //     | signed_number '-' NUMBER
-  //     | strings
-  //     | 'None'
-  //     | 'True'
-  //     | 'False'
   private _parsePatternLiteral(): PatternLiteralNode | undefined {
     const nextToken = this._peekToken();
     const nextOperator = this._peekOperatorType();
@@ -871,7 +795,6 @@ export class Parser {
       const stringList = this._parseAtom() as StringListNode;
       assert(stringList.nodeType === ParseNodeType.StringList);
 
-      // Check for f-strings, which are not allowed.
       stringList.strings.forEach((stringAtom) => {
         if (stringAtom.token.flags & StringTokenFlags.Format) {
           this._addError(Localizer.Diagnostic.formatStringInPattern(), stringAtom);
@@ -889,7 +812,6 @@ export class Parser {
     }
   }
 
-  // signed_number: NUMBER | '-' NUMBER
   private _parsePatternLiteralNumber(): PatternLiteralNode {
     const expression = this._parseArithmeticExpression();
     let realValue: ExpressionNode | undefined;
@@ -932,7 +854,6 @@ export class Parser {
     const itemList = this._parseExpressionListGeneric(() => this._parsePatternMappingItem());
 
     if (itemList.list.length > 0) {
-      // Verify there's at most one ** entry.
       const starStarEntries = itemList.list.filter((entry) => entry.nodeType === ParseNodeType.PatternMappingExpandEntry);
       if (starStarEntries.length > 1) {
         this._addError(Localizer.Diagnostic.duplicateStarStarPattern(), starStarEntries[1]);
@@ -944,9 +865,6 @@ export class Parser {
     return itemList.parseError || ErrorNode.create(this._peekToken(), ErrorExpressionCategory.MissingPattern);
   }
 
-  // key_value_pattern:
-  //     | (literal_pattern | attr) ':' as_pattern
-  //     | '**' NAME
   private _parsePatternMappingItem(): PatternMappingEntryNode | ErrorNode {
     let keyExpression: PatternLiteralNode | PatternValueNode | ErrorNode | undefined;
     const doubleStar = this._peekToken();
@@ -1033,9 +951,6 @@ export class Parser {
     return undefined;
   }
 
-  // if_stmt: 'if' test_suite ('elif' test_suite)* ['else' suite]
-  // test_suite: test suite
-  // test: or_test ['if' or_test 'else' test] | lambdef
   private _parseIfStatement(keywordType: KeywordType.If | KeywordType.Elif = KeywordType.If): IfNode {
     const ifOrElifToken = this._getKeywordToken(keywordType);
 
@@ -1048,7 +963,6 @@ export class Parser {
       ifNode.elseSuite.parent = ifNode;
       extendRange(ifNode, ifNode.elseSuite);
     } else if (this._peekKeywordType() === KeywordType.Elif) {
-      // Recursively handle an "elif" statement.
       ifNode.elseSuite = this._parseIfStatement(KeywordType.Elif);
       ifNode.elseSuite.parent = ifNode;
       extendRange(ifNode, ifNode.elseSuite);
@@ -1071,7 +985,6 @@ export class Parser {
     return suite;
   }
 
-  // suite: ':' (simple_stmt | NEWLINE INDENT stmt+ DEDENT)
   private _parseSuite(isFunction = false, postColonCallback?: () => void): SuiteNode {
     const nextToken = this._peekToken();
     const suite = SuiteNode.create(nextToken);
@@ -1079,8 +992,6 @@ export class Parser {
     if (!this._consumeTokenIfType(TokenType.Colon)) {
       this._addError(Localizer.Diagnostic.expectedColon(), nextToken);
 
-      // Try to perform parse recovery by consuming tokens until
-      // we find the end of the line.
       if (this._consumeTokensUntilType([TokenType.NewLine, TokenType.Colon])) {
         this._getNextToken();
       }
@@ -1109,7 +1020,6 @@ export class Parser {
       }
 
       while (true) {
-        // Handle a common error here and see if we can recover.
         const nextToken = this._peekToken();
         if (nextToken.type === TokenType.Indent) {
           this._getNextToken();
@@ -1123,7 +1033,6 @@ export class Parser {
 
         const statement = this._parseStatement();
         if (!statement) {
-          // Perform basic error recovery to get to the next line.
           this._consumeTokensUntilType([TokenType.NewLine]);
         } else {
           statement.parent = suite;
@@ -1157,7 +1066,6 @@ export class Parser {
     return suite;
   }
 
-  // for_stmt: [async] 'for' exprlist 'in' testlist suite ['else' suite]
   private _parseForStatement(asyncToken?: KeywordToken): ForNode {
     const forToken = this._getKeywordToken(KeywordType.For);
 
@@ -1194,7 +1102,6 @@ export class Parser {
     return forNode;
   }
 
-  // comp_iter: comp_for | comp_if
   private _tryParseListComprehension(target: ParseNode): ListComprehensionNode | undefined {
     const compFor = this._tryParseCompForStatement();
 
@@ -1230,7 +1137,6 @@ export class Parser {
     return listCompNode;
   }
 
-  // comp_for: ['async'] 'for' exprlist 'in' or_test [comp_iter]
   private _tryParseCompForStatement(): ListComprehensionForNode | undefined {
     const startTokenKeywordType = this._peekKeywordType();
 
@@ -1271,8 +1177,6 @@ export class Parser {
     return compForNode;
   }
 
-  // comp_if: 'if' test_nocond [comp_iter]
-  // comp_iter: comp_for | comp_if
   private _tryParseCompIfStatement(): ListComprehensionIfNode | undefined {
     if (this._peekKeywordType() !== KeywordType.If) {
       return undefined;
@@ -1286,7 +1190,6 @@ export class Parser {
     return compIfNode;
   }
 
-  // while_stmt: 'while' test suite ['else' suite]
   private _parseWhileStatement(): WhileNode {
     const whileToken = this._getKeywordToken(KeywordType.While);
 
@@ -1301,12 +1204,6 @@ export class Parser {
     return whileNode;
   }
 
-  // try_stmt: ('try' suite
-  //         ((except_clause suite)+
-  //             ['else' suite]
-  //             ['finally' suite] |
-  //         'finally' suite))
-  // except_clause: 'except' [test ['as' NAME]]
   private _parseTryStatement(): TryNode {
     const tryToken = this._getKeywordToken(KeywordType.Try);
     const trySuite = this._parseSuite(this._isInFunction);
@@ -1330,12 +1227,10 @@ export class Parser {
             this._addError(Localizer.Diagnostic.expectedNameAfterAs(), this._peekToken());
           }
         } else {
-          // Handle the python 2.x syntax in a graceful manner.
           const peekToken = this._peekToken();
           if (this._consumeTokenIfType(TokenType.Comma)) {
             this._addError(Localizer.Diagnostic.expectedAsAfterException(), peekToken);
 
-            // Parse the expression expected in python 2.x, but discard it.
             this._parseTestExpression(/* allowAssignmentExpression */ false);
           }
         }
@@ -1391,8 +1286,6 @@ export class Parser {
     return tryNode;
   }
 
-  // funcdef: 'def' NAME parameters ['->' test] ':' suite
-  // parameters: '(' [typedargslist] ')'
   private _parseFunctionDef(asyncToken?: KeywordToken, decorators?: DecoratorNode[]): FunctionNode | ErrorNode {
     const defToken = this._getKeywordToken(KeywordType.Def);
 
@@ -1454,8 +1347,6 @@ export class Parser {
       extendRange(functionNode, returnType);
     }
 
-    // If there was a type annotation comment for the function,
-    // parse it now.
     if (functionTypeAnnotationToken) {
       this._parseFunctionTypeAnnotationComment(functionTypeAnnotationToken, functionNode);
     }
@@ -1463,18 +1354,6 @@ export class Parser {
     return functionNode;
   }
 
-  // typedargslist: (
-  //   tfpdef ['=' test] (',' tfpdef ['=' test])*
-  //      [ ','
-  //          [
-  //              '*' [tfpdef] (',' tfpdef ['=' test])* [',' ['**' tfpdef [',']]]
-  //              | '**' tfpdef [',']
-  //          ]
-  //      ]
-  //   | '*' [tfpdef] (',' tfpdef ['=' test])* [',' ['**' tfpdef [',']]]
-  //   | '**' tfpdef [','])
-  // tfpdef: NAME [':' test]
-  // vfpdef: NAME;
   private _parseVarArgsList(terminator: TokenType, allowAnnotations: boolean): ParameterNode[] {
     const paramMap = new Map<string, string>();
     const paramList: ParameterNode[] = [];
@@ -1521,7 +1400,6 @@ export class Parser {
           if (param.defaultValue) {
             sawDefaultParam = true;
           } else if (sawDefaultParam && !sawKwSeparator && !sawVarArgs) {
-            // Report this error only once.
             if (!reportedNonDefaultParamErr) {
               this._addError(Localizer.Diagnostic.nonDefaultAfterDefault(), param);
               reportedNonDefaultParamErr = true;
@@ -1558,7 +1436,6 @@ export class Parser {
       const foundComma = this._consumeTokenIfType(TokenType.Comma);
 
       if (allowAnnotations && !param.typeAnnotation) {
-        // Look for a type annotation comment at the end of the line.
         const typeAnnotationComment = this._parseVariableTypeAnnotationComment();
         if (typeAnnotationComment) {
           param.typeAnnotationComment = typeAnnotationComment;
@@ -1608,7 +1485,6 @@ export class Parser {
         return paramNode;
       }
 
-      // Check for the Python 2.x parameter sublist syntax and handle it gracefully.
       if (this._peekTokenType() === TokenType.OpenParenthesis) {
         const sublistStart = this._getNextToken();
         if (this._consumeTokensUntilType([TokenType.CloseParenthesis])) {
@@ -1652,19 +1528,12 @@ export class Parser {
     return paramNode;
   }
 
-  // with_stmt: 'with' with_item (',' with_item)*  ':' suite
-  // Python 3.10 adds support for optional parentheses around
-  // with_item list.
   private _parseWithStatement(asyncToken?: KeywordToken): WithNode {
     const withToken = this._getKeywordToken(KeywordType.With);
     const withItemList: WithItemNode[] = [];
 
     const possibleParen = this._peekToken();
 
-    // If the expression starts with a paren, parse it as though the
-    // paren is enclosing the list of "with items". This is done as a
-    // "dry run" to determine whether the entire list of "with items"
-    // is enclosed in parentheses.
     let isParenthesizedWithItemList = false;
     if (possibleParen.type === TokenType.OpenParenthesis) {
       const openParenTokenIndex = this._tokenIndex;
@@ -1722,7 +1591,6 @@ export class Parser {
     return withNode;
   }
 
-  // with_item: test ['as' expr]
   private _parseWithItem(): WithItemNode {
     const expr = this._parseTestExpression(/* allowAssignmentExpression */ true);
     const itemNode = WithItemNode.create(expr);
@@ -1736,8 +1604,6 @@ export class Parser {
     return itemNode;
   }
 
-  // decorators: decorator+
-  // decorated: decorators (classdef | funcdef | async_funcdef)
   private _parseDecorated(): StatementNode | undefined {
     const decoratorList: DecoratorNode[] = [];
 
@@ -1768,20 +1634,15 @@ export class Parser {
 
     this._addError(Localizer.Diagnostic.expectedAfterDecorator(), this._peekToken());
 
-    // Return a dummy class declaration so the completion provider has
-    // some parse nodes to work with.
     return ClassNode.createDummyForDecorators(decoratorList);
   }
 
-  // decorator: '@' dotted_name [ '(' [arglist] ')' ] NEWLINE
   private _parseDecorator(): DecoratorNode {
     const atOperator = this._getNextToken() as OperatorToken;
     assert(atOperator.operatorType === OperatorType.MatrixMultiply);
 
     const expression = this._parseTestExpression(/* allowAssignmentExpression */ true);
 
-    // Versions of Python prior to 3.9 support a limited set of
-    // expression forms.
     if (this._getLanguageVersion() < PythonVersion.V3_9) {
       let isSupportedExpressionForm = false;
       if (this._isNameOrMemberAccessExpression(expression)) {
@@ -1815,7 +1676,6 @@ export class Parser {
     return false;
   }
 
-  // classdef: 'class' NAME ['(' [arglist] ')'] suite
   private _parseClassDef(decorators?: DecoratorNode[]): ClassNode {
     const classToken = this._getKeywordToken(KeywordType.Class);
 
@@ -1881,7 +1741,6 @@ export class Parser {
     return ContinueNode.create(continueToken);
   }
 
-  // return_stmt: 'return' [testlist]
   private _parseReturnStatement(): ReturnNode {
     const returnToken = this._getKeywordToken(KeywordType.Return);
 
@@ -1902,18 +1761,12 @@ export class Parser {
     return returnNode;
   }
 
-  // import_from: ('from' (('.' | '...')* dotted_name | ('.' | '...')+)
-  //             'import' ('*' | '(' import_as_names ')' | import_as_names))
-  // import_as_names: import_as_name (',' import_as_name)* [',']
-  // import_as_name: NAME ['as' NAME]
   private _parseFromStatement(): ImportFromNode {
     const fromToken = this._getKeywordToken(KeywordType.From);
 
     const modName = this._parseDottedModuleName(/* allowJustDots */ true);
     const importFromNode = ImportFromNode.create(fromToken, modName);
 
-    // Handle imports from __future__ specially because they can
-    // change the way we interpret the rest of the file.
     const isFutureImport = modName.leadingDots === 0 && modName.nameParts.length === 1 && modName.nameParts[0].value === '__future__';
 
     const possibleInputToken = this._peekToken();
@@ -1925,7 +1778,6 @@ export class Parser {
     } else {
       extendRange(importFromNode, possibleInputToken);
 
-      // Look for "*" token.
       const possibleStarToken = this._peekToken();
       if (this._consumeTokenIfOperator(OperatorType.Multiply)) {
         extendRange(importFromNode, possibleStarToken);
@@ -1959,7 +1811,6 @@ export class Parser {
           extendRange(importFromNode, importFromAsNode);
 
           if (isFutureImport) {
-            // Add the future import to the map.
             this._futureImportMap.set(importName.value, true);
           }
 
@@ -2019,9 +1870,6 @@ export class Parser {
     return importFromNode;
   }
 
-  // import_name: 'import' dotted_as_names
-  // dotted_as_names: dotted_as_name (',' dotted_as_name)*
-  // dotted_as_name: dotted_name ['as' NAME]
   private _parseImportStatement(): ImportNode {
     const importToken = this._getKeywordToken(KeywordType.Import);
 
@@ -2076,8 +1924,6 @@ export class Parser {
     return importNode;
   }
 
-  // ('.' | '...')* dotted_name | ('.' | '...')+
-  // dotted_name: NAME ('.' NAME)*
   private _parseDottedModuleName(allowJustDots = false): ModuleNameNode {
     const moduleNameNode = ModuleNameNode.create(this._peekToken());
 
@@ -2111,7 +1957,6 @@ export class Parser {
         break;
       }
 
-      // Extend the module name to include the dot.
       extendRange(moduleNameNode, nextToken);
     }
 
@@ -2166,8 +2011,6 @@ export class Parser {
     return nameList;
   }
 
-  // raise_stmt: 'raise' [test ['from' test]]
-  // (old) raise_stmt: 'raise' [test [',' test [',' test]]]
   private _parseRaiseStatement(): RaiseNode {
     const raiseToken = this._getKeywordToken(KeywordType.Raise);
 
@@ -2183,7 +2026,6 @@ export class Parser {
         extendRange(raiseNode, raiseNode.valueExpression);
       } else {
         if (this._consumeTokenIfType(TokenType.Comma)) {
-          // Handle the Python 2.x variant
           raiseNode.valueExpression = this._parseTestExpression(/* allowAssignmentExpression */ true);
           raiseNode.valueExpression.parent = raiseNode;
           extendRange(raiseNode, raiseNode.valueExpression);
@@ -2200,7 +2042,6 @@ export class Parser {
     return raiseNode;
   }
 
-  // assert_stmt: 'assert' test [',' test]
   private _parseAssertStatement(): AssertNode {
     const assertToken = this._getKeywordToken(KeywordType.Assert);
 
@@ -2217,7 +2058,6 @@ export class Parser {
     return assertNode;
   }
 
-  // del_stmt: 'del' exprlist
   private _parseDelStatement(): DelNode {
     const delToken = this._getKeywordToken(KeywordType.Del);
 
@@ -2236,8 +2076,6 @@ export class Parser {
     return delNode;
   }
 
-  // yield_expr: 'yield' [yield_arg]
-  // yield_arg: 'from' test | testlist
   private _parseYieldExpression(): YieldNode | YieldFromNode {
     const yieldToken = this._getKeywordToken(KeywordType.Yield);
 
@@ -2266,17 +2104,14 @@ export class Parser {
     return this._parseYieldExpression();
   }
 
-  // simple_stmt: small_stmt (';' small_stmt)* [';'] NEWLINE
   private _parseSimpleStatement(): StatementListNode {
     const statement = StatementListNode.create(this._peekToken());
 
     while (true) {
-      // Swallow invalid tokens to make sure we make forward progress.
       if (this._peekTokenType() === TokenType.Invalid) {
         const invalidToken = this._getNextToken();
         const text = this._fileContents!.substr(invalidToken.start, invalidToken.length);
 
-        // Remove any non-printable characters.
         const cleanedText = text.replace(/[\S\W]/g, '');
         this._addError(Localizer.Diagnostic.invalidTokenChars().format({ text: cleanedText }), invalidToken);
         this._consumeTokensUntilType([TokenType.NewLine]);
@@ -2289,12 +2124,9 @@ export class Parser {
       extendRange(statement, smallStatement);
 
       if (smallStatement.nodeType === ParseNodeType.Error) {
-        // No need to log an error here. We assume that
-        // it was already logged by _parseSmallStatement.
         break;
       }
 
-      // Consume the semicolon if present.
       if (!this._consumeTokenIfType(TokenType.Semicolon)) {
         break;
       }
@@ -2312,10 +2144,6 @@ export class Parser {
     return statement;
   }
 
-  // small_stmt: (expr_stmt | del_stmt | pass_stmt | flow_stmt |
-  //             import_stmt | global_stmt | nonlocal_stmt | assert_stmt)
-  // flow_stmt: break_stmt | continue_stmt | return_stmt | raise_stmt | yield_stmt
-  // import_stmt: import_name | import_from
   private _parseSmallStatement(): ParseNode {
     switch (this._peekKeywordType()) {
       case KeywordType.Pass:
@@ -2359,17 +2187,12 @@ export class Parser {
   }
 
   private _makeExpressionOrTuple(exprListResult: ListResult<ExpressionNode>, enclosedInParens: boolean): ExpressionNode {
-    // A single-element tuple with no trailing comma is simply an expression
-    // that's surrounded by parens.
     if (exprListResult.list.length === 1 && !exprListResult.trailingComma) {
       if (exprListResult.list[0].nodeType === ParseNodeType.Unpack) {
         this._addError(Localizer.Diagnostic.unpackNotAllowed(), exprListResult.list[0]);
       }
       return exprListResult.list[0];
     }
-
-    // To accommodate empty tuples ("()"), we will reach back to get
-    // the opening parenthesis as the opening token.
 
     const tupleStartRange: TextRange = exprListResult.list.length > 0 ? exprListResult.list[0] : this._peekToken(-1);
 
@@ -2413,7 +2236,6 @@ export class Parser {
     return this._parseExpressionListGeneric(() => this._parseExpression(allowStar));
   }
 
-  // testlist: test (',' test)* [',']
   private _parseTestExpressionList(): ListResult<ExpressionNode> {
     return this._parseExpressionListGeneric(() => this._parseTestExpression(/* allowAssignmentExpression */ false));
   }
@@ -2422,7 +2244,6 @@ export class Parser {
     const exprListResult = this._parseExpressionListGeneric(() => this._parseTestOrStarExpression(allowAssignmentExpression));
 
     if (!exprListResult.parseError) {
-      // Make sure that we don't have more than one star expression in the list.
       let sawStar = false;
       for (const expr of exprListResult.list) {
         if (expr.nodeType === ParseNodeType.Unpack) {
@@ -2438,9 +2259,6 @@ export class Parser {
     return exprListResult;
   }
 
-  // exp_or_star: expr | star_expr
-  // expr: xor_expr ('|' xor_expr)*
-  // star_expr: '*' expr
   private _parseExpression(allowUnpack: boolean): ExpressionNode {
     const startToken = this._peekToken();
 
@@ -2451,7 +2269,6 @@ export class Parser {
     return this._parseBitwiseOrExpression();
   }
 
-  // test_or_star: test | star_expr
   private _parseTestOrStarExpression(allowAssignmentExpression: boolean): ExpressionNode {
     if (this._peekOperatorType() === OperatorType.Multiply) {
       return this._parseExpression(/* allowUnpack */ true);
@@ -2460,7 +2277,6 @@ export class Parser {
     return this._parseTestExpression(allowAssignmentExpression);
   }
 
-  // test: or_test ['if' or_test 'else' test] | lambdef
   private _parseTestExpression(allowAssignmentExpression: boolean): ExpressionNode {
     if (this._peekKeywordType() === KeywordType.Lambda) {
       return this._parseLambdaExpression();
@@ -2492,7 +2308,6 @@ export class Parser {
     return TernaryNode.create(ifExpr, testExpr, elseExpr);
   }
 
-  // assign_expr: NAME := test
   private _parseAssignmentExpression() {
     const leftExpr = this._parseOrTest();
     if (leftExpr.nodeType === ParseNodeType.Error) {
@@ -2521,7 +2336,6 @@ export class Parser {
     return AssignmentExpressionNode.create(leftExpr, rightExpr);
   }
 
-  // or_test: and_test ('or' and_test)*
   private _parseOrTest(): ExpressionNode {
     let leftExpr = this._parseAndTest();
     if (leftExpr.nodeType === ParseNodeType.Error) {
@@ -2540,7 +2354,6 @@ export class Parser {
     return leftExpr;
   }
 
-  // and_test: not_test ('and' not_test)*
   private _parseAndTest(): ExpressionNode {
     let leftExpr = this._parseNotTest();
     if (leftExpr.nodeType === ParseNodeType.Error) {
@@ -2559,7 +2372,6 @@ export class Parser {
     return leftExpr;
   }
 
-  // not_test: 'not' not_test | comparison
   private _parseNotTest(): ExpressionNode {
     const notToken = this._peekToken();
     if (this._consumeTokenIfKeyword(KeywordType.Not)) {
@@ -2570,8 +2382,6 @@ export class Parser {
     return this._parseComparison();
   }
 
-  // comparison: expr (comp_op expr)*
-  // comp_op: '<'|'>'|'=='|'>='|'<='|'<>'|'!='|'in'|'not' 'in'|'is'|'is' 'not'
   private _parseComparison(): ExpressionNode {
     let leftExpr = this._parseBitwiseOrExpression();
     if (leftExpr.nodeType === ParseNodeType.Error) {
@@ -2617,7 +2427,6 @@ export class Parser {
     return leftExpr;
   }
 
-  // expr: xor_expr ('|' xor_expr)*
   private _parseBitwiseOrExpression(): ExpressionNode {
     let leftExpr = this._parseBitwiseXorExpression();
     if (leftExpr.nodeType === ParseNodeType.Error) {
@@ -2636,7 +2445,6 @@ export class Parser {
     return leftExpr;
   }
 
-  // xor_expr: and_expr ('^' and_expr)*
   private _parseBitwiseXorExpression(): ExpressionNode {
     let leftExpr = this._parseBitwiseAndExpression();
     if (leftExpr.nodeType === ParseNodeType.Error) {
@@ -2655,7 +2463,6 @@ export class Parser {
     return leftExpr;
   }
 
-  // and_expr: shift_expr ('&' shift_expr)*
   private _parseBitwiseAndExpression(): ExpressionNode {
     let leftExpr = this._parseShiftExpression();
     if (leftExpr.nodeType === ParseNodeType.Error) {
@@ -2674,7 +2481,6 @@ export class Parser {
     return leftExpr;
   }
 
-  // shift_expr: arith_expr (('<<'|'>>') arith_expr)*
   private _parseShiftExpression(): ExpressionNode {
     let leftExpr = this._parseArithmeticExpression();
     if (leftExpr.nodeType === ParseNodeType.Error) {
@@ -2694,7 +2500,6 @@ export class Parser {
     return leftExpr;
   }
 
-  // arith_expr: term (('+'|'-') term)*
   private _parseArithmeticExpression(): ExpressionNode {
     let leftExpr = this._parseArithmeticTerm();
     if (leftExpr.nodeType === ParseNodeType.Error) {
@@ -2718,7 +2523,6 @@ export class Parser {
     return leftExpr;
   }
 
-  // term: factor (('*'|'@'|'/'|'%'|'//') factor)*
   private _parseArithmeticTerm(): ExpressionNode {
     let leftExpr = this._parseArithmeticFactor();
     if (leftExpr.nodeType === ParseNodeType.Error) {
@@ -2744,8 +2548,6 @@ export class Parser {
     return leftExpr;
   }
 
-  // factor: ('+'|'-'|'~') factor | power
-  // power: atom_expr ['**' factor]
   private _parseArithmeticFactor(): ExpressionNode {
     const nextToken = this._peekToken();
     const nextOperator = this._peekOperatorType();
@@ -2769,10 +2571,6 @@ export class Parser {
     return leftExpr;
   }
 
-  // Determines whether the expression refers to a type exported by the typing
-  // or typing_extensions modules. We can directly evaluate the types at binding
-  // time. We assume here that the code isn't making use of some custom type alias
-  // to refer to the typing types.
   private _isTypingAnnotation(typeAnnotation: ExpressionNode, name: string): boolean {
     if (typeAnnotation.nodeType === ParseNodeType.Name) {
       const alias = this._typingSymbolAliases.get(typeAnnotation.value);
@@ -2789,8 +2587,6 @@ export class Parser {
     return false;
   }
 
-  // atom_expr: ['await'] atom trailer*
-  // trailer: '(' [arglist] ')' | '[' subscriptlist ']' | '.' NAME
   private _parseAtomExpression(): ExpressionNode {
     let awaitToken: KeywordToken | undefined;
     if (this._peekKeywordType() === KeywordType.Await && !this._isParsingTypeAnnotation) {
@@ -2805,12 +2601,8 @@ export class Parser {
       return atomExpression;
     }
 
-    // Consume trailers.
     while (true) {
-      // Is it a function call?
       if (this._consumeTokenIfType(TokenType.OpenParenthesis)) {
-        // Generally, function calls are not allowed within type annotations,
-        // but they are permitted in "Annotated" annotations.
         const wasParsingTypeAnnotation = this._isParsingTypeAnnotation;
         this._isParsingTypeAnnotation = false;
 
@@ -2829,12 +2621,8 @@ export class Parser {
         if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
           this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
 
-          // Consume the remainder of tokens on the line for error
-          // recovery.
           this._consumeTokensUntilType([TokenType.NewLine]);
 
-          // Extend the node's range to include the rest of the line.
-          // This helps the signatureHelpProvider.
           extendRange(callNode, this._peekToken());
         } else {
           extendRange(callNode, nextToken);
@@ -2853,16 +2641,10 @@ export class Parser {
 
         atomExpression = callNode;
 
-        // If the argument list wasn't terminated, break out of the loop
         if (!isArgListTerminated) {
           break;
         }
       } else if (this._consumeTokenIfType(TokenType.OpenBracket)) {
-        // Is it an index operator?
-
-        // This is an unfortunate hack that's necessary to accommodate 'Literal'
-        // and 'Annotated' type annotations properly. We need to suspend treating
-        // strings as type annotations within a Literal or Annotated subscript.
         const wasParsingIndexTrailer = this._isParsingIndexTrailer;
         const wasParsingTypeAnnotation = this._isParsingTypeAnnotation;
 
@@ -2881,14 +2663,11 @@ export class Parser {
         extendRange(indexNode, indexNode);
 
         if (!this._consumeTokenIfType(TokenType.CloseBracket)) {
-          // Handle the error case, but don't use the error node in this
-          // case because it creates problems for the completion provider.
           this._handleExpressionParseError(ErrorExpressionCategory.MissingIndexCloseBracket, Localizer.Diagnostic.expectedCloseBracket(), indexNode);
         }
 
         atomExpression = indexNode;
       } else if (this._consumeTokenIfType(TokenType.Dot)) {
-        // Is it a member access?
         const memberName = this._getTokenIfIdentifier();
         if (!memberName) {
           return this._handleExpressionParseError(ErrorExpressionCategory.MissingMemberAccessName, Localizer.Diagnostic.expectedMemberName(), atomExpression);
@@ -2906,7 +2685,6 @@ export class Parser {
     return atomExpression;
   }
 
-  // subscriptlist: subscript (',' subscript)* [',']
   private _parseSubscriptList(): SubscriptListResult {
     const argList: ArgumentNode[] = [];
     let sawKeywordArg = false;
@@ -2929,7 +2707,6 @@ export class Parser {
       let valueExpr = this._parsePossibleSlice();
       let nameIdentifier: IdentifierToken | undefined;
 
-      // Is this a keyword argument?
       if (argType === ArgumentCategory.Simple) {
         if (this._consumeTokenIfOperator(OperatorType.Assign)) {
           const nameExpr = valueExpr;
@@ -2973,7 +2750,6 @@ export class Parser {
       trailingComma = true;
     }
 
-    // An empty subscript list is illegal.
     if (argList.length === 0) {
       const errorNode = this._handleExpressionParseError(ErrorExpressionCategory.MissingIndexOrSlice, Localizer.Diagnostic.expectedSliceIndex(), /* childNode */ undefined, [TokenType.CloseBracket]);
       argList.push(ArgumentNode.create(this._peekToken(), errorNode, ArgumentCategory.Simple));
@@ -2985,8 +2761,6 @@ export class Parser {
     };
   }
 
-  // subscript: test | [test] ':' [test] [sliceop]
-  // sliceop: ':' [test]
   private _parsePossibleSlice(): ExpressionNode {
     const firstToken = this._peekToken();
     const sliceExpressions: (ExpressionNode | undefined)[] = [undefined, undefined, undefined];
@@ -3010,7 +2784,6 @@ export class Parser {
       sawColon = true;
     }
 
-    // If this was a simple expression with no colons return it.
     if (!sawColon) {
       if (sliceExpressions[0]) {
         return sliceExpressions[0];
@@ -3040,7 +2813,6 @@ export class Parser {
     return sliceNode;
   }
 
-  // arglist: argument (',' argument)*  [',']
   private _parseArgList(): ArgumentNode[] {
     const argList: ArgumentNode[] = [];
     let sawKeywordArg = false;
@@ -3067,10 +2839,6 @@ export class Parser {
     return argList;
   }
 
-  // argument: ( test [comp_for] |
-  //             test '=' test |
-  //             '**' test |
-  //             '*' test )
   private _parseArgument(): ArgumentNode {
     const firstToken = this._peekToken();
 
@@ -3111,10 +2879,6 @@ export class Parser {
     return argNode;
   }
 
-  // atom: ('(' [yield_expr | testlist_comp] ')' |
-  //     '[' [testlist_comp] ']' |
-  //     '{' [dictorsetmaker] '}' |
-  //     NAME | NUMBER | STRING+ | '...' | 'None' | 'True' | 'False' | '__debug__')
   private _parseAtom(): ExpressionNode {
     const nextToken = this._peekToken();
 
@@ -3137,9 +2901,6 @@ export class Parser {
     if (nextToken.type === TokenType.Backtick) {
       this._getNextToken();
 
-      // Atoms with backticks are no longer allowed in Python 3.x, but they
-      // were a thing in Python 2.x. We'll parse them to improve parse recovery
-      // and emit an error.
       this._addError(Localizer.Diagnostic.backticksIllegal(), nextToken);
 
       const expressionNode = this._parseTestListAsExpression(ErrorExpressionCategory.MissingExpression, Localizer.Diagnostic.expectedExpr());
@@ -3151,18 +2912,12 @@ export class Parser {
     if (nextToken.type === TokenType.OpenParenthesis) {
       const possibleTupleNode = this._parseTupleAtom();
       if (possibleTupleNode.nodeType === ParseNodeType.Tuple && this._isParsingTypeAnnotation && !this._isParsingIndexTrailer) {
-        // This is allowed inside of an index trailer, specifically
-        // to support Tuple[()], which is the documented way to annotate
-        // a zero-length tuple.
         const diag = new DiagnosticAddendum();
         diag.addMessage(Localizer.DiagnosticAddendum.useTupleInstead());
         this._addError(Localizer.Diagnostic.tupleInAnnotation() + diag.getString(), possibleTupleNode);
       }
 
       if (possibleTupleNode.nodeType === ParseNodeType.BinaryOperation) {
-        // Mark the binary expression as parenthesized so we don't attempt
-        // to use comparison chaining, which isn't appropriate when the
-        // expression is parenthesized.
         possibleTupleNode.parenthesized = true;
       }
       return possibleTupleNode;
@@ -3195,7 +2950,6 @@ export class Parser {
         return ConstantNode.create(this._getNextToken() as KeywordToken);
       }
 
-      // Make an identifier out of the keyword.
       const keywordAsIdentifier = this._getTokenIfIdentifier();
       if (keywordAsIdentifier) {
         return NameNode.create(keywordAsIdentifier);
@@ -3205,10 +2959,6 @@ export class Parser {
     return this._handleExpressionParseError(ErrorExpressionCategory.MissingExpression, Localizer.Diagnostic.expectedExpr());
   }
 
-  // Allocates a dummy "error expression" and consumes the remainder
-  // of the tokens on the line for error recovery. A partially-completed
-  // child node can be passed to help the completion provider determine
-  // what to do.
   private _handleExpressionParseError(category: ErrorExpressionCategory, errorMsg: string, childNode?: ExpressionNode, additionalStopTokens?: TokenType[]): ErrorNode {
     this._addError(errorMsg, this._peekToken());
     const expr = ErrorNode.create(this._peekToken(), category, childNode);
@@ -3220,7 +2970,6 @@ export class Parser {
     return expr;
   }
 
-  // lambdef: 'lambda' [varargslist] ':' test
   private _parseLambdaExpression(allowConditional = true): LambdaNode {
     const lambdaToken = this._getKeywordToken(KeywordType.Lambda);
 
@@ -3253,8 +3002,6 @@ export class Parser {
     return this._parseLambdaExpression(allowConditional);
   }
 
-  // ('(' [yield_expr | testlist_comp] ')'
-  // testlist_comp: (test | star_expr) (comp_for | (',' (test | star_expr))* [','])
   private _parseTupleAtom(): ExpressionNode {
     const startParen = this._getNextToken();
     assert(startParen.type === TokenType.OpenParenthesis);
@@ -3284,8 +3031,6 @@ export class Parser {
     return tupleOrExpression;
   }
 
-  // '[' [testlist_comp] ']'
-  // testlist_comp: (test | star_expr) (comp_for | (',' (test | star_expr))* [','])
   private _parseListAtom(): ListNode | ErrorNode {
     const startBracket = this._getNextToken();
     assert(startBracket.type === TokenType.OpenBracket);
@@ -3326,13 +3071,6 @@ export class Parser {
     );
   }
 
-  // '{' [dictorsetmaker] '}'
-  // dictorsetmaker: (
-  //    (dictentry (comp_for | (',' dictentry)* [',']))
-  //    | (setentry (comp_for | (',' setentry)* [',']))
-  // )
-  // dictentry: (test ':' test | '**' expr)
-  // setentry: test | star_expr
   private _parseDictionaryOrSetAtom(): DictionaryNode | SetNode {
     const startBrace = this._getNextToken();
     assert(startBrace.type === TokenType.OpenCurlyBrace);
@@ -3426,7 +3164,6 @@ export class Parser {
         }
       }
 
-      // List comprehension statements always end the list.
       if (sawListComprehension) {
         break;
       }
@@ -3494,7 +3231,6 @@ export class Parser {
       }
       list.push(expr);
 
-      // Should we stop without checking for a trailing comma?
       if (finalEntryCheck()) {
         break;
       }
@@ -3510,12 +3246,6 @@ export class Parser {
     return { trailingComma, list, parseError };
   }
 
-  // expr_stmt: testlist_star_expr (annassign | augassign (yield_expr | testlist) |
-  //                     ('=' (yield_expr | testlist_star_expr))*)
-  // testlist_star_expr: (test|star_expr) (',' (test|star_expr))* [',']
-  // annassign: ':' test ['=' (yield_expr | testlist_star_expr)]
-  // augassign: ('+=' | '-=' | '*=' | '@=' | '/=' | '%=' | '&=' | '|=' | '^=' |
-  //             '<<=' | '>>=' | '**=' | '//=')
   private _parseExpressionStatement(): ExpressionNode {
     let leftExpr = this._parseTestOrStarListAsExpression(/* allowAssignmentExpression */ false, ErrorExpressionCategory.MissingExpression, Localizer.Diagnostic.expectedExpr());
     let annotationExpr: ExpressionNode | undefined;
@@ -3524,7 +3254,6 @@ export class Parser {
       return leftExpr;
     }
 
-    // Is this a type annotation assignment?
     if (this._consumeTokenIfType(TokenType.Colon)) {
       annotationExpr = this._parseTypeAnnotation();
       leftExpr = TypeAnnotationNode.create(leftExpr, annotationExpr);
@@ -3537,10 +3266,6 @@ export class Parser {
         return leftExpr;
       }
 
-      // This is an unfortunate hack that's necessary to accommodate 'TypeAlias'
-      // declarations properly. We need to treat this assignment differently than
-      // most because the expression on the right side is treated like a type
-      // annotation and therefore allows string-literal forward declarations.
       const isTypeAliasDeclaration = this._isTypingAnnotation(annotationExpr, 'TypeAlias');
 
       const wasParsingTypeAnnotation = this._isParsingTypeAnnotation;
@@ -3557,7 +3282,6 @@ export class Parser {
       return AssignmentNode.create(leftExpr, rightExpr);
     }
 
-    // Is this a simple assignment?
     if (this._consumeTokenIfOperator(OperatorType.Assign)) {
       return this._parseChainAssignments(leftExpr);
     }
@@ -3567,7 +3291,6 @@ export class Parser {
 
       const rightExpr = this._tryParseYieldExpression() || this._parseTestListAsExpression(ErrorExpressionCategory.MissingExpression, Localizer.Diagnostic.expectedBinaryRightHandExpr());
 
-      // Make a shallow copy of the dest expression but give it a new ID.
       const destExpr = Object.assign({}, leftExpr);
       destExpr.id = getNextNodeId();
 
@@ -3586,7 +3309,6 @@ export class Parser {
       return AssignmentNode.create(leftExpr, rightExpr);
     }
 
-    // Recur until we've consumed the entire chain.
     if (this._consumeTokenIfOperator(OperatorType.Assign)) {
       rightExpr = this._parseChainAssignments(rightExpr);
       if (rightExpr.nodeType === ParseNodeType.Error) {
@@ -3596,7 +3318,6 @@ export class Parser {
 
     const assignmentNode = AssignmentNode.create(leftExpr, rightExpr);
 
-    // Look for a type annotation comment at the end of the line.
     const typeAnnotationComment = this._parseVariableTypeAnnotationComment();
     if (typeAnnotationComment) {
       assignmentNode.typeAnnotationComment = typeAnnotationComment;
@@ -3652,11 +3373,9 @@ export class Parser {
   }
 
   private _parseTypeAnnotation(): ExpressionNode {
-    // Temporary set a flag that indicates we're parsing a type annotation.
     const wasParsingTypeAnnotation = this._isParsingTypeAnnotation;
     this._isParsingTypeAnnotation = true;
 
-    // Allow unpack operators.
     const startToken = this._peekToken();
     const isUnpack = this._consumeTokenIfOperator(OperatorType.Multiply);
     let result = this._parseTestExpression(/* allowAssignmentExpression */ false);
@@ -3718,13 +3437,8 @@ export class Parser {
       return undefined;
     }
 
-    // Synthesize a string token and StringNode.
     const typeString = match[2];
 
-    // Ignore all "ignore" comments. Include "[" in the regular
-    // expression because mypy supports ignore comments of the
-    // form ignore[errorCode, ...]. We'll treat these as regular
-    // ignore statements (as though no errorCodes were included).
     if (typeString.trim().match(/^ignore(\s|\[|$)/)) {
       return undefined;
     }
@@ -3806,15 +3520,12 @@ export class Parser {
 
     for (const segment of unescapedResult.formatStringSegments) {
       if (segment.isExpression) {
-        // Determine if we need to truncate the expression because it
-        // contains formatting directives that start with a ! or :.
         const segmentExprLength = this._getFormatStringExpressionLength(segment.value.trimEnd());
         const parseTree = this._parseFormatStringSegment(stringToken, segment, 0, segmentExprLength);
         if (parseTree) {
           formatExpressions.push(parseTree);
         }
 
-        // Look for additional expressions within the format directive.
         const formatDirective = segment.value.substr(segmentExprLength);
         let braceDepth = 0;
         let startOfExprOffset = 0;
@@ -3845,9 +3556,6 @@ export class Parser {
   private _getFormatStringExpressionLength(segmentValue: string): number {
     let segmentExprLength = 0;
 
-    // PEP 498 says: Expressions cannot contain ':' or '!' outside of
-    // strings or parentheses, brackets, or braces. The exception is
-    // that the '!=' operator is allowed as a special case.
     const quoteStack: string[] = [];
     let braceCount = 0;
     let parenCount = 0;
@@ -3868,7 +3576,6 @@ export class Parser {
           }
         } else if (curChar === '!') {
           if (!ignoreSeparator) {
-            // Allow !=, as per PEP 498
             if (segmentExprLength === segmentValue.length - 1 || segmentValue[segmentExprLength + 1] !== '=') {
               break;
             }
@@ -3919,8 +3626,6 @@ export class Parser {
       segmentExprLength++;
     }
 
-    // Handle Python 3.8 f-string formatting expressions that
-    // end in an "=".
     if (this._parseOptions.pythonVersion >= PythonVersion.V3_8 && indexOfDebugEqual !== undefined) {
       segmentExprLength = indexOfDebugEqual;
     }
@@ -3942,10 +3647,7 @@ export class Parser {
 
     const stringNode = StringListNode.create(stringList);
 
-    // If we're parsing a type annotation, parse the contents of the string.
     if (this._isParsingTypeAnnotation) {
-      // Don't allow multiple strings because we have no way of reporting
-      // parse errors that span strings.
       if (stringNode.strings.length > 1) {
         this._addError(Localizer.Diagnostic.annotationSpansStrings(), stringNode);
       } else if (stringNode.strings[0].token.flags & StringTokenFlags.Triplicate) {
@@ -3959,8 +3661,6 @@ export class Parser {
         const tokenOffset = stringToken.start;
         const prefixLength = stringToken.prefixLength + stringToken.quoteMarkLength;
 
-        // Don't allow escape characters because we have no way of mapping
-        // error ranges back to the escaped text.
         if (unescapedString.length !== stringToken.length - prefixLength - stringToken.quoteMarkLength) {
           this._addError(Localizer.Diagnostic.annotationStringEscape(), stringNode);
         } else {
@@ -3982,9 +3682,6 @@ export class Parser {
     return stringNode;
   }
 
-  // Python 3.8 added support for star (unpack) expressions in tuples
-  // following a return or yield statement in cases where the tuple
-  // wasn't surrounded in parentheses.
   private _reportConditionalErrorForStarTupleElement(possibleTupleExpr: ExpressionNode) {
     if (possibleTupleExpr.nodeType !== ParseNodeType.Tuple) {
       return;
@@ -4006,8 +3703,6 @@ export class Parser {
     }
   }
 
-  // Peeks at the next token and returns true if it can never
-  // represent the start of an expression.
   private _isNextTokenNeverExpression(): boolean {
     const nextToken = this._peekToken();
     switch (nextToken.type) {
@@ -4076,8 +3771,6 @@ export class Parser {
   }
 
   private _atEof(): boolean {
-    // Are we pointing at the last token in the stream (which is
-    // assumed to be an end-of-stream token)?
     return this._tokenIndex >= this._tokenizerOutput!.tokens.count - 1;
   }
 
@@ -4121,15 +3814,12 @@ export class Parser {
       return this._getNextToken() as IdentifierToken;
     }
 
-    // If the next token is invalid, treat it as an identifier.
     if (nextToken.type === TokenType.Invalid) {
       this._getNextToken();
       this._addError(Localizer.Diagnostic.invalidIdentifierChar(), nextToken);
       return IdentifierToken.create(nextToken.start, nextToken.length, '', nextToken.comments);
     }
 
-    // If keywords are allowed in this context, convert the keyword
-    // to an identifier token.
     if (nextToken.type === TokenType.Keyword) {
       const keywordType = this._peekKeywordType();
       if (!disallowedKeywords.find((type) => type === keywordType)) {
@@ -4142,9 +3832,6 @@ export class Parser {
     return undefined;
   }
 
-  // Consumes tokens until the next one in the stream is
-  // either a specified terminator or the end-of-stream
-  // token.
   private _consumeTokensUntilType(terminators: TokenType[]): boolean {
     while (true) {
       const token = this._peekToken();

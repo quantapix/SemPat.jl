@@ -2,9 +2,6 @@ export function convertDocStringToMarkdown(docString: string): string {
   return new DocStringConverter(docString).convert();
 }
 
-//  Converts a docstring to a plaintext, human readable form. This will
-//  first strip any common leading indention (like inspect.cleandoc),
-//  then remove duplicate empty/whitespace lines.
 export function convertDocStringToPlainText(docString: string): string {
   const lines = _splitDocString(docString);
   const output: string[] = [];
@@ -26,7 +23,6 @@ interface RegExpReplacement {
   replacement: string;
 }
 
-// Regular expressions for one match
 const LeadingSpaceCountRegExp = /\S|$/;
 const CrLfRegExp = /\r?\n/;
 const NonWhitespaceRegExp = /\S/;
@@ -50,7 +46,6 @@ const PotentialHeaders: RegExpReplacement[] = [
   { exp: /^\s*\++(\s+\++)+$/, replacement: '+' },
 ];
 
-// Regular expressions for replace all
 const WhitespaceRegExp = /\s/g;
 const DoubleTickRegExp = /``/g;
 const TabRegExp = /\t/g;
@@ -63,18 +58,15 @@ const HtmlEscapes: RegExpReplacement[] = [
   { exp: />/g, replacement: '&gt;' },
 ];
 
-// http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html#literal-blocks
 const LiteralBlockEmptyRegExp = /^\s*::$/;
 const LiteralBlockReplacements: RegExpReplacement[] = [
   { exp: /\s+::$/g, replacement: '' },
   { exp: /(\S)\s*::$/g, replacement: '$1:' },
-  // http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html#interpreted-text
+
   { exp: /:[\w_\-+:.]+:`/g, replacement: '`' },
   { exp: /`:[\w_\-+:.]+:/g, replacement: '`' },
 ];
 
-// Converter is a state machine, where the current state is a function which
-// will be run (and change the state again) until completion.
 type State = () => void;
 
 class DocStringConverter {
@@ -99,7 +91,6 @@ class DocStringConverter {
   convert(): string {
     const isEpyDoc = this._lines.some((v) => epyDocFieldTokensRegExp.exec(v));
     if (isEpyDoc) {
-      // fixup cv2 leading '.'
       this._lines = this._lines.map((v) => v.replace(epyDocCv2FixRegExp, ''));
     }
 
@@ -109,13 +100,11 @@ class DocStringConverter {
 
       this._state();
 
-      // Parser must make progress; either the state or line number must change.
       if (this._state === before && this._lineNum === beforeLine) {
         break;
       }
     }
 
-    // Close out any outstanding code blocks.
     if (this._state === this._parseBacktickBlock || this._state === this._parseDocTest || this._state === this._parseLiteralBlock) {
       this._trimOutputAndAppendLine('```');
     } else if (this._insideInlineCode) {
@@ -174,7 +163,6 @@ class DocStringConverter {
     this._state = this._stateStack.splice(0, 1)[0];
 
     if (this._state === this._parseText) {
-      // Terminate inline code when leaving a block.
       this._insideInlineCode = false;
     }
   }
@@ -270,9 +258,7 @@ class DocStringConverter {
       part = this._escapeHtml(part);
 
       if (i === 0) {
-        // Only one part, and not inside code, so check header cases.
         if (parts.length === 1) {
-          // Handle weird separator lines which contain random spaces.
           for (const expReplacement of PotentialHeaders) {
             if (expReplacement.exp.test(part)) {
               part = part.replace(WhitespaceRegExp, expReplacement.replacement);
@@ -280,28 +266,17 @@ class DocStringConverter {
             }
           }
 
-          // Replace ReST style ~~~ header to prevent it being interpreted as a code block
-          // (an alternative in Markdown to triple backtick blocks).
           if (TildaHeaderRegExp.test(part)) {
             this._append(part.replace(TildeRegExp, '-'));
             continue;
           }
 
-          // Replace +++ heading too.
-          // TODO: Handle the rest of these, and the precedence order (which depends on the
-          // order heading lines are seen, not what the line contains).
-          // http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html#sections
           if (PlusHeaderRegExp.test(part)) {
             this._append(part.replace(PlusRegExp, '-'));
             continue;
           }
         }
 
-        // Don't strip away asterisk-based bullet point lists.
-        //
-        // TODO: Replace this with real list parsing. This may have
-        // false positives and cause random italics when the ReST list
-        // doesn't match Markdown's specification.
         const match = LeadingAsteriskRegExp.exec(part);
         if (match !== null && match.length === 3) {
           this._append(match[1]);
@@ -309,32 +284,15 @@ class DocStringConverter {
         }
       }
 
-      // TODO: Find a better way to handle this; the below breaks escaped
-      // characters which appear at the beginning or end of a line.
-      // Applying this only when i == 0 or i == parts.Length-1 may work.
-
-      // http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html#hyperlink-references
-      // part = RegExp.Replace(part, @"^_+", "");
-      // http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html#inline-internal-targets
-      // part = RegExp.Replace(part, @"_+$", "");
-
-      // TODO: Strip footnote/citation references.
-
-      // Escape _, *, and ~, but ignore things like ":param \*\*kwargs:".
       part = part.replace(UnescapedMarkdownCharsRegExp, '\\$1');
 
       this._append(part);
     }
 
-    // Go straight to the builder so that _appendLine doesn't think
-    // we're actually trying to insert an extra blank line and skip
-    // future whitespace. Empty line deduplication is already handled
-    // because Append is used above.
     this._builder += '\n';
   }
 
   private _preprocessTextLine(line: string): string {
-    // http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html#literal-blocks
     if (LiteralBlockEmptyRegExp.test(line)) {
       return '';
     }
@@ -407,7 +365,6 @@ class DocStringConverter {
   }
 
   private _beginLiteralBlock(): boolean {
-    // The previous line must be empty.
     const prev = this._lineAt(this._lineNum - 1);
     if (prev === undefined) {
       return false;
@@ -415,7 +372,6 @@ class DocStringConverter {
       return false;
     }
 
-    // Find the previous paragraph and check that it ends with ::
     let i = this._lineNum - 2;
     for (; i >= 0; i--) {
       const line = this._lineAt(i);
@@ -423,7 +379,6 @@ class DocStringConverter {
         continue;
       }
 
-      // Safe to ignore whitespace after the :: because all lines have been trimRight'd.
       if (line!.endsWith('::')) {
         break;
       }
@@ -435,7 +390,6 @@ class DocStringConverter {
       return false;
     }
 
-    // Special case: allow one-liners at the same indent level.
     if (this._currentIndent() === 0) {
       this._appendLine('```');
       this._pushAndSetState(this._parseLiteralBlockSingleLine);
@@ -447,7 +401,6 @@ class DocStringConverter {
   }
 
   private _parseLiteralBlock(): void {
-    // Slightly different than doctest, wait until the first non-empty unindented line to exit.
     if (_isUndefinedOrWhitespace(this._currentLineOrUndefined())) {
       this._appendLine();
       this._eatLine();
@@ -484,20 +437,6 @@ class DocStringConverter {
     return true;
   }
 
-  // https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#field-lists
-  // Python doesn't have a single standard for param documentation. There are four
-  // popular styles.
-  //
-  // 1. Epytext:
-  //      @param param1: description
-  // 2. reST:
-  //      :param param1: description
-  // 3. Google (variant 1):
-  //      Args:
-  //          param1: description
-  // 4. Google (variant 2):
-  //      Args:
-  //          param1 (type): description
   private _beginFieldList(): boolean {
     if (this._insideInlineCode) {
       return false;
@@ -505,7 +444,6 @@ class DocStringConverter {
 
     let line = this._currentLine();
 
-    // Handle epyDocs
     if (line.startsWith('@')) {
       this._appendLine();
       this._appendTextLine(line);
@@ -513,20 +451,17 @@ class DocStringConverter {
       return true;
     }
 
-    // catch-all for styles except reST
     const hasOddNumColons = !line?.endsWith(':') && !line?.endsWith('::') && (line.match(/:/g)?.length ?? 0) % 2 === 1; // odd number of colons
 
-    // reSt params. Attempt to put directives lines into their own paragraphs.
     const restDirective = DirectivesExtraNewlineRegExp.test(line); //line.match(/^\s*:param/);
 
     if (hasOddNumColons || restDirective) {
       const prev = this._lineAt(this._lineNum - 1);
-      // Force a line break, if previous line doesn't already have a break or is blank
+
       if (!this._builder.endsWith(`\\\n`) && !this._builder.endsWith(`\n\n`) && !_isHeader(prev)) {
         this._builder = this._builder.slice(0, -1) + '\\\n';
       }
 
-      // force indent for fields
       line = this._convertIndent(line);
       this._appendTextLine(line);
       this._eatLine();
@@ -544,7 +479,6 @@ class DocStringConverter {
     let line = this._currentLine();
     const dashMatch = LeadingDashListRegExp.exec(line);
     if (dashMatch?.length === 2) {
-      // Prevent list item from being see as code, by halving leading spaces
       if (dashMatch[1].length >= 4) {
         line = ' '.repeat(dashMatch[1].length / 2) + line.trimLeft();
       }
@@ -563,7 +497,6 @@ class DocStringConverter {
       if (asteriskMatch[1].length === 0) {
         line = line = ' ' + line;
       } else if (asteriskMatch[1].length >= 4) {
-        // Prevent list item from being see as code, by halving leading spaces
         line = ' '.repeat(asteriskMatch[1].length / 2) + line.trimLeft();
       }
 
@@ -591,10 +524,8 @@ class DocStringConverter {
       return;
     }
 
-    // Check for the start of a new list item
     const isMultiLineItem = !this._beginList();
 
-    // Remove leading spaces so that multiline items get appear in a single block
     if (isMultiLineItem) {
       const line = this._currentLine().trimStart();
       this._appendTextLine(line);
@@ -603,8 +534,6 @@ class DocStringConverter {
   }
 
   private _parseDirective(): void {
-    // http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html#directives
-
     const match = DirectiveLikeRegExp.exec(this._currentLine());
     if (match !== null && match.length === 3) {
       const directiveType = match[1];
@@ -621,7 +550,6 @@ class DocStringConverter {
     }
 
     if (this._blockIndent === 0) {
-      // This is a one-liner directive, so pop back.
       this._popState();
     } else {
       this._state = this._parseDirectiveBlock;
@@ -637,8 +565,6 @@ class DocStringConverter {
     }
 
     if (this._appendDirectiveBlock) {
-      // This is a bit of a hack. This just trims the text and appends it
-      // like top-level text, rather than doing actual indent-based recursion.
       this._appendTextLine(this._currentLine().trimLeft());
     }
 
@@ -673,7 +599,6 @@ class DocStringConverter {
 }
 
 function _splitDocString(docstring: string): string[] {
-  // As done by inspect.cleandoc.
   docstring = docstring.replace(TabRegExp, ' '.repeat(8));
 
   let lines = docstring.split(CrLfRegExp).map((v) => v.trimRight());

@@ -1,10 +1,22 @@
+import { CancellationToken, CompletionList } from 'vscode-languageserver';
+
+import { ModuleNode } from '../parser/parseNodes';
+import { ConfigOptions } from './options';
+
 declare interface Promise<T> {
-  // Catches task error and ignores them.
   ignoreErrors(): void;
 }
 
-/* eslint-disable @typescript-eslint/no-empty-function */
-// Explicitly tells that promise should be run asynchronously.
 Promise.prototype.ignoreErrors = function <T>(this: Promise<T>) {
   this.catch(() => {});
 };
+
+export interface LanguageServiceExtension {
+  readonly completionListExtension: CompletionListExtension;
+}
+
+export interface CompletionListExtension {
+  updateCompletionList(sourceList: CompletionList, ast: ModuleNode, content: string, position: number, options: ConfigOptions, token: CancellationToken): Promise<CompletionList>;
+  readonly commandPrefix: string;
+  executeCommand(command: string, args: any[] | undefined, token: CancellationToken): Promise<void>;
+}

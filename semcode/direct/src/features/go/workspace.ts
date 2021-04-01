@@ -7,7 +7,6 @@ import { getBinPath, getWorkspaceFolderPath } from '../../../../old/go/util';
 import { getCurrentGoRoot } from './utils/pathUtils';
 import { killProcessTree } from './utils/processUtils';
 
-// Keep in sync with github.com/acroca/go-symbols'
 interface GoSymbolDeclaration {
   name: string;
   kind: string;

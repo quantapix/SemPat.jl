@@ -1,21 +1,15 @@
 import fs = require('fs');
-
 function stripBOM(s: string): string {
   if (s && s[0] === '\uFEFF') {
     s = s.substr(1);
   }
   return s;
 }
-
-/**
- * returns the environment variable collection created by parsing the given .env file.
- */
 export function parseEnvFile(envFilePath: string): { [key: string]: string } {
   const env: { [key: string]: string } = {};
   if (!envFilePath) {
     return env;
   }
-
   try {
     const buffer = stripBOM(fs.readFileSync(envFilePath, 'utf8'));
     buffer.split('\n').forEach((line) => {
@@ -33,7 +27,6 @@ export function parseEnvFile(envFilePath: string): { [key: string]: string } {
     throw new Error(`Cannot load environment variables from file ${envFilePath}`);
   }
 }
-
 export function parseEnvFiles(envFiles: string[] | string): { [key: string]: string } {
   const fileEnvs = [];
   if (typeof envFiles === 'string') {

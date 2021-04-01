@@ -14,18 +14,16 @@ export class GoSignatureHelpProvider implements SignatureHelpProvider {
       return Promise.resolve(null);
     }
     const callerPos = this.previousTokenPosition(document, theCall.openParen);
-    // Temporary fix to fall back to godoc if guru is the set docsTool
+
     if (goConfig['docsTool'] === 'guru') {
       goConfig = Object.assign({}, goConfig, { docsTool: 'godoc' });
     }
     try {
       const res = await definitionLocation(document, callerPos, goConfig, true, token);
       if (!res) {
-        // The definition was not found
         return null;
       }
       if (res.line === callerPos.line) {
-        // This must be a function definition
         return null;
       }
       let declarationText: string = (res.declarationlines || []).join(' ').trim();
@@ -36,14 +34,12 @@ export class GoSignatureHelpProvider implements SignatureHelpProvider {
       let sig: string;
       let si: SignatureInformation;
       if (res.toolUsed === 'godef') {
-        // declaration is of the form "Add func(a int, b int) int"
         const nameEnd = declarationText.indexOf(' ');
         const sigStart = nameEnd + 5; // ' func'
         const funcName = declarationText.substring(0, nameEnd);
         sig = declarationText.substring(sigStart);
         si = new SignatureInformation(funcName + sig, res.doc);
       } else if (res.toolUsed === 'gogetdoc') {
-        // declaration is of the form "func Add(a int, b int) int"
         declarationText = declarationText.substring(5);
         const funcNameStart = declarationText.indexOf(res.name + '('); // Find 'functionname(' to remove anything before it
         if (funcNameStart > 0) {
@@ -84,12 +80,10 @@ export class GoSignatureHelpProvider implements SignatureHelpProvider {
     for (let lineNr = position.line; lineNr >= 0 && maxLookupLines >= 0; lineNr--, maxLookupLines--) {
       const line = document.lineAt(lineNr);
 
-      // Stop processing if we're inside a comment
       if (isPositionInComment(document, position)) {
         return null;
       }
 
-      // if its current line, get the text until the position given, otherwise get the full line.
       const [currentLine, characterPosition] = lineNr === position.line ? [line.text.substring(0, position.character), position.character] : [line.text, line.text.length - 1];
 
       for (let char = characterPosition; char >= 0; char--) {

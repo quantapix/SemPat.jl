@@ -6,11 +6,10 @@ export class GoCodeActionProvider implements qv.CodeActionProvider {
     document: qv.TextDocument,
     range: qv.Range,
     context: qv.CodeActionContext,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
     token: qv.CancellationToken
   ): Thenable<qv.Command[]> {
     const promises = context.diagnostics.map((diag) => {
-      // When a name is not found but could refer to a package, offer to add import
       if (diag.message.indexOf('undefined: ') === 0) {
         const [, name] = /^undefined: (\S*)/.exec(diag.message);
         return listPackages().then((packages) => {

@@ -91,7 +91,6 @@ class HintsUpdater implements Disposable {
 
     qv.workspace.onDidChangeTextDocument(this.onDidChangeTextDocument, this, this.disposables);
 
-    // Set up initial cache shape
     ctx.visibleRustEditors.forEach((editor) =>
       this.sourceFiles.set(editor.document.uri.toString(), {
         document: editor.document,
@@ -115,7 +114,6 @@ class HintsUpdater implements Disposable {
   }
 
   syncCacheAndRenderHints() {
-    // FIXME: make inlayHints request pass an array of files?
     this.sourceFiles.forEach((file, uri) =>
       this.fetchHints(file).then((hints) => {
         if (!hints) return;
@@ -134,7 +132,6 @@ class HintsUpdater implements Disposable {
   onDidChangeVisibleTextEditors() {
     const newSourceFiles = new Map<string, RustSourceFile>();
 
-    // Rerendering all, even up-to-date editors for simplicity
     this.ctx.visibleRustEditors.forEach(async (editor) => {
       const uri = editor.document.uri.toString();
       const file = this.sourceFiles.get(uri) ?? {
@@ -144,7 +141,6 @@ class HintsUpdater implements Disposable {
       };
       newSourceFiles.set(uri, file);
 
-      // No text documents changed, so we may try to use the cache
       if (!file.cachedDecorations) {
         const hints = await this.fetchHints(file);
         if (!hints) return;
@@ -155,7 +151,6 @@ class HintsUpdater implements Disposable {
       this.renderDecorations(editor, file.cachedDecorations);
     });
 
-    // Cancel requests for no longer visible (disposed) source files
     this.sourceFiles.forEach((file, uri) => {
       if (!newSourceFiles.has(uri)) file.inlaysRequest?.cancel();
     });

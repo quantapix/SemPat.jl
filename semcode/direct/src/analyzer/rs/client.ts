@@ -20,10 +20,6 @@ function renderHoverActions(actions: ra.CommandLinkGroup[]): qv.MarkdownString {
 }
 
 export function createClient(serverPath: string, cwd: string): lc.LanguageClient {
-  // '.' Is the fallback if no folder is open
-  // TODO?: Workspace folders support Uri's (eg: file://test.txt).
-  // It might be a good idea to test if the uri points to a file.
-
   const run: lc.Executable = {
     command: serverPath,
     options: { cwd },
@@ -39,7 +35,6 @@ export function createClient(serverPath: string, cwd: string): lc.LanguageClient
     initializationOptions: qv.workspace.getConfiguration('rust-analyzer'),
     traceOutputChannel,
     middleware: {
-      // Workaround for https://github.com/microsoft/vscode-languageserver-node/issues/576
       async provideDocumentSemanticTokens(document: qv.TextDocument, token: qv.CancellationToken, next: DocumentSemanticsTokensSignature) {
         const res = await next(document, token);
         if (res === undefined) throw new Error('busy');
@@ -63,8 +58,7 @@ export function createClient(serverPath: string, cwd: string): lc.LanguageClient
           }
         );
       },
-      // Using custom handling of CodeActions where each code action is resolved lazily
-      // That's why we are not waiting for any command or edits
+
       async provideCodeActions(document: qv.TextDocument, range: qv.Range, context: qv.CodeActionContext, token: qv.CancellationToken, _next: lc.ProvideCodeActionsSignature) {
         const params: lc.CodeActionParams = {
           textDocument: client.code2ProtocolConverter.asTextDocumentIdentifier(document),
@@ -77,7 +71,6 @@ export function createClient(serverPath: string, cwd: string): lc.LanguageClient
             const result: (qv.CodeAction | qv.Command)[] = [];
             const groups = new Map<string, { index: number; items: qv.CodeAction[] }>();
             for (const item of values) {
-              // In our case we expect to get code edits only from diagnostics
               if (lc.CodeAction.is(item)) {
                 assert(!item.command, "We don't expect to receive commands in CodeActions");
                 const action = client.protocol2CodeConverter.asCodeAction(item);
@@ -138,11 +131,6 @@ export function createClient(serverPath: string, cwd: string): lc.LanguageClient
 
   const client = new lc.LanguageClient('rust-analyzer', 'Rust Analyzer Language Server', serverOptions, clientOptions);
 
-  // To turn on all proposed features use: client.registerProposedFeatures();
-  // Here we want to enable CallHierarchyFeature and SemanticTokensFeature
-  // since they are available on stable.
-  // Note that while these features are stable in vscode their LSP protocol
-  // implementations are still in the "proposed" category for 3.16.
   client.registerFeature(new CallHierarchyFeature(client));
   client.registerFeature(new SemanticTokensFeature(client));
   client.registerFeature(new ExperimentalFeatures());
