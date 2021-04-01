@@ -3,7 +3,7 @@ import moment = require('moment');
 import * as path from 'path';
 import semver = require('semver');
 import util = require('util');
-import { getFormatTool, usingCustomFormatTool } from './goFormat';
+import { getFormatTool, usingCustomFormatTool } from '../../direct/src/features/go/format';
 import { goLiveErrorsEnabled } from './goLiveErrors';
 import { getBinPath, GoVersion } from './util';
 

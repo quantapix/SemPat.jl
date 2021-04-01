@@ -1,7 +1,7 @@
 import * as qv from 'vscode';
 import { CancellationToken, Hover, HoverProvider, Position, TextDocument, WorkspaceConfiguration } from 'vscode';
-import { getGoConfig } from './config';
-import { definitionLocation } from './goDeclaration';
+import { getGoConfig } from '../../../../old/go/config';
+import { definitionLocation } from './go/definition';
 
 export class GoHoverProvider implements HoverProvider {
   private goConfig: WorkspaceConfiguration | undefined;

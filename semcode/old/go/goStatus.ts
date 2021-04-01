@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as qv from 'vscode';
 import { getGoConfig } from './config';
 import { formatGoVersion, GoEnvironmentOption, terminalCreationListener } from './goEnvironmentStatus';
-import { buildLanguageServerConfig, getLocalGoplsVersion, languageServerIsRunning, serverOutputChannel } from './goLanguageServer';
+import { buildLanguageServerConfig, getLocalGoplsVersion, languageServerIsRunning, serverOutputChannel } from '../../direct/src/features/go/server';
 import { isGoFile } from './goMode';
 import { getModFolderPath, isModSupported } from './goModules';
 import { allToolsInformation } from './goTools';

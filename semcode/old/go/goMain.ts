@@ -12,7 +12,7 @@ import {
   trackCodeCoverageRemovalOnFileChange,
   updateCodeCoverageDecorators,
 } from './goCover';
-import { GoDebugConfigurationProvider } from './goDebugConfiguration';
+import { GoDebugConfigurationProvider } from '../../direct/src/features/go/debugConfiguration';
 import { GoDebugAdapterDescriptorFactory } from './goDebugFactory';
 import { extractFunction, extractVariable } from './goDoctor';
 import { toolExecutionEnvironment } from './goEnv';
@@ -33,15 +33,15 @@ import {
   startLanguageServerWithFallback,
   timeMinute,
   watchLanguageServerConfiguration,
-} from './goLanguageServer';
+} from '../../direct/src/features/go/server';
 import { lintCode } from './goLint';
 import { logVerbose, setLogConfig } from './goLogging';
 import { GO_MODE } from './goMode';
 import { addTags, removeTags } from './goModifytags';
 import { GO111MODULE, isModSupported } from './goModules';
 import { playgroundCommand } from './goPlayground';
-import { GoReferencesCodeLensProvider } from './goReferencesCodelens';
-import { GoRunTestCodeLensProvider } from './goRunTestCodelens';
+import { GoReferencesCodeLensProvider } from './referencesCodelens';
+import { GoRunTestCodeLensProvider } from './runTestCodelens';
 import { disposeGoStatusBar, expandGoStatusBar, outputChannel, updateGoStatusBar } from './goStatus';
 import { subTestAtCursor, testAtCursor, testCurrentFile, testCurrentPackage, testPrevious, testWorkspace } from './goTest';
 import { getConfiguredTools } from './goTools';
@@ -66,7 +66,7 @@ import { clearCacheForTools, fileExists, getCurrentGoRoot, setCurrentGoRoot } fr
 import { WelcomePanel } from './welcome';
 import semver = require('semver');
 import * as qv from 'vscode';
-import { getFormatTool } from './goFormat';
+import { getFormatTool } from '../../direct/src/features/go/format';
 
 export let buildDiagnosticCollection: qv.DiagnosticCollection;
 export let lintDiagnosticCollection: qv.DiagnosticCollection;

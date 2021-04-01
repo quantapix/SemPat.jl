@@ -1,5 +1,5 @@
 import * as qv from 'vscode';
-import { listPackages } from './goImport';
+import { listPackages } from '../goImport';
 
 export class GoCodeActionProvider implements qv.CodeActionProvider {
   public provideCodeActions(

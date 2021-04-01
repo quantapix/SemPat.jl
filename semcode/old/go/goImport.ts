@@ -2,7 +2,7 @@ import cp = require('child_process');
 import * as qv from 'vscode';
 import { toolExecutionEnvironment } from './goEnv';
 import { promptForMissingTool } from './goInstallTools';
-import { documentSymbols, GoOutlineImportsOptions } from './goOutline';
+import { documentSymbols, GoOutlineImportsOptions } from './go/symbol';
 import { getImportablePackages } from './goPackages';
 import { getBinPath, getImportPath, parseFilePrelude } from './util';
 import { envPath, getCurrentGoRoot } from './utils/pathUtils';

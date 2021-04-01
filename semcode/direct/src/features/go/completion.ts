@@ -1,12 +1,12 @@
 import cp = require('child_process');
 import * as path from 'path';
 import * as qv from 'vscode';
-import { getGoConfig } from './config';
-import { toolExecutionEnvironment } from './goEnv';
-import { getTextEditForAddImport } from './goImport';
-import { promptForMissingTool, promptForUpdatingTool } from './goInstallTools';
-import { isModSupported } from './goModules';
-import { getImportablePackages, PackageInfo } from './goPackages';
+import { getGoConfig } from '../../../../old/go/config';
+import { toolExecutionEnvironment } from '../../../../old/go/goEnv';
+import { getTextEditForAddImport } from '../../../../old/go/goImport';
+import { promptForMissingTool, promptForUpdatingTool } from '../../../../old/go/goInstallTools';
+import { isModSupported } from '../../../../old/go/goModules';
+import { getImportablePackages, PackageInfo } from '../../../../old/go/goPackages';
 import {
   byteOffsetAt,
   getBinPath,
@@ -19,7 +19,7 @@ import {
   isPositionInString,
   parseFilePrelude,
   runGodoc,
-} from './util';
+} from '../../../../old/go/util';
 import { getCurrentGoWorkspaceFromGOPATH } from './utils/pathUtils';
 
 function vscodeKindFromGoCodeClass(kind: string, type: string): qv.CompletionItemKind {

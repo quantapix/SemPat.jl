@@ -1,9 +1,9 @@
 import cp = require('child_process');
 import * as qv from 'vscode';
-import { getGoConfig } from './config';
-import { toolExecutionEnvironment } from './goEnv';
-import { promptForMissingTool, promptForUpdatingTool } from './goInstallTools';
-import { getBinPath, getFileArchive, makeMemoizedByteOffsetConverter } from './util';
+import { getGoConfig } from '../config';
+import { toolExecutionEnvironment } from '../goEnv';
+import { promptForMissingTool, promptForUpdatingTool } from '../goInstallTools';
+import { getBinPath, getFileArchive, makeMemoizedByteOffsetConverter } from '../util';
 import { killProcess } from './utils/processUtils';
 
 // Keep in sync with https://github.com/ramya-rao-a/go-outline

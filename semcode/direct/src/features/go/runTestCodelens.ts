@@ -1,8 +1,8 @@
 import * as qv from 'vscode';
 import { CancellationToken, CodeLens, TextDocument } from 'vscode';
 import { getGoConfig } from './config';
-import { GoBaseCodeLensProvider } from './goBaseCodelens';
-import { GoDocumentSymbolProvider } from './goOutline';
+import { GoBaseCodeLensProvider } from './go/codelens';
+import { GoDocumentSymbolProvider } from './go/symbol';
 import { getBenchmarkFunctions, getTestFunctions } from './testUtils';
 
 export class GoRunTestCodeLensProvider extends GoBaseCodeLensProvider {

@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as qv from 'vscode';
 import { getGoConfig } from './config';
 import { toolExecutionEnvironment } from './goEnv';
-import { getFormatTool } from './goFormat';
+import { getFormatTool } from '../../direct/src/features/go/format';
 import { installTools } from './goInstallTools';
 import { getTool } from './goTools';
 import { getFromGlobalState, updateGlobalState } from './stateUtils';

@@ -1,11 +1,11 @@
 import cp = require('child_process');
 import * as path from 'path';
 import * as qv from 'vscode';
-import { getGoConfig } from './config';
-import { toolExecutionEnvironment } from './goEnv';
-import { promptForMissingTool, promptForUpdatingTool } from './goInstallTools';
-import { getModFolderPath, promptToUpdateToolForModules } from './goModules';
-import { byteOffsetAt, getBinPath, getFileArchive, getModuleCache, getWorkspaceFolderPath, goKeywords, isPositionInString, runGodoc } from './util';
+import { getGoConfig } from '../config';
+import { toolExecutionEnvironment } from '../goEnv';
+import { promptForMissingTool, promptForUpdatingTool } from '../goInstallTools';
+import { getModFolderPath, promptToUpdateToolForModules } from '../goModules';
+import { byteOffsetAt, getBinPath, getFileArchive, getModuleCache, getWorkspaceFolderPath, goKeywords, isPositionInString, runGodoc } from '../util';
 import { getCurrentGoRoot } from './utils/pathUtils';
 import { killProcessTree } from './utils/processUtils';
 

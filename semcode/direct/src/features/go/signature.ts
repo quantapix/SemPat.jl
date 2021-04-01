@@ -1,6 +1,6 @@
 import { CancellationToken, ParameterInformation, Position, SignatureHelp, SignatureHelpProvider, SignatureInformation, TextDocument, WorkspaceConfiguration } from 'vscode';
 import { getGoConfig } from './config';
-import { definitionLocation } from './goDeclaration';
+import { definitionLocation } from './go/definition';
 import { getParametersAndReturnType, isPositionInComment, isPositionInString } from './util';
 
 export class GoSignatureHelpProvider implements SignatureHelpProvider {

@@ -1,9 +1,9 @@
 import { isAbsolute } from 'path';
 import { CancellationToken, CodeLens, Range, TextDocument } from 'vscode';
 import { getGoConfig } from './config';
-import { GoBaseCodeLensProvider } from './goBaseCodelens';
-import { GoDocumentSymbolProvider } from './goOutline';
-import { GoReferenceProvider } from './goReferences';
+import { GoBaseCodeLensProvider } from './go/codelens';
+import { GoDocumentSymbolProvider } from './go/symbol';
+import { GoReferenceProvider } from './reference';
 import { getBinPath } from './util';
 import * as qv from 'vscode';
 

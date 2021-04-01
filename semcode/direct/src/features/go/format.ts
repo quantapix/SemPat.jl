@@ -1,10 +1,10 @@
 import cp = require('child_process');
 import * as path from 'path';
 import * as qv from 'vscode';
-import { getGoConfig } from './config';
-import { toolExecutionEnvironment } from './goEnv';
-import { promptForMissingTool, promptForUpdatingTool } from './goInstallTools';
-import { getBinPath } from './util';
+import { getGoConfig } from '../../../../old/go/config';
+import { toolExecutionEnvironment } from '../../../../old/go/goEnv';
+import { promptForMissingTool, promptForUpdatingTool } from '../../../../old/go/goInstallTools';
+import { getBinPath } from '../../../../old/go/util';
 import { killProcessTree } from './utils/processUtils';
 
 export class GoDocumentFormattingEditProvider implements qv.DocumentFormattingEditProvider {

@@ -4,7 +4,7 @@ import * as qv from 'vscode';
 import { getGoConfig } from './config';
 import { toolExecutionEnvironment } from './goEnv';
 import { promptForMissingTool } from './goInstallTools';
-import { GoDocumentSymbolProvider } from './goOutline';
+import { GoDocumentSymbolProvider } from './go/symbol';
 import { outputChannel } from './goStatus';
 import { getBinPath } from './util';
 

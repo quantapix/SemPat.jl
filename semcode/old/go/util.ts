@@ -9,7 +9,7 @@ import { NearestNeighborDict, Node } from './avlTree';
 import { DefaultConfig, getGoConfig } from './config';
 import { extensionId } from './const';
 import { toolExecutionEnvironment } from './goEnv';
-import { languageClient } from './goLanguageServer';
+import { languageClient } from '../../direct/src/features/go/server';
 import { buildDiagnosticCollection, lintDiagnosticCollection, vetDiagnosticCollection } from './goMain';
 import { getCurrentPackage } from './goModules';
 import { outputChannel } from './goStatus';

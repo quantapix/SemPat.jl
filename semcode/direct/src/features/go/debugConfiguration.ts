@@ -1,13 +1,13 @@
 import * as path from 'path';
 import * as qv from 'vscode';
-import { getGoConfig } from './config';
-import { toolExecutionEnvironment } from './goEnv';
-import { promptForMissingTool, promptForUpdatingTool, shouldUpdateTool } from './goInstallTools';
-import { packagePathToGoModPathMap } from './goModules';
-import { getToolAtVersion } from './goTools';
-import { pickProcess, pickProcessByName } from './pickProcess';
-import { getFromGlobalState, updateGlobalState } from './stateUtils';
-import { getBinPath, resolvePath } from './util';
+import { getGoConfig } from '../../../../old/go/config';
+import { toolExecutionEnvironment } from '../../../../old/go/goEnv';
+import { promptForMissingTool, promptForUpdatingTool, shouldUpdateTool } from '../../../../old/go/goInstallTools';
+import { packagePathToGoModPathMap } from '../../../../old/go/goModules';
+import { getToolAtVersion } from '../../../../old/go/goTools';
+import { pickProcess, pickProcessByName } from '../../../../old/go/pickProcess';
+import { getFromGlobalState, updateGlobalState } from '../../../../old/go/stateUtils';
+import { getBinPath, resolvePath } from '../../../../old/go/util';
 import { parseEnvFiles } from './utils/envUtils';
 
 let dlvDAPVersionCurrent = false;

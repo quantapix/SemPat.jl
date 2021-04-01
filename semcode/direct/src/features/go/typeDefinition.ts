@@ -1,11 +1,11 @@
 import cp = require('child_process');
 import * as path from 'path';
 import * as qv from 'vscode';
-import { getGoConfig } from './config';
-import { adjustWordPosition, definitionLocation, parseMissingError } from './goDeclaration';
-import { toolExecutionEnvironment } from './goEnv';
-import { promptForMissingTool } from './goInstallTools';
-import { byteOffsetAt, canonicalizeGOPATHPrefix, getBinPath, getFileArchive, goBuiltinTypes } from './util';
+import { getGoConfig } from '../../../../old/go/config';
+import { adjustWordPosition, definitionLocation, parseMissingError } from './go/definition';
+import { toolExecutionEnvironment } from '../../../../old/go/goEnv';
+import { promptForMissingTool } from '../../../../old/go/goInstallTools';
+import { byteOffsetAt, canonicalizeGOPATHPrefix, getBinPath, getFileArchive, goBuiltinTypes } from '../../../../old/go/util';
 import { killProcessTree } from './utils/processUtils';
 
 interface GuruDescribeOutput {
