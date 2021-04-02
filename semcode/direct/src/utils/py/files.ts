@@ -2,7 +2,7 @@ import * as chokidar from 'chokidar';
 import * as fs from 'fs';
 import * as tmp from 'tmp';
 tmp.setGracefulCleanup();
-import { ConsoleInterface, NullConsole } from './console';
+import { Console, NullConsole } from './console';
 import { createDeferred } from './deferred';
 export type FileWatcherEventType = 'add' | 'addDir' | 'change' | 'unlink' | 'unlinkDir';
 export type FileWatcherEventHandler = (eventName: FileWatcherEventType, path: string, stats?: Stats) => void;
@@ -52,7 +52,7 @@ export interface FileSystem {
 export interface FileWatcherProvider {
   createFileWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher;
 }
-export function createFromRealFileSystem(console?: ConsoleInterface, fileWatcherProvider?: FileWatcherProvider): FileSystem {
+export function createFromRealFileSystem(console?: Console, fileWatcherProvider?: FileWatcherProvider): FileSystem {
   return new RealFileSystem(fileWatcherProvider ?? new ChokidarFileWatcherProvider(console ?? new NullConsole()));
 }
 export function ignoredWatchEventFunction(paths: string[]) {
@@ -156,7 +156,7 @@ class RealFileSystem implements FileSystem {
   }
 }
 class ChokidarFileWatcherProvider implements FileWatcherProvider {
-  constructor(private _console: ConsoleInterface) {}
+  constructor(private _console: Console) {}
   createFileWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher {
     return this._createFileSystemWatcher(paths).on('all', listener);
   }

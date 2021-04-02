@@ -69,9 +69,6 @@ export class GoSignatureHelpProvider implements SignatureHelpProvider {
     return null;
   }
 
-  /**
-   * Goes through the function params' lines and gets the number of commas and the start position of the call.
-   */
   private walkBackwardsToBeginningOfCall(document: TextDocument, position: Position): { openParen: Position; commas: Position[] } | null {
     let parenBalance = 0;
     let maxLookupLines = 30;

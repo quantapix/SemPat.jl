@@ -15,7 +15,7 @@ export interface GoOutlineDeclaration {
   label: string;
   type: string;
   receiverType?: string;
-  icon?: string; // icon class or null to use the default images based on the type
+  icon?: string;
   start: number;
   end: number;
   children?: GoOutlineDeclaration[];
@@ -30,20 +30,8 @@ export enum GoOutlineImportsOptions {
 }
 
 export interface GoOutlineOptions {
-  /**
-   * Path of the file for which outline is needed
-   */
   fileName: string;
-
-  /**
-   * Option to decide if the output includes, excludes or only includes imports
-   * If the option is to only include imports, then the file will be parsed only till imports are collected
-   */
   importsOption: GoOutlineImportsOptions;
-
-  /**
-   * Document to be parsed. If not provided, saved contents of the given fileName is used
-   */
   document?: qv.TextDocument;
 }
 

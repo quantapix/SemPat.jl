@@ -5,7 +5,7 @@ import { isMainThread } from 'worker_threads';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { OperationCanceledException } from '../common/cancellationUtils';
 import { ConfigOptions, ExecutionEnvironment, getBasicDiagnosticRuleSet } from '../common/configOptions';
-import { ConsoleInterface, StandardConsole } from '../common/console';
+import { Console, StdConsole } from '../common/console';
 import { assert } from '../common/debug';
 import { convertLevelToCategory, Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
@@ -58,7 +58,7 @@ interface ResolveImportResult {
 }
 
 export class SourceFile {
-  private _console: ConsoleInterface;
+  private _console: Console;
 
   private readonly _filePath: string;
 
@@ -123,9 +123,9 @@ export class SourceFile {
   private _logTracker: LogTracker;
   readonly fileSystem: FileSystem;
 
-  constructor(fs: FileSystem, filePath: string, moduleName: string, isThirdPartyImport: boolean, isThirdPartyPyTypedPresent: boolean, console?: ConsoleInterface, logTracker?: LogTracker) {
+  constructor(fs: FileSystem, filePath: string, moduleName: string, isThirdPartyImport: boolean, isThirdPartyPyTypedPresent: boolean, console?: Console, logTracker?: LogTracker) {
     this.fileSystem = fs;
-    this._console = console || new StandardConsole();
+    this._console = console || new StdConsole();
     this._filePath = filePath;
     this._moduleName = moduleName;
     this._isStubFile = filePath.endsWith('.pyi');

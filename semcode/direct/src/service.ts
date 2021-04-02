@@ -22,7 +22,7 @@ export namespace ServerResponse {
   export type Response<T extends qp.Response> = T | Cancelled | typeof NoContent;
 }
 
-interface StandardTsServerRequests {
+interface StdRequests {
   applyCodeActionCommand: [qp.ApplyCodeActionCommandRequestArgs, qp.ApplyCodeActionCommandResponse];
   completionEntryDetails: [qp.CompletionDetailsRequestArgs, qp.CompletionDetailsResponse];
   completionInfo: [qp.CompletionsRequestArgs, qp.CompletionInfoResponse];
@@ -60,7 +60,7 @@ interface StandardTsServerRequests {
   fileReferences: [qp.FileRequestArgs, qp.FileReferencesResponse];
 }
 
-interface NoResponseTsServerRequests {
+interface NoResponseRequests {
   open: [qp.OpenRequestArgs, null];
   close: [qp.FileRequestArgs, null];
   change: [qp.ChangeRequestArgs, null];
@@ -69,12 +69,12 @@ interface NoResponseTsServerRequests {
   configurePlugin: [qp.ConfigurePluginRequest, qp.ConfigurePluginResponse];
 }
 
-interface AsyncTsServerRequests {
+interface AsyncRequests {
   geterr: [qp.GeterrRequestArgs, qp.Response];
   geterrForProject: [qp.GeterrForProjectRequestArgs, qp.Response];
 }
 
-export type TypeScriptRequests = StandardTsServerRequests & NoResponseTsServerRequests & AsyncTsServerRequests;
+export type TypeScriptRequests = StdRequests & NoResponseRequests & AsyncRequests;
 
 export type ExecConfig = {
   readonly lowPriority?: boolean;
@@ -120,13 +120,8 @@ export interface ServiceClient {
   readonly configuration: TypeScriptServiceConfiguration;
   readonly bufferSyncSupport: BufferSyncSupport;
   readonly telemetryReporter: TelemetryReporter;
-  execute<K extends keyof StandardTsServerRequests>(
-    k: K,
-    xs: StandardTsServerRequests[K][0],
-    t: qv.CancellationToken,
-    c?: ExecConfig
-  ): Promise<ServerResponse.Response<StandardTsServerRequests[K][1]>>;
-  executeWithoutWaitingForResponse<K extends keyof NoResponseTsServerRequests>(k: K, xs: NoResponseTsServerRequests[K][0]): void;
-  executeAsync<K extends keyof AsyncTsServerRequests>(k: K, xs: AsyncTsServerRequests[K][0], t: qv.CancellationToken): Promise<ServerResponse.Response<qp.Response>>;
+  execute<K extends keyof StdRequests>(k: K, xs: StdRequests[K][0], t: qv.CancellationToken, c?: ExecConfig): Promise<ServerResponse.Response<StdRequests[K][1]>>;
+  executeWithoutWaitingForResponse<K extends keyof NoResponseRequests>(k: K, xs: NoResponseRequests[K][0]): void;
+  executeAsync<K extends keyof AsyncRequests>(k: K, xs: AsyncRequests[K][0], t: qv.CancellationToken): Promise<ServerResponse.Response<qp.Response>>;
   interruptGetErr<R>(f: () => R): R;
 }

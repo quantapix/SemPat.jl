@@ -1,7 +1,7 @@
 import * as os from 'os';
 import * as path from 'path';
+import * as qu from '../utils';
 import * as qv from 'vscode';
-import * as objects from '../utils/objects';
 
 export enum TsServerLogLevel {
   Off,
@@ -59,7 +59,7 @@ export class ImplicitProjectConfiguration {
   }
 
   public isEqualTo(other: ImplicitProjectConfiguration): boolean {
-    return objects.equals(this, other);
+    return qu.equals(this, other);
   }
 
   private static readCheckJs(configuration: qv.WorkspaceConfiguration): boolean {
@@ -121,7 +121,7 @@ export class TypeScriptServiceConfiguration {
   }
 
   public isEqualTo(other: TypeScriptServiceConfiguration): boolean {
-    return objects.equals(this, other);
+    return qu.equals(this, other);
   }
 
   private static fixPathPrefixes(inspectValue: string): string {

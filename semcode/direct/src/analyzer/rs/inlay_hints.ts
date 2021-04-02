@@ -212,13 +212,7 @@ interface InlaysDecorations {
 }
 
 interface RustSourceFile {
-  /**
-   * Source of the token to cancel in-flight inlay hints request if any.
-   */
   inlaysRequest: null | qv.CancellationTokenSource;
-  /**
-   * Last applied decorations.
-   */
   cachedDecorations: null | InlaysDecorations;
 
   document: RustDocument;

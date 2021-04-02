@@ -1,7 +1,7 @@
 import * as child_process from 'child_process';
 import { isAbsolute } from 'path';
 import { DiagnosticSeverityOverridesMap } from './commandLineOptions';
-import { ConsoleInterface } from './console';
+import { Console } from './console';
 import { DiagnosticRule } from './diagnosticRules';
 import { FileSystem } from './files';
 import { combinePaths, ensureTrailingDirectorySeparator, FileSpec, getFileSpec, normalizePath, resolvePaths } from './paths';
@@ -388,14 +388,7 @@ export class ConfigOptions {
   getDefaultExecEnvironment(): ExecutionEnvironment {
     return new ExecutionEnvironment(this.projectRoot, this.defaultPythonVersion, this.defaultPythonPlatform, this.defaultExtraPaths);
   }
-  initializeFromJson(
-    configObj: any,
-    typeCheckingMode: string | undefined,
-    console: ConsoleInterface,
-    diagnosticOverrides?: DiagnosticSeverityOverridesMap,
-    pythonPath?: string,
-    skipIncludeSection = false
-  ) {
+  initializeFromJson(configObj: any, typeCheckingMode: string | undefined, console: Console, diagnosticOverrides?: DiagnosticSeverityOverridesMap, pythonPath?: string, skipIncludeSection = false) {
     if (!skipIncludeSection) {
       this.include = [];
       if (configObj.include !== undefined) {
@@ -706,7 +699,7 @@ export class ConfigOptions {
       }
     }
   }
-  ensureDefaultPythonPlatform(console: ConsoleInterface) {
+  ensureDefaultPythonPlatform(console: Console) {
     if (this.defaultPythonPlatform !== undefined) {
       return;
     }
@@ -721,7 +714,7 @@ export class ConfigOptions {
       console.info(`Assuming Python platform ${this.defaultPythonPlatform}`);
     }
   }
-  ensureDefaultPythonVersion(pythonPath: string | undefined, console: ConsoleInterface) {
+  ensureDefaultPythonVersion(pythonPath: string | undefined, console: Console) {
     if (this.defaultPythonVersion !== undefined) {
       return;
     }
@@ -777,7 +770,7 @@ export class ConfigOptions {
     console.log(`Config "${fieldName}" entry must be true, false, "error", "warning", "information" or "none".`);
     return defaultValue;
   }
-  private _initExecutionEnvironmentFromJson(envObj: any, index: number, console: ConsoleInterface): ExecutionEnvironment | undefined {
+  private _initExecutionEnvironmentFromJson(envObj: any, index: number, console: Console): ExecutionEnvironment | undefined {
     try {
       const newExecEnv = new ExecutionEnvironment(this.projectRoot, this.defaultPythonVersion, this.defaultPythonPlatform, this.defaultExtraPaths);
       if (envObj.root && typeof envObj.root === 'string') {
@@ -824,7 +817,7 @@ export class ConfigOptions {
     }
     return undefined;
   }
-  private _getPythonVersionFromPythonInterpreter(interpreterPath: string | undefined, console: ConsoleInterface): PythonVersion | undefined {
+  private _getPythonVersionFromPythonInterpreter(interpreterPath: string | undefined, console: Console): PythonVersion | undefined {
     try {
       const commandLineArgs: string[] = ['-c', 'import sys, json; json.dump(dict(major=sys.version_info[0], minor=sys.version_info[1]), sys.stdout)'];
       let execOutput: string;

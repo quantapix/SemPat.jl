@@ -3,7 +3,7 @@ import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocume
 
 import { BackgroundAnalysisBase } from '../backgroundAnalysisBase';
 import { ConfigOptions } from '../common/configOptions';
-import { ConsoleInterface } from '../common/console';
+import { Console } from '../common/console';
 import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { LanguageServiceExtension } from '../common/extensibility';
@@ -21,7 +21,7 @@ export class BackgroundAnalysisProgram {
   private _indices: Indices | undefined;
 
   constructor(
-    private _console: ConsoleInterface,
+    private _console: Console,
     private _configOptions: ConfigOptions,
     private _importResolver: ImportResolver,
     extension?: LanguageServiceExtension,
@@ -238,7 +238,7 @@ export class BackgroundAnalysisProgram {
 }
 
 export type BackgroundAnalysisProgramFactory = (
-  console: ConsoleInterface,
+  console: Console,
   configOptions: ConfigOptions,
   importResolver: ImportResolver,
   extension?: LanguageServiceExtension,

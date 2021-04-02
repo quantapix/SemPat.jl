@@ -2,7 +2,7 @@ import { CancellationToken } from 'vscode-languageserver';
 
 import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions } from '../common/configOptions';
-import { ConsoleInterface } from '../common/console';
+import { Console } from '../common/console';
 import * as debug from '../common/debug';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { Duration } from '../common/timing';
@@ -30,7 +30,7 @@ export function analyzeProgram(
   maxTime: MaxAnalysisTime | undefined,
   configOptions: ConfigOptions,
   callback: AnalysisCompleteCallback | undefined,
-  console: ConsoleInterface,
+  console: Console,
   token: CancellationToken
 ): boolean {
   let moreToAnalyze = false;

@@ -4,7 +4,7 @@ import { CallHierarchyIncomingCall, CallHierarchyItem, CallHierarchyOutgoingCall
 
 import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
-import { ConsoleInterface, StandardConsole } from '../common/console';
+import { Console, StdConsole } from '../common/console';
 import { isDebugMode } from '../common/core';
 import { assert } from '../common/debug';
 import { Diagnostic } from '../common/diagnostic';
@@ -84,7 +84,7 @@ interface UpdateImportInfo {
 }
 
 export class Program {
-  private _console: ConsoleInterface;
+  private _console: Console;
   private _sourceFileList: SourceFileInfo[] = [];
   private _sourceFileMap = new Map<string, SourceFileInfo>();
   private _allowedThirdPartyImports: string[] | undefined;
@@ -94,8 +94,8 @@ export class Program {
   private _logTracker: LogTracker;
   private _parsedFileCount = 0;
 
-  constructor(initialImportResolver: ImportResolver, initialConfigOptions: ConfigOptions, console?: ConsoleInterface, private _extension?: LanguageServiceExtension, logTracker?: LogTracker) {
-    this._console = console || new StandardConsole();
+  constructor(initialImportResolver: ImportResolver, initialConfigOptions: ConfigOptions, console?: Console, private _extension?: LanguageServiceExtension, logTracker?: LogTracker) {
+    this._console = console || new StdConsole();
     this._logTracker = logTracker ?? new LogTracker(console, 'FG');
     this._importResolver = initialImportResolver;
     this._configOptions = initialConfigOptions;

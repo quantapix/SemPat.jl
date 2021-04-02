@@ -62,22 +62,6 @@ export class Config {
     return qv.workspace.getConfiguration(this.rootSection);
   }
 
-  /**
-   * Beware that postfix `!` operator erases both `null` and `undefined`.
-   * This is why the following doesn't work as expected:
-   *
-   * ```ts
-   * const nullableNum = vscode
-   *  .workspace
-   *  .getConfiguration
-   *  .getConfiguration("rust-analyer")
-   *  .get<number | null>(path)!;
-   *
-   * // What happens is that type of `nullableNum` is `number` but not `null | number`:
-   * const fullFledgedNum: number = nullableNum;
-   * ```
-   * So this getter handles this quirk by not requiring the caller to use postfix `!`
-   */
   private get<T>(path: string): T {
     return this.cfg.get<T>(path)!;
   }

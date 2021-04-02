@@ -49,7 +49,7 @@ import { CancelAfter, getCancellationStrategyFromArgv } from './common/cancellat
 import { getNestedProperty } from './common/collectionUtils';
 import { DiagnosticSeverityOverrides, DiagnosticSeverityOverridesMap, getDiagnosticSeverityOverrides } from './common/commandLineOptions';
 import { ConfigOptions, getDiagLevelDiagnosticRules } from './common/configOptions';
-import { ConsoleInterface, ConsoleWithLogLevel, LogLevel } from './common/console';
+import { Console, ConsoleWithLog, LogLevel } from './common/console';
 import { createDeferred, Deferred } from './common/deferred';
 import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
 import { DiagnosticRule } from './common/diagnosticRules';
@@ -115,7 +115,7 @@ export interface LanguageServerInterface {
   restart(): void;
 
   readonly rootPath: string;
-  readonly console: ConsoleInterface;
+  readonly console: Console;
   readonly window: WindowInterface;
   readonly fs: FileSystem;
 }
@@ -191,12 +191,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
   fs: FileSystem;
 
-  readonly console: ConsoleInterface;
+  readonly console: Console;
 
   constructor(private _serverOptions: ServerOptions) {
     (global as any).__rootDirectory = _serverOptions.rootDirectory;
 
-    this.console = new ConsoleWithLogLevel(this._connection.console);
+    this.console = new ConsoleWithLog(this._connection.console);
 
     this.console.info(`${_serverOptions.productName} language server ${_serverOptions.version && _serverOptions.version + ' '}starting`);
 
@@ -273,7 +273,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
   }
 
   protected createBackgroundAnalysisProgram(
-    console: ConsoleInterface,
+    console: Console,
     configOptions: ConfigOptions,
     importResolver: ImportResolver,
     extension?: LanguageServiceExtension,
@@ -910,7 +910,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
   async updateSettingsForWorkspace(workspace: WorkspaceServiceInstance, serverSettings?: ServerSettings): Promise<void> {
     serverSettings = serverSettings ?? (await this.getSettings(workspace));
 
-    (this.console as ConsoleWithLogLevel).level = serverSettings.logLevel ?? LogLevel.Info;
+    (this.console as ConsoleWithLog).level = serverSettings.logLevel ?? LogLevel.Info;
 
     this.updateOptionsAndRestartService(workspace, serverSettings);
     workspace.disableLanguageServices = !!serverSettings.disableLanguageServices;

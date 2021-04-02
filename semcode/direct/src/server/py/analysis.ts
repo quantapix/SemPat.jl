@@ -1,7 +1,7 @@
 import { AnalysisCompleteCallback, AnalysisResults, analyzeProgram, nullCallback } from './analyzer/analysis';
 import { CancellationToken } from 'vscode-languageserver/node';
 import { ConfigOptions } from './common/configOptions';
-import { ConsoleInterface, log, LogLevel } from './common/console';
+import { Console, log, LogLevel } from './common/console';
 import { createFromRealFileSystem, FileSystem } from './common/fileSystem';
 import { Diagnostic } from './common/diagnostic';
 import { disposeCancellationToken, getCancellationTokenFromId, getCancellationTokenId, throwIfCancellationRequested } from './common/cancellationUtils';
@@ -142,7 +142,7 @@ export class BackgroundAnalysisBase {
   private _worker: Worker | undefined;
   private _onAnalysisCompletion: AnalysisCompleteCallback = nullCallback;
 
-  protected constructor(protected console: ConsoleInterface) {}
+  protected constructor(protected console: Console) {}
 
   protected setup(worker: Worker) {
     this._worker = worker;
@@ -602,7 +602,7 @@ export interface AnalysisResponse {
 }
 
 export class BackgroundAnalysis extends BackgroundAnalysisBase {
-  constructor(console: ConsoleInterface) {
+  constructor(console: Console) {
     super(console);
     const initialData: InitializationData = {
       rootDirectory: (global as any).__rootDirectory as string,

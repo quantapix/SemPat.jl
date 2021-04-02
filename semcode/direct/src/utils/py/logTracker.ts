@@ -1,11 +1,11 @@
-import { ConsoleInterface, LogLevel } from './console';
+import { Console, LogLevel } from './console';
 import { Duration, timingStats } from './timing';
 const durationThresholdForInfoInMs = 2000;
 export class LogTracker {
   private _dummyState = new State();
   private _indentation = '';
   private _previousTitles: string[] = [];
-  constructor(private _console: ConsoleInterface | undefined, private _prefix: string) {}
+  constructor(private _console: Console | undefined, private _prefix: string) {}
   log<T>(title: string, callback: (state: LogState) => T, minimalDuration = -1, logParsingPerf = false) {
     if (this._console === undefined) {
       return callback(this._dummyState);

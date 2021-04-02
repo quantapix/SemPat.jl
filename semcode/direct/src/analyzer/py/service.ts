@@ -7,7 +7,7 @@ import { BackgroundAnalysisBase } from '../backgroundAnalysisBase';
 import { createBackgroundThreadCancellationTokenSource } from '../common/cancellationUtils';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions } from '../common/configOptions';
-import { ConsoleInterface, log, LogLevel, StandardConsole } from '../common/console';
+import { Console, log, LogLevel, StdConsole } from '../common/console';
 import { Diagnostic } from '../common/diagnostic';
 import { FileEditAction, TextEditAction } from '../common/editAction';
 import { LanguageServiceExtension } from '../common/extensibility';
@@ -50,7 +50,7 @@ export class AnalyzerService {
   private _executionRootPath: string;
   private _typeStubTargetPath: string | undefined;
   private _typeStubTargetIsSingleFile = false;
-  private _console: ConsoleInterface;
+  private _console: Console;
   private _sourceFileWatcher: FileWatcher | undefined;
   private _reloadConfigTimer: any;
   private _libraryReanalysisTimer: any;
@@ -72,7 +72,7 @@ export class AnalyzerService {
   constructor(
     instanceName: string,
     fs: FileSystem,
-    console?: ConsoleInterface,
+    console?: Console,
     importResolverFactory?: ImportResolverFactory,
     configOptions?: ConfigOptions,
     extension?: LanguageServiceExtension,
@@ -81,7 +81,7 @@ export class AnalyzerService {
     backgroundAnalysisProgramFactory?: BackgroundAnalysisProgramFactory
   ) {
     this._instanceName = instanceName;
-    this._console = console || new StandardConsole();
+    this._console = console || new StdConsole();
     this._executionRootPath = '';
     this._extension = extension;
     this._importResolverFactory = importResolverFactory || AnalyzerService.createImportResolver;

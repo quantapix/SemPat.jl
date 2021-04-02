@@ -1,4 +1,4 @@
-import { ConsoleInterface } from './console';
+import { Console } from './console';
 export class Duration {
   private _startTime: number;
   constructor() {
@@ -57,10 +57,10 @@ export class TimingStats {
   bindTime = new TimingStat();
   typeCheckerTime = new TimingStat();
   typeEvaluationTime = new TimingStat();
-  printSummary(console: ConsoleInterface) {
+  printSummary(console: Console) {
     console.info(`Completed in ${this.totalDuration.getDurationInSeconds()}sec`);
   }
-  printDetails(console: ConsoleInterface) {
+  printDetails(console: Console) {
     console.info('');
     console.info('Timing stats');
     console.info('Find Source Files:    ' + this.findFilesTime.printTime());

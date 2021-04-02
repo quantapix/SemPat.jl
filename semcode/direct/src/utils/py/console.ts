@@ -5,45 +5,45 @@ export enum LogLevel {
   Info = 'info',
   Log = 'log',
 }
-export interface ConsoleInterface {
-  error: (message: string) => void;
-  warn: (message: string) => void;
-  info: (message: string) => void;
-  log: (message: string) => void;
+export interface Console {
+  error: (m: string) => void;
+  warn: (m: string) => void;
+  info: (m: string) => void;
+  log: (m: string) => void;
 }
-export class NullConsole implements ConsoleInterface {
+export class NullConsole implements Console {
   logCount = 0;
   infoCount = 0;
   warnCount = 0;
   errorCount = 0;
-  log(message: string) {
+  log(m: string) {
     this.logCount++;
   }
-  info(message: string) {
+  info(m: string) {
     this.infoCount++;
   }
-  warn(message: string) {
+  warn(m: string) {
     this.warnCount++;
   }
-  error(message: string) {
+  error(m: string) {
     this.errorCount++;
   }
 }
-export class StandardConsole implements ConsoleInterface {
-  log(message: string) {
-    console.info(message);
+export class StdConsole implements Console {
+  log(m: string) {
+    console.info(m);
   }
-  info(message: string) {
-    console.info(message);
+  info(m: string) {
+    console.info(m);
   }
-  warn(message: string) {
-    console.warn(message);
+  warn(m: string) {
+    console.warn(m);
   }
-  error(message: string) {
-    console.error(message);
+  error(m: string) {
+    console.error(m);
   }
 }
-export class ConsoleWithLogLevel implements ConsoleInterface {
+export class ConsoleWithLog implements Console {
   private _levelMap: Map<string, number> = new Map([
     [LogLevel.Error, 0],
     [LogLevel.Warn, 1],
@@ -51,7 +51,7 @@ export class ConsoleWithLogLevel implements ConsoleInterface {
     [LogLevel.Log, 3],
   ]);
   private _maxLevel = 2;
-  constructor(private _console: ConsoleInterface) {}
+  constructor(private _console: Console) {}
   get level(): LogLevel {
     switch (this._maxLevel) {
       case 0:
@@ -63,52 +63,52 @@ export class ConsoleWithLogLevel implements ConsoleInterface {
     }
     return LogLevel.Log;
   }
-  set level(value: LogLevel) {
-    let maxLevel = this._levelMap.get(value);
+  set level(l: LogLevel) {
+    let maxLevel = this._levelMap.get(l);
     if (maxLevel === undefined) {
       maxLevel = this._levelMap.get(LogLevel.Info)!;
     }
     this._maxLevel = maxLevel;
   }
-  error(message: string) {
-    this._log(LogLevel.Error, message);
+  error(m: string) {
+    this._log(LogLevel.Error, m);
   }
-  warn(message: string) {
-    this._log(LogLevel.Warn, message);
+  warn(m: string) {
+    this._log(LogLevel.Warn, m);
   }
-  info(message: string) {
-    this._log(LogLevel.Info, message);
+  info(m: string) {
+    this._log(LogLevel.Info, m);
   }
-  log(message: string) {
-    this._log(LogLevel.Log, message);
+  log(m: string) {
+    this._log(LogLevel.Log, m);
   }
-  private _log(level: LogLevel, message: string): void {
-    if (this._getNumericalLevel(level) > this._maxLevel) {
+  private _log(l: LogLevel, m: string): void {
+    if (this._getNumericalLevel(l) > this._maxLevel) {
       return;
     }
-    log(this._console, level, message);
+    log(this._console, l, m);
   }
-  private _getNumericalLevel(level: LogLevel): number {
-    const numericLevel = this._levelMap.get(level);
+  private _getNumericalLevel(l: LogLevel): number {
+    const numericLevel = this._levelMap.get(l);
     debug.assert(numericLevel !== undefined, 'Logger: unknown log level.');
     return numericLevel !== undefined ? numericLevel : 2;
   }
 }
-export function log(console: ConsoleInterface, logType: LogLevel, msg: string) {
-  switch (logType) {
+export function log(c: Console, l: LogLevel, m: string) {
+  switch (l) {
     case LogLevel.Log:
-      console.log(msg);
+      c.log(m);
       break;
     case LogLevel.Info:
-      console.info(msg);
+      c.info(m);
       break;
     case LogLevel.Warn:
-      console.warn(msg);
+      c.warn(m);
       break;
     case LogLevel.Error:
-      console.error(msg);
+      c.error(m);
       break;
     default:
-      debug.fail(`${logType} is not expected`);
+      debug.fail(`${l} is not expected`);
   }
 }
