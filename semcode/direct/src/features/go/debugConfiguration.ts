@@ -5,22 +5,22 @@ import { toolExecutionEnvironment } from '../../../../old/go/goEnv';
 import { promptForMissingTool, promptForUpdatingTool, shouldUpdateTool } from '../../../../old/go/goInstallTools';
 import { packagePathToGoModPathMap } from '../../../../old/go/goModules';
 import { getToolAtVersion } from '../../../../old/go/goTools';
-import { pickProcess, pickProcessByName } from '../../../../old/go/pickProcess';
+import { pickProc, pickProcByName } from '../../../../old/go/pickProc';
 import { getFromGlobalState, updateGlobalState } from '../../../../old/go/stateUtils';
 import { getBinPath, resolvePath } from '../../../../old/go/util';
 import { parseEnvFiles } from './utils/envUtils';
 
 let dlvDAPVersionCurrent = false;
 
-export class GoDebugConfigurationProvider implements qv.DebugConfigurationProvider {
+export class GoDebugConfigProvider implements qv.DebugConfigProvider {
   constructor(private defaultDebugAdapterType: string = 'go') {}
 
-  public async provideDebugConfigurations(folder: qv.WorkspaceFolder | undefined, token?: qv.CancellationToken): Promise<qv.DebugConfiguration[] | undefined> {
-    return await this.pickConfiguration();
+  public async provideDebugConfigs(folder: qv.WorkspaceFolder | undefined, token?: qv.CancellationToken): Promise<qv.DebugConfig[] | undefined> {
+    return await this.pickConfig();
   }
 
-  public async pickConfiguration(): Promise<qv.DebugConfiguration[]> {
-    const debugConfigurations = [
+  public async pickConfig(): Promise<qv.DebugConfig[]> {
+    const debugConfigs = [
       {
         label: 'Go: Launch package',
         description: 'Debug the package in the program attribute',
@@ -65,7 +65,7 @@ export class GoDebugConfigurationProvider implements qv.DebugConfigurationProvid
           program: '${workspaceFolder}',
           args: ['-test.run', 'MyTestFunction'],
         },
-        fill: async (config: qv.DebugConfiguration) => {
+        fill: async (config: qv.DebugConfig) => {
           const testFunc = await qv.window.showInputBox({
             placeHolder: 'MyTestFunction',
             prompt: 'Name of the function to test',
@@ -79,7 +79,7 @@ export class GoDebugConfigurationProvider implements qv.DebugConfigurationProvid
         label: 'Go: Attach to local process',
         description: 'Attach to an existing process by process ID',
         config: {
-          name: 'Attach to Process',
+          name: 'Attach to Proc',
           type: 'go',
           request: 'attach',
           mode: 'local',
@@ -98,7 +98,7 @@ export class GoDebugConfigurationProvider implements qv.DebugConfigurationProvid
           port: 2345,
           host: '127.0.0.1',
         },
-        fill: async (config: qv.DebugConfiguration) => {
+        fill: async (config: qv.DebugConfig) => {
           const host = await qv.window.showInputBox({
             prompt: 'Enter hostname',
             value: '127.0.0.1',
@@ -125,7 +125,7 @@ export class GoDebugConfigurationProvider implements qv.DebugConfigurationProvid
       },
     ];
 
-    const choice = await qv.window.showQuickPick(debugConfigurations, {
+    const choice = await qv.window.showQuickPick(debugConfigs, {
       placeHolder: 'Choose debug configuration',
     });
     if (!choice) {
@@ -138,14 +138,14 @@ export class GoDebugConfigurationProvider implements qv.DebugConfigurationProvid
     return [choice.config];
   }
 
-  public async resolveDebugConfiguration(folder: qv.WorkspaceFolder | undefined, debugConfiguration: qv.DebugConfiguration, token?: qv.CancellationToken): Promise<qv.DebugConfiguration> {
+  public async resolveDebugConfig(folder: qv.WorkspaceFolder | undefined, debugConfig: qv.DebugConfig, token?: qv.CancellationToken): Promise<qv.DebugConfig> {
     const activeEditor = qv.window.activeTextEditor;
-    if (!debugConfiguration || !debugConfiguration.request) {
+    if (!debugConfig || !debugConfig.request) {
       if (!activeEditor || activeEditor.document.languageId !== 'go') {
         return;
       }
 
-      debugConfiguration = Object.assign(debugConfiguration || {}, {
+      debugConfig = Object.assign(debugConfig || {}, {
         name: 'Launch',
         type: this.defaultDebugAdapterType,
         request: 'launch',
@@ -154,53 +154,53 @@ export class GoDebugConfigurationProvider implements qv.DebugConfigurationProvid
       });
     }
 
-    if (!debugConfiguration.type) {
-      debugConfiguration['type'] = this.defaultDebugAdapterType;
+    if (!debugConfig.type) {
+      debugConfig['type'] = this.defaultDebugAdapterType;
     }
 
-    debugConfiguration['packagePathToGoModPathMap'] = packagePathToGoModPathMap;
+    debugConfig['packagePathToGoModPathMap'] = packagePathToGoModPathMap;
 
     const goConfig = getGoConfig(folder && folder.uri);
     const dlvConfig = goConfig['delveConfig'];
     let useApiV1 = false;
-    if (debugConfiguration.hasOwnProperty('useApiV1')) {
-      useApiV1 = debugConfiguration['useApiV1'] === true;
+    if (debugConfig.hasOwnProperty('useApiV1')) {
+      useApiV1 = debugConfig['useApiV1'] === true;
     } else if (dlvConfig.hasOwnProperty('useApiV1')) {
       useApiV1 = dlvConfig['useApiV1'] === true;
     }
     if (useApiV1) {
-      debugConfiguration['apiVersion'] = 1;
+      debugConfig['apiVersion'] = 1;
     }
-    if (!debugConfiguration.hasOwnProperty('apiVersion') && dlvConfig.hasOwnProperty('apiVersion')) {
-      debugConfiguration['apiVersion'] = dlvConfig['apiVersion'];
+    if (!debugConfig.hasOwnProperty('apiVersion') && dlvConfig.hasOwnProperty('apiVersion')) {
+      debugConfig['apiVersion'] = dlvConfig['apiVersion'];
     }
-    if (!debugConfiguration.hasOwnProperty('dlvLoadConfig') && dlvConfig.hasOwnProperty('dlvLoadConfig')) {
-      debugConfiguration['dlvLoadConfig'] = dlvConfig['dlvLoadConfig'];
+    if (!debugConfig.hasOwnProperty('dlvLoadConfig') && dlvConfig.hasOwnProperty('dlvLoadConfig')) {
+      debugConfig['dlvLoadConfig'] = dlvConfig['dlvLoadConfig'];
     }
-    if (!debugConfiguration.hasOwnProperty('showGlobalVariables') && dlvConfig.hasOwnProperty('showGlobalVariables')) {
-      debugConfiguration['showGlobalVariables'] = dlvConfig['showGlobalVariables'];
+    if (!debugConfig.hasOwnProperty('showGlobalVariables') && dlvConfig.hasOwnProperty('showGlobalVariables')) {
+      debugConfig['showGlobalVariables'] = dlvConfig['showGlobalVariables'];
     }
-    if (debugConfiguration.request === 'attach' && !debugConfiguration['cwd']) {
-      debugConfiguration['cwd'] = '${workspaceFolder}';
+    if (debugConfig.request === 'attach' && !debugConfig['cwd']) {
+      debugConfig['cwd'] = '${workspaceFolder}';
     }
-    if (debugConfiguration['cwd']) {
-      debugConfiguration['cwd'] = resolvePath(debugConfiguration['cwd']);
+    if (debugConfig['cwd']) {
+      debugConfig['cwd'] = resolvePath(debugConfig['cwd']);
     }
 
-    if (debugConfiguration['buildFlags']) {
-      const resp = this.removeGcflags(debugConfiguration['buildFlags']);
+    if (debugConfig['buildFlags']) {
+      const resp = this.removeGcflags(debugConfig['buildFlags']);
       if (resp.removed) {
-        debugConfiguration['buildFlags'] = resp.args;
+        debugConfig['buildFlags'] = resp.args;
         this.showWarning(
           'ignoreDebugGCFlagsWarning',
           "User specified build flag '--gcflags' in 'buildFlags' is being ignored (see [debugging with build flags](https://github.com/golang/vscode-go/blob/master/docs/debugging.md#specifying-other-build-flags) documentation)"
         );
       }
     }
-    if (debugConfiguration['env'] && debugConfiguration['env']['GOFLAGS']) {
-      const resp = this.removeGcflags(debugConfiguration['env']['GOFLAGS']);
+    if (debugConfig['env'] && debugConfig['env']['GOFLAGS']) {
+      const resp = this.removeGcflags(debugConfig['env']['GOFLAGS']);
       if (resp.removed) {
-        debugConfiguration['env']['GOFLAGS'] = resp.args;
+        debugConfig['env']['GOFLAGS'] = resp.args;
         this.showWarning(
           'ignoreDebugGCFlagsWarning',
           "User specified build flag '--gcflags' in 'GOFLAGS' is being ignored (see [debugging with build flags](https://github.com/golang/vscode-go/blob/master/docs/debugging.md#specifying-other-build-flags) documentation)"
@@ -208,13 +208,13 @@ export class GoDebugConfigurationProvider implements qv.DebugConfigurationProvid
       }
     }
 
-    const debugAdapter = debugConfiguration['debugAdapter'] === 'dlv-dap' ? 'dlv-dap' : 'dlv';
+    const debugAdapter = debugConfig['debugAdapter'] === 'dlv-dap' ? 'dlv-dap' : 'dlv';
     const dlvToolPath = getBinPath(debugAdapter);
     if (!path.isAbsolute(dlvToolPath)) {
       await promptForMissingTool(debugAdapter);
       return;
     }
-    debugConfiguration['dlvToolPath'] = dlvToolPath;
+    debugConfig['dlvToolPath'] = dlvToolPath;
 
     if (debugAdapter === 'dlv-dap' && !dlvDAPVersionCurrent) {
       const tool = getToolAtVersion('dlv-dap');
@@ -225,26 +225,26 @@ export class GoDebugConfigurationProvider implements qv.DebugConfigurationProvid
       dlvDAPVersionCurrent = true;
     }
 
-    if (debugConfiguration['mode'] === 'auto') {
-      debugConfiguration['mode'] = activeEditor && activeEditor.document.fileName.endsWith('_test.go') ? 'test' : 'debug';
+    if (debugConfig['mode'] === 'auto') {
+      debugConfig['mode'] = activeEditor && activeEditor.document.fileName.endsWith('_test.go') ? 'test' : 'debug';
     }
 
-    if (debugConfiguration.request === 'launch' && debugConfiguration['mode'] === 'remote') {
+    if (debugConfig.request === 'launch' && debugConfig['mode'] === 'remote') {
       this.showWarning('ignoreDebugLaunchRemoteWarning', "Request type of 'launch' with mode 'remote' is deprecated, please use request type 'attach' with mode 'remote' instead.");
     }
 
-    if (debugConfiguration.request === 'attach' && debugConfiguration['mode'] === 'remote' && debugConfiguration['program']) {
+    if (debugConfig.request === 'attach' && debugConfig['mode'] === 'remote' && debugConfig['program']) {
       this.showWarning('ignoreUsingRemotePathAndProgramWarning', "Request type of 'attach' with mode 'remote' does not work with 'program' attribute, please use 'cwd' attribute instead.");
     }
 
-    if (debugConfiguration.request === 'attach' && debugConfiguration['mode'] === 'local') {
-      if (!debugConfiguration['processId'] || debugConfiguration['processId'] === 0) {
-        debugConfiguration['processId'] = parseInt(await pickProcess(), 10);
-      } else if (typeof debugConfiguration['processId'] === 'string') {
-        debugConfiguration['processId'] = parseInt(await pickProcessByName(debugConfiguration['processId']), 10);
+    if (debugConfig.request === 'attach' && debugConfig['mode'] === 'local') {
+      if (!debugConfig['processId'] || debugConfig['processId'] === 0) {
+        debugConfig['processId'] = parseInt(await pickProc(), 10);
+      } else if (typeof debugConfig['processId'] === 'string') {
+        debugConfig['processId'] = parseInt(await pickProcByName(debugConfig['processId']), 10);
       }
     }
-    return debugConfiguration;
+    return debugConfig;
   }
 
   public removeGcflags(args: string): { args: string; removed: boolean } {
@@ -257,15 +257,15 @@ export class GoDebugConfigurationProvider implements qv.DebugConfigurationProvid
     return { args, removed };
   }
 
-  public resolveDebugConfigurationWithSubstitutedVariables(folder: qv.WorkspaceFolder | undefined, debugConfiguration: qv.DebugConfiguration, token?: qv.CancellationToken): qv.DebugConfiguration {
+  public resolveDebugConfigWithSubstitutedVariables(folder: qv.WorkspaceFolder | undefined, debugConfig: qv.DebugConfig, token?: qv.CancellationToken): qv.DebugConfig {
     const goToolsEnvVars = toolExecutionEnvironment(folder?.uri); // also includes GOPATH: getCurrentGoPath().
-    const fileEnvs = parseEnvFiles(debugConfiguration['envFile']);
-    const env = debugConfiguration['env'] || {};
+    const fileEnvs = parseEnvFiles(debugConfig['envFile']);
+    const env = debugConfig['env'] || {};
 
-    debugConfiguration['env'] = Object.assign(goToolsEnvVars, fileEnvs, env);
-    debugConfiguration['envFile'] = undefined; // unset, since we already processed.
+    debugConfig['env'] = Object.assign(goToolsEnvVars, fileEnvs, env);
+    debugConfig['envFile'] = undefined; // unset, since we already processed.
 
-    return debugConfiguration;
+    return debugConfig;
   }
 
   private showWarning(ignoreWarningKey: string, warningMessage: string) {

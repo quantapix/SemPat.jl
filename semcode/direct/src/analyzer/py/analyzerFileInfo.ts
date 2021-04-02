@@ -1,5 +1,5 @@
-import { DiagnosticRuleSet, ExecutionEnvironment } from '../common/configOptions';
-import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
+import { DiagRuleSet, ExecutionEnvironment } from '../common/configOptions';
+import { TextRangeDiagSink } from '../common/diagnosticSink';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Scope } from './scope';
@@ -20,9 +20,9 @@ export interface AnalyzerFileInfo {
   typingModulePath?: string;
   typeshedModulePath?: string;
   collectionsModulePath?: string;
-  diagnosticSink: TextRangeDiagnosticSink;
+  diagnosticSink: TextRangeDiagSink;
   executionEnvironment: ExecutionEnvironment;
-  diagnosticRuleSet: DiagnosticRuleSet;
+  diagnosticRuleSet: DiagRuleSet;
   fileContents: string;
   lines: TextRangeCollection<TextRange>;
   filePath: string;

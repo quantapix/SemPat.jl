@@ -2,10 +2,10 @@ import { CancellationToken } from 'vscode-languageserver';
 
 import { Commands } from '../commands/commands';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
-import { DiagnosticLevel } from '../common/configOptions';
+import { DiagLevel } from '../common/configOptions';
 import { assert, fail } from '../common/debug';
-import { AddMissingOptionalToParamAction, Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
-import { DiagnosticRule } from '../common/diagnosticRules';
+import { AddMissingOptionalToParamAction, Diag, DiagAddendum } from '../common/diagnostic';
+import { DiagRule } from '../common/diagnosticRules';
 import { LogTracker } from '../common/logTracker';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
@@ -16,7 +16,7 @@ import {
   ArgumentNode,
   AssignmentNode,
   AugmentedAssignmentNode,
-  BinaryOperationNode,
+  BinaryOpNode,
   CallNode,
   CaseNode,
   ClassNode,
@@ -56,7 +56,7 @@ import {
   TernaryNode,
   TupleNode,
   TypeAnnotationNode,
-  UnaryOperationNode,
+  UnaryOpNode,
   WithItemNode,
   YieldFromNode,
   YieldNode,
@@ -76,7 +76,7 @@ import {
   FlowFlags,
   FlowLabel,
   FlowNode,
-  FlowPostContextManagerLabel,
+  FlowPostContextMgrLabel,
   FlowPostFinally,
   FlowPreFinallyGate,
   FlowVariableAnnotation,
@@ -219,7 +219,7 @@ interface TypeResult {
 
   unpackedType?: Type;
   typeList?: TypeResult[];
-  expectedTypeDiagAddendum?: DiagnosticAddendum;
+  expectedTypeDiagAddendum?: DiagAddendum;
 
   bindToType?: ClassType | ObjectType | TypeVarType;
 }
@@ -327,7 +327,7 @@ interface EvaluatorUsage {
 
   setType?: Type;
   setErrorNode?: ExpressionNode;
-  setExpectedTypeDiag?: DiagnosticAddendum;
+  setExpectedTypeDiag?: DiagAddendum;
 }
 
 interface AliasMapEntry {
@@ -461,7 +461,7 @@ export interface TypeEvaluator {
 
   isAfterNodeReachable: (node: ParseNode) => boolean;
   isNodeReachable: (node: ParseNode) => boolean;
-  suppressDiagnostics: (node: ParseNode, callback: () => void) => void;
+  suppressDiags: (node: ParseNode, callback: () => void) => void;
 
   getDeclarationsForNameNode: (node: NameNode) => Declaration[] | undefined;
   getTypeForDeclaration: (declaration: Declaration) => Type | undefined;
@@ -483,17 +483,17 @@ export interface TypeEvaluator {
   getCallSignatureInfo: (node: CallNode, activeIndex: number, activeOrFake: boolean) => CallSignatureInfo | undefined;
   getTypeAnnotationForParameter: (node: FunctionNode, paramIndex: number) => ExpressionNode | undefined;
 
-  canAssignType: (destType: Type, srcType: Type, diag: DiagnosticAddendum, typeVarMap?: TypeVarMap, flags?: CanAssignFlags) => boolean;
-  canOverrideMethod: (baseMethod: Type, overrideMethod: FunctionType, diag: DiagnosticAddendum) => boolean;
+  canAssignType: (destType: Type, srcType: Type, diag: DiagAddendum, typeVarMap?: TypeVarMap, flags?: CanAssignFlags) => boolean;
+  canOverrideMethod: (baseMethod: Type, overrideMethod: FunctionType, diag: DiagAddendum) => boolean;
   canAssignProtocolClassToSelf: (destType: ClassType, srcType: ClassType) => boolean;
 
-  addError: (message: string, node: ParseNode) => Diagnostic | undefined;
-  addWarning: (message: string, node: ParseNode) => Diagnostic | undefined;
-  addInformation: (message: string, node: ParseNode) => Diagnostic | undefined;
+  addError: (message: string, node: ParseNode) => Diag | undefined;
+  addWarning: (message: string, node: ParseNode) => Diag | undefined;
+  addInformation: (message: string, node: ParseNode) => Diag | undefined;
   addUnusedCode: (node: ParseNode, textRange: TextRange) => void;
 
-  addDiagnostic: (diagLevel: DiagnosticLevel, rule: string, message: string, node: ParseNode) => Diagnostic | undefined;
-  addDiagnosticForTextRange: (fileInfo: AnalyzerFileInfo, diagLevel: DiagnosticLevel, rule: string, message: string, range: TextRange) => Diagnostic | undefined;
+  addDiag: (diagLevel: DiagLevel, rule: string, message: string, node: ParseNode) => Diag | undefined;
+  addDiagForTextRange: (fileInfo: AnalyzerFileInfo, diagLevel: DiagLevel, rule: string, message: string, range: TextRange) => Diag | undefined;
 
   printType: (type: Type, expandTypeAlias: boolean) => string;
   printFunctionParts: (type: FunctionType) => [string[], string];
@@ -547,7 +547,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
   const isReachableRecursionMap = new Map<number, true>();
   const functionRecursionMap = new Map<number, true>();
   const callIsNoReturnCache = new Map<number, boolean>();
-  const isExceptionContextManagerCache = new Map<number, boolean>();
+  const isExceptionContextMgrCache = new Map<number, boolean>();
   const codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
   const typeCache: TypeCache = new Map<number, CachedType>();
   const speculativeTypeTracker = new SpeculativeTypeTracker();
@@ -769,7 +769,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       case ParseNodeType.Call: {
         if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
-          addDiagnostic(getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues, Localizer.Diagnostic.typeAnnotationCall(), node);
+          addDiag(getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.typeAnnotationCall(), node);
           typeResult = { node, type: UnknownType.create() };
         } else {
           typeResult = getTypeFromCall(node, expectedTypeAlt);
@@ -802,7 +802,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
           if (!typeResult) {
             const fileInfo = getFileInfo(node);
-            addDiagnostic(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues, Localizer.Diagnostic.expectedTypeNotString(), node);
+            addDiag(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.expectedTypeNotString(), node);
             typeResult = { node, type: UnknownType.create() };
           }
 
@@ -856,13 +856,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         break;
       }
 
-      case ParseNodeType.UnaryOperation: {
-        typeResult = getTypeFromUnaryOperation(node, expectedTypeAlt);
+      case ParseNodeType.UnaryOp: {
+        typeResult = getTypeFromUnaryOp(node, expectedTypeAlt);
         break;
       }
 
-      case ParseNodeType.BinaryOperation: {
-        typeResult = getTypeFromBinaryOperation(node, expectedTypeAlt, flags);
+      case ParseNodeType.BinaryOp: {
+        typeResult = getTypeFromBinaryOp(node, expectedTypeAlt, flags);
         break;
       }
 
@@ -971,7 +971,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       }
 
       case ParseNodeType.Error: {
-        suppressDiagnostics(node, () => {
+        suppressDiags(node, () => {
           if (node.child) {
             getTypeOfExpression(node.child);
           }
@@ -990,7 +990,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       if (flags & EvaluatorFlags.TypeVarTupleDisallowed) {
         if (isTypeVar(typeResult.type) && typeResult.type.details.isVariadic) {
-          addError(Localizer.Diagnostic.typeVarTupleContext(), node);
+          addError(Localizer.Diag.typeVarTupleContext(), node);
           typeResult.type = UnknownType.create();
         }
       }
@@ -999,7 +999,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const isEmptyVariadic = isObject(resultType) && ClassType.isTupleClass(resultType.classType) && resultType.classType.tupleTypeArguments?.length === 0;
 
         if (!isEmptyVariadic) {
-          addExpectedClassDiagnostic(typeResult.type, node);
+          addExpectedClassDiag(typeResult.type, node);
         }
       }
     }
@@ -1107,7 +1107,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     objectType: ObjectType,
     memberName: string,
     usage: EvaluatorUsage = { method: 'get' },
-    diag: DiagnosticAddendum = new DiagnosticAddendum(),
+    diag: DiagAddendum = new DiagAddendum(),
     memberAccessFlags = MemberAccessFlags.None,
     bindToType?: ClassType | ObjectType | TypeVarType
   ): TypeResult | undefined {
@@ -1124,17 +1124,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     classType: ClassType,
     memberName: string,
     usage: EvaluatorUsage = { method: 'get' },
-    diag: DiagnosticAddendum = new DiagnosticAddendum(),
+    diag: DiagAddendum = new DiagAddendum(),
     memberAccessFlags = MemberAccessFlags.None,
     bindToType?: ClassType | ObjectType | TypeVarType
   ): TypeResult | undefined {
     let memberInfo: ClassMemberLookup | undefined;
 
     if (ClassType.isPartiallyConstructed(classType)) {
-      addDiagnostic(
+      addDiag(
         getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-        DiagnosticRule.reportGeneralTypeIssues,
-        Localizer.Diagnostic.classDefinitionCycle().format({ name: classType.details.name }),
+        DiagRule.reportGeneralTypeIssues,
+        Localizer.Diag.classDefinitionCycle().format({ name: classType.details.name }),
         errorNode
       );
       return { node: errorNode, type: UnknownType.create() };
@@ -1147,7 +1147,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     if (!memberInfo) {
       const metaclass = classType.details.effectiveMetaclass;
       if (metaclass && isClass(metaclass) && !ClassType.isSameGenericClass(metaclass, classType)) {
-        memberInfo = getTypeFromClassMemberName(errorNode, metaclass, memberName, usage, new DiagnosticAddendum(), memberAccessFlags, classType);
+        memberInfo = getTypeFromClassMemberName(errorNode, metaclass, memberName, usage, new DiagAddendum(), memberAccessFlags, classType);
       }
     }
 
@@ -1481,12 +1481,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       if (errorNode) {
         const fileInfo = getFileInfo(errorNode);
-        addDiagnostic(
-          fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-          DiagnosticRule.reportGeneralTypeIssues,
-          Localizer.Diagnostic.typeNotAwaitable().format({ type: printType(subtype) }),
-          errorNode
-        );
+        addDiag(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.typeNotAwaitable().format({ type: printType(subtype) }), errorNode);
       }
 
       return UnknownType.create();
@@ -1502,7 +1497,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     if (isOptionalType(type)) {
       if (errorNode) {
-        addDiagnostic(getFileInfo(errorNode).diagnosticRuleSet.reportOptionalIterable, DiagnosticRule.reportOptionalIterable, Localizer.Diagnostic.noneNotIterable(), errorNode);
+        addDiag(getFileInfo(errorNode).diagnosticRuleSet.reportOptionalIterable, DiagRule.reportOptionalIterable, Localizer.Diag.noneNotIterable(), errorNode);
       }
       type = removeNoneFromUnion(type);
     }
@@ -1514,7 +1509,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return subtype;
       }
 
-      const diag = new DiagnosticAddendum();
+      const diag = new DiagAddendum();
       if (isObject(subtype) || isClass(subtype)) {
         let iterReturnType: Type | undefined;
 
@@ -1532,7 +1527,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
           }
 
-          diag.addMessage(Localizer.Diagnostic.methodNotDefined().format({ name: iterMethodName }));
+          diag.addMessage(Localizer.Diag.methodNotDefined().format({ name: iterMethodName }));
         } else {
           const concreteIterReturnType = makeTopLevelTypeVarsConcrete(iterReturnType);
 
@@ -1545,7 +1540,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (!nextReturnType) {
               diag.addMessage(
-                Localizer.Diagnostic.methodNotDefinedOnType().format({
+                Localizer.Diag.methodNotDefinedOnType().format({
                   name: nextMethodName,
                   type: printType(iterReturnType),
                 })
@@ -1558,16 +1553,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
               return getTypeFromAwaitable(nextReturnType, errorNode);
             }
           } else {
-            diag.addMessage(Localizer.Diagnostic.methodReturnsNonObject().format({ name: iterMethodName }));
+            diag.addMessage(Localizer.Diag.methodReturnsNonObject().format({ name: iterMethodName }));
           }
         }
       }
 
       if (errorNode) {
-        addDiagnostic(
+        addDiag(
           getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-          DiagnosticRule.reportGeneralTypeIssues,
-          Localizer.Diagnostic.typeNotIterable().format({ type: printType(subtype) }) + diag.getString(),
+          DiagRule.reportGeneralTypeIssues,
+          Localizer.Diag.typeNotIterable().format({ type: printType(subtype) }) + diag.getString(),
           errorNode
         );
       }
@@ -1586,7 +1581,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     if (isOptionalType(type)) {
       if (errorNode) {
-        addDiagnostic(getFileInfo(errorNode).diagnosticRuleSet.reportOptionalIterable, DiagnosticRule.reportOptionalIterable, Localizer.Diagnostic.noneNotIterable(), errorNode);
+        addDiag(getFileInfo(errorNode).diagnosticRuleSet.reportOptionalIterable, DiagRule.reportOptionalIterable, Localizer.Diag.noneNotIterable(), errorNode);
       }
       type = removeNoneFromUnion(type);
     }
@@ -1613,12 +1608,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       }
 
       if (errorNode) {
-        addDiagnostic(
-          getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-          DiagnosticRule.reportGeneralTypeIssues,
-          Localizer.Diagnostic.typeNotIterable().format({ type: printType(subtype) }),
-          errorNode
-        );
+        addDiag(getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.typeNotIterable().format({ type: printType(subtype) }), errorNode);
       }
 
       isValidIterable = false;
@@ -1732,7 +1722,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
               const firstDefaultValueIndex = fullDataClassEntries.findIndex((p) => p.hasDefault && p.includeInInit);
               if (includeInInit && !hasDefaultValue && firstDefaultValueIndex >= 0 && firstDefaultValueIndex < insertIndex) {
-                addError(Localizer.Diagnostic.dataClassFieldWithDefault(), variableNameNode);
+                addError(Localizer.Diag.dataClassFieldWithDefault(), variableNameNode);
               }
             }
           }
@@ -2067,34 +2057,34 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
   }
 
   function addInformation(message: string, node: ParseNode, range?: TextRange) {
-    return addDiagnosticWithSuppressionCheck('information', message, node, range);
+    return addDiagWithSuppressionCheck('information', message, node, range);
   }
 
   function addWarning(message: string, node: ParseNode, range?: TextRange) {
-    return addDiagnosticWithSuppressionCheck('warning', message, node, range);
+    return addDiagWithSuppressionCheck('warning', message, node, range);
   }
 
   function addError(message: string, node: ParseNode, range?: TextRange) {
-    return addDiagnosticWithSuppressionCheck('error', message, node, range);
+    return addDiagWithSuppressionCheck('error', message, node, range);
   }
 
   function addUnusedCode(node: ParseNode, textRange: TextRange) {
-    if (!isDiagnosticSuppressedForNode(node)) {
+    if (!isDiagSuppressedForNode(node)) {
       const fileInfo = getFileInfo(node);
-      fileInfo.diagnosticSink.addUnusedCodeWithTextRange(Localizer.Diagnostic.unreachableCode(), textRange);
+      fileInfo.diagnosticSink.addUnusedCodeWithTextRange(Localizer.Diag.unreachableCode(), textRange);
     }
   }
 
-  function addDiagnosticWithSuppressionCheck(diagLevel: DiagnosticLevel, message: string, node: ParseNode, range?: TextRange) {
-    if (!isDiagnosticSuppressedForNode(node)) {
+  function addDiagWithSuppressionCheck(diagLevel: DiagLevel, message: string, node: ParseNode, range?: TextRange) {
+    if (!isDiagSuppressedForNode(node)) {
       const fileInfo = getFileInfo(node);
-      return fileInfo.diagnosticSink.addDiagnosticWithTextRange(diagLevel, message, range || node);
+      return fileInfo.diagnosticSink.addDiagWithTextRange(diagLevel, message, range || node);
     }
 
     return undefined;
   }
 
-  function isDiagnosticSuppressedForNode(node: ParseNode) {
+  function isDiagSuppressedForNode(node: ParseNode) {
     return (
       suppressedNodeStack.some((suppressedNode) => ParseTreeUtils.isNodeContainedWithin(node, suppressedNode)) ||
       speculativeTypeTracker.isSpeculative(node) ||
@@ -2102,12 +2092,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     );
   }
 
-  function addDiagnostic(diagLevel: DiagnosticLevel, rule: string, message: string, node: ParseNode) {
+  function addDiag(diagLevel: DiagLevel, rule: string, message: string, node: ParseNode) {
     if (diagLevel === 'none') {
       return undefined;
     }
 
-    const diagnostic = addDiagnosticWithSuppressionCheck(diagLevel, message, node);
+    const diagnostic = addDiagWithSuppressionCheck(diagLevel, message, node);
     if (diagnostic) {
       diagnostic.setRule(rule);
     }
@@ -2115,37 +2105,32 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     return diagnostic;
   }
 
-  function addDiagnosticForTextRange(fileInfo: AnalyzerFileInfo, diagLevel: DiagnosticLevel, rule: string, message: string, range: TextRange) {
+  function addDiagForTextRange(fileInfo: AnalyzerFileInfo, diagLevel: DiagLevel, rule: string, message: string, range: TextRange) {
     if (diagLevel === 'none') {
       return undefined;
     }
 
-    const diagnostic = fileInfo.diagnosticSink.addDiagnosticWithTextRange(diagLevel, message, range);
+    const diagnostic = fileInfo.diagnosticSink.addDiagWithTextRange(diagLevel, message, range);
     diagnostic.setRule(rule);
 
     return diagnostic;
   }
 
-  function addExpectedClassDiagnostic(type: Type, node: ParseNode) {
+  function addExpectedClassDiag(type: Type, node: ParseNode) {
     const fileInfo = getFileInfo(node);
-    const diag = new DiagnosticAddendum();
+    const diag = new DiagAddendum();
     if (isUnion(type)) {
       doForEachSubtype(type, (subtype) => {
         if (!TypeBase.isInstantiable(subtype)) {
-          diag.addMessage(Localizer.DiagnosticAddendum.typeNotClass().format({ type: printType(subtype) }));
+          diag.addMessage(Localizer.DiagAddendum.typeNotClass().format({ type: printType(subtype) }));
         }
       });
     }
 
-    addDiagnostic(
-      fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-      DiagnosticRule.reportGeneralTypeIssues,
-      Localizer.Diagnostic.typeExpectedClass().format({ type: printType(type) }) + diag.getString(),
-      node
-    );
+    addDiag(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.typeExpectedClass().format({ type: printType(type) }) + diag.getString(), node);
   }
 
-  function assignTypeToNameNode(nameNode: NameNode, type: Type, isTypeIncomplete: boolean, srcExpression?: ParseNode, expectedTypeDiagAddendum?: DiagnosticAddendum) {
+  function assignTypeToNameNode(nameNode: NameNode, type: Type, isTypeIncomplete: boolean, srcExpression?: ParseNode, expectedTypeDiagAddendum?: DiagAddendum) {
     const nameValue = nameNode.value;
 
     const symbolWithScope = lookUpSymbolRecursive(nameNode, nameValue, /* honorCodeFlow */ false);
@@ -2159,17 +2144,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     let destType = type;
     if (declaredType && srcExpression) {
-      let diagAddendum = new DiagnosticAddendum();
+      let diagAddendum = new DiagAddendum();
 
       if (!canAssignType(declaredType, type, diagAddendum)) {
         if (expectedTypeDiagAddendum) {
           diagAddendum = expectedTypeDiagAddendum;
         }
 
-        addDiagnostic(
+        addDiag(
           fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-          DiagnosticRule.reportGeneralTypeIssues,
-          Localizer.Diagnostic.typeAssignmentMismatch().format({
+          DiagRule.reportGeneralTypeIssues,
+          Localizer.Diag.typeAssignmentMismatch().format({
             sourceType: printType(type),
             destType: printType(declaredType),
           }) + diagAddendum.getString(),
@@ -2197,12 +2182,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     if (varDecl && varDecl.type === DeclarationType.Variable && srcExpression) {
       if (varDecl.isConstant) {
         if (nameNode !== declarations[0].node) {
-          addDiagnostic(
-            fileInfo.diagnosticRuleSet.reportConstantRedefinition,
-            DiagnosticRule.reportConstantRedefinition,
-            Localizer.Diagnostic.constantRedefinition().format({ name: nameValue }),
-            nameNode
-          );
+          addDiag(fileInfo.diagnosticRuleSet.reportConstantRedefinition, DiagRule.reportConstantRedefinition, Localizer.Diag.constantRedefinition().format({ name: nameValue }), nameNode);
         }
       }
     }
@@ -2210,7 +2190,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     writeTypeCache(nameNode, destType, isTypeIncomplete, /* expectedType */ undefined, /* allowSpeculativeCaching */ false);
   }
 
-  function assignTypeToMemberAccessNode(target: MemberAccessNode, type: Type, isTypeIncomplete: boolean, srcExpr?: ExpressionNode, expectedTypeDiagAddendum?: DiagnosticAddendum) {
+  function assignTypeToMemberAccessNode(target: MemberAccessNode, type: Type, isTypeIncomplete: boolean, srcExpr?: ExpressionNode, expectedTypeDiagAddendum?: DiagAddendum) {
     const baseTypeResult = getTypeOfExpression(target.leftExpression);
     const baseType = makeTopLevelTypeVarsConcrete(baseTypeResult.type);
 
@@ -2238,7 +2218,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return !ParseTreeUtils.getEnclosingFunction(decl.node);
               });
               if (classLevelDecls.length === 0) {
-                addError(Localizer.Diagnostic.assignmentInProtocol(), target.memberName);
+                addError(Localizer.Diag.assignmentInProtocol(), target.memberName);
               }
             }
           }
@@ -2278,10 +2258,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
           if (typedDecls.length > 0 && typedDecls[0].type === DeclarationType.Variable && srcExprNode && node.memberName !== typedDecls[0].node) {
             if (typedDecls[0].isConstant) {
-              addDiagnostic(
+              addDiag(
                 fileInfo.diagnosticRuleSet.reportConstantRedefinition,
-                DiagnosticRule.reportConstantRedefinition,
-                Localizer.Diagnostic.constantRedefinition().format({ name: node.memberName.value }),
+                DiagRule.reportConstantRedefinition,
+                Localizer.Diag.constantRedefinition().format({ name: node.memberName.value }),
                 node.memberName
               );
             }
@@ -2292,7 +2272,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (isFinalVar) {
-              addError(Localizer.Diagnostic.finalReassigned().format({ name: node.memberName.value }), node.memberName);
+              addError(Localizer.Diag.finalReassigned().format({ name: node.memberName.value }), node.memberName);
             }
           }
         } else {
@@ -2310,7 +2290,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       memberInfo = lookUpClassMember(classTypeInfo.classType, memberName, ClassMemberLookupFlags.DeclaredTypesOnly);
 
       if (!memberInfo && srcExprNode && !isTypeIncomplete) {
-        reportPossibleUnknownAssignment(fileInfo.diagnosticRuleSet.reportUnknownMemberType, DiagnosticRule.reportUnknownMemberType, node.memberName, srcType, node);
+        reportPossibleUnknownAssignment(fileInfo.diagnosticRuleSet.reportUnknownMemberType, DiagRule.reportUnknownMemberType, node.memberName, srcType, node);
       }
     }
   }
@@ -2359,10 +2339,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           if (targetIndex < target.expressions.length || sourceIndex < sourceEntryCount) {
             const fileInfo = getFileInfo(target);
             const expectedEntryCount = unpackIndex >= 0 ? target.expressions.length - 1 : target.expressions.length;
-            addDiagnostic(
+            addDiag(
               fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-              DiagnosticRule.reportGeneralTypeIssues,
-              Localizer.Diagnostic.tupleSizeMismatch().format({
+              DiagRule.reportGeneralTypeIssues,
+              Localizer.Diag.tupleSizeMismatch().format({
                 expected: expectedEntryCount,
                 received: sourceEntryCount,
               }),
@@ -2497,7 +2477,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
   }
 
-  function assignTypeToExpression(target: ExpressionNode, type: Type, isTypeIncomplete: boolean, srcExpr: ExpressionNode, expectedTypeDiagAddendum?: DiagnosticAddendum) {
+  function assignTypeToExpression(target: ExpressionNode, type: Type, isTypeIncomplete: boolean, srcExpr: ExpressionNode, expectedTypeDiagAddendum?: DiagAddendum) {
     if (isTypeVar(type)) {
       if (srcExpr && srcExpr.nodeType === ParseNodeType.Call) {
         const callType = getTypeOfExpression(srcExpr.leftExpression).type;
@@ -2505,10 +2485,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           if (target.nodeType !== ParseNodeType.Name || target.value !== type.details.name) {
             addError(
               type.details.isParamSpec
-                ? Localizer.Diagnostic.paramSpecAssignedName().format({
+                ? Localizer.Diag.paramSpecAssignedName().format({
                     name: TypeVarType.getReadableName(type),
                   })
-                : Localizer.Diagnostic.typeVarAssignedName().format({
+                : Localizer.Diag.typeVarAssignedName().format({
                     name: TypeVarType.getReadableName(type),
                   }),
               target
@@ -2523,7 +2503,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     switch (target.nodeType) {
       case ParseNodeType.Name: {
         if (!isTypeIncomplete) {
-          reportPossibleUnknownAssignment(getFileInfo(target).diagnosticRuleSet.reportUnknownVariableType, DiagnosticRule.reportUnknownVariableType, target, type, target);
+          reportPossibleUnknownAssignment(getFileInfo(target).diagnosticRuleSet.reportUnknownVariableType, DiagRule.reportUnknownVariableType, target, type, target);
         }
 
         assignTypeToNameNode(target, type, isTypeIncomplete, srcExpr, expectedTypeDiagAddendum);
@@ -2566,7 +2546,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           const isTypeAliasAnnotation = isObject(annotationType) && ClassType.isBuiltIn(annotationType.classType, 'TypeAlias');
 
           if (!isTypeAliasAnnotation) {
-            if (canAssignType(annotationType, type, new DiagnosticAddendum())) {
+            if (canAssignType(annotationType, type, new DiagAddendum())) {
               if (!isObject(type) || !ClassType.isEnumClass(type.classType)) {
                 type = narrowTypeBasedOnAssignment(annotationType, type);
               }
@@ -2596,7 +2576,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       case ParseNodeType.Error: {
         if (target.child) {
-          suppressDiagnostics(target.child, () => {
+          suppressDiags(target.child, () => {
             getTypeOfExpression(target.child!);
           });
         }
@@ -2605,7 +2585,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       default: {
         const fileInfo = getFileInfo(target);
-        addDiagnostic(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues, Localizer.Diagnostic.assignmentTargetExpr(), target);
+        addDiag(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.assignmentTargetExpr(), target);
         break;
       }
     }
@@ -2618,7 +2598,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       const exceptionType = getType(node.typeExpression);
 
       if (exceptionType && baseExceptionType && isClass(baseExceptionType)) {
-        const diagAddendum = new DiagnosticAddendum();
+        const diagAddendum = new DiagAddendum();
 
         doForEachSubtype(exceptionType, (subtype) => {
           const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
@@ -2627,19 +2607,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (isClass(concreteSubtype) && concreteSubtype.literalValue === undefined) {
               if (!derivesFromClassRecursive(concreteSubtype, baseExceptionType, /* ignoreUnknown */ false)) {
                 diagAddendum.addMessage(
-                  Localizer.Diagnostic.exceptionTypeIncorrect().format({
+                  Localizer.Diag.exceptionTypeIncorrect().format({
                     type: printType(subtype, /* expandTypeAlias */ false),
                   })
                 );
               } else {
                 let callResult: CallResult | undefined;
-                suppressDiagnostics(node.typeExpression!, () => {
+                suppressDiags(node.typeExpression!, () => {
                   callResult = validateConstructorArguments(node.typeExpression!, [], concreteSubtype, /* skipUnknownArgCheck */ false, /* expectedType */ undefined);
                 });
 
                 if (callResult && callResult.argumentErrors) {
                   diagAddendum.addMessage(
-                    Localizer.Diagnostic.exceptionTypeNotInstantiable().format({
+                    Localizer.Diag.exceptionTypeNotInstantiable().format({
                       type: printType(subtype, /* expandTypeAlias */ false),
                     })
                   );
@@ -2648,14 +2628,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             } else if (isObject(concreteSubtype)) {
               if (!derivesFromClassRecursive(concreteSubtype.classType, baseExceptionType, /* ignoreUnknown */ false)) {
                 diagAddendum.addMessage(
-                  Localizer.Diagnostic.exceptionTypeIncorrect().format({
+                  Localizer.Diag.exceptionTypeIncorrect().format({
                     type: printType(subtype, /* expandTypeAlias */ false),
                   })
                 );
               }
             } else {
               diagAddendum.addMessage(
-                Localizer.Diagnostic.exceptionTypeIncorrect().format({
+                Localizer.Diag.exceptionTypeIncorrect().format({
                   type: printType(subtype, /* expandTypeAlias */ false),
                 })
               );
@@ -2665,12 +2645,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (!diagAddendum.isEmpty()) {
           const fileInfo = getFileInfo(node);
-          addDiagnostic(
-            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-            DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.Diagnostic.expectedExceptionClass() + diagAddendum.getString(),
-            node.typeExpression
-          );
+          addDiag(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.expectedExceptionClass() + diagAddendum.getString(), node.typeExpression);
         }
       }
     }
@@ -2700,7 +2675,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       case ParseNodeType.Error: {
         if (node.child) {
-          suppressDiagnostics(node.child, () => {
+          suppressDiags(node.child, () => {
             getTypeOfExpression(node.child!, /* expectedType */ undefined, EvaluatorFlags.SkipUnboundCheck);
           });
         }
@@ -2709,7 +2684,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       default: {
         const fileInfo = getFileInfo(node);
-        addDiagnostic(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues, Localizer.Diagnostic.delTargetExpr(), node);
+        addDiag(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.delTargetExpr(), node);
         break;
       }
     }
@@ -2823,7 +2798,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       }
 
       if (effectiveTypeInfo.isRecursiveDefinition && isNodeReachable(node)) {
-        addDiagnostic(getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues, Localizer.Diagnostic.recursiveDefinition().format({ name }), node);
+        addDiag(getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.recursiveDefinition().format({ name }), node);
       }
 
       const isSpecialBuiltIn = !!effectiveType && isClass(effectiveType) && ClassType.isSpecialBuiltIn(effectiveType);
@@ -2845,10 +2820,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (isClass(type)) {
           if ((flags & EvaluatorFlags.ExpectingType) !== 0) {
             if (requiresTypeArguments(type) && !type.typeArguments) {
-              addDiagnostic(
+              addDiag(
                 fileInfo.diagnosticRuleSet.reportMissingTypeArgument,
-                DiagnosticRule.reportMissingTypeArgument,
-                Localizer.Diagnostic.typeArgsMissingForClass().format({
+                DiagRule.reportMissingTypeArgument,
+                Localizer.Diag.typeArgsMissingForClass().format({
                   name: type.aliasName || type.details.name,
                 }),
                 node
@@ -2869,10 +2844,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           type.typeAliasInfo.typeParameters.length > 0 &&
           !type.typeAliasInfo.typeArguments
         ) {
-          addDiagnostic(
+          addDiag(
             fileInfo.diagnosticRuleSet.reportMissingTypeArgument,
-            DiagnosticRule.reportMissingTypeArgument,
-            Localizer.Diagnostic.typeArgsMissingForAlias().format({
+            DiagRule.reportMissingTypeArgument,
+            Localizer.Diag.typeArgsMissingForAlias().format({
               name: type.typeAliasInfo.name,
             }),
             node
@@ -2883,9 +2858,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       if (!isIncomplete && !AnalyzerNodeInfo.isCodeUnreachable(node)) {
         if ((flags & EvaluatorFlags.SkipUnboundCheck) === 0) {
           if (isUnbound(type)) {
-            addDiagnostic(fileInfo.diagnosticRuleSet.reportUnboundVariable, DiagnosticRule.reportUnboundVariable, Localizer.Diagnostic.symbolIsUnbound().format({ name }), node);
+            addDiag(fileInfo.diagnosticRuleSet.reportUnboundVariable, DiagRule.reportUnboundVariable, Localizer.Diag.symbolIsUnbound().format({ name }), node);
           } else if (isPossiblyUnbound(type)) {
-            addDiagnostic(fileInfo.diagnosticRuleSet.reportUnboundVariable, DiagnosticRule.reportUnboundVariable, Localizer.Diagnostic.symbolIsPossiblyUnbound().format({ name }), node);
+            addDiag(fileInfo.diagnosticRuleSet.reportUnboundVariable, DiagRule.reportUnboundVariable, Localizer.Diag.symbolIsPossiblyUnbound().format({ name }), node);
           }
         }
       }
@@ -2895,20 +2870,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
         if (effectiveTypeInfo.includesVariableDecl && !type.typeAliasInfo) {
           if (!isTypeAliasPlaceholder(type) && !isTypeVar(type) && !isUnknown(type) && !fileInfo.isTypingStubFile) {
-            addDiagnostic(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues, Localizer.Diagnostic.typeAnnotationVariable(), node);
+            addDiag(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.typeAnnotationVariable(), node);
           }
         }
       }
     } else {
       if (name !== 'reveal_type' && name !== 'reveal_locals') {
-        addDiagnostic(fileInfo.diagnosticRuleSet.reportUndefinedVariable, DiagnosticRule.reportUndefinedVariable, Localizer.Diagnostic.symbolIsUndefined().format({ name }), node);
+        addDiag(fileInfo.diagnosticRuleSet.reportUndefinedVariable, DiagRule.reportUndefinedVariable, Localizer.Diag.symbolIsUndefined().format({ name }), node);
       }
       type = UnknownType.create();
     }
 
     if (isParamSpec(type)) {
       if (flags & EvaluatorFlags.ParamSpecDisallowed) {
-        addError(Localizer.Diagnostic.paramSpecContext(), node);
+        addError(Localizer.Diag.paramSpecContext(), node);
         type = UnknownType.create();
       }
     }
@@ -2925,7 +2900,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     if ((flags & EvaluatorFlags.ExpectingType) !== 0) {
       if ((flags & EvaluatorFlags.GenericClassTypeAllowed) === 0) {
         if (isClass(type) && ClassType.isBuiltIn(type, 'Generic')) {
-          addDiagnostic(getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues, Localizer.Diagnostic.genericNotAllowed(), node);
+          addDiag(getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.genericNotAllowed(), node);
         }
       }
     }
@@ -2937,12 +2912,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if ((flags & EvaluatorFlags.DisallowTypeVarsWithScopeId) !== 0 && type.scopeId !== undefined) {
           if (!type.details.isSynthesized && !type.details.isParamSpec) {
-            addDiagnostic(
-              getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
-              DiagnosticRule.reportGeneralTypeIssues,
-              Localizer.Diagnostic.typeVarUsedByOuterScope().format({ name: type.details.name }),
-              node
-            );
+            addDiag(getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.typeVarUsedByOuterScope().format({ name: type.details.name }), node);
           }
         } else if ((flags & EvaluatorFlags.AssociateTypeVarsWithCurrentScope) !== 0) {
           if (type.scopeId === undefined) {
@@ -2957,10 +2927,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                   if (outerFunctionScope?.nodeType === ParseNodeType.Function) {
                     enclosingScope = outerFunctionScope;
                   } else if (!scopedTypeVarInfo.type.scopeId) {
-                    addDiagnostic(
+                    addDiag(
                       getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
-                      DiagnosticRule.reportGeneralTypeIssues,
-                      Localizer.Diagnostic.paramSpecNotUsedByOuterScope().format({
+                      DiagRule.reportGeneralTypeIssues,
+                      Localizer.Diag.paramSpecNotUsedByOuterScope().format({
                         name: type.details.name,
                       }),
                       node
@@ -2975,18 +2945,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 fail('AssociateTypeVarsWithCurrentScope flag was set but enclosing scope not found');
               }
             } else {
-              addDiagnostic(
+              addDiag(
                 getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.typeVarUsedByOuterScope().format({ name: type.details.name }),
+                DiagRule.reportGeneralTypeIssues,
+                Localizer.Diag.typeVarUsedByOuterScope().format({ name: type.details.name }),
                 node
               );
             }
           }
         } else if ((flags & EvaluatorFlags.DisallowTypeVarsWithoutScopeId) !== 0) {
           if ((type.scopeId === undefined || scopedTypeVarInfo.foundInterveningClass) && !type.details.isSynthesized) {
-            const message = isParamSpec(type) ? Localizer.Diagnostic.paramSpecNotUsedByOuterScope() : Localizer.Diagnostic.typeVarNotUsedByOuterScope();
-            addDiagnostic(getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues, message.format({ name: type.details.name }), node);
+            const message = isParamSpec(type) ? Localizer.Diag.paramSpecNotUsedByOuterScope() : Localizer.Diag.typeVarNotUsedByOuterScope();
+            addDiag(getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, message.format({ name: type.details.name }), node);
           }
         }
       }
@@ -3154,7 +3124,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
   function getTypeFromMemberAccessWithBaseType(node: MemberAccessNode, baseTypeResult: TypeResult, usage: EvaluatorUsage, flags: EvaluatorFlags): TypeResult {
     const baseType = baseTypeResult.type;
     const memberName = node.memberName.value;
-    let diag = new DiagnosticAddendum();
+    let diag = new DiagAddendum();
     const fileInfo = getFileInfo(node);
     let type: Type | undefined;
     let isIncomplete = false;
@@ -3184,7 +3154,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (baseType.details.isParamSpec) {
           if (memberName === 'args') {
             if (node.parent?.nodeType !== ParseNodeType.Parameter || node.parent.category !== ParameterCategory.VarArgList) {
-              addError(Localizer.Diagnostic.paramSpecArgsUsage(), node);
+              addError(Localizer.Diag.paramSpecArgsUsage(), node);
               return { type: UnknownType.create(), node };
             }
             return { type: baseType, node };
@@ -3192,21 +3162,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
           if (memberName === 'kwargs') {
             if (node.parent?.nodeType !== ParseNodeType.Parameter || node.parent.category !== ParameterCategory.VarArgDictionary) {
-              addError(Localizer.Diagnostic.paramSpecKwargsUsage(), node);
+              addError(Localizer.Diag.paramSpecKwargsUsage(), node);
               return { type: UnknownType.create(), node };
             }
             return { type: baseType, node };
           }
 
-          addDiagnostic(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues, Localizer.Diagnostic.paramSpecUnknownMember().format({ name: memberName }), node);
+          addDiag(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.paramSpecUnknownMember().format({ name: memberName }), node);
           return { type: UnknownType.create(), node };
         }
 
         if (flags & EvaluatorFlags.ExpectingType) {
-          addDiagnostic(
+          addDiag(
             getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
-            DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.Diagnostic.typeVarNoMember().format({ type: printType(baseType), name: memberName }),
+            DiagRule.reportGeneralTypeIssues,
+            Localizer.Diag.typeVarNoMember().format({ type: printType(baseType), name: memberName }),
             node.leftExpression
           );
 
@@ -3289,12 +3259,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           }
 
           if (!type) {
-            addDiagnostic(
-              fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-              DiagnosticRule.reportGeneralTypeIssues,
-              Localizer.Diagnostic.moduleUnknownMember().format({ name: memberName }),
-              node.memberName
-            );
+            addDiag(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.moduleUnknownMember().format({ name: memberName }), node.memberName);
             type = UnknownType.create();
           }
         }
@@ -3304,10 +3269,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       case TypeCategory.Union: {
         type = mapSubtypes(baseType, (subtype) => {
           if (isNone(subtype)) {
-            addDiagnostic(
+            addDiag(
               getFileInfo(node).diagnosticRuleSet.reportOptionalMemberAccess,
-              DiagnosticRule.reportOptionalMemberAccess,
-              Localizer.Diagnostic.noneUnknownMember().format({ name: memberName }),
+              DiagRule.reportOptionalMemberAccess,
+              Localizer.Diag.noneUnknownMember().format({ name: memberName }),
               node.memberName
             );
             return undefined;
@@ -3342,16 +3307,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       }
 
       default:
-        diag.addMessage(Localizer.DiagnosticAddendum.typeUnsupported().format({ type: printType(baseType) }));
+        diag.addMessage(Localizer.DiagAddendum.typeUnsupported().format({ type: printType(baseType) }));
         break;
     }
 
     if (!type) {
-      let diagMessage = Localizer.Diagnostic.memberAccess();
+      let diagMessage = Localizer.Diag.memberAccess();
       if (usage.method === 'set') {
-        diagMessage = Localizer.Diagnostic.memberSet();
+        diagMessage = Localizer.Diag.memberSet();
       } else if (usage.method === 'del') {
-        diagMessage = Localizer.Diagnostic.memberDelete();
+        diagMessage = Localizer.Diag.memberDelete();
       }
 
       if (usage.setExpectedTypeDiag) {
@@ -3360,10 +3325,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       const isFunctionRule = isFunction(baseType) || isOverloadedFunction(baseType) || (isObject(baseType) && ClassType.isBuiltIn(baseType.classType, 'function'));
       const [ruleSet, rule] = isFunctionRule
-        ? [fileInfo.diagnosticRuleSet.reportFunctionMemberAccess, DiagnosticRule.reportFunctionMemberAccess]
-        : [fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues];
+        ? [fileInfo.diagnosticRuleSet.reportFunctionMemberAccess, DiagRule.reportFunctionMemberAccess]
+        : [fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues];
 
-      addDiagnostic(ruleSet, rule, diagMessage.format({ name: memberName, type: printType(baseType) }) + diag.getString(), node.memberName);
+      addDiag(ruleSet, rule, diagMessage.format({ name: memberName, type: printType(baseType) }) + diag.getString(), node.memberName);
 
       type = isFunctionRule ? AnyType.create() : UnknownType.create();
     }
@@ -3377,7 +3342,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     if (usage.method === 'get') {
       if (node.parent?.nodeType !== ParseNodeType.Argument || !isClass(type)) {
         if (!isIncomplete) {
-          reportPossibleUnknownAssignment(fileInfo.diagnosticRuleSet.reportUnknownMemberType, DiagnosticRule.reportUnknownMemberType, node.memberName, type, node);
+          reportPossibleUnknownAssignment(fileInfo.diagnosticRuleSet.reportUnknownMemberType, DiagRule.reportUnknownMemberType, node.memberName, type, node);
         }
       }
     }
@@ -3390,7 +3355,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     classType: ClassType,
     memberName: string,
     usage: EvaluatorUsage,
-    diag: DiagnosticAddendum,
+    diag: DiagAddendum,
     flags: MemberAccessFlags,
     bindToType?: ClassType | ObjectType | TypeVarType
   ): ClassMemberLookup | undefined {
@@ -3453,7 +3418,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       if (ClassType.isTypedDictClass(classType)) {
         const typedDecls = memberInfo.symbol.getTypedDeclarations();
         if (typedDecls.length > 0 && typedDecls[0].type === DeclarationType.Variable) {
-          diag.addMessage(Localizer.DiagnosticAddendum.memberUnknown().format({ name: memberName }));
+          diag.addMessage(Localizer.DiagAddendum.memberUnknown().format({ name: memberName }));
           return undefined;
         }
       }
@@ -3485,7 +3450,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       if (usage.method === 'set') {
         if (!canAssignType(type, usage.setType!, diag.createAddendum())) {
           diag.addMessage(
-            Localizer.DiagnosticAddendum.memberAssignment().format({
+            Localizer.DiagAddendum.memberAssignment().format({
               type: printType(usage.setType!),
               name: memberName,
               classType: printObjectTypeForClass(classType),
@@ -3496,7 +3461,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (isClass(memberInfo.classType) && ClassType.isFrozenDataClass(memberInfo.classType) && (flags & MemberAccessFlags.AccessClassMembersOnly) === 0) {
           diag.addMessage(
-            Localizer.DiagnosticAddendum.dataclassFrozen().format({
+            Localizer.DiagAddendum.dataclassFrozen().format({
               name: printType(ObjectType.create(memberInfo.classType)),
             })
           );
@@ -3529,7 +3494,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       }
     }
 
-    diag.addMessage(Localizer.DiagnosticAddendum.memberUnknown().format({ name: memberName }));
+    diag.addMessage(Localizer.DiagAddendum.memberUnknown().format({ name: memberName }));
     return undefined;
   }
 
@@ -3543,7 +3508,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     errorNode: ExpressionNode,
     memberName: string,
     usage: EvaluatorUsage,
-    diag: DiagnosticAddendum
+    diag: DiagAddendum
   ): Type | undefined {
     const treatConstructorAsClassMember = (flags & MemberAccessFlags.TreatConstructorAsClassMethod) !== 0;
     let isTypeValid = true;
@@ -3566,13 +3531,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (ClassType.isPropertyClass(subtype.classType)) {
           if (usage.method === 'set') {
             if (!accessMethod) {
-              diag.addMessage(Localizer.DiagnosticAddendum.propertyMissingSetter().format({ name: memberName }));
+              diag.addMessage(Localizer.DiagAddendum.propertyMissingSetter().format({ name: memberName }));
               isTypeValid = false;
               return undefined;
             }
           } else if (usage.method === 'del') {
             if (!accessMethod) {
-              diag.addMessage(Localizer.DiagnosticAddendum.propertyMissingDeleter().format({ name: memberName }));
+              diag.addMessage(Localizer.DiagAddendum.propertyMissingDeleter().format({ name: memberName }));
               isTypeValid = false;
               return undefined;
             }
@@ -3624,7 +3589,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           }
 
           if (accessMethodType && isFunction(accessMethodType)) {
-            const returnType = suppressDiagnostics(errorNode, () => {
+            const returnType = suppressDiags(errorNode, () => {
               const boundMethodType = bindFunctionToClassOrObject(subtype, accessMethodType as FunctionType, memberInfo && isClass(memberInfo.classType) ? memberInfo.classType : undefined, errorNode);
 
               if (boundMethodType && isFunction(boundMethodType)) {
@@ -3661,7 +3626,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       if (usage.method === 'set') {
         if (memberInfo?.symbol.isClassVar()) {
           if (flags & MemberAccessFlags.DisallowClassVarWrites) {
-            diag.addMessage(Localizer.DiagnosticAddendum.memberSetClassVar().format({ name: memberName }));
+            diag.addMessage(Localizer.DiagAddendum.memberSetClassVar().format({ name: memberName }));
             return undefined;
           }
         }
@@ -3699,24 +3664,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
   function applyAttributeAccessOverride(classType: ClassType, errorNode: ExpressionNode, usage: EvaluatorUsage): Type | undefined {
     if (usage.method === 'get') {
-      const getAttribType = getTypeFromClassMember(errorNode, classType, '__getattribute__', { method: 'get' }, new DiagnosticAddendum(), MemberAccessFlags.SkipObjectBaseClass)?.type;
+      const getAttribType = getTypeFromClassMember(errorNode, classType, '__getattribute__', { method: 'get' }, new DiagAddendum(), MemberAccessFlags.SkipObjectBaseClass)?.type;
 
       if (getAttribType && isFunction(getAttribType)) {
         return getFunctionEffectiveReturnType(getAttribType);
       }
 
-      const getAttrType = getTypeFromClassMember(errorNode, classType, '__getattr__', { method: 'get' }, new DiagnosticAddendum(), MemberAccessFlags.SkipObjectBaseClass)?.type;
+      const getAttrType = getTypeFromClassMember(errorNode, classType, '__getattr__', { method: 'get' }, new DiagAddendum(), MemberAccessFlags.SkipObjectBaseClass)?.type;
       if (getAttrType && isFunction(getAttrType)) {
         return getFunctionEffectiveReturnType(getAttrType);
       }
     } else if (usage.method === 'set') {
-      const setAttrType = getTypeFromClassMember(errorNode, classType, '__setattr__', { method: 'get' }, new DiagnosticAddendum(), MemberAccessFlags.SkipObjectBaseClass)?.type;
+      const setAttrType = getTypeFromClassMember(errorNode, classType, '__setattr__', { method: 'get' }, new DiagAddendum(), MemberAccessFlags.SkipObjectBaseClass)?.type;
       if (setAttrType) {
         return AnyType.create();
       }
     } else {
       assert(usage.method === 'del');
-      const delAttrType = getTypeFromClassMember(errorNode, classType, '__detattr__', { method: 'get' }, new DiagnosticAddendum(), MemberAccessFlags.SkipObjectBaseClass)?.type;
+      const delAttrType = getTypeFromClassMember(errorNode, classType, '__detattr__', { method: 'get' }, new DiagAddendum(), MemberAccessFlags.SkipObjectBaseClass)?.type;
       if (delAttrType) {
         return AnyType.create();
       }
@@ -3732,7 +3697,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       if (node.baseExpression.nodeType === ParseNodeType.StringList) {
         const fileInfo = getFileInfo(node);
         if (!fileInfo.isStubFile && fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_10) {
-          addError(Localizer.Diagnostic.stringNotSubscriptable(), node.baseExpression);
+          addError(Localizer.Diag.stringNotSubscriptable(), node.baseExpression);
         }
       }
     }
@@ -3743,7 +3708,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const minPythonVersion = nonSubscriptableBuiltinTypes[baseTypeResult.type.details.fullName];
         if (minPythonVersion !== undefined && fileInfo.executionEnvironment.pythonVersion < minPythonVersion && !fileInfo.isStubFile) {
           addError(
-            Localizer.Diagnostic.classNotRuntimeSubscriptable().format({
+            Localizer.Diag.classNotRuntimeSubscriptable().format({
               name: baseTypeResult.type.aliasName || baseTypeResult.type.details.name,
             }),
             node.baseExpression
@@ -3812,7 +3777,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
   function validateVariadicTypeVarIsUnpacked(type: TypeVarType, node: ParseNode) {
     if (!type.isVariadicUnpacked) {
       addError(
-        Localizer.Diagnostic.unpackedTypeVarTupleExpected().format({
+        Localizer.Diag.unpackedTypeVarTupleExpected().format({
           name1: type.details.name,
           name2: type.details.name,
         }),
@@ -3831,7 +3796,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       if (typeArgs.length > typeParameters.length && !typeParameters.some((typeVar) => typeVar.details.isVariadic)) {
         addError(
-          Localizer.Diagnostic.typeArgsTooMany().format({
+          Localizer.Diag.typeArgsTooMany().format({
             name: printType(baseType),
             expected: typeParameters.length,
             received: typeArgs.length,
@@ -3841,14 +3806,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       }
 
       const typeVarMap = new TypeVarMap(baseType.typeAliasInfo.typeVarScopeId);
-      const diag = new DiagnosticAddendum();
+      const diag = new DiagAddendum();
       typeParameters.forEach((param, index) => {
         const typeArgType: Type = index < typeArgs.length ? convertToInstance(typeArgs[index].type) : UnknownType.create();
         canAssignTypeToTypeVar(param, typeArgType, diag, typeVarMap);
       });
 
       if (!diag.isEmpty()) {
-        addError(Localizer.Diagnostic.typeNotSpecializable().format({ type: printType(baseType) }) + diag.getString(), node);
+        addError(Localizer.Diag.typeNotSpecializable().format({ type: printType(baseType) }) + diag.getString(), node);
       }
 
       let type = applySolvedTypeVars(baseType, typeVarMap);
@@ -3882,10 +3847,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       if (flags & EvaluatorFlags.ExpectingType) {
         if (isTypeVar(subtype)) {
-          addDiagnostic(
+          addDiag(
             getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
-            DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.Diagnostic.typeVarNotSubscriptable().format({ type: printType(subtype) }),
+            DiagRule.reportGeneralTypeIssues,
+            Localizer.Diag.typeVarNotSubscriptable().format({ type: printType(subtype) }),
             node.baseExpression
           );
 
@@ -3897,9 +3862,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       if (isClass(concreteSubtype)) {
         if (usage.method === 'set') {
-          addError(Localizer.Diagnostic.genericClassAssigned(), node.baseExpression);
+          addError(Localizer.Diag.genericClassAssigned(), node.baseExpression);
         } else if (usage.method === 'del') {
-          addError(Localizer.Diagnostic.genericClassDeleted(), node.baseExpression);
+          addError(Localizer.Diag.genericClassDeleted(), node.baseExpression);
         }
 
         if (ClassType.isSpecialBuiltIn(concreteSubtype, 'Literal')) {
@@ -3911,7 +3876,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           if (typeArgs.length === 1) {
             return typeArgs[0].type;
           } else {
-            addError(Localizer.Diagnostic.typeArgsMismatchOne().format({ received: typeArgs.length }), node.baseExpression);
+            addError(Localizer.Diag.typeArgsMismatchOne().format({ received: typeArgs.length }), node.baseExpression);
             return UnknownType.create();
           }
         }
@@ -3948,17 +3913,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       }
 
       if (isNone(concreteSubtype)) {
-        addDiagnostic(getFileInfo(node).diagnosticRuleSet.reportOptionalSubscript, DiagnosticRule.reportOptionalSubscript, Localizer.Diagnostic.noneNotSubscriptable(), node.baseExpression);
+        addDiag(getFileInfo(node).diagnosticRuleSet.reportOptionalSubscript, DiagRule.reportOptionalSubscript, Localizer.Diag.noneNotSubscriptable(), node.baseExpression);
 
         return UnknownType.create();
       }
 
       if (!isUnbound(concreteSubtype)) {
         const fileInfo = getFileInfo(node);
-        addDiagnostic(
+        addDiag(
           fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-          DiagnosticRule.reportGeneralTypeIssues,
-          Localizer.Diagnostic.typeNotSubscriptable().format({ type: printType(concreteSubtype) }),
+          DiagRule.reportGeneralTypeIssues,
+          Localizer.Diag.typeNotSubscriptable().format({ type: printType(concreteSubtype) }),
           node.baseExpression
         );
       }
@@ -4006,10 +3971,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     if (!itemMethodType) {
       const fileInfo = getFileInfo(node);
-      addDiagnostic(
+      addDiag(
         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-        DiagnosticRule.reportGeneralTypeIssues,
-        Localizer.Diagnostic.methodNotDefinedOnType().format({
+        DiagRule.reportGeneralTypeIssues,
+        Localizer.Diag.methodNotDefinedOnType().format({
           name: magicMethodName,
           type: printType(baseType),
         }),
@@ -4136,7 +4101,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
   function getTypeFromIndexedTypedDict(node: IndexNode, baseType: ObjectType, usage: EvaluatorUsage): TypeResult | undefined {
     if (node.items.length !== 1) {
-      addError(Localizer.Diagnostic.typeArgsMismatchOne().format({ received: node.items.length }), node);
+      addError(Localizer.Diag.typeArgsMismatchOne().format({ received: node.items.length }), node);
       return { node, type: UnknownType.create() };
     }
 
@@ -4148,7 +4113,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     const indexTypeResult = getTypeOfExpression(node.items[0].valueExpression);
     const indexType = indexTypeResult.type;
-    let diag = new DiagnosticAddendum();
+    let diag = new DiagAddendum();
 
     const resultingType = mapSubtypes(indexType, (subtype) => {
       if (isAnyOrUnknown(subtype)) {
@@ -4164,7 +4129,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const entry = entries.get(entryName);
         if (!entry) {
           diag.addMessage(
-            Localizer.DiagnosticAddendum.keyUndefined().format({
+            Localizer.DiagAddendum.keyUndefined().format({
               name: entryName,
               type: printType(baseType),
             })
@@ -4172,7 +4137,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           return UnknownType.create();
         } else if (!entry.isRequired && usage.method === 'get') {
           diag.addMessage(
-            Localizer.DiagnosticAddendum.keyNotRequired().format({
+            Localizer.DiagAddendum.keyNotRequired().format({
               name: entryName,
               type: printType(baseType),
             })
@@ -4183,13 +4148,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           canAssignType(entry.valueType, usage.setType!, diag);
         } else if (usage.method === 'del' && entry.isRequired) {
           const fileInfo = getFileInfo(node);
-          addDiagnostic(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues, Localizer.Diagnostic.keyRequiredDeleted().format({ name: entryName }), node);
+          addDiag(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.keyRequiredDeleted().format({ name: entryName }), node);
         }
 
         return entry.valueType;
       }
 
-      diag.addMessage(Localizer.DiagnosticAddendum.typeNotStringLiteral().format({ type: printType(subtype) }));
+      diag.addMessage(Localizer.DiagAddendum.typeNotStringLiteral().format({ type: printType(subtype) }));
       return UnknownType.create();
     });
 
@@ -4200,15 +4165,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     if (!diag.isEmpty()) {
       let typedDictDiag: string;
       if (usage.method === 'set') {
-        typedDictDiag = Localizer.Diagnostic.typedDictSet();
+        typedDictDiag = Localizer.Diag.typedDictSet();
       } else if (usage.method === 'del') {
-        typedDictDiag = Localizer.Diagnostic.typedDictDelete();
+        typedDictDiag = Localizer.Diag.typedDictDelete();
       } else {
-        typedDictDiag = Localizer.Diagnostic.typedDictAccess();
+        typedDictDiag = Localizer.Diag.typedDictAccess();
       }
 
       const fileInfo = getFileInfo(node);
-      addDiagnostic(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues, typedDictDiag + diag.getString(), node);
+      addDiag(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, typedDictDiag + diag.getString(), node);
     }
 
     return { node, type: resultingType, isIncomplete: !!indexTypeResult.isIncomplete };
@@ -4247,13 +4212,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           if (arg.argumentCategory === ArgumentCategory.UnpackedList && isVariadicTypeVar(typeResult.type) && !typeResult.type.isVariadicUnpacked) {
             typeResult.type = TypeVarType.cloneForUnpacked(typeResult.type);
           } else {
-            addError(Localizer.Diagnostic.unpackedArgInTypeArgument(), arg.valueExpression);
+            addError(Localizer.Diag.unpackedArgInTypeArgument(), arg.valueExpression);
             typeResult.type = UnknownType.create();
           }
         }
 
         if (arg.name) {
-          addError(Localizer.Diagnostic.keywordArgInTypeArgument(), arg.valueExpression);
+          addError(Localizer.Diag.keywordArgInTypeArgument(), arg.valueExpression);
         }
 
         typeArgs.push(typeResult);
@@ -4474,13 +4439,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (node.arguments.length === 1 && node.arguments[0].argumentCategory === ArgumentCategory.Simple && node.arguments[0].name === undefined) {
           returnResult.type = getTypeFromRevealType(node);
         } else {
-          addError(Localizer.Diagnostic.revealTypeArgs(), node);
+          addError(Localizer.Diag.revealTypeArgs(), node);
         }
       } else if (isAnyOrUnknown(baseTypeResult.type) && node.leftExpression.nodeType === ParseNodeType.Name && node.leftExpression.value === 'reveal_locals') {
         if (node.arguments.length === 0) {
           returnResult.type = getTypeFromRevealLocals(node);
         } else {
-          addError(Localizer.Diagnostic.revealLocalsArgs(), node);
+          addError(Localizer.Diag.revealLocalsArgs(), node);
         }
       } else {
         const callResult = validateCallArguments(node, argList, baseTypeResult.type, /* typeVarMap */ undefined, /* skipUnknownArgCheck */ false, expectedType);
@@ -4514,7 +4479,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     const type = getTypeOfExpression(node.arguments[0].valueExpression).type;
     const exprString = ParseTreeUtils.printExpression(node.arguments[0].valueExpression);
     const typeString = printType(type);
-    addInformation(Localizer.DiagnosticAddendum.typeOfSymbol().format({ name: exprString, type: typeString }), node.arguments[0]);
+    addInformation(Localizer.DiagAddendum.typeOfSymbol().format({ name: exprString, type: typeString }), node.arguments[0]);
 
     const strType = getBuiltInType(node, 'str');
     if (isClass(strType)) {
@@ -4544,7 +4509,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       scope.symbolTable.forEach((symbol, name) => {
         if (!symbol.isIgnoredForProtocolMatch()) {
           const typeOfSymbol = getEffectiveTypeOfSymbol(symbol);
-          infoMessages.push(Localizer.DiagnosticAddendum.typeOfSymbol().format({ name, type: printType(typeOfSymbol) }));
+          infoMessages.push(Localizer.DiagAddendum.typeOfSymbol().format({ name, type: printType(typeOfSymbol) }));
         }
       });
     }
@@ -4552,7 +4517,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     if (infoMessages.length > 0) {
       addInformation(infoMessages.join('\n'), node);
     } else {
-      addInformation(Localizer.Diagnostic.revealLocalsNone(), node);
+      addInformation(Localizer.Diag.revealLocalsNone(), node);
     }
 
     return NoneType.createInstance();
@@ -4560,7 +4525,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
   function getTypeFromSuperCall(node: CallNode): TypeResult {
     if (node.arguments.length > 2) {
-      addError(Localizer.Diagnostic.superCallArgCount(), node.arguments[2]);
+      addError(Localizer.Diag.superCallArgCount(), node.arguments[2]);
     }
 
     let targetClassType: Type;
@@ -4568,10 +4533,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       targetClassType = getTypeOfExpression(node.arguments[0].valueExpression).type;
 
       if (!isAnyOrUnknown(targetClassType) && !isClass(targetClassType)) {
-        addDiagnostic(
+        addDiag(
           getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
-          DiagnosticRule.reportGeneralTypeIssues,
-          Localizer.Diagnostic.superCallFirstArg().format({ type: printType(targetClassType) }),
+          DiagRule.reportGeneralTypeIssues,
+          Localizer.Diag.superCallFirstArg().format({ type: printType(targetClassType) }),
           node.arguments[0].valueExpression
         );
       }
@@ -4581,7 +4546,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const classTypeInfo = getTypeOfClass(enclosingClass);
         targetClassType = classTypeInfo ? classTypeInfo.classType : UnknownType.create();
       } else {
-        addError(Localizer.Diagnostic.superCallZeroArgForm(), node.leftExpression);
+        addError(Localizer.Diag.superCallZeroArgForm(), node.leftExpression);
         targetClassType = UnknownType.create();
       }
     }
@@ -4613,10 +4578,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       if (reportError) {
         const fileInfo = getFileInfo(node);
-        addDiagnostic(
+        addDiag(
           fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-          DiagnosticRule.reportGeneralTypeIssues,
-          Localizer.Diagnostic.superCallSecondArg().format({ type: printType(targetClassType) }),
+          DiagRule.reportGeneralTypeIssues,
+          Localizer.Diag.superCallSecondArg().format({ type: printType(targetClassType) }),
           node.arguments[1].valueExpression
         );
       }
@@ -4706,7 +4671,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       ObjectType.create(type),
       '__init__',
       { method: 'get' },
-      new DiagnosticAddendum(),
+      new DiagAddendum(),
       MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipAttributeAccessOverride
     )?.type;
 
@@ -4717,7 +4682,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           const typeVarMap = new TypeVarMap(getTypeVarScopeId(type));
           if (populateTypeVarMapBasedOnExpectedType(type, expectedSubType, typeVarMap, getTypeVarScopesForNode(errorNode))) {
             let callResult: CallResult | undefined;
-            suppressDiagnostics(errorNode, () => {
+            suppressDiags(errorNode, () => {
               callResult = validateCallArguments(errorNode, argList, initMethodType, typeVarMap.clone(), skipUnknownArgCheck, NoneType.createInstance());
             });
 
@@ -4758,7 +4723,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         type,
         '__new__',
         { method: 'get' },
-        new DiagnosticAddendum(),
+        new DiagAddendum(),
         MemberAccessFlags.AccessClassMembersOnly | MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.TreatConstructorAsClassMethod,
         type
       );
@@ -4813,10 +4778,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       if (!isCustomMetaclass) {
         const fileInfo = getFileInfo(errorNode);
-        addDiagnostic(
+        addDiag(
           fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-          DiagnosticRule.reportGeneralTypeIssues,
-          Localizer.Diagnostic.constructorNoArgs().format({ type: type.aliasName || type.details.name }),
+          DiagRule.reportGeneralTypeIssues,
+          Localizer.Diag.constructorNoArgs().format({ type: type.aliasName || type.details.name }),
           errorNode
         );
       }
@@ -4836,7 +4801,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
   function applyExpectedSubtypeForConstructor(type: ClassType, expectedSubtype: Type, typeVarMap: TypeVarMap): Type | undefined {
     const specializedType = applySolvedTypeVars(ObjectType.create(type), typeVarMap, /* unknownIfNotFound */ true);
 
-    if (!canAssignType(expectedSubtype, specializedType, new DiagnosticAddendum())) {
+    if (!canAssignType(expectedSubtype, specializedType, new DiagAddendum())) {
       return undefined;
     }
 
@@ -4876,7 +4841,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     const expectedTypeArgs = expectedType.classType.typeArguments;
     if (!expectedTypeArgs) {
-      return canAssignType(type, expectedType.classType, new DiagnosticAddendum(), typeVarMap);
+      return canAssignType(type, expectedType.classType, new DiagAddendum(), typeVarMap);
     }
 
     if (ClassType.isSameGenericClass(expectedType.classType, type)) {
@@ -4912,7 +4877,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     const specializedType = ClassType.cloneForSpecialization(type, typeArgs, /* isTypeArgumentExplicit */ true);
     const syntheticTypeVarMap = new TypeVarMap(expectedTypeScopeId);
-    if (canAssignType(genericExpectedType, specializedType, new DiagnosticAddendum(), syntheticTypeVarMap)) {
+    if (canAssignType(genericExpectedType, specializedType, new DiagAddendum(), syntheticTypeVarMap)) {
       synthExpectedTypeArgs.forEach((typeVar, index) => {
         const synthTypeVar = syntheticTypeVarMap.getTypeVarType(typeVar);
 
@@ -4979,7 +4944,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         case TypeCategory.Function: {
           if (concreteSubtype.details.builtInName === 'namedtuple') {
-            addDiagnostic(getFileInfo(errorNode).diagnosticRuleSet.reportUntypedNamedTuple, DiagnosticRule.reportUntypedNamedTuple, Localizer.Diagnostic.namedTupleNoTypes(), errorNode);
+            addDiag(getFileInfo(errorNode).diagnosticRuleSet.reportUntypedNamedTuple, DiagRule.reportUntypedNamedTuple, Localizer.Diag.namedTupleNoTypes(), errorNode);
             return createNamedTupleType(errorNode, argList, false);
           }
 
@@ -5017,10 +4982,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
               const castFromType = getTypeForArgument(argList[1]);
               if (isClass(castToType) && isObject(castFromType)) {
                 if (isTypeSame(castToType, castFromType.classType)) {
-                  addDiagnostic(
+                  addDiag(
                     getFileInfo(errorNode).diagnosticRuleSet.reportUnnecessaryCast,
-                    DiagnosticRule.reportUnnecessaryCast,
-                    Localizer.Diagnostic.unnecessaryCast().format({
+                    DiagRule.reportUnnecessaryCast,
+                    Localizer.Diag.unnecessaryCast().format({
                       type: printType(castFromType),
                     }),
                     errorNode
@@ -5046,16 +5011,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return functionResult.returnType || UnknownType.create();
           }
 
-          if (!isDiagnosticSuppressedForNode(errorNode)) {
+          if (!isDiagSuppressedForNode(errorNode)) {
             const functionName = concreteSubtype.overloads[0].details.name || '<anonymous function>';
-            const diagAddendum = new DiagnosticAddendum();
+            const diagAddendum = new DiagAddendum();
             const argTypes = argList.map((t) => printType(getTypeForArgument(t)));
 
-            diagAddendum.addMessage(Localizer.DiagnosticAddendum.argumentTypes().format({ types: argTypes.join(', ') }));
-            addDiagnostic(
+            diagAddendum.addMessage(Localizer.DiagAddendum.argumentTypes().format({ types: argTypes.join(', ') }));
+            addDiag(
               getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-              DiagnosticRule.reportGeneralTypeIssues,
-              Localizer.Diagnostic.noOverload().format({ name: functionName }) + diagAddendum.getString(),
+              DiagRule.reportGeneralTypeIssues,
+              Localizer.Diag.noOverload().format({ name: functionName }) + diagAddendum.getString(),
               errorNode
             );
           }
@@ -5066,7 +5031,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         case TypeCategory.Class: {
           if (concreteSubtype.literalValue !== undefined) {
-            addDiagnostic(getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues, Localizer.Diagnostic.literalNotCallable(), errorNode);
+            addDiag(getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.literalNotCallable(), errorNode);
             argumentErrors = true;
             return UnknownType.create();
           }
@@ -5107,12 +5072,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (className === 'Protocol' || className === 'Generic' || className === 'Callable' || className === 'Concatenate' || className === 'Type') {
               const fileInfo = getFileInfo(errorNode);
-              addDiagnostic(
-                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.typeNotIntantiable().format({ type: className }),
-                errorNode
-              );
+              addDiag(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.typeNotIntantiable().format({ type: className }), errorNode);
               return AnyType.create();
             }
 
@@ -5131,13 +5091,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
           if (!isTypeObject && ClassType.hasAbstractMethods(concreteSubtype)) {
             const abstractMethods = getAbstractMethods(concreteSubtype);
-            const diagAddendum = new DiagnosticAddendum();
+            const diagAddendum = new DiagAddendum();
             const errorsToDisplay = 2;
 
             abstractMethods.forEach((abstractMethod, index) => {
               if (index === errorsToDisplay) {
                 diagAddendum.addMessage(
-                  Localizer.DiagnosticAddendum.memberIsAbstractMore().format({
+                  Localizer.DiagAddendum.memberIsAbstractMore().format({
                     count: abstractMethods.length - errorsToDisplay,
                   })
                 );
@@ -5145,7 +5105,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isClass(abstractMethod.classType)) {
                   const className = abstractMethod.classType.details.name;
                   diagAddendum.addMessage(
-                    Localizer.DiagnosticAddendum.memberIsAbstract().format({
+                    Localizer.DiagAddendum.memberIsAbstract().format({
                       type: className,
                       name: abstractMethod.symbolName,
                     })
@@ -5155,23 +5115,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
 
             const fileInfo = getFileInfo(errorNode);
-            addDiagnostic(
+            addDiag(
               fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-              DiagnosticRule.reportGeneralTypeIssues,
-              Localizer.Diagnostic.typeAbstract().format({ type: concreteSubtype.details.name }) + diagAddendum.getString(),
+              DiagRule.reportGeneralTypeIssues,
+              Localizer.Diag.typeAbstract().format({ type: concreteSubtype.details.name }) + diagAddendum.getString(),
               errorNode
             );
           }
 
           if (!isTypeObject && ClassType.hasAbstractMethods(concreteSubtype)) {
             const abstractMethods = getAbstractMethods(concreteSubtype);
-            const diagAddendum = new DiagnosticAddendum();
+            const diagAddendum = new DiagAddendum();
             const errorsToDisplay = 2;
 
             abstractMethods.forEach((abstractMethod, index) => {
               if (index === errorsToDisplay) {
                 diagAddendum.addMessage(
-                  Localizer.DiagnosticAddendum.memberIsAbstractMore().format({
+                  Localizer.DiagAddendum.memberIsAbstractMore().format({
                     count: abstractMethods.length - errorsToDisplay,
                   })
                 );
@@ -5179,7 +5139,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isClass(abstractMethod.classType)) {
                   const className = abstractMethod.classType.details.name;
                   diagAddendum.addMessage(
-                    Localizer.DiagnosticAddendum.memberIsAbstract().format({
+                    Localizer.DiagAddendum.memberIsAbstract().format({
                       type: className,
                       name: abstractMethod.symbolName,
                     })
@@ -5189,10 +5149,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
 
             const fileInfo = getFileInfo(errorNode);
-            addDiagnostic(
+            addDiag(
               fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-              DiagnosticRule.reportGeneralTypeIssues,
-              Localizer.Diagnostic.typeAbstract().format({ type: concreteSubtype.details.name }) + diagAddendum.getString(),
+              DiagRule.reportGeneralTypeIssues,
+              Localizer.Diag.typeAbstract().format({ type: concreteSubtype.details.name }) + diagAddendum.getString(),
               errorNode
             );
           }
@@ -5229,17 +5189,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return functionResult.returnType || UnknownType.create();
           }
 
-          addDiagnostic(
+          addDiag(
             getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-            DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.Diagnostic.objectNotCallable().format({ type: printType(subtype) }),
+            DiagRule.reportGeneralTypeIssues,
+            Localizer.Diag.objectNotCallable().format({ type: printType(subtype) }),
             errorNode
           );
           return UnknownType.create();
         }
 
         case TypeCategory.None: {
-          addDiagnostic(getFileInfo(errorNode).diagnosticRuleSet.reportOptionalCall, DiagnosticRule.reportOptionalCall, Localizer.Diagnostic.noneNotCallable(), errorNode);
+          addDiag(getFileInfo(errorNode).diagnosticRuleSet.reportOptionalCall, DiagRule.reportOptionalCall, Localizer.Diag.noneNotCallable(), errorNode);
           return undefined;
         }
       }
@@ -5283,7 +5243,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     if (expectedType && !requiresSpecialization(expectedType) && type.details.declaredReturnType) {
       if (!isUnion(expectedType) || containsLiteralType(expectedType)) {
-        canAssignType(getFunctionEffectiveReturnType(type), expectedType, new DiagnosticAddendum(), typeVarMap, CanAssignFlags.AllowTypeVarNarrowing | CanAssignFlags.RetainLiteralsForTypeVar);
+        canAssignType(getFunctionEffectiveReturnType(type), expectedType, new DiagAddendum(), typeVarMap, CanAssignFlags.AllowTypeVarNarrowing | CanAssignFlags.RetainLiteralsForTypeVar);
       }
     }
 
@@ -5388,18 +5348,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       if (argIndex < positionalOnlyIndex && argList[argIndex].name) {
         const fileInfo = getFileInfo(argList[argIndex].name!);
-        addDiagnostic(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues, Localizer.Diagnostic.argPositional(), argList[argIndex].name!);
+        addDiag(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.argPositional(), argList[argIndex].name!);
         reportedArgError = true;
       }
 
       if (paramIndex >= positionalParamCount) {
         if (!foundUnpackedListArg || argList[argIndex].argumentCategory !== ArgumentCategory.UnpackedList) {
-          addDiagnostic(
+          addDiag(
             getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-            DiagnosticRule.reportGeneralTypeIssues,
+            DiagRule.reportGeneralTypeIssues,
             positionalParamCount === 1
-              ? Localizer.Diagnostic.argPositionalExpectedOne()
-              : Localizer.Diagnostic.argPositionalExpectedCount().format({
+              ? Localizer.Diag.argPositionalExpectedOne()
+              : Localizer.Diag.argPositionalExpectedCount().format({
                   expected: positionalParamCount,
                 }),
             argList[argIndex].valueExpression || errorNode
@@ -5422,12 +5382,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let advanceToNextArg = false;
 
         if (type.details.paramSpec && paramIndex < positionalParamCount) {
-          addDiagnostic(
+          addDiag(
             getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-            DiagnosticRule.reportGeneralTypeIssues,
+            DiagRule.reportGeneralTypeIssues,
             positionalParamCount === 1
-              ? Localizer.Diagnostic.argPositionalExpectedOne()
-              : Localizer.Diagnostic.argPositionalExpectedCount().format({
+              ? Localizer.Diag.argPositionalExpectedOne()
+              : Localizer.Diag.argPositionalExpectedCount().format({
                   expected: positionalParamCount,
                 }),
             argList[argIndex].valueExpression || errorNode
@@ -5465,10 +5425,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const paramName = typeParams[paramIndex].name;
 
         if (isParamVariadic && !isArgCompatibleWithVariadic) {
-          addDiagnostic(
+          addDiag(
             getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-            DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.Diagnostic.unpackedArgWithVariadicParam(),
+            DiagRule.reportGeneralTypeIssues,
+            Localizer.Diag.unpackedArgWithVariadicParam(),
             argList[argIndex].valueExpression || errorNode
           );
           reportedArgError = true;
@@ -5523,12 +5483,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (unpackedParamIndex >= paramType.classType.tupleTypeArguments.length) {
               paramIndex++;
             } else if (argsRemainingCount > 0 && paramsToFillCount <= 0) {
-              addDiagnostic(
+              addDiag(
                 getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagRule.reportGeneralTypeIssues,
                 argsRemainingCount === 1
-                  ? Localizer.Diagnostic.argMorePositionalExpectedOne()
-                  : Localizer.Diagnostic.argMorePositionalExpectedCount().format({
+                  ? Localizer.Diag.argMorePositionalExpectedOne()
+                  : Localizer.Diag.argMorePositionalExpectedCount().format({
                       expected: argsRemainingCount,
                     }),
                 argList[argIndex].valueExpression || errorNode
@@ -5580,12 +5540,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
           if (mappingType && isClass(mappingType) && strObjType && isObject(strObjType)) {
             const strMapObject = ObjectType.create(ClassType.cloneForSpecialization(mappingType, [strObjType, AnyType.create()], /* isTypeArgumentExplicit */ true));
-            const diag = new DiagnosticAddendum();
+            const diag = new DiagAddendum();
             if (!isParamSpec(argType) && !canAssignType(strMapObject, argType, diag)) {
-              addDiagnostic(
+              addDiag(
                 getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.unpackedDictArgumentNotMapping() + diag.getString(),
+                DiagRule.reportGeneralTypeIssues,
+                Localizer.Diag.unpackedDictArgumentNotMapping() + diag.getString(),
                 argList[argIndex].valueExpression || errorNode
               );
               reportedArgError = true;
@@ -5599,10 +5559,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const paramEntry = paramMap.get(paramNameValue);
             if (paramEntry) {
               if (paramEntry.argsReceived > 0) {
-                addDiagnostic(
+                addDiag(
                   getFileInfo(paramName).diagnosticRuleSet.reportGeneralTypeIssues,
-                  DiagnosticRule.reportGeneralTypeIssues,
-                  Localizer.Diagnostic.paramAlreadyAssigned().format({ name: paramNameValue }),
+                  DiagRule.reportGeneralTypeIssues,
+                  Localizer.Diag.paramAlreadyAssigned().format({ name: paramNameValue }),
                   paramName
                 );
                 reportedArgError = true;
@@ -5630,10 +5590,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
               } else {
                 let paramInfo = paramMap.get(paramNameValue);
                 if (paramInfo && paramInfo.argsReceived > 0) {
-                  addDiagnostic(
+                  addDiag(
                     getFileInfo(paramName).diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.paramAlreadyAssigned().format({ name: paramNameValue }),
+                    DiagRule.reportGeneralTypeIssues,
+                    Localizer.Diag.paramAlreadyAssigned().format({ name: paramNameValue }),
                     paramName
                   );
                   reportedArgError = true;
@@ -5656,10 +5616,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
               }
               trySetActive(argList[argIndex], varArgDictParam);
             } else {
-              addDiagnostic(
+              addDiag(
                 getFileInfo(paramName).diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.paramNameMissing().format({ name: paramName.value }),
+                DiagRule.reportGeneralTypeIssues,
+                Localizer.Diag.paramNameMissing().format({ name: paramName.value }),
                 paramName
               );
               reportedArgError = true;
@@ -5667,10 +5627,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           } else if (argList[argIndex].argumentCategory === ArgumentCategory.Simple) {
             const adjustedCount = positionalParamCount;
             const fileInfo = getFileInfo(errorNode);
-            addDiagnostic(
+            addDiag(
               fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-              DiagnosticRule.reportGeneralTypeIssues,
-              adjustedCount === 1 ? Localizer.Diagnostic.argPositionalExpectedOne() : Localizer.Diagnostic.argPositionalExpectedCount().format({ expected: adjustedCount }),
+              DiagRule.reportGeneralTypeIssues,
+              adjustedCount === 1 ? Localizer.Diag.argPositionalExpectedOne() : Localizer.Diag.argPositionalExpectedCount().format({ expected: adjustedCount }),
               argList[argIndex].valueExpression || errorNode
             );
             reportedArgError = true;
@@ -5688,12 +5648,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (unassignedParams.length > 0) {
           const missingParamNames = unassignedParams.map((p) => `"${p}"`).join(', ');
-          addDiagnostic(
+          addDiag(
             getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-            DiagnosticRule.reportGeneralTypeIssues,
-            unassignedParams.length === 1
-              ? Localizer.Diagnostic.argMissingForParam().format({ name: missingParamNames })
-              : Localizer.Diagnostic.argMissingForParams().format({ names: missingParamNames }),
+            DiagRule.reportGeneralTypeIssues,
+            unassignedParams.length === 1 ? Localizer.Diag.argMissingForParam().format({ name: missingParamNames }) : Localizer.Diag.argMissingForParams().format({ names: missingParamNames }),
             errorNode
           );
           reportedArgError = true;
@@ -5810,10 +5768,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     const paramSpecValue = typeVarMap.getParamSpec(paramSpec);
 
     if (!paramSpecValue) {
-      addDiagnostic(
+      addDiag(
         getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-        DiagnosticRule.reportGeneralTypeIssues,
-        Localizer.Diagnostic.paramSpecNotBound().format({ type: printType(paramSpec) }),
+        DiagRule.reportGeneralTypeIssues,
+        Localizer.Diag.paramSpecNotBound().format({ type: printType(paramSpec) }),
         argList[0]?.valueExpression || errorNode
       );
       return false;
@@ -5839,10 +5797,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             paramType = paramInfo.type;
             paramMap.delete(arg.name.value);
           } else {
-            addDiagnostic(
+            addDiag(
               getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-              DiagnosticRule.reportGeneralTypeIssues,
-              Localizer.Diagnostic.paramNameMissing().format({ name: arg.name.value }),
+              DiagRule.reportGeneralTypeIssues,
+              Localizer.Diag.paramNameMissing().format({ name: arg.name.value }),
               arg.valueExpression || errorNode
             );
             reportedArgError = true;
@@ -5855,12 +5813,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
               paramMap.delete(paramInfo.name);
             }
           } else {
-            addDiagnostic(
+            addDiag(
               getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-              DiagnosticRule.reportGeneralTypeIssues,
+              DiagRule.reportGeneralTypeIssues,
               paramSpecValue.length === 1
-                ? Localizer.Diagnostic.argPositionalExpectedOne()
-                : Localizer.Diagnostic.argPositionalExpectedCount().format({
+                ? Localizer.Diag.argPositionalExpectedOne()
+                : Localizer.Diag.argPositionalExpectedCount().format({
                     expected: paramSpecValue.length,
                   }),
               arg.valueExpression || errorNode
@@ -5898,12 +5856,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       if (unassignedParams.length > 0) {
         const missingParamNames = unassignedParams.map((p) => `"${p}"`).join(', ');
-        addDiagnostic(
+        addDiag(
           getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-          DiagnosticRule.reportGeneralTypeIssues,
-          unassignedParams.length === 1
-            ? Localizer.Diagnostic.argMissingForParam().format({ name: missingParamNames })
-            : Localizer.Diagnostic.argMissingForParams().format({ names: missingParamNames }),
+          DiagRule.reportGeneralTypeIssues,
+          unassignedParams.length === 1 ? Localizer.Diag.argMissingForParam().format({ name: missingParamNames }) : Localizer.Diag.argMissingForParams().format({ names: missingParamNames }),
           errorNode
         );
         reportedArgError = true;
@@ -5915,7 +5871,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
   function validateArgType(argParam: ValidateArgTypeParams, typeVarMap: TypeVarMap, functionName: string, skipUnknownCheck: boolean): ArgResult {
     let argType: Type | undefined;
-    let expectedTypeDiag: DiagnosticAddendum | undefined;
+    let expectedTypeDiag: DiagAddendum | undefined;
     let isTypeIncomplete = false;
 
     if (argParam.argument.valueExpression) {
@@ -5946,10 +5902,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       argType = stripLiteralValue(argType);
     }
 
-    let diag = new DiagnosticAddendum();
+    let diag = new DiagAddendum();
 
     if (!canAssignType(argParam.paramType, argType, diag.createAddendum(), typeVarMap)) {
-      if (!isDiagnosticSuppressedForNode(argParam.errorNode)) {
+      if (!isDiagSuppressedForNode(argParam.errorNode)) {
         const fileInfo = getFileInfo(argParam.errorNode);
         const argTypeText = printType(argType);
         const paramTypeText = printType(argParam.paramType);
@@ -5957,14 +5913,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let message: string;
         if (argParam.paramName) {
           if (functionName) {
-            message = Localizer.Diagnostic.argAssignmentParamFunction().format({
+            message = Localizer.Diag.argAssignmentParamFunction().format({
               argType: argTypeText,
               paramType: paramTypeText,
               functionName,
               paramName: argParam.paramName,
             });
           } else {
-            message = Localizer.Diagnostic.argAssignmentParam().format({
+            message = Localizer.Diag.argAssignmentParam().format({
               argType: argTypeText,
               paramType: paramTypeText,
               paramName: argParam.paramName,
@@ -5972,13 +5928,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           }
         } else {
           if (functionName) {
-            message = Localizer.Diagnostic.argAssignmentFunction().format({
+            message = Localizer.Diag.argAssignmentFunction().format({
               argType: argTypeText,
               paramType: paramTypeText,
               functionName,
             });
           } else {
-            message = Localizer.Diagnostic.argAssignment().format({
+            message = Localizer.Diag.argAssignment().format({
               argType: argTypeText,
               paramType: paramTypeText,
             });
@@ -5989,7 +5945,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           diag = expectedTypeDiag;
         }
 
-        addDiagnostic(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues, message + diag.getString(), argParam.errorNode);
+        addDiag(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, message + diag.getString(), argParam.errorNode);
       }
       return { isCompatible: false };
     } else if (!skipUnknownCheck) {
@@ -5997,15 +5953,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       const fileInfo = getFileInfo(argParam.errorNode);
 
       const getDiagAddendum = () => {
-        const diagAddendum = new DiagnosticAddendum();
+        const diagAddendum = new DiagAddendum();
         if (argParam.paramName) {
           diagAddendum.addMessage(
             (functionName
-              ? Localizer.DiagnosticAddendum.argParamFunction().format({
+              ? Localizer.DiagAddendum.argParamFunction().format({
                   paramName: argParam.paramName,
                   functionName,
                 })
-              : Localizer.DiagnosticAddendum.argParam().format({ paramName: argParam.paramName })) + diagAddendum.getString()
+              : Localizer.DiagAddendum.argParam().format({ paramName: argParam.paramName })) + diagAddendum.getString()
           );
         }
         return diagAddendum;
@@ -6014,26 +5970,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       if (!isAny(argParam.paramType)) {
         if (isUnknown(simplifiedType)) {
           const diagAddendum = getDiagAddendum();
-          addDiagnostic(
-            fileInfo.diagnosticRuleSet.reportUnknownArgumentType,
-            DiagnosticRule.reportUnknownArgumentType,
-            Localizer.Diagnostic.argTypeUnknown() + diagAddendum.getString(),
-            argParam.errorNode
-          );
+          addDiag(fileInfo.diagnosticRuleSet.reportUnknownArgumentType, DiagRule.reportUnknownArgumentType, Localizer.Diag.argTypeUnknown() + diagAddendum.getString(), argParam.errorNode);
         } else if (isPartlyUnknown(simplifiedType, true)) {
           if (!isPartlyUnknown(argParam.paramType) && !isClass(simplifiedType)) {
             const diagAddendum = getDiagAddendum();
             diagAddendum.addMessage(
-              Localizer.DiagnosticAddendum.argumentType().format({
+              Localizer.DiagAddendum.argumentType().format({
                 type: printType(simplifiedType, /* expandTypeAlias */ true),
               })
             );
-            addDiagnostic(
-              fileInfo.diagnosticRuleSet.reportUnknownArgumentType,
-              DiagnosticRule.reportUnknownArgumentType,
-              Localizer.Diagnostic.argTypePartiallyUnknown() + diagAddendum.getString(),
-              argParam.errorNode
-            );
+            addDiag(fileInfo.diagnosticRuleSet.reportUnknownArgumentType, DiagRule.reportUnknownArgumentType, Localizer.Diag.argTypePartiallyUnknown() + diagAddendum.getString(), argParam.errorNode);
           }
         }
       }
@@ -6047,7 +5993,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     let firstConstraintArg: FunctionArgument | undefined;
 
     if (argList.length === 0) {
-      addError(Localizer.Diagnostic.typeVarFirstArg(), errorNode);
+      addError(Localizer.Diag.typeVarFirstArg(), errorNode);
       return undefined;
     }
 
@@ -6055,7 +6001,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     if (firstArg.valueExpression && firstArg.valueExpression.nodeType === ParseNodeType.StringList) {
       typeVarName = firstArg.valueExpression.strings.map((s) => s.value).join('');
     } else {
-      addError(Localizer.Diagnostic.typeVarFirstArg(), firstArg.valueExpression || errorNode);
+      addError(Localizer.Diag.typeVarFirstArg(), firstArg.valueExpression || errorNode);
     }
 
     const typeVar = TypeVarType.createInstantiable(typeVarName, /* isParamSpec */ false);
@@ -6067,23 +6013,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       if (paramName) {
         if (paramNameMap.get(paramName)) {
-          addError(Localizer.Diagnostic.duplicateParam().format({ name: paramName }), argList[i].valueExpression || errorNode);
+          addError(Localizer.Diag.duplicateParam().format({ name: paramName }), argList[i].valueExpression || errorNode);
         }
 
         if (paramName === 'bound') {
           if (typeVar.details.constraints.length > 0) {
-            addError(Localizer.Diagnostic.typeVarBoundAndConstrained(), argList[i].valueExpression || errorNode);
+            addError(Localizer.Diag.typeVarBoundAndConstrained(), argList[i].valueExpression || errorNode);
           } else {
             const argType = getTypeForArgumentExpectingType(argList[i]);
             if (requiresSpecialization(argType)) {
-              addError(Localizer.Diagnostic.typeVarGeneric(), argList[i].valueExpression || errorNode);
+              addError(Localizer.Diag.typeVarGeneric(), argList[i].valueExpression || errorNode);
             }
             typeVar.details.boundType = convertToInstance(argType);
           }
         } else if (paramName === 'covariant') {
           if (argList[i].valueExpression && getBooleanValue(argList[i].valueExpression!)) {
             if (typeVar.details.variance === Variance.Contravariant) {
-              addError(Localizer.Diagnostic.typeVarVariance(), argList[i].valueExpression!);
+              addError(Localizer.Diag.typeVarVariance(), argList[i].valueExpression!);
             } else {
               typeVar.details.variance = Variance.Covariant;
             }
@@ -6091,23 +6037,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         } else if (paramName === 'contravariant') {
           if (argList[i].valueExpression && getBooleanValue(argList[i].valueExpression!)) {
             if (typeVar.details.variance === Variance.Covariant) {
-              addError(Localizer.Diagnostic.typeVarVariance(), argList[i].valueExpression!);
+              addError(Localizer.Diag.typeVarVariance(), argList[i].valueExpression!);
             } else {
               typeVar.details.variance = Variance.Contravariant;
             }
           }
         } else {
-          addError(Localizer.Diagnostic.typeVarUnknownParam().format({ name: paramName }), argList[i].node?.name || argList[i].valueExpression || errorNode);
+          addError(Localizer.Diag.typeVarUnknownParam().format({ name: paramName }), argList[i].node?.name || argList[i].valueExpression || errorNode);
         }
 
         paramNameMap.set(paramName, paramName);
       } else {
         if (typeVar.details.boundType) {
-          addError(Localizer.Diagnostic.typeVarBoundAndConstrained(), argList[i].valueExpression || errorNode);
+          addError(Localizer.Diag.typeVarBoundAndConstrained(), argList[i].valueExpression || errorNode);
         } else {
           const argType = getTypeForArgumentExpectingType(argList[i]);
           if (requiresSpecialization(argType)) {
-            addError(Localizer.Diagnostic.typeVarGeneric(), argList[i].valueExpression || errorNode);
+            addError(Localizer.Diag.typeVarGeneric(), argList[i].valueExpression || errorNode);
           }
           TypeVarType.addConstraint(typeVar, convertToInstance(argType));
           if (firstConstraintArg === undefined) {
@@ -6118,10 +6064,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     if (typeVar.details.constraints.length === 1 && firstConstraintArg) {
-      addDiagnostic(
+      addDiag(
         getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-        DiagnosticRule.reportGeneralTypeIssues,
-        Localizer.Diagnostic.typeVarSingleConstraint(),
+        DiagRule.reportGeneralTypeIssues,
+        Localizer.Diag.typeVarSingleConstraint(),
         firstConstraintArg.valueExpression || errorNode
       );
     }
@@ -6133,7 +6079,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     let typeVarName = '';
 
     if (argList.length === 0) {
-      addError(Localizer.Diagnostic.typeVarFirstArg(), errorNode);
+      addError(Localizer.Diag.typeVarFirstArg(), errorNode);
       return undefined;
     }
 
@@ -6141,14 +6087,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     if (firstArg.valueExpression && firstArg.valueExpression.nodeType === ParseNodeType.StringList) {
       typeVarName = firstArg.valueExpression.strings.map((s) => s.value).join('');
     } else {
-      addError(Localizer.Diagnostic.typeVarFirstArg(), firstArg.valueExpression || errorNode);
+      addError(Localizer.Diag.typeVarFirstArg(), firstArg.valueExpression || errorNode);
     }
 
     const typeVar = TypeVarType.createInstantiable(typeVarName, /* isParamSpec */ false);
     typeVar.details.isVariadic = true;
 
     for (let i = 1; i < argList.length; i++) {
-      addError(Localizer.Diagnostic.typeVarUnknownParam().format({ name: argList[i].name?.value || '?' }), argList[i].node?.name || argList[i].valueExpression || errorNode);
+      addError(Localizer.Diag.typeVarUnknownParam().format({ name: argList[i].name?.value || '?' }), argList[i].node?.name || argList[i].valueExpression || errorNode);
     }
 
     return typeVar;
@@ -6157,11 +6103,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
   function createParamSpecType(errorNode: ExpressionNode, argList: FunctionArgument[]): Type | undefined {
     const fileInfo = getFileInfo(errorNode);
     if (!fileInfo.isStubFile && fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_9) {
-      addError(Localizer.Diagnostic.paramSpecIllegal(), errorNode);
+      addError(Localizer.Diag.paramSpecIllegal(), errorNode);
     }
 
     if (argList.length === 0) {
-      addError(Localizer.Diagnostic.paramSpecFirstArg(), errorNode);
+      addError(Localizer.Diag.paramSpecFirstArg(), errorNode);
       return undefined;
     }
 
@@ -6170,16 +6116,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     if (firstArg.valueExpression && firstArg.valueExpression.nodeType === ParseNodeType.StringList) {
       paramSpecName = firstArg.valueExpression.strings.map((s) => s.value).join('');
     } else {
-      addError(Localizer.Diagnostic.paramSpecFirstArg(), firstArg.valueExpression || errorNode);
+      addError(Localizer.Diag.paramSpecFirstArg(), firstArg.valueExpression || errorNode);
     }
 
     const paramSpec = TypeVarType.createInstantiable(paramSpecName, /* isParamSpec */ true);
 
     for (let i = 1; i < argList.length; i++) {
       if (argList[i].name?.value) {
-        addError(Localizer.Diagnostic.paramSpecUnknownParam().format({ name: argList[i].name!.value }), argList[i].node?.name || argList[i].valueExpression || errorNode);
+        addError(Localizer.Diag.paramSpecUnknownParam().format({ name: argList[i].name!.value }), argList[i].node?.name || argList[i].valueExpression || errorNode);
       } else {
-        addError(Localizer.Diagnostic.paramSpecUnknownArg(), argList[i].valueExpression || errorNode);
+        addError(Localizer.Diag.paramSpecUnknownArg(), argList[i].valueExpression || errorNode);
         break;
       }
     }
@@ -6196,7 +6142,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       }
     }
 
-    addError(Localizer.Diagnostic.expectedBoolLiteral(), node);
+    addError(Localizer.Diag.expectedBoolLiteral(), node);
     return false;
   }
 
@@ -6317,9 +6263,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       if (isClass(baseClass)) {
         if (ClassType.isProtocolClass(baseClass)) {
-          addError(Localizer.Diagnostic.newTypeProtocolClass(), argList[1].node || errorNode);
+          addError(Localizer.Diag.newTypeProtocolClass(), argList[1].node || errorNode);
         } else if (baseClass.literalValue !== undefined) {
-          addError(Localizer.Diagnostic.newTypeLiteral(), argList[1].node || errorNode);
+          addError(Localizer.Diag.newTypeLiteral(), argList[1].node || errorNode);
         }
 
         const classFlags = baseClass.details.flags & ~(ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn);
@@ -6363,7 +6309,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         classType.details.fields.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
         return classType;
       } else if (!isAnyOrUnknown(baseClass)) {
-        addError(Localizer.Diagnostic.newTypeNotAClass(), argList[1].node || errorNode);
+        addError(Localizer.Diag.newTypeNotAClass(), argList[1].node || errorNode);
       }
     }
 
@@ -6396,12 +6342,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       if (isClass(baseClass) || isAnyOrUnknown(baseClass)) {
         classType.details.baseClasses.push(baseClass);
       } else {
-        addExpectedClassDiagnostic(baseClass, argList[1].valueExpression || errorNode);
+        addExpectedClassDiag(baseClass, argList[1].valueExpression || errorNode);
       }
     });
 
     if (!computeMroLinearization(classType)) {
-      addError(Localizer.Diagnostic.methodOrdering(), errorNode);
+      addError(Localizer.Diag.methodOrdering(), errorNode);
     }
 
     return classType;
@@ -6412,11 +6358,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     let className = 'TypedDict';
     if (argList.length === 0) {
-      addError(Localizer.Diagnostic.typedDictFirstArg(), errorNode);
+      addError(Localizer.Diag.typedDictFirstArg(), errorNode);
     } else {
       const nameArg = argList[0];
       if (nameArg.argumentCategory !== ArgumentCategory.Simple || !nameArg.valueExpression || nameArg.valueExpression.nodeType !== ParseNodeType.StringList) {
-        addError(Localizer.Diagnostic.typedDictFirstArg(), argList[0].valueExpression || errorNode);
+        addError(Localizer.Diag.typedDictFirstArg(), argList[0].valueExpression || errorNode);
       } else {
         className = nameArg.valueExpression.strings.map((s) => s.value).join('');
       }
@@ -6439,7 +6385,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     let usingDictSyntax = false;
     if (argList.length < 2) {
-      addError(Localizer.Diagnostic.typedDictSecondArgDict(), errorNode);
+      addError(Localizer.Diag.typedDictSecondArgDict(), errorNode);
     } else {
       const entriesArg = argList[1];
       const entryMap = new Map<string, boolean>();
@@ -6450,23 +6396,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         entryDict.entries.forEach((entry) => {
           if (entry.nodeType !== ParseNodeType.DictionaryKeyEntry) {
-            addError(Localizer.Diagnostic.typedDictSecondArgDictEntry(), entry);
+            addError(Localizer.Diag.typedDictSecondArgDictEntry(), entry);
             return;
           }
 
           if (entry.keyExpression.nodeType !== ParseNodeType.StringList) {
-            addError(Localizer.Diagnostic.typedDictEntryName(), entry.keyExpression);
+            addError(Localizer.Diag.typedDictEntryName(), entry.keyExpression);
             return;
           }
 
           const entryName = entry.keyExpression.strings.map((s) => s.value).join('');
           if (!entryName) {
-            addError(Localizer.Diagnostic.typedDictEmptyName(), entry.keyExpression);
+            addError(Localizer.Diag.typedDictEmptyName(), entry.keyExpression);
             return;
           }
 
           if (entryMap.has(entryName)) {
-            addError(Localizer.Diagnostic.typedDictEntryUnique(), entry.keyExpression);
+            addError(Localizer.Diag.typedDictEntryUnique(), entry.keyExpression);
             return;
           }
 
@@ -6495,7 +6441,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           }
 
           if (entryMap.has(entry.name.value)) {
-            addError(Localizer.Diagnostic.typedDictEntryUnique(), entry.valueExpression);
+            addError(Localizer.Diag.typedDictEntryUnique(), entry.valueExpression);
             continue;
           }
 
@@ -6518,7 +6464,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           classFields.set(entry.name.value, newSymbol);
         }
       } else {
-        addError(Localizer.Diagnostic.typedDictSecondArgDict(), errorNode);
+        addError(Localizer.Diag.typedDictSecondArgDict(), errorNode);
       }
     }
 
@@ -6531,14 +6477,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           argList[2].valueExpression.nodeType !== ParseNodeType.Constant ||
           !(argList[2].valueExpression.constType === KeywordType.False || argList[2].valueExpression.constType === KeywordType.True)
         ) {
-          addError(Localizer.Diagnostic.typedDictTotalParam(), argList[2].valueExpression || errorNode);
+          addError(Localizer.Diag.typedDictTotalParam(), argList[2].valueExpression || errorNode);
         } else if (argList[2].valueExpression.constType === KeywordType.False) {
           classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
         }
       }
 
       if (argList.length > 3) {
-        addError(Localizer.Diagnostic.typedDictExtraArgs(), argList[3].valueExpression || errorNode);
+        addError(Localizer.Diag.typedDictExtraArgs(), argList[3].valueExpression || errorNode);
       }
     }
 
@@ -6551,11 +6497,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     const fileInfo = getFileInfo(errorNode);
     let className = 'namedtuple';
     if (argList.length === 0) {
-      addError(Localizer.Diagnostic.namedTupleFirstArg(), errorNode);
+      addError(Localizer.Diag.namedTupleFirstArg(), errorNode);
     } else {
       const nameArg = argList[0];
       if (nameArg.argumentCategory !== ArgumentCategory.Simple) {
-        addError(Localizer.Diagnostic.namedTupleFirstArg(), argList[0].valueExpression || errorNode);
+        addError(Localizer.Diag.namedTupleFirstArg(), argList[0].valueExpression || errorNode);
       } else if (nameArg.valueExpression && nameArg.valueExpression.nodeType === ParseNodeType.StringList) {
         className = nameArg.valueExpression.strings.map((s) => s.value).join('');
       }
@@ -6600,7 +6546,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     const entryTypes: Type[] = [];
 
     if (argList.length < 2) {
-      addError(Localizer.Diagnostic.namedTupleSecondArg(), errorNode);
+      addError(Localizer.Diag.namedTupleSecondArg(), errorNode);
       addGenericGetAttribute = true;
     } else {
       const entriesArg = argList[1];
@@ -6655,7 +6601,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 entryTypeNode = entry.expressions[1];
                 entryType = convertToInstance(getTypeForExpressionExpectingType(entryTypeNode));
               } else {
-                addError(Localizer.Diagnostic.namedTupleNameType(), entry);
+                addError(Localizer.Diag.namedTupleNameType(), entry);
               }
             } else {
               entryNameNode = entry;
@@ -6665,10 +6611,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (entryNameNode && entryNameNode.nodeType === ParseNodeType.StringList) {
               entryName = entryNameNode.strings.map((s) => s.value).join('');
               if (!entryName) {
-                addError(Localizer.Diagnostic.namedTupleEmptyName(), entryNameNode);
+                addError(Localizer.Diag.namedTupleEmptyName(), entryNameNode);
               }
             } else {
-              addError(Localizer.Diagnostic.namedTupleNameString(), entryNameNode || entry);
+              addError(Localizer.Diag.namedTupleNameString(), entryNameNode || entry);
             }
 
             if (!entryName) {
@@ -6676,7 +6622,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (entryMap.has(entryName)) {
-              addError(Localizer.Diagnostic.namedTupleNameUnique(), entryNameNode || entry);
+              addError(Localizer.Diag.namedTupleNameUnique(), entryNameNode || entry);
             }
 
             entryMap.set(entryName, entryName);
@@ -6784,7 +6730,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     return { type, node };
   }
 
-  function getTypeFromUnaryOperation(node: UnaryOperationNode, expectedType: Type | undefined): TypeResult {
+  function getTypeFromUnaryOp(node: UnaryOpNode, expectedType: Type | undefined): TypeResult {
     let exprType = makeTopLevelTypeVarsConcrete(getTypeOfExpression(node.expression).type);
 
     const unaryOperatorMap: { [operator: number]: string } = {
@@ -6797,10 +6743,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     if (node.operator !== OperatorType.Not) {
       if (isOptionalType(exprType)) {
-        addDiagnostic(
+        addDiag(
           getFileInfo(node).diagnosticRuleSet.reportOptionalOperand,
-          DiagnosticRule.reportOptionalOperand,
-          Localizer.Diagnostic.noneOperator().format({
+          DiagRule.reportOptionalOperand,
+          Localizer.Diag.noneOperator().format({
             operator: ParseTreeUtils.printOperator(node.operator),
           }),
           node.expression
@@ -6824,10 +6770,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       if (!type) {
         const fileInfo = getFileInfo(node);
-        addDiagnostic(
+        addDiag(
           fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-          DiagnosticRule.reportGeneralTypeIssues,
-          Localizer.Diagnostic.typeNotSupportUnaryOperator().format({
+          DiagRule.reportGeneralTypeIssues,
+          Localizer.Diag.typeNotSupportUnaryOperator().format({
             operator: ParseTreeUtils.printOperator(node.operator),
             type: printType(exprType),
           }),
@@ -6859,14 +6805,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     return false;
   }
 
-  function getTypeFromBinaryOperation(node: BinaryOperationNode, expectedType: Type | undefined, flags: EvaluatorFlags): TypeResult {
+  function getTypeFromBinaryOp(node: BinaryOpNode, expectedType: Type | undefined, flags: EvaluatorFlags): TypeResult {
     const leftExpression = node.leftExpression;
     let rightExpression = node.rightExpression;
     let isIncomplete = false;
 
     if (operatorSupportsComparisonChaining(node.operator)) {
-      if (rightExpression.nodeType === ParseNodeType.BinaryOperation && !rightExpression.parenthesized && operatorSupportsComparisonChaining(rightExpression.operator)) {
-        getTypeFromBinaryOperation(rightExpression, expectedType, flags);
+      if (rightExpression.nodeType === ParseNodeType.BinaryOp && !rightExpression.parenthesized && operatorSupportsComparisonChaining(rightExpression.operator)) {
+        getTypeFromBinaryOp(rightExpression, expectedType, flags);
 
         rightExpression = rightExpression.leftExpression;
       }
@@ -6897,7 +6843,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const fileInfo = getFileInfo(node);
         const unionNotationSupported = fileInfo.isStubFile || (flags & EvaluatorFlags.AllowForwardReferences) !== 0 || fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_10;
         if (!unionNotationSupported) {
-          addError(Localizer.Diagnostic.unionSyntaxIllegal(), node, node.operatorToken);
+          addError(Localizer.Diag.unionSyntaxIllegal(), node, node.operatorToken);
         }
 
         return {
@@ -6910,10 +6856,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     if (booleanOperatorMap[node.operator] === undefined) {
       if (isOptionalType(leftType)) {
         if (node.operator !== OperatorType.Equals && node.operator !== OperatorType.NotEquals) {
-          addDiagnostic(
+          addDiag(
             getFileInfo(node).diagnosticRuleSet.reportOptionalOperand,
-            DiagnosticRule.reportOptionalOperand,
-            Localizer.Diagnostic.noneOperator().format({
+            DiagRule.reportOptionalOperand,
+            Localizer.Diag.noneOperator().format({
               operator: ParseTreeUtils.printOperator(node.operator),
             }),
             node.leftExpression
@@ -6928,7 +6874,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     return {
-      type: validateBinaryOperation(node.operator, leftType, rightType, node, expectedType),
+      type: validateBinaryOp(node.operator, leftType, rightType, node, expectedType),
       node,
       isIncomplete,
     };
@@ -7004,15 +6950,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     if (!type || isNever(type)) {
       const binaryOperator = operatorMap[node.operator][1];
-      type = validateBinaryOperation(binaryOperator, leftType!, rightType, node, expectedType);
+      type = validateBinaryOp(binaryOperator, leftType!, rightType, node, expectedType);
     }
 
     return { node, type, isIncomplete };
   }
 
-  function validateBinaryOperation(operator: OperatorType, leftType: Type, rightType: Type, errorNode: ExpressionNode, expectedType: Type | undefined): Type {
+  function validateBinaryOp(operator: OperatorType, leftType: Type, rightType: Type, errorNode: ExpressionNode, expectedType: Type | undefined): Type {
     let type: Type | undefined;
-    const diag = new DiagnosticAddendum();
+    const diag = new DiagAddendum();
 
     let concreteLeftType = makeTopLevelTypeVarsConcrete(leftType);
 
@@ -7055,14 +7001,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (!returnType) {
               const iteratorType = getTypeFromIterator(rightSubtypeExpanded, /* isAsync */ false, /* errorNode */ undefined);
 
-              if (iteratorType && canAssignType(iteratorType, leftSubtype, new DiagnosticAddendum())) {
+              if (iteratorType && canAssignType(iteratorType, leftSubtype, new DiagAddendum())) {
                 returnType = getBuiltInObject(errorNode, 'bool');
               }
             }
 
             if (!returnType) {
               diag.addMessage(
-                Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
+                Localizer.Diag.typeNotSupportBinaryOperator().format({
                   operator: ParseTreeUtils.printOperator(operator),
                   leftType: printType(leftType),
                   rightType: printType(rightType),
@@ -7125,7 +7071,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
           if (!resultType) {
             diag.addMessage(
-              Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
+              Localizer.Diag.typeNotSupportBinaryOperator().format({
                 operator: ParseTreeUtils.printOperator(operator),
                 leftType: printType(leftType),
                 rightType: printType(rightType),
@@ -7139,10 +7085,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     if (!diag.isEmpty() || !type || isNever(type)) {
       const fileInfo = getFileInfo(errorNode);
-      addDiagnostic(
+      addDiag(
         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-        DiagnosticRule.reportGeneralTypeIssues,
-        Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
+        DiagRule.reportGeneralTypeIssues,
+        Localizer.Diag.typeNotSupportBinaryOperator().format({
           operator: ParseTreeUtils.printOperator(operator),
           leftType: printType(leftType),
           rightType: printType(rightType),
@@ -7178,7 +7124,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let callResult: CallResult | undefined;
 
-        suppressDiagnostics(errorNode, () => {
+        suppressDiags(errorNode, () => {
           callResult = validateCallArguments(errorNode, functionArgs, magicMethodType!, new TypeVarMap(getTypeVarScopeId(magicMethodType!)), /* skipUnknownArgCheck */ true, expectedType);
         });
 
@@ -7242,7 +7188,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const typeVarMap = new TypeVarMap(getTypeVarScopeId(subtype));
 
             for (const entryType of entryTypes) {
-              if (!canAssignType(typeArg, entryType, new DiagnosticAddendum(), typeVarMap)) {
+              if (!canAssignType(typeArg, entryType, new DiagAddendum(), typeVarMap)) {
                 return undefined;
               }
             }
@@ -7277,7 +7223,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       doForEachSubtype(expectedType, (subtype) => {
         if (!matchingSubtype) {
           const subtypeResult = useSpeculativeMode(node, () => {
-            return getTypeFromDictionaryExpected(node, subtype, new DiagnosticAddendum());
+            return getTypeFromDictionaryExpected(node, subtype, new DiagAddendum());
           });
 
           if (subtypeResult) {
@@ -7291,7 +7237,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     let expectedTypeDiagAddendum = undefined;
     if (expectedType) {
-      expectedTypeDiagAddendum = new DiagnosticAddendum();
+      expectedTypeDiagAddendum = new DiagAddendum();
       const result = getTypeFromDictionaryExpected(node, expectedType, expectedTypeDiagAddendum);
       if (result) {
         return result;
@@ -7302,7 +7248,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     return { ...result, expectedTypeDiagAddendum };
   }
 
-  function getTypeFromDictionaryExpected(node: DictionaryNode, expectedType: Type, expectedDiagAddendum: DiagnosticAddendum): TypeResult | undefined {
+  function getTypeFromDictionaryExpected(node: DictionaryNode, expectedType: Type, expectedDiagAddendum: DiagAddendum): TypeResult | undefined {
     expectedType = transformPossibleRecursiveTypeAlias(expectedType);
 
     if (!isObject(expectedType)) {
@@ -7395,7 +7341,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     expectedKeyType?: Type,
     expectedValueType?: Type,
     expectedTypedDictEntries?: Map<string, TypedDictEntry>,
-    expectedDiagAddendum?: DiagnosticAddendum
+    expectedDiagAddendum?: DiagAddendum
   ) {
     node.entries.forEach((entryNode, index) => {
       let addUnknown = true;
@@ -7405,7 +7351,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (expectedKeyType) {
           const adjExpectedKeyType = makeTopLevelTypeVarsConcrete(expectedKeyType);
           if (!isAnyOrUnknown(adjExpectedKeyType)) {
-            if (canAssignType(adjExpectedKeyType, keyType, new DiagnosticAddendum(), undefined)) {
+            if (canAssignType(adjExpectedKeyType, keyType, new DiagAddendum(), undefined)) {
               keyType = adjExpectedKeyType;
             }
           }
@@ -7444,7 +7390,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           const mappingType = getTypingType(node, 'Mapping');
           if (mappingType && isClass(mappingType)) {
             const mappingTypeVarMap = new TypeVarMap(getTypeVarScopeId(mappingType));
-            if (canAssignType(ObjectType.create(mappingType), unexpandedType, new DiagnosticAddendum(), mappingTypeVarMap)) {
+            if (canAssignType(ObjectType.create(mappingType), unexpandedType, new DiagAddendum(), mappingTypeVarMap)) {
               const specializedMapping = applySolvedTypeVars(mappingType, mappingTypeVarMap) as ClassType;
               const typeArgs = specializedMapping.typeArguments;
               if (typeArgs && typeArgs.length >= 2) {
@@ -7456,7 +7402,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
               }
             } else {
               const fileInfo = getFileInfo(node);
-              addDiagnostic(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues, Localizer.Diagnostic.dictUnpackIsNotMapping(), entryNode);
+              addDiag(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.dictUnpackIsNotMapping(), entryNode);
             }
           }
         }
@@ -7602,7 +7548,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
   }
 
   function inferTypeArgFromExpectedType(expectedType: Type, entryTypes: Type[], isNarrowable: boolean): Type | undefined {
-    const diagDummy = new DiagnosticAddendum();
+    const diagDummy = new DiagAddendum();
 
     const targetTypeVar = TypeVarType.createInstance('__typeArg');
     targetTypeVar.details.isSynthesized = true;
@@ -7765,7 +7711,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     return { type, node };
   }
 
-  function reportPossibleUnknownAssignment(diagLevel: DiagnosticLevel, rule: string, target: NameNode, type: Type, errorNode: ExpressionNode) {
+  function reportPossibleUnknownAssignment(diagLevel: DiagLevel, rule: string, target: NameNode, type: Type, errorNode: ExpressionNode) {
     if (diagLevel === 'none') {
       return;
     }
@@ -7775,16 +7721,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     const simplifiedType = removeUnbound(type);
 
     if (isUnknown(simplifiedType)) {
-      addDiagnostic(diagLevel, rule, Localizer.Diagnostic.typeUnknown().format({ name: nameValue }), errorNode);
+      addDiag(diagLevel, rule, Localizer.Diag.typeUnknown().format({ name: nameValue }), errorNode);
     } else if (isPartlyUnknown(simplifiedType)) {
-      const diagAddendum = new DiagnosticAddendum();
+      const diagAddendum = new DiagAddendum();
       diagAddendum.addMessage(
-        Localizer.DiagnosticAddendum.typeOfSymbol().format({
+        Localizer.DiagAddendum.typeOfSymbol().format({
           name: nameValue,
           type: printType(simplifiedType, /* expandTypeAlias */ true),
         })
       );
-      addDiagnostic(diagLevel, rule, Localizer.Diagnostic.typePartiallyUnknown().format({ name: nameValue }) + diagAddendum.getString(), errorNode);
+      addDiag(diagLevel, rule, Localizer.Diag.typePartiallyUnknown().format({ name: nameValue }) + diagAddendum.getString(), errorNode);
     }
   }
 
@@ -7845,28 +7791,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
   function validateTypeArg(argResult: TypeResult, allowEmptyTuple = false, allowVariadicTypeVar = false): boolean {
     if (argResult.typeList) {
-      addError(Localizer.Diagnostic.typeArgListNotAllowed(), argResult.node);
+      addError(Localizer.Diag.typeArgListNotAllowed(), argResult.node);
       return false;
     }
 
     if (isEllipsisType(argResult.type)) {
-      addError(Localizer.Diagnostic.ellipsisContext(), argResult.node);
+      addError(Localizer.Diag.ellipsisContext(), argResult.node);
       return false;
     }
 
     if (isModule(argResult.type)) {
-      addError(Localizer.Diagnostic.moduleContext(), argResult.node);
+      addError(Localizer.Diag.moduleContext(), argResult.node);
       return false;
     }
 
     if (isParamSpec(argResult.type)) {
-      addError(Localizer.Diagnostic.paramSpecContext(), argResult.node);
+      addError(Localizer.Diag.paramSpecContext(), argResult.node);
       return false;
     }
 
     if (isVariadicTypeVar(argResult.type)) {
       if (!allowVariadicTypeVar) {
-        addError(Localizer.Diagnostic.typeVarTupleContext(), argResult.node);
+        addError(Localizer.Diag.typeVarTupleContext(), argResult.node);
         return false;
       } else {
         validateVariadicTypeVarIsUnpacked(argResult.type, argResult.node);
@@ -7874,7 +7820,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     if (!allowEmptyTuple && argResult.isEmptyTupleShorthand) {
-      addError(Localizer.Diagnostic.zeroLengthTupleNotAllowed(), argResult.node);
+      addError(Localizer.Diag.zeroLengthTupleNotAllowed(), argResult.node);
       return false;
     }
 
@@ -7902,7 +7848,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           if (isVariadicTypeVar(entryType)) {
             if (sawVariadic) {
               if (!reportedVariadicError) {
-                addError(Localizer.Diagnostic.variadicTypeArgsTooMany(), entry.node);
+                addError(Localizer.Diag.variadicTypeArgsTooMany(), entry.node);
                 reportedVariadicError = true;
               }
             }
@@ -7947,7 +7893,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
           }
         } else {
-          addError(Localizer.Diagnostic.callableFirstArg(), typeArgs[0].node);
+          addError(Localizer.Diag.callableFirstArg(), typeArgs[0].node);
         }
       }
 
@@ -7959,13 +7905,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         functionType.details.declaredReturnType = convertToInstance(typeArg1Type);
       } else {
         const fileInfo = getFileInfo(errorNode);
-        addDiagnostic(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues, Localizer.Diagnostic.callableSecondArg(), errorNode);
+        addDiag(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.callableSecondArg(), errorNode);
 
         functionType.details.declaredReturnType = UnknownType.create();
       }
 
       if (typeArgs.length > 2) {
-        addError(Localizer.Diagnostic.callableExtraArgs(), typeArgs[2].node);
+        addError(Localizer.Diag.callableExtraArgs(), typeArgs[2].node);
       }
     } else {
       FunctionType.addDefaultParameters(functionType, /* useUnknown */ true);
@@ -7977,7 +7923,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
   function createOptionalType(errorNode: ParseNode, typeArgs?: TypeResult[]): Type {
     if (!typeArgs || typeArgs.length !== 1) {
-      addError(Localizer.Diagnostic.optionalExtraArgs(), errorNode);
+      addError(Localizer.Diag.optionalExtraArgs(), errorNode);
       return UnknownType.create();
     }
 
@@ -7985,7 +7931,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     if (!validateTypeArg(typeArgs[0])) {
       typeArg0Type = UnknownType.create();
     } else if (!TypeBase.isInstantiable(typeArg0Type)) {
-      addExpectedClassDiagnostic(typeArg0Type, typeArgs[0].node);
+      addExpectedClassDiag(typeArg0Type, typeArgs[0].node);
     }
 
     return combineTypes([typeArg0Type, NoneType.createType()]);
@@ -8011,7 +7957,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
   function createLiteralType(node: IndexNode, flags: EvaluatorFlags): Type {
     if (node.items.length === 0) {
-      addError(Localizer.Diagnostic.literalEmptyArgs(), node.baseExpression);
+      addError(Localizer.Diag.literalEmptyArgs(), node.baseExpression);
       return UnknownType.create();
     }
 
@@ -8022,10 +7968,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       const itemExpr = item.valueExpression;
 
       if (item.argumentCategory !== ArgumentCategory.Simple) {
-        addError(Localizer.Diagnostic.unpackedArgInTypeArgument(), itemExpr);
+        addError(Localizer.Diag.unpackedArgInTypeArgument(), itemExpr);
         type = UnknownType.create();
       } else if (item.name) {
-        addError(Localizer.Diagnostic.keywordArgInTypeArgument(), itemExpr);
+        addError(Localizer.Diag.keywordArgInTypeArgument(), itemExpr);
         type = UnknownType.create();
       } else if (itemExpr.nodeType === ParseNodeType.StringList) {
         const isBytes = (itemExpr.strings[0].token.flags & StringTokenFlags.Bytes) !== 0;
@@ -8047,7 +7993,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         } else if (itemExpr.constType === KeywordType.None) {
           type = NoneType.createType();
         }
-      } else if (itemExpr.nodeType === ParseNodeType.UnaryOperation && itemExpr.operator === OperatorType.Subtract) {
+      } else if (itemExpr.nodeType === ParseNodeType.UnaryOp && itemExpr.operator === OperatorType.Subtract) {
         if (itemExpr.expression.nodeType === ParseNodeType.Number) {
           if (!itemExpr.expression.isImaginary && itemExpr.expression.isInteger) {
             type = cloneBuiltinClassWithLiteral(node, 'int', -itemExpr.expression.value);
@@ -8077,7 +8023,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       if (!type) {
         if ((flags & EvaluatorFlags.ExpectingType) !== 0) {
-          addError(Localizer.Diagnostic.literalUnsupportedType(), item);
+          addError(Localizer.Diag.literalUnsupportedType(), item);
           type = UnknownType.create();
         } else {
           type = AnyType.create();
@@ -8092,10 +8038,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
   function createClassVarType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined): Type {
     if (!typeArgs || typeArgs.length === 0) {
-      addError(Localizer.Diagnostic.classVarFirstArgMissing(), errorNode);
+      addError(Localizer.Diag.classVarFirstArgMissing(), errorNode);
       return UnknownType.create();
     } else if (typeArgs.length > 1) {
-      addError(Localizer.Diagnostic.classVarTooManyArgs(), typeArgs[1].node);
+      addError(Localizer.Diag.classVarTooManyArgs(), typeArgs[1].node);
       return UnknownType.create();
     }
 
@@ -8108,7 +8054,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
   function createTypeGuardType(errorNode: ParseNode, classType: ClassType, typeArgs: TypeResult[] | undefined): Type {
     if (!typeArgs || typeArgs.length !== 1) {
-      addError(Localizer.Diagnostic.typeGuardArgCount(), errorNode);
+      addError(Localizer.Diag.typeGuardArgCount(), errorNode);
     }
 
     let typeArg: Type;
@@ -8126,7 +8072,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
   function createRequiredType(classType: ClassType, errorNode: ParseNode, isRequired: boolean, typeArgs: TypeResult[] | undefined): Type {
     if (!typeArgs || typeArgs.length !== 1) {
-      addError(isRequired ? Localizer.Diagnostic.requiredArgCount() : Localizer.Diagnostic.notRequiredArgCount(), errorNode);
+      addError(isRequired ? Localizer.Diag.requiredArgCount() : Localizer.Diag.notRequiredArgCount(), errorNode);
       return classType;
     }
 
@@ -8144,7 +8090,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     if (!isUsageLegal) {
-      addError(isRequired ? Localizer.Diagnostic.requiredNotInTypedDict() : Localizer.Diagnostic.notRequiredNotInTypedDict(), errorNode);
+      addError(isRequired ? Localizer.Diag.requiredNotInTypedDict() : Localizer.Diag.notRequiredNotInTypedDict(), errorNode);
       return ClassType.cloneForSpecialization(classType, [convertToInstance(typeArgType)], !!typeArgs);
     }
 
@@ -8153,7 +8099,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
   function createUnpackType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined): Type {
     if (!typeArgs || typeArgs.length !== 1) {
-      addError(Localizer.Diagnostic.unpackArgCount(), errorNode);
+      addError(Localizer.Diag.unpackArgCount(), errorNode);
       return UnknownType.create();
     }
 
@@ -8163,7 +8109,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     if (!isVariadicTypeVar(typeArgType) || typeArgType.isVariadicUnpacked) {
-      addError(Localizer.Diagnostic.unpackExpectedTypeVarTuple(), errorNode);
+      addError(Localizer.Diag.unpackExpectedTypeVarTuple(), errorNode);
       return UnknownType.create();
     }
 
@@ -8172,7 +8118,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
   function createFinalType(classType: ClassType, errorNode: ParseNode, typeArgs: TypeResult[] | undefined, flags: EvaluatorFlags): Type {
     if (flags & EvaluatorFlags.FinalDisallowed) {
-      addError(Localizer.Diagnostic.finalContext(), errorNode);
+      addError(Localizer.Diag.finalContext(), errorNode);
       return AnyType.create();
     }
 
@@ -8181,7 +8127,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     if (typeArgs.length > 1) {
-      addError(Localizer.Diagnostic.finalTooManyArgs(), errorNode);
+      addError(Localizer.Diag.finalTooManyArgs(), errorNode);
     }
 
     return typeArgs[0].type;
@@ -8189,16 +8135,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
   function createConcatenateType(errorNode: ParseNode, classType: ClassType, typeArgs: TypeResult[] | undefined): Type {
     if (!typeArgs || typeArgs.length === 0) {
-      addError(Localizer.Diagnostic.concatenateTypeArgsMissing(), errorNode);
+      addError(Localizer.Diag.concatenateTypeArgsMissing(), errorNode);
     } else {
       typeArgs.forEach((typeArg, index) => {
         if (index === typeArgs.length - 1) {
           if (!isParamSpec(typeArg.type)) {
-            addError(Localizer.Diagnostic.concatenateParamSpecMissing(), typeArg.node);
+            addError(Localizer.Diag.concatenateParamSpecMissing(), typeArg.node);
           }
         } else {
           if (isParamSpec(typeArg.type)) {
-            addError(Localizer.Diagnostic.paramSpecContext(), typeArg.node);
+            addError(Localizer.Diag.paramSpecContext(), typeArg.node);
           }
         }
       });
@@ -8209,7 +8155,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
   function createAnnotatedType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined): Type {
     if (typeArgs && typeArgs.length < 2) {
-      addError(Localizer.Diagnostic.annotatedTypeArgMissing(), errorNode);
+      addError(Localizer.Diag.annotatedTypeArgMissing(), errorNode);
     }
 
     if (!typeArgs || typeArgs.length === 0) {
@@ -8237,19 +8183,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         typeArgs.forEach((typeArg, index) => {
           if (isEllipsisType(typeArg.type)) {
             if (!isTupleTypeParam) {
-              addError(Localizer.Diagnostic.ellipsisContext(), typeArg.node);
+              addError(Localizer.Diag.ellipsisContext(), typeArg.node);
             } else if (typeArgs!.length !== 2 || index !== 1) {
-              addError(Localizer.Diagnostic.ellipsisSecondArg(), typeArg.node);
+              addError(Localizer.Diag.ellipsisSecondArg(), typeArg.node);
             } else {
               if (isTypeVar(typeArgs![0].type) && isVariadicTypeVar(typeArgs![0].type)) {
-                addError(Localizer.Diagnostic.typeVarTupleContext(), typeArgs![0].node);
+                addError(Localizer.Diag.typeVarTupleContext(), typeArgs![0].node);
               }
             }
           } else if (isParamSpec(typeArg.type) && allowParamSpec) {
           } else if (isVariadicTypeVar(typeArg.type) && paramLimit === undefined) {
             if (sawVariadic) {
               if (!reportedVariadicError) {
-                addError(Localizer.Diagnostic.variadicTypeArgsTooMany(), typeArg.node);
+                addError(Localizer.Diag.variadicTypeArgsTooMany(), typeArg.node);
                 reportedVariadicError = true;
               }
             }
@@ -8267,7 +8213,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     if (paramLimit !== undefined) {
       if (typeArgs && typeArgTypes.length > paramLimit) {
         addError(
-          Localizer.Diagnostic.typeArgsTooMany().format({
+          Localizer.Diag.typeArgsTooMany().format({
             name: classType.aliasName || classType.details.name,
             expected: paramLimit,
             received: typeArgTypes.length,
@@ -8304,7 +8250,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (!validateTypeArg(typeArg, /* allowEmptyTuple */ false, /* allowVariadicTypeVar */ true)) {
           typeArgType = UnknownType.create();
         } else if (!TypeBase.isInstantiable(typeArgType)) {
-          addExpectedClassDiagnostic(typeArgType, typeArg.node);
+          addExpectedClassDiag(typeArgType, typeArg.node);
         }
 
         types.push(typeArgType);
@@ -8320,18 +8266,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
   function createGenericType(errorNode: ParseNode, classType: ClassType, typeArgs?: TypeResult[]): Type {
     if (!typeArgs || typeArgs.length === 0) {
-      addError(Localizer.Diagnostic.genericTypeArgMissing(), errorNode);
+      addError(Localizer.Diag.genericTypeArgMissing(), errorNode);
     }
 
     const uniqueTypeVars: TypeVarType[] = [];
     if (typeArgs) {
       typeArgs.forEach((typeArg) => {
         if (!isTypeVar(typeArg.type)) {
-          addError(Localizer.Diagnostic.genericTypeArgTypeVar(), typeArg.node);
+          addError(Localizer.Diag.genericTypeArgTypeVar(), typeArg.node);
         } else {
           for (const typeVar of uniqueTypeVars) {
             if (typeVar === typeArg.type) {
-              addError(Localizer.Diagnostic.genericTypeArgUnique(), typeArg.node);
+              addError(Localizer.Diag.genericTypeArgUnique(), typeArg.node);
               break;
             }
           }
@@ -8398,7 +8344,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     const variadics = typeParameters.filter((param) => isVariadicTypeVar(param));
     if (variadics.length > 1) {
       addError(
-        Localizer.Diagnostic.variadicTypeParamTooManyAlias().format({
+        Localizer.Diag.variadicTypeParamTooManyAlias().format({
           names: variadics.map((v) => `"${v.details.name}"`).join(', '),
         }),
         errorNode
@@ -8563,7 +8509,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     let rightHandType = readTypeCache(node.rightExpression);
     let isIncomplete = false;
-    let expectedTypeDiagAddendum: DiagnosticAddendum | undefined;
+    let expectedTypeDiagAddendum: DiagAddendum | undefined;
 
     if (!rightHandType) {
       if (fileInfo.isTypingStubFile || fileInfo.isTypingExtensionsStubFile) {
@@ -8629,7 +8575,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (declaredType) {
-          const diagAddendum = new DiagnosticAddendum();
+          const diagAddendum = new DiagAddendum();
 
           if (canAssignType(declaredType, srcType, diagAddendum)) {
             srcType = narrowTypeBasedOnAssignment(declaredType, srcType);
@@ -8649,10 +8595,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             rightHandType = transformTypeForTypeAlias(rightHandType, typeAliasNameNode, node.rightExpression);
 
             if (isTypeAliasRecursive(typeAliasTypeVar!, rightHandType)) {
-              addDiagnostic(
+              addDiag(
                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.typeAliasIsRecursive().format({ name: typeAliasNameNode.value }),
+                DiagRule.reportGeneralTypeIssues,
+                Localizer.Diag.typeAliasIsRecursive().format({ name: typeAliasNameNode.value }),
                 node.rightExpression
               );
             }
@@ -8759,12 +8705,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (!isAnyOrUnknown(argType) && !isUnbound(argType)) {
           argType = transformTypeObjectToClass(argType);
           if (!isClass(argType)) {
-            addDiagnostic(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues, Localizer.Diagnostic.baseClassInvalid(), arg);
+            addDiag(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.baseClassInvalid(), arg);
             argType = UnknownType.create();
           } else {
             if (ClassType.isBuiltIn(argType, 'Protocol')) {
               if (!fileInfo.isStubFile && !ClassType.isTypingExtensionClass(argType) && fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_7) {
-                addError(Localizer.Diagnostic.protocolIllegal(), arg.valueExpression);
+                addError(Localizer.Diag.protocolIllegal(), arg.valueExpression);
               }
               classType.details.flags |= ClassTypeFlags.ProtocolClass;
             }
@@ -8782,18 +8728,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (ClassType.isBuiltIn(argType, 'TypedDict') || ClassType.isTypedDictClass(argType)) {
               classType.details.flags |= ClassTypeFlags.TypedDictClass;
             } else if (ClassType.isTypedDictClass(classType) && !ClassType.isTypedDictClass(argType)) {
-              addError(Localizer.Diagnostic.typedDictBaseClass(), arg);
+              addError(Localizer.Diag.typedDictBaseClass(), arg);
             }
 
             if (derivesFromClassRecursive(argType, classType, /* ignoreUnknown */ true)) {
-              addError(Localizer.Diagnostic.baseClassCircular(), arg);
+              addError(Localizer.Diag.baseClassCircular(), arg);
               argType = UnknownType.create();
             }
           }
         }
 
         if (isUnknown(argType)) {
-          addDiagnostic(fileInfo.diagnosticRuleSet.reportUntypedBaseClass, DiagnosticRule.reportUntypedBaseClass, Localizer.Diagnostic.baseClassUnknown(), arg);
+          addDiag(fileInfo.diagnosticRuleSet.reportUntypedBaseClass, DiagRule.reportUntypedBaseClass, Localizer.Diag.baseClassUnknown(), arg);
         }
 
         if (
@@ -8801,7 +8747,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return isClass(prevBaseClass) && isClass(argType) && ClassType.isSameGenericClass(argType, prevBaseClass);
           })
         ) {
-          addDiagnostic(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues, Localizer.Diagnostic.duplicateBaseClass(), arg.name || arg);
+          addDiag(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.duplicateBaseClass(), arg.name || arg);
         }
 
         classType.details.baseClasses.push(argType);
@@ -8820,7 +8766,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
           if (ClassType.isFinal(argType)) {
             const className = printObjectTypeForClass(argType);
-            addError(Localizer.Diagnostic.baseClassFinal().format({ type: className }), arg.valueExpression);
+            addError(Localizer.Diag.baseClassFinal().format({ type: className }), arg.valueExpression);
           }
         }
 
@@ -8833,14 +8779,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
       } else if (arg.name.value === 'metaclass') {
         if (metaclassNode) {
-          addError(Localizer.Diagnostic.metaclassDuplicate(), arg);
+          addError(Localizer.Diag.metaclassDuplicate(), arg);
         } else {
           metaclassNode = arg.valueExpression;
         }
       } else if (arg.name.value === 'total' && ClassType.isTypedDictClass(classType)) {
         const constArgValue = evaluateStaticBoolExpression(arg.valueExpression, fileInfo.executionEnvironment);
         if (constArgValue === undefined) {
-          addError(Localizer.Diagnostic.typedDictTotalParam(), arg.valueExpression);
+          addError(Localizer.Diag.typedDictTotalParam(), arg.valueExpression);
         } else if (!constArgValue) {
           classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
         }
@@ -8856,7 +8802,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     if (classType.details.baseClasses.length > 1) {
       if (classType.details.baseClasses.some((baseClass) => isClass(baseClass) && ClassType.isBuiltIn(baseClass, 'NamedTuple'))) {
-        addDiagnostic(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues, Localizer.Diagnostic.namedTupleMultipleInheritance(), node.name);
+        addDiag(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.namedTupleMultipleInheritance(), node.name);
       }
     }
 
@@ -8869,7 +8815,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     const variadics = classType.details.typeParameters.filter((param) => isVariadicTypeVar(param));
     if (variadics.length > 1) {
       addError(
-        Localizer.Diagnostic.variadicTypeParamTooManyClass().format({
+        Localizer.Diag.variadicTypeParamTooManyClass().format({
           names: variadics.map((v) => `"${v.details.name}"`).join(', '),
         }),
         node.name,
@@ -8878,7 +8824,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     if (!computeMroLinearization(classType)) {
-      addError(Localizer.Diagnostic.methodOrdering(), node.name);
+      addError(Localizer.Diag.methodOrdering(), node.name);
     }
 
     const innerScope = ScopeUtils.getScopeForNode(node.suite);
@@ -8949,7 +8895,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
               effectiveMetaclass = baseClassMeta;
             } else if (!derivesFromClassRecursive(effectiveMetaclass, baseClassMeta, /* ignoreUnknown */ false)) {
               if (!reportedMetaclassConflict) {
-                addDiagnostic(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues, Localizer.Diagnostic.metaclassConflict(), node.name);
+                addDiag(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.metaclassConflict(), node.name);
 
                 reportedMetaclassConflict = true;
               }
@@ -8987,12 +8933,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       const newDecoratedType = applyClassDecorator(decoratedType, classType, decorator);
       if (containsUnknown(newDecoratedType)) {
         if (!foundUnknown) {
-          addDiagnostic(
-            fileInfo.diagnosticRuleSet.reportUntypedClassDecorator,
-            DiagnosticRule.reportUntypedClassDecorator,
-            Localizer.Diagnostic.classDecoratorTypeUnknown(),
-            node.decorators[i].expression
-          );
+          addDiag(fileInfo.diagnosticRuleSet.reportUntypedClassDecorator, DiagRule.reportUntypedClassDecorator, Localizer.Diag.classDecoratorTypeUnknown(), node.decorators[i].expression);
 
           foundUnknown = true;
         }
@@ -9060,7 +9001,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                       originalClassType.details.flags |= ClassTypeFlags.FrozenDataClass;
 
                       if (originalClassType.details.baseClasses.some((baseClass) => isClass(baseClass) && ClassType.isDataClass(baseClass) && !ClassType.isFrozenDataClass(baseClass))) {
-                        addDiagnostic(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues, Localizer.Diagnostic.dataClassBaseClassNotFrozen(), arg);
+                        addDiag(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.dataClassBaseClassNotFrozen(), arg);
                       }
                     }
                   } else if (value === false) {
@@ -9096,7 +9037,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       classType,
       '__init_subclass__',
       { method: 'get' },
-      new DiagnosticAddendum(),
+      new DiagAddendum(),
       MemberAccessFlags.AccessClassMembersOnly | MemberAccessFlags.SkipObjectBaseClass,
       classType
     );
@@ -9199,7 +9140,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         firstCommentAnnotationIndex = 0;
       } else if (received !== expected) {
         addError(
-          Localizer.Diagnostic.annotatedParamCountMismatch().format({
+          Localizer.Diag.annotatedParamCountMismatch().format({
             expected,
             received,
           }),
@@ -9230,7 +9171,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (isVariadicTypeVar(annotatedType) && !annotatedType.isVariadicUnpacked) {
           addError(
-            Localizer.Diagnostic.unpackedTypeVarTupleExpected().format({
+            Localizer.Diag.unpackedTypeVarTupleExpected().format({
               name1: annotatedType.details.name,
               name2: annotatedType.details.name,
             }),
@@ -9266,7 +9207,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       if (annotatedType) {
         if (param.defaultValue && defaultValueType) {
-          const diagAddendum = new DiagnosticAddendum();
+          const diagAddendum = new DiagAddendum();
           const typeVarMap = new TypeVarMap(functionType.details.typeVarScopeId);
           if (containingClassType && containingClassType.details.typeVarScopeId !== undefined) {
             if (node.name.value === '__init__' || node.name.value === '__new__') {
@@ -9275,10 +9216,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           }
 
           if (!canAssignType(annotatedType, defaultValueType, diagAddendum, typeVarMap)) {
-            const diag = addDiagnostic(
+            const diag = addDiag(
               fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-              DiagnosticRule.reportGeneralTypeIssues,
-              Localizer.Diagnostic.paramAssignmentMismatch().format({
+              DiagRule.reportGeneralTypeIssues,
+              Localizer.Diag.paramAssignmentMismatch().format({
                 sourceType: printType(defaultValueType),
                 paramType: printType(annotatedType),
               }) + diagAddendum.getString(),
@@ -9378,12 +9319,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       const newDecoratedType = applyFunctionDecorator(decoratedType, functionType, decorator, node);
       if (containsUnknown(newDecoratedType)) {
         if (!foundUnknown) {
-          addDiagnostic(
-            fileInfo.diagnosticRuleSet.reportUntypedFunctionDecorator,
-            DiagnosticRule.reportUntypedFunctionDecorator,
-            Localizer.Diagnostic.functionDecoratorTypeUnknown(),
-            node.decorators[i].expression
-          );
+          addDiag(fileInfo.diagnosticRuleSet.reportUntypedFunctionDecorator, DiagRule.reportUntypedFunctionDecorator, Localizer.Diag.functionDecoratorTypeUnknown(), node.decorators[i].expression);
 
           foundUnknown = true;
         }
@@ -9595,7 +9531,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
   function validatePropertyMethod(method: FunctionType, errorNode: ParseNode) {
     if (FunctionType.isStaticMethod(method)) {
-      addDiagnostic(getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues, Localizer.Diagnostic.propertyStaticMethod(), errorNode);
+      addDiag(getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.propertyStaticMethod(), errorNode);
     }
   }
 
@@ -9735,14 +9671,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           if (fgetType && !isAnyOrUnknown(fgetType)) {
             const fsetType = getTypeOfAnnotation(typeAnnotation);
 
-            const diag = new DiagnosticAddendum();
+            const diag = new DiagAddendum();
             if (!canAssignType(fgetType, fsetType, diag)) {
-              addDiagnostic(
-                fileInfo.diagnosticRuleSet.reportPropertyTypeMismatch,
-                DiagnosticRule.reportPropertyTypeMismatch,
-                Localizer.Diagnostic.setterGetterTypeMismatch() + diag.getString(),
-                typeAnnotation
-              );
+              addDiag(fileInfo.diagnosticRuleSet.reportPropertyTypeMismatch, DiagRule.reportPropertyTypeMismatch, Localizer.Diag.setterGetterTypeMismatch() + diag.getString(), typeAnnotation);
             }
           }
         }
@@ -9887,10 +9818,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const isCurrentOverloadAbstract = FunctionType.isAbstractMethod(type);
 
         if (isPrevOverloadAbstract !== isCurrentOverloadAbstract) {
-          addDiagnostic(
+          addDiag(
             getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
-            DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.Diagnostic.overloadAbstractMismatch().format({ name: node.name.value }),
+            DiagRule.reportGeneralTypeIssues,
+            Localizer.Diag.overloadAbstractMismatch().format({ name: node.name.value }),
             node.name
           );
         }
@@ -10170,7 +10101,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     if (isOptionalType(exprType)) {
       const fileInfo = getFileInfo(node);
-      addDiagnostic(fileInfo.diagnosticRuleSet.reportOptionalContextManager, DiagnosticRule.reportOptionalContextManager, Localizer.Diagnostic.noneNotUsableWith(), node.expression);
+      addDiag(fileInfo.diagnosticRuleSet.reportOptionalContextMgr, DiagRule.reportOptionalContextMgr, Localizer.Diag.noneNotUsableWith(), node.expression);
       exprType = removeNoneFromUnion(exprType);
     }
 
@@ -10182,8 +10113,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return subtype;
       }
 
-      const diag = new DiagnosticAddendum();
-      const additionalHelp = new DiagnosticAddendum();
+      const diag = new DiagAddendum();
+      const additionalHelp = new DiagAddendum();
 
       if (isObject(subtype)) {
         const enterType = getTypeFromObjectMember(node.expression, subtype, enterMethodName, { method: 'get' }, diag)?.type;
@@ -10206,16 +10137,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (!isAsync) {
           const memberType = getTypeFromObjectMember(node.expression, subtype, '__aenter__', { method: 'get' }, diag);
           if (memberType) {
-            additionalHelp.addMessage(Localizer.DiagnosticAddendum.asyncHelp());
+            additionalHelp.addMessage(Localizer.DiagAddendum.asyncHelp());
           }
         }
       }
 
       const fileInfo = getFileInfo(node);
-      addDiagnostic(
+      addDiag(
         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-        DiagnosticRule.reportGeneralTypeIssues,
-        Localizer.Diagnostic.typeNotUsableWith().format({ type: printType(subtype), method: enterMethodName }) + additionalHelp.getString(),
+        DiagRule.reportGeneralTypeIssues,
+        Localizer.Diag.typeNotUsableWith().format({ type: printType(subtype), method: enterMethodName }) + additionalHelp.getString(),
         node.expression
       );
       return UnknownType.create();
@@ -10229,7 +10160,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return;
       }
 
-      const diag = new DiagnosticAddendum();
+      const diag = new DiagAddendum();
 
       if (isObject(subtype)) {
         const exitType = getTypeFromObjectMember(node.expression, subtype, exitMethodName, { method: 'get' }, diag);
@@ -10240,10 +10171,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       }
 
       const fileInfo = getFileInfo(node);
-      addDiagnostic(
+      addDiag(
         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-        DiagnosticRule.reportGeneralTypeIssues,
-        Localizer.Diagnostic.typeNotUsableWith().format({ type: printType(subtype), method: exitMethodName }),
+        DiagRule.reportGeneralTypeIssues,
+        Localizer.Diag.typeNotUsableWith().format({ type: printType(subtype), method: exitMethodName }),
         node.expression
       );
     });
@@ -10331,12 +10262,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (reportError) {
-          addDiagnostic(
-            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-            DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.Diagnostic.importSymbolUnknown().format({ name: node.name.value }),
-            node.name
-          );
+          addDiag(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.importSymbolUnknown().format({ name: node.name.value }), node.name);
         }
       }
 
@@ -10543,7 +10469,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     if (!isPositiveTest) {
       return mapSubtypes(type, (subtype) => {
-        if (canAssignType(literalType, subtype, new DiagnosticAddendum())) {
+        if (canAssignType(literalType, subtype, new DiagAddendum())) {
           return undefined;
         }
 
@@ -10563,7 +10489,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     return mapSubtypes(type, (subtype) => {
-      if (canAssignType(subtype, literalType, new DiagnosticAddendum())) {
+      if (canAssignType(subtype, literalType, new DiagAddendum())) {
         return literalType;
       }
       return undefined;
@@ -10586,7 +10512,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return type;
       }
 
-      const diag = new DiagnosticAddendum();
+      const diag = new DiagAddendum();
       const classInstance = convertToInstance(classType);
       return mapSubtypes(type, (subtype) => {
         if (canAssignType(classInstance, subtype, diag)) {
@@ -10598,10 +10524,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     if (!TypeBase.isInstantiable(classType)) {
-      addDiagnostic(
+      addDiag(
         getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
-        DiagnosticRule.reportGeneralTypeIssues,
-        Localizer.DiagnosticAddendum.typeNotClass().format({ type: printType(classType) }),
+        DiagRule.reportGeneralTypeIssues,
+        Localizer.DiagAddendum.typeNotClass().format({ type: printType(classType) }),
         pattern.className
       );
       return NeverType.create();
@@ -10623,9 +10549,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           if (isObject(concreteSubtype)) {
             let resultType: Type;
 
-            if (canAssignType(expandedSubtype, concreteSubtype.classType, new DiagnosticAddendum())) {
+            if (canAssignType(expandedSubtype, concreteSubtype.classType, new DiagAddendum())) {
               resultType = matchSubtype;
-            } else if (canAssignType(concreteSubtype.classType, expandedSubtype, new DiagnosticAddendum())) {
+            } else if (canAssignType(concreteSubtype.classType, expandedSubtype, new DiagAddendum())) {
               resultType = convertToInstance(unexpandedSubtype);
             } else {
               return undefined;
@@ -10701,7 +10627,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           }
 
           const magicMethodName = binaryOperatorMap[OperatorType.Equals][0];
-          const returnType = suppressDiagnostics(pattern.expression, () =>
+          const returnType = suppressDiags(pattern.expression, () =>
             getTypeFromMagicMethodReturn(leftSubtypeExpanded, [rightSubtypeUnexpanded], magicMethodName, pattern.expression, /* expectedType */ undefined)
           );
 
@@ -11438,12 +11364,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     return undefined;
   }
 
-  function isExceptionContextManager(node: ExpressionNode, isAsync: boolean) {
-    if (isExceptionContextManagerCache.has(node.id)) {
-      return isExceptionContextManagerCache.get(node.id);
+  function isExceptionContextMgr(node: ExpressionNode, isAsync: boolean) {
+    if (isExceptionContextMgrCache.has(node.id)) {
+      return isExceptionContextMgrCache.get(node.id);
     }
 
-    isExceptionContextManagerCache.set(node.id, false);
+    isExceptionContextMgrCache.set(node.id, false);
 
     let cmSwallowsExceptions = false;
 
@@ -11460,7 +11386,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       }
     }
 
-    isExceptionContextManagerCache.set(node.id, cmSwallowsExceptions);
+    isExceptionContextMgrCache.set(node.id, cmSwallowsExceptions);
 
     return cmSwallowsExceptions;
   }
@@ -11796,9 +11722,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           }
 
           if (curFlowNode.flags & FlowFlags.BranchLabel) {
-            if (curFlowNode.flags & FlowFlags.PostContextManager) {
-              const contextMgrNode = curFlowNode as FlowPostContextManagerLabel;
-              if (!contextMgrNode.expressions.some((expr) => isExceptionContextManager(expr, contextMgrNode.isAsync))) {
+            if (curFlowNode.flags & FlowFlags.PostContextMgr) {
+              const contextMgrNode = curFlowNode as FlowPostContextMgrLabel;
+              if (!contextMgrNode.expressions.some((expr) => isExceptionContextMgr(expr, contextMgrNode.isAsync))) {
                 return setCacheEntry(curFlowNode, undefined, /* isIncomplete */ false);
               }
             }
@@ -12016,9 +11942,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (curFlowNode.flags & (FlowFlags.BranchLabel | FlowFlags.LoopLabel)) {
-          if (curFlowNode.flags & FlowFlags.PostContextManager) {
-            const contextMgrNode = curFlowNode as FlowPostContextManagerLabel;
-            if (!contextMgrNode.expressions.some((expr) => isExceptionContextManager(expr, contextMgrNode.isAsync))) {
+          if (curFlowNode.flags & FlowFlags.PostContextMgr) {
+            const contextMgrNode = curFlowNode as FlowPostContextMgrLabel;
+            if (!contextMgrNode.expressions.some((expr) => isExceptionContextMgr(expr, contextMgrNode.isAsync))) {
               return false;
             }
           }
@@ -12082,7 +12008,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       }
     }
 
-    if (testExpression.nodeType === ParseNodeType.BinaryOperation) {
+    if (testExpression.nodeType === ParseNodeType.BinaryOp) {
       const isOrIsNotOperator = testExpression.operator === OperatorType.Is || testExpression.operator === OperatorType.IsNot;
       const equalsOrNotEqualsOperator = testExpression.operator === OperatorType.Equals || testExpression.operator === OperatorType.NotEquals;
 
@@ -12449,7 +12375,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return subtype;
       }
 
-      if (!canAssignType(typeArg, subtype, new DiagnosticAddendum())) {
+      if (!canAssignType(typeArg, subtype, new DiagAddendum())) {
         return undefined;
       }
 
@@ -12518,9 +12444,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (isLiteralTypeOrUnion(memberType)) {
           if (isPositiveTest) {
-            return canAssignType(memberType, literalType, new DiagnosticAddendum()) ? subtype : undefined;
+            return canAssignType(memberType, literalType, new DiagAddendum()) ? subtype : undefined;
           } else {
-            return canAssignType(literalType, memberType, new DiagnosticAddendum()) ? undefined : subtype;
+            return canAssignType(literalType, memberType, new DiagAddendum()) ? undefined : subtype;
           }
         }
       }
@@ -12712,17 +12638,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (!ClassType.isPartiallyConstructed(classType) && !ClassType.isTupleClass(classType)) {
           const fileInfo = getFileInfo(errorNode);
           if (typeParameters.length === 0) {
-            addDiagnostic(
-              fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-              DiagnosticRule.reportGeneralTypeIssues,
-              Localizer.Diagnostic.typeArgsExpectingNone(),
-              typeArgs[typeParameters.length].node
-            );
+            addDiag(fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, Localizer.Diag.typeArgsExpectingNone(), typeArgs[typeParameters.length].node);
           } else {
-            addDiagnostic(
+            addDiag(
               fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-              DiagnosticRule.reportGeneralTypeIssues,
-              Localizer.Diagnostic.typeArgsTooMany().format({
+              DiagRule.reportGeneralTypeIssues,
+              Localizer.Diag.typeArgsTooMany().format({
                 name: classType.aliasName || classType.details.name,
                 expected: typeParameters.length,
                 received: typeArgCount,
@@ -12734,10 +12655,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         typeArgCount = typeParameters.length;
       } else if (typeArgCount < typeParameters.length) {
         const fileInfo = getFileInfo(errorNode);
-        addDiagnostic(
+        addDiag(
           fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-          DiagnosticRule.reportGeneralTypeIssues,
-          Localizer.Diagnostic.typeArgsTooFew().format({
+          DiagRule.reportGeneralTypeIssues,
+          Localizer.Diag.typeArgsTooFew().format({
             name: classType.aliasName || classType.details.name,
             expected: typeParameters.length,
             received: typeArgCount,
@@ -12770,13 +12691,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     typeArgTypes.forEach((typeArgType, index) => {
       if (index < typeArgCount) {
-        const diag = new DiagnosticAddendum();
+        const diag = new DiagAddendum();
         if (!canAssignToTypeVar(typeParameters[index], typeArgType, diag)) {
           const fileInfo = getFileInfo(typeArgs![index].node);
-          addDiagnostic(
+          addDiag(
             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-            DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.Diagnostic.typeVarAssignmentMismatch().format({
+            DiagRule.reportGeneralTypeIssues,
+            Localizer.Diag.typeVarAssignmentMismatch().format({
               type: printType(typeArgType),
               name: TypeVarType.getReadableName(typeParameters[index]),
             }) + diag.getString(),
@@ -12887,7 +12808,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     return symbolWithScope;
   }
 
-  function suppressDiagnostics<T>(node: ParseNode, callback: () => T) {
+  function suppressDiags<T>(node: ParseNode, callback: () => T) {
     suppressedNodeStack.push(node);
     try {
       return callback();
@@ -13054,7 +12975,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
               ObjectType.create(baseType),
               '__init__',
               { method: 'get' },
-              new DiagnosticAddendum(),
+              new DiagAddendum(),
               MemberAccessFlags.SkipObjectBaseClass
             )?.type;
 
@@ -13584,7 +13505,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       return undefined;
     }
 
-    suppressDiagnostics(functionNode, () => {
+    suppressDiags(functionNode, () => {
       const prevTypeCache = returnTypeInferenceTypeCache;
       returnTypeInferenceContextStack.push({
         functionNode,
@@ -13690,7 +13611,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
   function canAssignClassToProtocol(
     destType: ClassType,
     srcType: ClassType,
-    diag: DiagnosticAddendum,
+    diag: DiagAddendum,
     typeVarMap: TypeVarMap | undefined,
     flags: CanAssignFlags,
     allowMetaclassForProtocols: boolean,
@@ -13732,7 +13653,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (!memberInfo) {
-          diag.addMessage(Localizer.DiagnosticAddendum.protocolMemberMissing().format({ name }));
+          diag.addMessage(Localizer.DiagAddendum.protocolMemberMissing().format({ name }));
           typesAreConsistent = false;
         } else {
           let destMemberType = getDeclaredTypeOfSymbol(symbol);
@@ -13787,17 +13708,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (isObject(destMemberType) && ClassType.isPropertyClass(destMemberType.classType) && isObject(srcMemberType) && ClassType.isPropertyClass(srcMemberType.classType)) {
               if (!canAssignProperty(destMemberType.classType, srcMemberType.classType, srcType, subDiag.createAddendum(), genericDestTypeVarMap, recursionCount + 1)) {
-                subDiag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
+                subDiag.addMessage(Localizer.DiagAddendum.memberTypeMismatch().format({ name }));
                 typesAreConsistent = false;
               }
             } else if (!canAssignType(destMemberType, srcMemberType, subDiag.createAddendum(), genericDestTypeVarMap, CanAssignFlags.Default, recursionCount + 1)) {
-              subDiag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
+              subDiag.addMessage(Localizer.DiagAddendum.memberTypeMismatch().format({ name }));
               typesAreConsistent = false;
             }
           }
 
           if (symbol.isClassVar() && !memberInfo.symbol.isClassMember()) {
-            diag.addMessage(Localizer.DiagnosticAddendum.protocolMemberClassVar().format({ name }));
+            diag.addMessage(Localizer.DiagAddendum.protocolMemberClassVar().format({ name }));
             typesAreConsistent = false;
           }
         }
@@ -13824,7 +13745,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     return typesAreConsistent;
   }
 
-  function canAssignModuleToProtocol(destType: ClassType, srcType: ModuleType, diag: DiagnosticAddendum, typeVarMap: TypeVarMap | undefined, flags: CanAssignFlags, recursionCount: number): boolean {
+  function canAssignModuleToProtocol(destType: ClassType, srcType: ModuleType, diag: DiagAddendum, typeVarMap: TypeVarMap | undefined, flags: CanAssignFlags, recursionCount: number): boolean {
     if (recursionCount > maxTypeRecursionCount) {
       return true;
     }
@@ -13840,7 +13761,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const memberSymbol = srcType.fields.get(name);
 
         if (!memberSymbol) {
-          diag.addMessage(Localizer.DiagnosticAddendum.protocolMemberMissing().format({ name }));
+          diag.addMessage(Localizer.DiagAddendum.protocolMemberMissing().format({ name }));
           typesAreConsistent = false;
         } else {
           let declaredType = getDeclaredTypeOfSymbol(symbol);
@@ -13859,7 +13780,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const subDiag = diag.createAddendum();
 
             if (!canAssignType(declaredType, srcMemberType, subDiag.createAddendum(), genericDestTypeVarMap, CanAssignFlags.Default, recursionCount + 1)) {
-              subDiag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
+              subDiag.addMessage(Localizer.DiagAddendum.memberTypeMismatch().format({ name }));
               typesAreConsistent = false;
             }
           }
@@ -13887,24 +13808,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     return typesAreConsistent;
   }
 
-  function canAssignProperty(destPropertyType: ClassType, srcPropertyType: ClassType, srcClass: ClassType, diag: DiagnosticAddendum, typeVarMap?: TypeVarMap, recursionCount = 0): boolean {
+  function canAssignProperty(destPropertyType: ClassType, srcPropertyType: ClassType, srcClass: ClassType, diag: DiagAddendum, typeVarMap?: TypeVarMap, recursionCount = 0): boolean {
     const objectToBind = ObjectType.create(srcClass);
     let isAssignable = true;
     const accessors: { name: string; missingDiagMsg: () => string; incompatibleDiagMsg: () => string }[] = [
       {
         name: 'fget',
-        missingDiagMsg: Localizer.DiagnosticAddendum.missingGetter,
-        incompatibleDiagMsg: Localizer.DiagnosticAddendum.incompatibleGetter,
+        missingDiagMsg: Localizer.DiagAddendum.missingGetter,
+        incompatibleDiagMsg: Localizer.DiagAddendum.incompatibleGetter,
       },
       {
         name: 'fset',
-        missingDiagMsg: Localizer.DiagnosticAddendum.missingSetter,
-        incompatibleDiagMsg: Localizer.DiagnosticAddendum.incompatibleSetter,
+        missingDiagMsg: Localizer.DiagAddendum.missingSetter,
+        incompatibleDiagMsg: Localizer.DiagAddendum.incompatibleSetter,
       },
       {
         name: 'fdel',
-        missingDiagMsg: Localizer.DiagnosticAddendum.missingDeleter,
-        incompatibleDiagMsg: Localizer.DiagnosticAddendum.incompatibleDeleter,
+        missingDiagMsg: Localizer.DiagAddendum.missingDeleter,
+        incompatibleDiagMsg: Localizer.DiagAddendum.incompatibleDeleter,
       },
     ];
 
@@ -13942,7 +13863,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     assert(ClassType.isSameGenericClass(destType, srcType));
     assert(destType.details.typeParameters.length > 0);
 
-    const diag = new DiagnosticAddendum();
+    const diag = new DiagAddendum();
     const typeVarMap = new TypeVarMap();
     let isAssignable = true;
 
@@ -13980,7 +13901,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     return isAssignable;
   }
 
-  function canAssignTypedDict(destType: ClassType, srcType: ClassType, diag: DiagnosticAddendum, recursionCount: number) {
+  function canAssignTypedDict(destType: ClassType, srcType: ClassType, diag: DiagAddendum, recursionCount: number) {
     let typesAreConsistent = true;
     const destEntries = getTypedDictMembersForClass(destType);
     const srcEntries = getTypedDictMembersForClass(srcType, /* allowNarrowed */ true);
@@ -13988,12 +13909,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     destEntries.forEach((destEntry, name) => {
       const srcEntry = srcEntries.get(name);
       if (!srcEntry) {
-        diag.addMessage(Localizer.DiagnosticAddendum.typedDictFieldMissing().format({ name, type: printType(srcType) }));
+        diag.addMessage(Localizer.DiagAddendum.typedDictFieldMissing().format({ name, type: printType(srcType) }));
         typesAreConsistent = false;
       } else {
         if (destEntry.isRequired && !srcEntry.isRequired) {
           diag.addMessage(
-            Localizer.DiagnosticAddendum.typedDictFieldRequired().format({
+            Localizer.DiagAddendum.typedDictFieldRequired().format({
               name,
               type: printType(destType),
             })
@@ -14001,7 +13922,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           typesAreConsistent = false;
         } else if (!destEntry.isRequired && srcEntry.isRequired) {
           diag.addMessage(
-            Localizer.DiagnosticAddendum.typedDictFieldNotRequired().format({
+            Localizer.DiagAddendum.typedDictFieldNotRequired().format({
               name,
               type: printType(destType),
             })
@@ -14010,7 +13931,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (!isTypeSame(destEntry.valueType, srcEntry.valueType, recursionCount + 1)) {
-          diag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
+          diag.addMessage(Localizer.DiagAddendum.memberTypeMismatch().format({ name }));
           typesAreConsistent = false;
         }
       }
@@ -14022,7 +13943,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
   function canAssignClass(
     destType: ClassType,
     srcType: ClassType,
-    diag: DiagnosticAddendum,
+    diag: DiagAddendum,
     typeVarMap: TypeVarMap | undefined,
     flags: CanAssignFlags,
     recursionCount: number,
@@ -14064,7 +13985,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     const destErrorType = reportErrorsUsingObjType ? ObjectType.create(destType) : destType;
     const srcErrorType = reportErrorsUsingObjType ? ObjectType.create(srcType) : srcType;
     diag.addMessage(
-      Localizer.DiagnosticAddendum.typeIncompatible().format({
+      Localizer.DiagAddendum.typeIncompatible().format({
         sourceType: printType(srcErrorType),
         destType: printType(destErrorType),
       })
@@ -14076,7 +13997,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     destType: ClassType,
     srcType: ClassType,
     inheritanceChain: InheritanceChain,
-    diag: DiagnosticAddendum,
+    diag: DiagAddendum,
     typeVarMap: TypeVarMap | undefined,
     flags: CanAssignFlags,
     recursionCount: number
@@ -14125,7 +14046,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (isDestVariadic && isSrcHomogeneousType) {
-              diag.addMessage(Localizer.DiagnosticAddendum.typeVarTupleRequiresKnownLength());
+              diag.addMessage(Localizer.DiagAddendum.typeVarTupleRequiresKnownLength());
               return false;
             }
 
@@ -14175,7 +14096,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (isSourceTypeMissing || !canAssignType(destTypeArgType, srcTypeArgType, entryDiag.createAddendum(), curTypeVarMap, effectiveFlags, recursionCount + 1)) {
                   entryDiag.addMessage(
-                    Localizer.DiagnosticAddendum.tupleEntryTypeMismatch().format({
+                    Localizer.DiagAddendum.tupleEntryTypeMismatch().format({
                       entry: argIndex + 1,
                     })
                   );
@@ -14189,13 +14110,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             } else {
               if (isSrcHomogeneousType) {
                 diag.addMessage(
-                  Localizer.DiagnosticAddendum.tupleSizeMismatchIndeterminate().format({
+                  Localizer.DiagAddendum.tupleSizeMismatchIndeterminate().format({
                     expected: destArgCount,
                   })
                 );
               } else {
                 diag.addMessage(
-                  Localizer.DiagnosticAddendum.tupleSizeMismatch().format({
+                  Localizer.DiagAddendum.tupleSizeMismatch().format({
                     expected: destArgCount,
                     received: srcTypeArgs.length,
                   })
@@ -14262,7 +14183,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     return undefined;
   }
 
-  function verifyTypeArgumentsAssignable(destType: ClassType, srcType: ClassType, diag: DiagnosticAddendum, typeVarMap: TypeVarMap | undefined, flags: CanAssignFlags, recursionCount: number) {
+  function verifyTypeArgumentsAssignable(destType: ClassType, srcType: ClassType, diag: DiagAddendum, typeVarMap: TypeVarMap | undefined, flags: CanAssignFlags, recursionCount: number) {
     assert(ClassType.isSameGenericClass(destType, srcType));
 
     const destTypeParams = ClassType.getTypeParameters(destType);
@@ -14288,14 +14209,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const destArgIndex = srcArgIndex >= destTypeArgs.length ? destTypeArgs.length - 1 : srcArgIndex;
         const destTypeArg = destArgIndex >= 0 ? destTypeArgs[destArgIndex] : UnknownType.create();
         const destTypeParam = destArgIndex < destTypeParams.length ? destTypeParams[destArgIndex] : undefined;
-        const assignmentDiag = new DiagnosticAddendum();
+        const assignmentDiag = new DiagAddendum();
 
         if (!destTypeParam || destTypeParam.details.variance === Variance.Covariant) {
           if (!canAssignType(destTypeArg, srcTypeArg, assignmentDiag, typeVarMap, flags, recursionCount + 1)) {
             if (destTypeParam) {
               const childDiag = diag.createAddendum();
               childDiag.addMessage(
-                Localizer.DiagnosticAddendum.typeVarIsCovariant().format({
+                Localizer.DiagAddendum.typeVarIsCovariant().format({
                   name: TypeVarType.getReadableName(destTypeParam),
                 })
               );
@@ -14307,7 +14228,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           if (!canAssignType(srcTypeArg, destTypeArg, assignmentDiag, typeVarMap, flags ^ CanAssignFlags.ReverseTypeVarMatching, recursionCount + 1)) {
             const childDiag = diag.createAddendum();
             childDiag.addMessage(
-              Localizer.DiagnosticAddendum.typeVarIsContravariant().format({
+              Localizer.DiagAddendum.typeVarIsContravariant().format({
                 name: TypeVarType.getReadableName(destTypeParam),
               })
             );
@@ -14318,7 +14239,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           if (!canAssignType(destTypeArg, srcTypeArg, assignmentDiag, typeVarMap, flags | CanAssignFlags.EnforceInvariance, recursionCount + 1)) {
             const childDiag = diag.createAddendum();
             childDiag.addMessage(
-              Localizer.DiagnosticAddendum.typeVarIsInvariant().format({
+              Localizer.DiagAddendum.typeVarIsInvariant().format({
                 name: TypeVarType.getReadableName(destTypeParam),
               })
             );
@@ -14332,7 +14253,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     return true;
   }
 
-  function canAssignTypeToTypeVar(destType: TypeVarType, srcType: Type, diag: DiagnosticAddendum, typeVarMap: TypeVarMap, flags = CanAssignFlags.Default, recursionCount = 0): boolean {
+  function canAssignTypeToTypeVar(destType: TypeVarType, srcType: Type, diag: DiagAddendum, typeVarMap: TypeVarMap, flags = CanAssignFlags.Default, recursionCount = 0): boolean {
     let isTypeVarInScope = true;
     const isContravariant = (flags & CanAssignFlags.ReverseTypeVarMatching) !== 0;
 
@@ -14348,7 +14269,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       isTypeVarInScope = false;
       if (!destType.details.isSynthesized) {
         diag.addMessage(
-          Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+          Localizer.DiagAddendum.typeAssignmentMismatch().format({
             sourceType: printType(srcType),
             destType: printType(destType),
           })
@@ -14359,7 +14280,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     if (destType.details.isParamSpec) {
       diag.addMessage(
-        Localizer.DiagnosticAddendum.typeParamSpec().format({
+        Localizer.DiagAddendum.typeParamSpec().format({
           type: printType(srcType),
           name: destType.details.name,
         })
@@ -14388,7 +14309,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       const concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
 
       if (isTypeVar(srcType)) {
-        if (canAssignType(destType, concreteSrcType, new DiagnosticAddendum(), new TypeVarMap(destType.scopeId))) {
+        if (canAssignType(destType, concreteSrcType, new DiagAddendum(), new TypeVarMap(destType.scopeId))) {
           constrainedType = srcType;
         }
       } else {
@@ -14402,8 +14323,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           }
 
           destType.details.constraints.forEach((t) => {
-            if (canAssignType(t, srcSubtype, new DiagnosticAddendum())) {
-              if (!constrainedSubtype || canAssignType(constrainedSubtype, t, new DiagnosticAddendum())) {
+            if (canAssignType(t, srcSubtype, new DiagAddendum())) {
+              if (!constrainedSubtype || canAssignType(constrainedSubtype, t, new DiagAddendum())) {
                 constrainedSubtype = t;
               }
             }
@@ -14425,7 +14346,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       if (!constrainedType || (isUnion(constrainedType) && !constrainedType.constraints)) {
         diag.addMessage(
-          Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
+          Localizer.DiagAddendum.typeConstrainedTypeVar().format({
             type: printType(srcType),
             name: destType.details.name,
           })
@@ -14434,14 +14355,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       }
 
       if (curNarrowTypeBound && !isAnyOrUnknown(curNarrowTypeBound)) {
-        if (!canAssignType(curNarrowTypeBound, constrainedType, new DiagnosticAddendum())) {
-          if (canAssignType(constrainedType, curNarrowTypeBound, new DiagnosticAddendum())) {
+        if (!canAssignType(curNarrowTypeBound, constrainedType, new DiagAddendum())) {
+          if (canAssignType(constrainedType, curNarrowTypeBound, new DiagAddendum())) {
             if (!typeVarMap.isLocked() && isTypeVarInScope) {
               typeVarMap.setTypeVarType(destType, constrainedType);
             }
           } else {
             diag.addMessage(
-              Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
+              Localizer.DiagAddendum.typeConstrainedTypeVar().format({
                 type: printType(constrainedType),
                 name: printType(curNarrowTypeBound),
               })
@@ -14460,7 +14381,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     let newNarrowTypeBound = curNarrowTypeBound;
     let newWideTypeBound = curWideTypeBound;
-    const diagAddendum = new DiagnosticAddendum();
+    const diagAddendum = new DiagAddendum();
 
     const retainLiterals =
       (flags & CanAssignFlags.RetainLiteralsForTypeVar) !== 0 ||
@@ -14477,7 +14398,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           newWideTypeBound = srcType;
         } else if (!canAssignType(adjSrcType, curWideTypeBound, diagAddendum)) {
           diag.addMessage(
-            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+            Localizer.DiagAddendum.typeAssignmentMismatch().format({
               sourceType: printType(adjSrcType),
               destType: printType(curWideTypeBound),
             })
@@ -14488,9 +14409,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       }
 
       if (curNarrowTypeBound) {
-        if (!canAssignType(newWideTypeBound!, curNarrowTypeBound, new DiagnosticAddendum())) {
+        if (!canAssignType(newWideTypeBound!, curNarrowTypeBound, new DiagAddendum())) {
           diag.addMessage(
-            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+            Localizer.DiagAddendum.typeAssignmentMismatch().format({
               sourceType: printType(adjSrcType),
               destType: printType(curNarrowTypeBound),
             })
@@ -14508,7 +14429,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         } else {
           if (typeVarMap.isLocked() || isTypeVar(adjSrcType)) {
             diag.addMessage(
-              Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+              Localizer.DiagAddendum.typeAssignmentMismatch().format({
                 sourceType: printType(curNarrowTypeBound),
                 destType: printType(adjSrcType),
               })
@@ -14518,7 +14439,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
           if (isVariadicTypeVar(destType)) {
             diag.addMessage(
-              Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+              Localizer.DiagAddendum.typeAssignmentMismatch().format({
                 sourceType: printType(curNarrowTypeBound),
                 destType: printType(adjSrcType),
               })
@@ -14526,7 +14447,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return false;
           }
 
-          if (canAssignType(adjSrcType, curNarrowTypeBound, new DiagnosticAddendum(), typeVarMap, flags, recursionCount + 1)) {
+          if (canAssignType(adjSrcType, curNarrowTypeBound, new DiagAddendum(), typeVarMap, flags, recursionCount + 1)) {
             newNarrowTypeBound = adjSrcType;
           } else {
             newNarrowTypeBound = combineTypes([curNarrowTypeBound, adjSrcType]);
@@ -14535,9 +14456,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       }
 
       if (curWideTypeBound) {
-        if (!canAssignType(makeTopLevelTypeVarsConcrete(curWideTypeBound), newNarrowTypeBound!, new DiagnosticAddendum(), typeVarMap, flags, recursionCount + 1)) {
+        if (!canAssignType(makeTopLevelTypeVarsConcrete(curWideTypeBound), newNarrowTypeBound!, new DiagAddendum(), typeVarMap, flags, recursionCount + 1)) {
           diag.addMessage(
-            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+            Localizer.DiagAddendum.typeAssignmentMismatch().format({
               sourceType: printType(curWideTypeBound),
               destType: printType(adjSrcType),
             })
@@ -14554,7 +14475,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       if (!canAssignType(boundType, adjustedUpdatedType, diag.createAddendum(), typeVarMap, CanAssignFlags.Default, recursionCount + 1)) {
         if (!destType.details.isSynthesized) {
           diag.addMessage(
-            Localizer.DiagnosticAddendum.typeBound().format({
+            Localizer.DiagAddendum.typeBound().format({
               sourceType: printType(adjustedUpdatedType),
               destType: printType(boundType),
               name: TypeVarType.getReadableName(destType),
@@ -14572,7 +14493,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     return true;
   }
 
-  function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAddendum, typeVarMap?: TypeVarMap, flags = CanAssignFlags.Default, recursionCount = 0): boolean {
+  function canAssignType(destType: Type, srcType: Type, diag: DiagAddendum, typeVarMap?: TypeVarMap, flags = CanAssignFlags.Default, recursionCount = 0): boolean {
     destType = transformPossibleRecursiveTypeAlias(destType);
     srcType = transformPossibleRecursiveTypeAlias(srcType);
 
@@ -14615,7 +14536,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (constraints?.find((constraint) => constraint.typeVarName === TypeVarType.getNameWithScope(destTypeVar))) {
               if (
                 destTypeVar.details.constraints.some((constraintType) => {
-                  return canAssignType(constraintType, srcSubtype, new DiagnosticAddendum());
+                  return canAssignType(constraintType, srcSubtype, new DiagAddendum());
                 })
               ) {
                 return false;
@@ -14683,7 +14604,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       let isIncompatible = false;
 
       doForEachSubtype(srcType, (subtype) => {
-        if (!canAssignType(destType, subtype, new DiagnosticAddendum(), typeVarMap, flags, recursionCount + 1)) {
+        if (!canAssignType(destType, subtype, new DiagAddendum(), typeVarMap, flags, recursionCount + 1)) {
           if (!canAssignType(destType, makeTopLevelTypeVarsConcrete(subtype), diag.createAddendum(), typeVarMap, flags, recursionCount + 1)) {
             isIncompatible = true;
           }
@@ -14692,7 +14613,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       if (isIncompatible) {
         diag.addMessage(
-          Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+          Localizer.DiagAddendum.typeAssignmentMismatch().format({
             sourceType: printType(srcType),
             destType: printType(destType),
           })
@@ -14713,7 +14634,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           if (!isAnyOrUnknown(subtype)) {
             doForEachSubtype(destType, (otherSubtype, otherIndex) => {
               if (index !== otherIndex && !skipSubtype) {
-                if (canAssignType(otherSubtype, subtype, new DiagnosticAddendum(), /* typeVarMap */ undefined, CanAssignFlags.Default, recursionCount + 1)) {
+                if (canAssignType(otherSubtype, subtype, new DiagAddendum(), /* typeVarMap */ undefined, CanAssignFlags.Default, recursionCount + 1)) {
                   skipSubtype = true;
                 }
               }
@@ -14727,7 +14648,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (isIncompatible) {
           diag.addMessage(
-            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+            Localizer.DiagAddendum.typeAssignmentMismatch().format({
               sourceType: printType(srcType),
               destType: printType(destType),
             })
@@ -14738,7 +14659,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return true;
       }
 
-      const diagAddendum = new DiagnosticAddendum();
+      const diagAddendum = new DiagAddendum();
 
       let foundMatch = false;
 
@@ -14776,7 +14697,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       if (!foundMatch) {
         diag.addMessage(
-          Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+          Localizer.DiagAddendum.typeAssignmentMismatch().format({
             sourceType: printType(srcType),
             destType: printType(destType),
           })
@@ -14802,7 +14723,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           }
 
           diag.addMessage(
-            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+            Localizer.DiagAddendum.typeAssignmentMismatch().format({
               sourceType: printType(srcType),
               destType: printType(destType),
             })
@@ -14820,7 +14741,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         diag.addMessage(
-          Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+          Localizer.DiagAddendum.typeAssignmentMismatch().format({
             sourceType: printType(srcType),
             destType: printType(destType),
           })
@@ -14858,7 +14779,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           const srcLiteral = concreteSrcType.classType.literalValue;
           if (srcLiteral === undefined || !ClassType.isLiteralValueSame(concreteSrcType.classType, destType.classType)) {
             diag.addMessage(
-              Localizer.DiagnosticAddendum.literalAssignmentMismatch().format({
+              Localizer.DiagAddendum.literalAssignmentMismatch().format({
                 sourceType: printType(srcType),
                 destType: printType(destType),
               })
@@ -14937,7 +14858,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       if (isOverloadedFunction(concreteSrcType)) {
         if (destType.details.paramSpec) {
-          diag.addMessage(Localizer.DiagnosticAddendum.paramSpecOverload());
+          diag.addMessage(Localizer.DiagAddendum.paramSpecOverload());
           return false;
         }
 
@@ -14951,7 +14872,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
 
         if (overloadIndex < 0) {
-          diag.addMessage(Localizer.DiagnosticAddendum.noOverloadAssignable().format({ type: printType(destType) }));
+          diag.addMessage(Localizer.DiagAddendum.noOverloadAssignable().format({ type: printType(destType) }));
           return false;
         }
         srcFunction = overloads[overloadIndex];
@@ -15007,7 +14928,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       if (!isAssignable) {
         overloadDiag.addMessage(
-          Localizer.DiagnosticAddendum.overloadNotAssignable().format({
+          Localizer.DiagAddendum.overloadNotAssignable().format({
             name: destType.overloads[0].details.name,
           })
         );
@@ -15030,12 +14951,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     if (isNone(destType)) {
-      diag.addMessage(Localizer.DiagnosticAddendum.assignToNone());
+      diag.addMessage(Localizer.DiagAddendum.assignToNone());
       return false;
     }
 
     diag.addMessage(
-      Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+      Localizer.DiagAddendum.typeAssignmentMismatch().format({
         sourceType: printType(srcType),
         destType: printType(destType),
       })
@@ -15070,7 +14991,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     destType: Type,
     srcType: Type,
     paramIndex: number,
-    diag: DiagnosticAddendum,
+    diag: DiagAddendum,
     destTypeVarMap: TypeVarMap,
     srcTypeVarMap: TypeVarMap,
     flags: CanAssignFlags,
@@ -15086,13 +15007,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       return true;
     }
 
-    canAssignType(srcType, destType, new DiagnosticAddendum(), destTypeVarMap, flags ^ CanAssignFlags.ReverseTypeVarMatching, recursionCount + 1);
+    canAssignType(srcType, destType, new DiagAddendum(), destTypeVarMap, flags ^ CanAssignFlags.ReverseTypeVarMatching, recursionCount + 1);
 
     const specializedDestType = applySolvedTypeVars(destType, destTypeVarMap);
 
     if (!canAssignType(srcType, specializedDestType, diag.createAddendum(), srcTypeVarMap, flags, recursionCount + 1)) {
       diag.addMessage(
-        Localizer.DiagnosticAddendum.paramAssignment().format({
+        Localizer.DiagAddendum.paramAssignment().format({
           index: paramIndex + 1,
           sourceType: printType(destType),
           destType: printType(srcType),
@@ -15104,7 +15025,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     return true;
   }
 
-  function canAssignFunction(destType: FunctionType, srcType: FunctionType, diag: DiagnosticAddendum, typeVarMap: TypeVarMap, flags: CanAssignFlags, recursionCount: number): boolean {
+  function canAssignFunction(destType: FunctionType, srcType: FunctionType, diag: DiagAddendum, typeVarMap: TypeVarMap, flags: CanAssignFlags, recursionCount: number): boolean {
     let canAssign = true;
     const checkReturnType = (flags & CanAssignFlags.SkipFunctionReturnTypeCheck) === 0;
     flags &= ~CanAssignFlags.SkipFunctionReturnTypeCheck;
@@ -15187,7 +15108,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           const isPositionalOnly = srcPositionalOnlyIndex >= 0 && paramIndex < srcPositionalOnlyIndex && destPositionalOnlyIndex >= 0 && paramIndex < destPositionalOnlyIndex;
           if (!isPositionalOnly && destParamName !== srcParamName) {
             diag.createAddendum().addMessage(
-              Localizer.DiagnosticAddendum.functionParamName().format({
+              Localizer.DiagAddendum.functionParamName().format({
                 srcName: srcParamName,
                 destName: destParamName,
               })
@@ -15240,7 +15161,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (isSourceNonVariadicArgs) {
           diag.createAddendum().addMessage(
-            Localizer.DiagnosticAddendum.argsParamWithVariadic().format({
+            Localizer.DiagAddendum.argsParamWithVariadic().format({
               paramName: srcParams[srcArgsIndex].name!,
             })
           );
@@ -15265,7 +15186,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           if (destArgsIndex < 0) {
             if (destPositionals.length < nonDefaultSrcParamCount) {
               diag.createAddendum().addMessage(
-                Localizer.DiagnosticAddendum.functionTooFewParams().format({
+                Localizer.DiagAddendum.functionTooFewParams().format({
                   expected: nonDefaultSrcParamCount,
                   received: destPositionals.length,
                 })
@@ -15296,7 +15217,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
               destParams.findIndex((p) => p === destPositionals[paramIndex])
             );
             if (isVariadicTypeVar(destParamType) && !isVariadicTypeVar(srcArgsType)) {
-              diag.addMessage(Localizer.DiagnosticAddendum.typeVarTupleRequiresKnownLength());
+              diag.addMessage(Localizer.DiagAddendum.typeVarTupleRequiresKnownLength());
               canAssign = false;
             } else if (!canAssignFunctionParameter(destParamType, srcArgsType, paramIndex, diag.createAddendum(), typeVarMap, srcTypeVarMap, flags, recursionCount)) {
               canAssign = false;
@@ -15304,7 +15225,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           }
         } else {
           diag.addMessage(
-            Localizer.DiagnosticAddendum.functionTooManyParams().format({
+            Localizer.DiagAddendum.functionTooManyParams().format({
               expected: srcPositionals.length,
               received: destPositionals.length,
             })
@@ -15323,7 +15244,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
       if (srcArgsIndex < 0 && destArgsIndex >= 0 && !destVariadicArgsList) {
         diag.createAddendum().addMessage(
-          Localizer.DiagnosticAddendum.argsParamMissing().format({
+          Localizer.DiagAddendum.argsParamMissing().format({
             paramName: destParams[destArgsIndex].name!,
           })
         );
@@ -15358,7 +15279,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (!destParam) {
                   if (!destHasKwargsParam && !srcParam.hasDefault) {
                     paramDiag.addMessage(
-                      Localizer.DiagnosticAddendum.namedParamMissingInDest().format({
+                      Localizer.DiagAddendum.namedParamMissingInDest().format({
                         name: srcParam.name,
                       })
                     );
@@ -15373,7 +15294,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                   const specializedDestParamType = typeVarMap ? applySolvedTypeVars(destParam.type, typeVarMap) : destParam.type;
                   if (!canAssignType(srcParam.type, specializedDestParamType, paramDiag.createAddendum(), undefined, flags, recursionCount + 1)) {
                     paramDiag.addMessage(
-                      Localizer.DiagnosticAddendum.namedParamTypeMismatch().format({
+                      Localizer.DiagAddendum.namedParamTypeMismatch().format({
                         name: srcParam.name,
                         sourceType: printType(specializedDestParamType),
                         destType: printType(srcParam.type),
@@ -15397,7 +15318,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             destParamMap.delete(destParam.name);
           } else {
             const paramDiag = diag.createAddendum();
-            paramDiag.addMessage(Localizer.DiagnosticAddendum.namedParamMissingInSource().format({ name: paramName }));
+            paramDiag.addMessage(Localizer.DiagAddendum.namedParamMissingInSource().format({ name: paramName }));
             canAssign = false;
           }
         });
@@ -15412,7 +15333,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (srcKwargsIndex < 0 && destKwargsIndex >= 0) {
           diag.createAddendum().addMessage(
-            Localizer.DiagnosticAddendum.argsParamMissing().format({
+            Localizer.DiagAddendum.argsParamMissing().format({
               paramName: destParams[destKwargsIndex].name!,
             })
           );
@@ -15423,7 +15344,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     if (typeVarMap && !typeVarMap.isLocked()) {
       srcTypeVarMap.getTypeVars().forEach((typeVarEntry) => {
-        canAssignType(typeVarEntry.typeVar, srcTypeVarMap.getTypeVarType(typeVarEntry.typeVar)!, new DiagnosticAddendum(), typeVarMap);
+        canAssignType(typeVarEntry.typeVar, srcTypeVarMap.getTypeVarType(typeVarEntry.typeVar)!, new DiagAddendum(), typeVarMap);
       });
 
       typeVarMap.getTypeVars().forEach((entry) => {
@@ -15461,7 +15382,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (!canAssignType(destReturnType, srcReturnType, returnDiag.createAddendum(), typeVarMap, flags, recursionCount + 1)) {
           returnDiag.addMessage(
-            Localizer.DiagnosticAddendum.functionReturnTypeMismatch().format({
+            Localizer.DiagAddendum.functionReturnTypeMismatch().format({
               sourceType: printType(srcReturnType),
               destType: printType(destReturnType),
             })
@@ -15508,7 +15429,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
   }
 
   function narrowTypeBasedOnAssignment(declaredType: Type, assignedType: Type): Type {
-    const diag = new DiagnosticAddendum();
+    const diag = new DiagAddendum();
 
     const narrowedType = mapSubtypes(assignedType, (assignedSubtype) => {
       const narrowedSubtype = mapSubtypes(declaredType, (declaredSubtype) => {
@@ -15551,13 +15472,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     return narrowedType;
   }
 
-  function canOverrideMethod(baseMethod: Type, overrideMethod: FunctionType, diag: DiagnosticAddendum): boolean {
+  function canOverrideMethod(baseMethod: Type, overrideMethod: FunctionType, diag: DiagAddendum): boolean {
     if (isOverloadedFunction(baseMethod)) {
       baseMethod = baseMethod.overloads[baseMethod.overloads.length - 1];
     }
 
     if (!isFunction(baseMethod)) {
-      diag.addMessage(Localizer.DiagnosticAddendum.overrideType().format({ type: printType(baseMethod) }));
+      diag.addMessage(Localizer.DiagAddendum.overrideType().format({ type: printType(baseMethod) }));
       return false;
     }
 
@@ -15584,7 +15505,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     if (foundParamCountMismatch) {
       diag.addMessage(
-        Localizer.DiagnosticAddendum.overrideParamCount().format({
+        Localizer.DiagAddendum.overrideParamCount().format({
           baseCount: baseParams.length,
           overrideCount: overrideParams.length,
         })
@@ -15608,7 +15529,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       if (i > positionOnlyIndex && !isPrivateOrProtectedName(baseParam.name || '') && baseParam.category === ParameterCategory.Simple && baseParam.name !== overrideParam.name) {
         if (overrideParam.category === ParameterCategory.Simple) {
           diag.addMessage(
-            Localizer.DiagnosticAddendum.overrideParamName().format({
+            Localizer.DiagAddendum.overrideParamName().format({
               index: i + 1,
               baseName: baseParam.name || '*',
               overrideName: overrideParam.name || '*',
@@ -15625,7 +15546,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (!baseIsSynthesizedTypeVar && !overrideIsSynthesizedTypeVar) {
           if (baseParam.category !== overrideParam.category || !canAssignType(overrideParamType, baseParamType, diag.createAddendum(), /* typeVarMap */ undefined, CanAssignFlags.SkipSolveTypeVars)) {
             diag.addMessage(
-              Localizer.DiagnosticAddendum.overrideParamType().format({
+              Localizer.DiagAddendum.overrideParamType().format({
                 index: i + 1,
                 baseType: printType(baseParamType),
                 overrideType: printType(overrideParamType),
@@ -15641,7 +15562,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     const overrideReturnType = getFunctionEffectiveReturnType(overrideMethod);
     if (!canAssignType(baseReturnType, overrideReturnType, diag.createAddendum(), /* typeVarMap */ undefined, CanAssignFlags.SkipSolveTypeVars)) {
       diag.addMessage(
-        Localizer.DiagnosticAddendum.overrideReturnType().format({
+        Localizer.DiagAddendum.overrideReturnType().format({
           baseType: printType(baseReturnType),
           overrideType: printType(overrideReturnType),
         })
@@ -15653,7 +15574,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     return canOverride;
   }
 
-  function canAssignToTypeVar(destType: TypeVarType, srcType: Type, diag: DiagnosticAddendum, flags = CanAssignFlags.Default, recursionCount = 0): boolean {
+  function canAssignToTypeVar(destType: TypeVarType, srcType: Type, diag: DiagAddendum, flags = CanAssignFlags.Default, recursionCount = 0): boolean {
     if (recursionCount > maxTypeRecursionCount) {
       return true;
     }
@@ -15677,7 +15598,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       if (!canAssignType(boundType, effectiveSrcType, diag.createAddendum(), undefined, flags, recursionCount + 1)) {
         if (!destType.details.isSynthesized) {
           diag.addMessage(
-            Localizer.DiagnosticAddendum.typeBound().format({
+            Localizer.DiagAddendum.typeBound().format({
               sourceType: printType(effectiveSrcType),
               destType: printType(boundType),
               name: TypeVarType.getReadableName(destType),
@@ -15697,16 +15618,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       if (isAnyOrUnknown(constraint)) {
         return true;
       } else if (isUnion(effectiveSrcType)) {
-        if (findSubtype(effectiveSrcType, (subtype) => canAssignType(constraint, subtype, new DiagnosticAddendum()))) {
+        if (findSubtype(effectiveSrcType, (subtype) => canAssignType(constraint, subtype, new DiagAddendum()))) {
           return true;
         }
-      } else if (canAssignType(constraint, effectiveSrcType, new DiagnosticAddendum())) {
+      } else if (canAssignType(constraint, effectiveSrcType, new DiagAddendum())) {
         return true;
       }
     }
 
     diag.addMessage(
-      Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
+      Localizer.DiagAddendum.typeConstrainedTypeVar().format({
         type: printType(effectiveSrcType),
         name: TypeVarType.getReadableName(destType),
       })
@@ -15755,7 +15676,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     return methodList;
   }
 
-  function canAssignToTypedDict(classType: ClassType, keyTypes: Type[], valueTypes: Type[], diagAddendum: DiagnosticAddendum): boolean {
+  function canAssignToTypedDict(classType: ClassType, keyTypes: Type[], valueTypes: Type[], diagAddendum: DiagAddendum): boolean {
     assert(ClassType.isTypedDictClass(classType));
     assert(keyTypes.length === valueTypes.length);
 
@@ -15773,16 +15694,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (!symbolEntry) {
           isMatch = false;
           diagAddendum.addMessage(
-            Localizer.DiagnosticAddendum.typedDictFieldUndefined().format({
+            Localizer.DiagAddendum.typedDictFieldUndefined().format({
               name: keyType.classType.literalValue as string,
               type: printType(ObjectType.create(classType)),
             })
           );
         } else {
-          const assignDiag = new DiagnosticAddendum();
+          const assignDiag = new DiagAddendum();
           if (!canAssignType(symbolEntry.valueType, valueTypes[index], assignDiag)) {
             diagAddendum.addMessage(
-              Localizer.DiagnosticAddendum.typedDictFieldTypeMismatch().format({
+              Localizer.DiagAddendum.typedDictFieldTypeMismatch().format({
                 name: keyType.classType.literalValue as string,
                 type: printType(valueTypes[index]),
               })
@@ -15801,7 +15722,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     symbolMap.forEach((entry, name) => {
       if (entry.isRequired && !entry.isProvided) {
         diagAddendum.addMessage(
-          Localizer.DiagnosticAddendum.typedDictFieldRequired().format({
+          Localizer.DiagAddendum.typedDictFieldRequired().format({
             name,
             type: printType(ObjectType.create(classType)),
           })
@@ -15863,17 +15784,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
           const existingEntry = keyMap.get(name);
           if (existingEntry) {
             if (!isTypeSame(existingEntry.valueType, valueType)) {
-              const diag = new DiagnosticAddendum();
+              const diag = new DiagAddendum();
               diag.addMessage(
-                Localizer.DiagnosticAddendum.typedDictFieldRedefinition().format({
+                Localizer.DiagAddendum.typedDictFieldRedefinition().format({
                   parentType: printType(existingEntry.valueType),
                   childType: printType(valueType),
                 })
               );
-              addDiagnostic(
+              addDiag(
                 getFileInfo(lastDecl.node).diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.typedDictFieldRedefinition().format({
+                DiagRule.reportGeneralTypeIssues,
+                Localizer.Diag.typedDictFieldRedefinition().format({
                   name,
                 }) + diag.getString(),
                 lastDecl.node
@@ -15983,7 +15904,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       const nonLiteralFirstParamType = stripLiteralValue(firstParamType);
 
       typeVarMap.addSolveForScope(getTypeVarScopeId(memberType));
-      const diag = new DiagnosticAddendum();
+      const diag = new DiagAddendum();
 
       if (
         isTypeVar(memberTypeFirstParamType) &&
@@ -15997,10 +15918,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       } else if (!canAssignType(memberTypeFirstParamType, nonLiteralFirstParamType, diag, typeVarMap, /* flags */ undefined, recursionCount + 1)) {
         if (memberTypeFirstParam.name && !memberTypeFirstParam.isNameSynthesized && memberTypeFirstParam.hasDeclaredType) {
           if (errorNode) {
-            addDiagnostic(
+            addDiag(
               getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-              DiagnosticRule.reportGeneralTypeIssues,
-              Localizer.Diagnostic.bindTypeMismatch().format({
+              DiagRule.reportGeneralTypeIssues,
+              Localizer.Diag.bindTypeMismatch().format({
                 type: printType(baseType),
                 methodName: memberType.details.name,
                 paramName: memberTypeFirstParam.name,
@@ -16073,7 +15994,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     verifyDeleteExpression,
     isAfterNodeReachable,
     isNodeReachable,
-    suppressDiagnostics,
+    suppressDiags,
     getDeclarationsForNameNode,
     getTypeForDeclaration,
     resolveAliasDeclaration,
@@ -16099,8 +16020,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     addWarning,
     addInformation,
     addUnusedCode,
-    addDiagnostic,
-    addDiagnosticForTextRange,
+    addDiag,
+    addDiagForTextRange,
     printType,
     printFunctionParts,
     getTypeCacheSize,

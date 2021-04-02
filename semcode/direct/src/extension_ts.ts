@@ -1,18 +1,18 @@
 import { ActiveJsTsEditorTracker } from './utils/activeJsTsEditorTracker';
 import { ActiveJsTsEditorTracker } from './utils/activeJsTsEditorTracker';
 import { Api, getExtensionApi } from './api';
-import { ChildServerProcess } from './tsServer/serverProcess.electron';
-import { CommandManager } from './commands/commandManager';
+import { ChildServerProc } from './tsServer/serverProc.electron';
+import { CommandMgr } from './commands/commandMgr';
 import { createLazyClientHost, lazilyActivateClient } from './lazyClientHost';
-import { DiskTypeScriptVersionProvider } from './tsServer/versionProvider.electron';
-import { ITypeScriptVersionProvider, TypeScriptVersion } from './tsServer/versionProvider';
-import { LanguageConfigurationManager } from './languageFeatures/languageConfiguration';
-import { NodeLogDirectoryProvider } from './tsServer/logDirectoryProvider.electron';
-import { nodeRequestCancellerFactory } from './tsServer/cancellation.electron';
+import { DiskTSVersionProvider } from './tsServer/versionProvider.electron';
+import { TSVersionProvider, TSVersion } from './tsServer/versionProvider';
+import { LangConfigMgr } from './languageFeatures/languageConfig';
+import { NodeLogDirProvider } from './tsServer/logDirProvider.electron';
+import { nodeRequestCancelFact } from './tsServer/cancellation.electron';
 import { onCaseInsenitiveFileSystem } from './utils/fileSystem.electron';
-import { PluginManager } from './utils/plugins';
+import { PluginMgr } from './utils/plugins';
 import { registerBaseCommands } from './commands';
-import { TypeScriptServiceConfiguration } from './utils/configuration';
+import { TSServiceConfig } from './utils/configuration';
 import * as fs from 'fs';
 import * as qv from 'vscode';
 import * as temp from './utils/temp.electron';
@@ -22,7 +22,7 @@ export function activate(ctx: qv.ExtensionContext): Api {
   const stat = qv.window.createStatusBarItem(qv.StatusBarAlignment.Left, 1000000);
   ctx.subscriptions.push(stat);
   ctx.subscriptions.push(qv.workspace.onDidChangeWorkspaceFolders((e) => updateStatus(stat)));
-  ctx.subscriptions.push(qv.workspace.onDidChangeConfiguration((e) => updateStatus(stat)));
+  ctx.subscriptions.push(qv.workspace.onDidChangeConfig((e) => updateStatus(stat)));
   ctx.subscriptions.push(qv.window.onDidChangeActiveTextEditor((e) => updateStatus(stat)));
   ctx.subscriptions.push(qv.window.onDidChangeTextEditorViewColumn((e) => updateStatus(stat)));
   ctx.subscriptions.push(qv.workspace.onDidOpenTextDocument((e) => updateStatus(stat)));
@@ -34,51 +34,51 @@ export function activate(ctx: qv.ExtensionContext): Api {
 
   qv.languages.registerCodeLensProvider("*", new Codelens());
   qv.commands.registerCommand("semcode.enableCodeLens", () => {
-      qv.workspace.getConfiguration("semcode").update("enableCodeLens", true, true);
+      qv.workspace.getConfig("semcode").update("enableCodeLens", true, true);
   });
   qv.commands.registerCommand("semcode.disableCodeLens", () => {
-      qv.workspace.getConfiguration("semcode").update("enableCodeLens", false, true);
+      qv.workspace.getConfig("semcode").update("enableCodeLens", false, true);
   });
   qv.commands.registerCommand("semcode.codelensAction", (args: any) => {
       qv.window.showInformationMessage(`CodeLens action with args=${args}`);
   });
 
-  const pluginManager = new PluginManager();
-  ctx.subscriptions.push(pluginManager);
-  const commandManager = new CommandManager();
-  ctx.subscriptions.push(commandManager);
+  const pluginMgr = new PluginMgr();
+  ctx.subscriptions.push(pluginMgr);
+  const commandMgr = new CommandMgr();
+  ctx.subscriptions.push(commandMgr);
   const onCompletionAccepted = new qv.EventEmitter<qv.CompletionItem>();
   ctx.subscriptions.push(onCompletionAccepted);
-  const logDirectoryProvider = new NodeLogDirectoryProvider(ctx);
-  const versionProvider = new DiskTypeScriptVersionProvider();
-  ctx.subscriptions.push(new LanguageConfigurationManager());
+  const logDirProvider = new NodeLogDirProvider(ctx);
+  const versionProvider = new DiskTSVersionProvider();
+  ctx.subscriptions.push(new LangConfigMgr());
   const activeJsTsEditorTracker = new ActiveJsTsEditorTracker();
   ctx.subscriptions.push(activeJsTsEditorTracker);
   const lazyClientHost = createLazyClientHost(
     ctx,
     onCaseInsenitiveFileSystem(),
     {
-      pluginManager,
-      commandManager,
-      logDirectoryProvider,
-      cancellerFactory: nodeRequestCancellerFactory,
+      pluginMgr,
+      commandMgr,
+      logDirProvider,
+      cancellerFact: nodeRequestCancelFact,
       versionProvider,
-      processFactory: ChildServerProcess,
+      processFact: ChildServerProc,
       activeJsTsEditorTracker,
     },
     (item) => {
       onCompletionAccepted.fire(item);
     }
   );
-  registerBaseCommands(commandManager, lazyClientHost, pluginManager, activeJsTsEditorTracker);
+  registerBaseCommands(commandMgr, lazyClientHost, pluginMgr, activeJsTsEditorTracker);
   import('./providers/task').then((m) => {
     ctx.subscriptions.push(m.register(lazyClientHost.map((x) => x.serviceClient)));
   });
   import('./languageFeatures/tsconfig').then((m) => {
     ctx.subscriptions.push(m.register());
   });
-  ctx.subscriptions.push(lazilyActivateClient(lazyClientHost, pluginManager, activeJsTsEditorTracker));
-  return getExtensionApi(onCompletionAccepted.event, pluginManager);
+  ctx.subscriptions.push(lazilyActivateClient(lazyClientHost, pluginMgr, activeJsTsEditorTracker));
+  return getExtensionApi(onCompletionAccepted.event, pluginMgr);
 }
 
 export function deactivate() {
@@ -107,7 +107,7 @@ function getEditorInfo(): { text?: string; tooltip?: string; color?: string } | 
     else {
       text = `$(file-submodule) ${basename(f.uri.fsPath)} (${f.index + 1} of ${qv.workspace.workspaceFolders.length}) → $(file-code) ${basename(r.fsPath)}`;
       tooltip = r.fsPath;
-      const c = qv.workspace.getConfiguration('multiRootSample', r);
+      const c = qv.workspace.getConfig('multiRootSample', r);
       color = c.get('statusColor');
     }
   }
@@ -121,9 +121,9 @@ async function showSampleText(ctx: qv.ExtensionContext): Promise<void> {
 	qv.window.showTextDocument(d);
 }
 
-class StaticVersionProvider implements ITypeScriptVersionProvider {
-  constructor(private readonly _version: TypeScriptVersion) {}
-  updateConfiguration(_configuration: TypeScriptServiceConfiguration): void {
+class StaticVersionProvider implements TSVersionProvider {
+  constructor(private readonly _version: TSVersion) {}
+  updateConfig(_configuration: TSServiceConfig): void {
 
   }
   get defaultVersion() {

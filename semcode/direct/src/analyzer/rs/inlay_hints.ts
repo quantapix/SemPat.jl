@@ -29,7 +29,7 @@ export function activateInlayHints(ctx: Ctx) {
 
   ctx.pushCleanup(maybeUpdater);
 
-  qv.workspace.onDidChangeConfiguration(maybeUpdater.onConfigChange, maybeUpdater, ctx.subscriptions);
+  qv.workspace.onDidChangeConfig(maybeUpdater.onConfigChange, maybeUpdater, ctx.subscriptions);
 
   maybeUpdater.onConfigChange();
 }

@@ -4,18 +4,15 @@ import { ServiceClient, ClientCap } from '../service';
 import API from '../utils/api';
 import * as languageModeIds from '../utils/languageModeIds';
 import * as qu from '../utils';
-
 const enum BufferKind {
   TypeScript = 1,
   JavaScript = 2,
 }
-
 const enum BufferState {
   Initial = 1,
   Open = 2,
   Closed = 2,
 }
-
 function mode2ScriptKind(mode: string): 'TS' | 'TSX' | 'JS' | 'JSX' | undefined {
   switch (mode) {
     case languageModeIds.typescript:
@@ -29,60 +26,49 @@ function mode2ScriptKind(mode: string): 'TS' | 'TSX' | 'JS' | 'JSX' | undefined 
   }
   return undefined;
 }
-
-const enum BufferOperationType {
+const enum BufferOpType {
   Close,
   Open,
   Change,
 }
-
-class CloseOperation {
-  readonly type = BufferOperationType.Close;
+class CloseOp {
+  readonly type = BufferOpType.Close;
   constructor(public readonly args: string) {}
 }
-
-class OpenOperation {
-  readonly type = BufferOperationType.Open;
+class OpenOp {
+  readonly type = BufferOpType.Open;
   constructor(public readonly args: qp.OpenRequestArgs) {}
 }
-
-class ChangeOperation {
-  readonly type = BufferOperationType.Change;
+class ChangeOp {
+  readonly type = BufferOpType.Change;
   constructor(public readonly args: qp.FileCodeEdits) {}
 }
-
-type BufferOperation = CloseOperation | OpenOperation | ChangeOperation;
-
+type BufferOp = CloseOp | OpenOp | ChangeOp;
 class BufferSynchronizer {
-  private readonly _pending: qu.ResourceMap<BufferOperation>;
-
+  private readonly _pending: qu.ResourceMap<BufferOp>;
   constructor(private readonly client: ServiceClient, pathNormalizer: (path: qv.Uri) => string | undefined, onCaseInsenitiveFileSystem: boolean) {
-    this._pending = new qu.ResourceMap<BufferOperation>(pathNormalizer, {
+    this._pending = new qu.ResourceMap<BufferOp>(pathNormalizer, {
       onCaseInsenitiveFileSystem,
     });
   }
-
   public open(r: qv.Uri, xs: qp.OpenRequestArgs) {
-    if (this.supportsBatching) this.updatePending(r, new OpenOperation(xs));
+    if (this.supportsBatching) this.updatePending(r, new OpenOp(xs));
     else this.client.executeWithoutWaitingForResponse('open', xs);
   }
-
   public close(r: qv.Uri, filepath: string): boolean {
-    if (this.supportsBatching) return this.updatePending(r, new CloseOperation(filepath));
+    if (this.supportsBatching) return this.updatePending(r, new CloseOp(filepath));
     else {
       const args: qp.FileRequestArgs = { file: filepath };
       this.client.executeWithoutWaitingForResponse('close', args);
       return true;
     }
   }
-
   public change(resource: qv.Uri, filepath: string, events: readonly qv.TextDocumentContentChangeEvent[]) {
     if (!events.length) return;
-
     if (this.supportsBatching) {
       this.updatePending(
         resource,
-        new ChangeOperation({
+        new ChangeOp({
           fileName: filepath,
           textChanges: events
             .map(
@@ -105,18 +91,15 @@ class BufferSynchronizer {
       }
     }
   }
-
   public reset(): void {
     this._pending.clear();
   }
-
   public beforeCommand(command: string): void {
     if (command === 'updateOpen') {
       return;
     }
     this.flush();
   }
-
   private flush() {
     if (!this.supportsBatching) {
       this._pending.clear();
@@ -128,13 +111,13 @@ class BufferSynchronizer {
       const changedFiles: qp.FileCodeEdits[] = [];
       for (const change of this._pending.values) {
         switch (change.type) {
-          case BufferOperationType.Change:
+          case BufferOpType.Change:
             changedFiles.push(change.args);
             break;
-          case BufferOperationType.Open:
+          case BufferOpType.Open:
             openFiles.push(change.args);
             break;
-          case BufferOperationType.Close:
+          case BufferOpType.Close:
             closedFiles.push(change.args);
             break;
         }
@@ -143,17 +126,15 @@ class BufferSynchronizer {
       this._pending.clear();
     }
   }
-
   private get supportsBatching(): boolean {
     return this.client.apiVersion.gte(API.v340);
   }
-
-  private updatePending(resource: qv.Uri, op: BufferOperation): boolean {
+  private updatePending(resource: qv.Uri, op: BufferOp): boolean {
     switch (op.type) {
-      case BufferOperationType.Close:
+      case BufferOpType.Close:
         const existing = this._pending.get(resource);
         switch (existing?.type) {
-          case BufferOperationType.Open:
+          case BufferOpType.Open:
             this._pending.delete(resource);
             return false; // Open then close. No need to do anything
         }
@@ -166,12 +147,9 @@ class BufferSynchronizer {
     return true;
   }
 }
-
-class SyncedBuffer {
+class SyncBuffer {
   private state = BufferState.Initial;
-
   constructor(private readonly document: qv.TextDocument, public readonly filepath: string, private readonly client: ServiceClient, private readonly synchronizer: BufferSynchronizer) {}
-
   public open(): void {
     const args: qp.OpenRequestArgs = {
       file: this.filepath,
@@ -183,7 +161,7 @@ class SyncedBuffer {
       args.scriptKindName = scriptKind;
     }
     if (this.client.apiVersion.gte(API.v240)) {
-      const tsPluginsForDocument = this.client.pluginManager.plugins.filter((x) => x.languages.indexOf(this.document.languageId) >= 0);
+      const tsPluginsForDocument = this.client.pluginMgr.plugins.filter((x) => x.languages.indexOf(this.document.languageId) >= 0);
       if (tsPluginsForDocument.length) {
         (args as any).plugins = tsPluginsForDocument.map((plugin) => plugin.name);
       }
@@ -191,28 +169,23 @@ class SyncedBuffer {
     this.synchronizer.open(this.resource, args);
     this.state = BufferState.Open;
   }
-
   public get resource(): qv.Uri {
     return this.document.uri;
   }
-
   public get lineCount(): number {
     return this.document.lineCount;
   }
-
   public get kind(): BufferKind {
     switch (this.document.languageId) {
       case languageModeIds.javascript:
       case languageModeIds.javascriptreact:
         return BufferKind.JavaScript;
-
       case languageModeIds.typescript:
       case languageModeIds.typescriptreact:
       default:
         return BufferKind.TypeScript;
     }
   }
-
   public close(): boolean {
     if (this.state !== BufferState.Open) {
       this.state = BufferState.Closed;
@@ -221,7 +194,6 @@ class SyncedBuffer {
     this.state = BufferState.Closed;
     return this.synchronizer.close(this.resource, this.filepath);
   }
-
   public onContentChanged(events: readonly qv.TextDocumentContentChangeEvent[]): void {
     if (this.state !== BufferState.Open) {
       console.error(`Unexpected buffer state: ${this.state}`);
@@ -229,17 +201,15 @@ class SyncedBuffer {
     this.synchronizer.change(this.resource, this.filepath, events);
   }
 }
-
-class SyncedBufferMap extends qu.ResourceMap<SyncedBuffer> {
-  public getForPath(filePath: string): SyncedBuffer | undefined {
+class SyncBufferMap extends qu.ResourceMap<SyncBuffer> {
+  public getForPath(filePath: string): SyncBuffer | undefined {
     return this.get(qv.Uri.file(filePath));
   }
-  public get allBuffers(): Iterable<SyncedBuffer> {
+  public get allBuffers(): Iterable<SyncBuffer> {
     return this.values;
   }
 }
-
-class PendingDiagnostics extends qu.ResourceMap<number> {
+class PendingDiags extends qu.ResourceMap<number> {
   public getOrderedFileSet(): qu.ResourceMap<void> {
     const orderedResources = Array.from(this.entries)
       .sort((a, b) => a.value - b.value)
@@ -251,14 +221,12 @@ class PendingDiagnostics extends qu.ResourceMap<number> {
     return map;
   }
 }
-
 class GetErrRequest {
   public static executeGetErrRequest(client: ServiceClient, files: qu.ResourceMap<void>, onDone: () => void) {
     return new GetErrRequest(client, files, onDone);
   }
   private _done: boolean = false;
   private readonly _token: qv.CancellationTokenSource = new qv.CancellationTokenSource();
-
   private constructor(client: ServiceClient, public readonly files: qu.ResourceMap<void>, onDone: () => void) {
     const allFiles = qu.coalesce(
       Array.from(files.entries)
@@ -269,7 +237,7 @@ class GetErrRequest {
       this._done = true;
       setImmediate(onDone);
     } else {
-      const request = client.configuration.enableProjectDiagnostics
+      const request = client.configuration.enableProjectDiags
         ? client.executeAsync('geterrForProject', { delay: 0, file: allFiles[0] }, this._token.token)
         : client.executeAsync('geterr', { delay: 0, files: allFiles }, this._token.token);
       request.finally(() => {
@@ -281,7 +249,6 @@ class GetErrRequest {
       });
     }
   }
-
   public cancel(): any {
     if (!this._done) {
       this._token.cancel();
@@ -289,42 +256,33 @@ class GetErrRequest {
     this._token.dispose();
   }
 }
-
 export default class BufferSyncSupport extends qu.Disposable {
   private readonly client: ServiceClient;
-
   private _validateJavaScript: boolean = true;
   private _validateTypeScript: boolean = true;
   private readonly modeIds: Set<string>;
-  private readonly syncedBuffers: SyncedBufferMap;
-  private readonly pendingDiagnostics: PendingDiagnostics;
+  private readonly syncedBuffers: SyncBufferMap;
+  private readonly pendingDiags: PendingDiags;
   private readonly diagnosticDelayer: qu.Delayer<any>;
   private pendingGetErr: GetErrRequest | undefined;
   private listening: boolean = false;
   private readonly synchronizer: BufferSynchronizer;
-
   constructor(client: ServiceClient, modeIds: readonly string[], onCaseInsenitiveFileSystem: boolean) {
     super();
     this.client = client;
     this.modeIds = new Set<string>(modeIds);
-
     this.diagnosticDelayer = new qu.Delayer<any>(300);
-
     const pathNormalizer = (path: qv.Uri) => this.client.normalizedPath(path);
-    this.syncedBuffers = new SyncedBufferMap(pathNormalizer, { onCaseInsenitiveFileSystem });
-    this.pendingDiagnostics = new PendingDiagnostics(pathNormalizer, { onCaseInsenitiveFileSystem });
+    this.syncedBuffers = new SyncBufferMap(pathNormalizer, { onCaseInsenitiveFileSystem });
+    this.pendingDiags = new PendingDiags(pathNormalizer, { onCaseInsenitiveFileSystem });
     this.synchronizer = new BufferSynchronizer(client, pathNormalizer, onCaseInsenitiveFileSystem);
-
-    this.updateConfiguration();
-    qv.workspace.onDidChangeConfiguration(this.updateConfiguration, this, this._disposables);
+    this.updateConfig();
+    qv.workspace.onDidChangeConfig(this.updateConfig, this, this._disposables);
   }
-
   private readonly _onDelete = this._register(new qv.EventEmitter<qv.Uri>());
   public readonly onDelete = this._onDelete.event;
-
   private readonly _onWillChange = this._register(new qv.EventEmitter<qv.Uri>());
   public readonly onWillChange = this._onWillChange.event;
-
   public listen(): void {
     if (this.listening) {
       return;
@@ -338,7 +296,7 @@ export default class BufferSyncSupport extends qu.Disposable {
         for (const { document } of e) {
           const syncedBuffer = this.syncedBuffers.get(document.uri);
           if (syncedBuffer) {
-            this.requestDiagnostic(syncedBuffer);
+            this.requestDiag(syncedBuffer);
           }
         }
       },
@@ -347,11 +305,9 @@ export default class BufferSyncSupport extends qu.Disposable {
     );
     qv.workspace.textDocuments.forEach(this.openTextDocument, this);
   }
-
   public handles(resource: qv.Uri): boolean {
     return this.syncedBuffers.has(resource);
   }
-
   public ensureHasBuffer(resource: qv.Uri): boolean {
     if (this.syncedBuffers.has(resource)) {
       return true;
@@ -362,7 +318,6 @@ export default class BufferSyncSupport extends qu.Disposable {
     }
     return false;
   }
-
   public toVsCodeResource(resource: qv.Uri): qv.Uri {
     const filepath = this.client.normalizedPath(resource);
     for (const buffer of this.syncedBuffers.allBuffers) {
@@ -372,7 +327,6 @@ export default class BufferSyncSupport extends qu.Disposable {
     }
     return resource;
   }
-
   public toResource(filePath: string): qv.Uri {
     const buffer = this.syncedBuffers.getForPath(filePath);
     if (buffer) {
@@ -380,25 +334,22 @@ export default class BufferSyncSupport extends qu.Disposable {
     }
     return qv.Uri.file(filePath);
   }
-
   public reset(): void {
     this.pendingGetErr?.cancel();
-    this.pendingDiagnostics.clear();
+    this.pendingDiags.clear();
     this.synchronizer.reset();
   }
-
   public reinitialize(): void {
     this.reset();
     for (const buffer of this.syncedBuffers.allBuffers) {
       buffer.open();
     }
   }
-
-  public openTextDocument(document: qv.TextDocument): boolean {
-    if (!this.modeIds.has(document.languageId)) {
+  public openTextDocument(d: qv.TextDocument): boolean {
+    if (!this.modeIds.has(d.languageId)) {
       return false;
     }
-    const resource = document.uri;
+    const resource = d.uri;
     const filepath = this.client.normalizedPath(resource);
     if (!filepath) {
       return false;
@@ -406,46 +357,41 @@ export default class BufferSyncSupport extends qu.Disposable {
     if (this.syncedBuffers.has(resource)) {
       return true;
     }
-    const syncedBuffer = new SyncedBuffer(document, filepath, this.client, this.synchronizer);
+    const syncedBuffer = new SyncBuffer(d, filepath, this.client, this.synchronizer);
     this.syncedBuffers.set(resource, syncedBuffer);
     syncedBuffer.open();
-    this.requestDiagnostic(syncedBuffer);
+    this.requestDiag(syncedBuffer);
     return true;
   }
-
-  public closeResource(resource: qv.Uri): void {
-    const syncedBuffer = this.syncedBuffers.get(resource);
+  public closeResource(r: qv.Uri): void {
+    const syncedBuffer = this.syncedBuffers.get(r);
     if (!syncedBuffer) {
       return;
     }
-    this.pendingDiagnostics.delete(resource);
-    this.pendingGetErr?.files.delete(resource);
-    this.syncedBuffers.delete(resource);
+    this.pendingDiags.delete(r);
+    this.pendingGetErr?.files.delete(r);
+    this.syncedBuffers.delete(r);
     const wasBufferOpen = syncedBuffer.close();
-    this._onDelete.fire(resource);
+    this._onDelete.fire(r);
     if (wasBufferOpen) {
-      this.requestAllDiagnostics();
+      this.requestAllDiags();
     }
   }
-
   public interruptGetErr<R>(f: () => R): R {
-    if (
-      !this.pendingGetErr ||
-      this.client.configuration.enableProjectDiagnostics // `geterr` happens on seperate server so no need to cancel it.
-    ) {
+    if (!this.pendingGetErr || this.client.configuration.enableProjectDiags) {
       return f();
     }
     this.pendingGetErr.cancel();
     this.pendingGetErr = undefined;
     const result = f();
-    this.triggerDiagnostics();
+    this.triggerDiags();
     return result;
   }
-  public beforeCommand(command: string): void {
-    this.synchronizer.beforeCommand(command);
+  public beforeCommand(c: string): void {
+    this.synchronizer.beforeCommand(c);
   }
-  private onDidCloseTextDocument(document: qv.TextDocument): void {
-    this.closeResource(document.uri);
+  private onDidCloseTextDocument(d: qv.TextDocument): void {
+    this.closeResource(d.uri);
   }
   private onDidChangeTextDocument(e: qv.TextDocumentChangeEvent): void {
     const syncedBuffer = this.syncedBuffers.get(e.document.uri);
@@ -454,56 +400,50 @@ export default class BufferSyncSupport extends qu.Disposable {
     }
     this._onWillChange.fire(syncedBuffer.resource);
     syncedBuffer.onContentChanged(e.contentChanges);
-    const didTrigger = this.requestDiagnostic(syncedBuffer);
+    const didTrigger = this.requestDiag(syncedBuffer);
     if (!didTrigger && this.pendingGetErr) {
       this.pendingGetErr.cancel();
       this.pendingGetErr = undefined;
-      this.triggerDiagnostics();
+      this.triggerDiags();
     }
   }
-
-  public requestAllDiagnostics() {
+  public requestAllDiags() {
     for (const buffer of this.syncedBuffers.allBuffers) {
       if (this.shouldValidate(buffer)) {
-        this.pendingDiagnostics.set(buffer.resource, Date.now());
+        this.pendingDiags.set(buffer.resource, Date.now());
       }
     }
-    this.triggerDiagnostics();
+    this.triggerDiags();
   }
-
-  public getErr(resources: readonly qv.Uri[]): any {
-    const handledResources = resources.filter((resource) => this.handles(resource));
+  public getErr(rs: readonly qv.Uri[]): any {
+    const handledResources = rs.filter((r) => this.handles(r));
     if (!handledResources.length) {
       return;
     }
     for (const resource of handledResources) {
-      this.pendingDiagnostics.set(resource, Date.now());
+      this.pendingDiags.set(resource, Date.now());
     }
-    this.triggerDiagnostics();
+    this.triggerDiags();
   }
-
-  private triggerDiagnostics(delay: number = 200) {
+  private triggerDiags(delay: number = 200) {
     this.diagnosticDelayer.trigger(() => {
-      this.sendPendingDiagnostics();
+      this.sendPendingDiags();
     }, delay);
   }
-
-  private requestDiagnostic(buffer: SyncedBuffer): boolean {
-    if (!this.shouldValidate(buffer)) {
+  private requestDiag(b: SyncBuffer): boolean {
+    if (!this.shouldValidate(b)) {
       return false;
     }
-    this.pendingDiagnostics.set(buffer.resource, Date.now());
-    const delay = Math.min(Math.max(Math.ceil(buffer.lineCount / 20), 300), 800);
-    this.triggerDiagnostics(delay);
+    this.pendingDiags.set(b.resource, Date.now());
+    const delay = Math.min(Math.max(Math.ceil(b.lineCount / 20), 300), 800);
+    this.triggerDiags(delay);
     return true;
   }
-
-  public hasPendingDiagnostics(resource: qv.Uri): boolean {
-    return this.pendingDiagnostics.has(resource);
+  public hasPendingDiags(r: qv.Uri): boolean {
+    return this.pendingDiags.has(r);
   }
-
-  private sendPendingDiagnostics(): void {
-    const orderedFileSet = this.pendingDiagnostics.getOrderedFileSet();
+  private sendPendingDiags(): void {
+    const orderedFileSet = this.pendingDiags.getOrderedFileSet();
     if (this.pendingGetErr) {
       this.pendingGetErr.cancel();
       for (const { resource } of this.pendingGetErr.files.entries) {
@@ -523,18 +463,16 @@ export default class BufferSyncSupport extends qu.Disposable {
         }
       }));
     }
-    this.pendingDiagnostics.clear();
+    this.pendingDiags.clear();
   }
-
-  private updateConfiguration() {
-    const jsConfig = qv.workspace.getConfiguration('javascript', null);
-    const tsConfig = qv.workspace.getConfiguration('typescript', null);
+  private updateConfig() {
+    const jsConfig = qv.workspace.getConfig('javascript', null);
+    const tsConfig = qv.workspace.getConfig('typescript', null);
     this._validateJavaScript = jsConfig.get<boolean>('validate.enable', true);
     this._validateTypeScript = tsConfig.get<boolean>('validate.enable', true);
   }
-
-  private shouldValidate(buffer: SyncedBuffer) {
-    switch (buffer.kind) {
+  private shouldValidate(b: SyncBuffer) {
+    switch (b.kind) {
       case BufferKind.JavaScript:
         return this._validateJavaScript;
       case BufferKind.TypeScript:

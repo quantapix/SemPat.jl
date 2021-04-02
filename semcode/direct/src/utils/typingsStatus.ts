@@ -92,7 +92,7 @@ export class AtaProgressReporter extends Disposable {
   }
 
   private async onTypesInstallerInitializationFailed() {
-    const config = qv.workspace.getConfiguration('typescript');
+    const config = qv.workspace.getConfig('typescript');
 
     if (config.get<boolean>('check.npmIsInstalled', true)) {
       const dontShowAgain: qv.MessageItem = {

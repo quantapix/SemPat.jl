@@ -17,26 +17,26 @@ function fromStringToRevealOutputChannelOn(s: string): RevealOutputChannelOn {
   }
 }
 
-export class RLSConfiguration {
-  private readonly configuration: qv.WorkspaceConfiguration;
+export class RLSConfig {
+  private readonly configuration: qv.WorkspaceConfig;
   private readonly wsPath: string;
 
-  private constructor(c: qv.WorkspaceConfiguration, p: string) {
+  private constructor(c: qv.WorkspaceConfig, p: string) {
     this.configuration = c;
     this.wsPath = p;
   }
 
-  public static loadFromWorkspace(p: string): RLSConfiguration {
-    const c = qv.workspace.getConfiguration();
-    return new RLSConfiguration(c, p);
+  public static loadFromWorkspace(p: string): RLSConfig {
+    const c = qv.workspace.getConfig();
+    return new RLSConfig(c, p);
   }
 
-  private static readRevealOutputChannelOn(c: qv.WorkspaceConfiguration) {
+  private static readRevealOutputChannelOn(c: qv.WorkspaceConfig) {
     const setting = c.get<string>('rust-client.revealOutputChannelOn', 'never');
     return fromStringToRevealOutputChannelOn(setting);
   }
 
-  private static readChannel(wsPath: string, rustupPath: string, c: qv.WorkspaceConfiguration): string {
+  private static readChannel(wsPath: string, rustupPath: string, c: qv.WorkspaceConfig): string {
     const channel = c.get<string>('rust-client.channel');
     if (channel === 'default' || !channel) {
       try {
@@ -70,7 +70,7 @@ export class RLSConfiguration {
   }
 
   public get revealOutputChannelOn(): RevealOutputChannelOn {
-    return RLSConfiguration.readRevealOutputChannelOn(this.configuration);
+    return RLSConfig.readRevealOutputChannelOn(this.configuration);
   }
 
   public get updateOnStartup(): boolean {
@@ -78,7 +78,7 @@ export class RLSConfiguration {
   }
 
   public get channel(): string {
-    return RLSConfiguration.readChannel(this.wsPath, this.rustupPath, this.configuration);
+    return RLSConfig.readChannel(this.wsPath, this.rustupPath, this.configuration);
   }
 
   public get rlsPath(): string | undefined {

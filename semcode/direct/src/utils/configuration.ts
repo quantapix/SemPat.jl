@@ -3,124 +3,124 @@ import * as path from 'path';
 import * as qu from '../utils';
 import * as qv from 'vscode';
 
-export enum TsServerLogLevel {
+export enum TSServerLogLevel {
   Off,
   Normal,
   Terse,
   Verbose,
 }
 
-export namespace TsServerLogLevel {
-  export function fromString(value: string): TsServerLogLevel {
+export namespace TSServerLogLevel {
+  export function fromString(value: string): TSServerLogLevel {
     switch (value && value.toLowerCase()) {
       case 'normal':
-        return TsServerLogLevel.Normal;
+        return TSServerLogLevel.Normal;
       case 'terse':
-        return TsServerLogLevel.Terse;
+        return TSServerLogLevel.Terse;
       case 'verbose':
-        return TsServerLogLevel.Verbose;
+        return TSServerLogLevel.Verbose;
       case 'off':
       default:
-        return TsServerLogLevel.Off;
+        return TSServerLogLevel.Off;
     }
   }
 
-  export function toString(value: TsServerLogLevel): string {
+  export function toString(value: TSServerLogLevel): string {
     switch (value) {
-      case TsServerLogLevel.Normal:
+      case TSServerLogLevel.Normal:
         return 'normal';
-      case TsServerLogLevel.Terse:
+      case TSServerLogLevel.Terse:
         return 'terse';
-      case TsServerLogLevel.Verbose:
+      case TSServerLogLevel.Verbose:
         return 'verbose';
-      case TsServerLogLevel.Off:
+      case TSServerLogLevel.Off:
       default:
         return 'off';
     }
   }
 }
 
-export const enum SeparateSyntaxServerConfiguration {
+export const enum SeparateSyntaxServerConfig {
   Disabled,
   Enabled,
 }
 
-export class ImplicitProjectConfiguration {
+export class ImplicitProjectConfig {
   public readonly checkJs: boolean;
   public readonly experimentalDecorators: boolean;
   public readonly strictNullChecks: boolean;
   public readonly strictFunctionTypes: boolean;
 
-  constructor(configuration: qv.WorkspaceConfiguration) {
-    this.checkJs = ImplicitProjectConfiguration.readCheckJs(configuration);
-    this.experimentalDecorators = ImplicitProjectConfiguration.readExperimentalDecorators(configuration);
-    this.strictNullChecks = ImplicitProjectConfiguration.readImplicitStrictNullChecks(configuration);
-    this.strictFunctionTypes = ImplicitProjectConfiguration.readImplicitStrictFunctionTypes(configuration);
+  constructor(configuration: qv.WorkspaceConfig) {
+    this.checkJs = ImplicitProjectConfig.readCheckJs(configuration);
+    this.experimentalDecorators = ImplicitProjectConfig.readExperimentalDecorators(configuration);
+    this.strictNullChecks = ImplicitProjectConfig.readImplicitStrictNullChecks(configuration);
+    this.strictFunctionTypes = ImplicitProjectConfig.readImplicitStrictFunctionTypes(configuration);
   }
 
-  public isEqualTo(other: ImplicitProjectConfiguration): boolean {
+  public isEqualTo(other: ImplicitProjectConfig): boolean {
     return qu.equals(this, other);
   }
 
-  private static readCheckJs(configuration: qv.WorkspaceConfiguration): boolean {
+  private static readCheckJs(configuration: qv.WorkspaceConfig): boolean {
     return configuration.get<boolean>('js/ts.implicitProjectConfig.checkJs') ?? configuration.get<boolean>('javascript.implicitProjectConfig.checkJs', false);
   }
 
-  private static readExperimentalDecorators(configuration: qv.WorkspaceConfiguration): boolean {
+  private static readExperimentalDecorators(configuration: qv.WorkspaceConfig): boolean {
     return configuration.get<boolean>('js/ts.implicitProjectConfig.experimentalDecorators') ?? configuration.get<boolean>('javascript.implicitProjectConfig.experimentalDecorators', false);
   }
 
-  private static readImplicitStrictNullChecks(configuration: qv.WorkspaceConfiguration): boolean {
+  private static readImplicitStrictNullChecks(configuration: qv.WorkspaceConfig): boolean {
     return configuration.get<boolean>('js/ts.implicitProjectConfig.strictNullChecks', false);
   }
 
-  private static readImplicitStrictFunctionTypes(configuration: qv.WorkspaceConfiguration): boolean {
+  private static readImplicitStrictFunctionTypes(configuration: qv.WorkspaceConfig): boolean {
     return configuration.get<boolean>('js/ts.implicitProjectConfig.strictFunctionTypes', true);
   }
 }
 
-export class TypeScriptServiceConfiguration {
+export class TSServiceConfig {
   public readonly locale: string | null;
   public readonly globalTsdk: string | null;
   public readonly localTsdk: string | null;
   public readonly npmLocation: string | null;
-  public readonly tsServerLogLevel: TsServerLogLevel = TsServerLogLevel.Off;
+  public readonly tsServerLogLevel: TSServerLogLevel = TSServerLogLevel.Off;
   public readonly tsServerPluginPaths: readonly string[];
-  public readonly implictProjectConfiguration: ImplicitProjectConfiguration;
+  public readonly implictProjectConfig: ImplicitProjectConfig;
   public readonly disableAutomaticTypeAcquisition: boolean;
-  public readonly separateSyntaxServer: SeparateSyntaxServerConfiguration;
-  public readonly enableProjectDiagnostics: boolean;
-  public readonly maxTsServerMemory: number;
+  public readonly separateSyntaxServer: SeparateSyntaxServerConfig;
+  public readonly enableProjectDiags: boolean;
+  public readonly maxTSServerMemory: number;
   public readonly enablePromptUseWorkspaceTsdk: boolean;
   public readonly watchOptions: protocol.WatchOptions | undefined;
   public readonly includePackageJsonAutoImports: 'auto' | 'on' | 'off' | undefined;
-  public readonly enableTsServerTracing: boolean;
+  public readonly enableTSServerTracing: boolean;
 
-  public static loadFromWorkspace(): TypeScriptServiceConfiguration {
-    return new TypeScriptServiceConfiguration();
+  public static loadFromWorkspace(): TSServiceConfig {
+    return new TSServiceConfig();
   }
 
   private constructor() {
-    const configuration = qv.workspace.getConfiguration();
+    const configuration = qv.workspace.getConfig();
 
-    this.locale = TypeScriptServiceConfiguration.extractLocale(configuration);
-    this.globalTsdk = TypeScriptServiceConfiguration.extractGlobalTsdk(configuration);
-    this.localTsdk = TypeScriptServiceConfiguration.extractLocalTsdk(configuration);
-    this.npmLocation = TypeScriptServiceConfiguration.readNpmLocation(configuration);
-    this.tsServerLogLevel = TypeScriptServiceConfiguration.readTsServerLogLevel(configuration);
-    this.tsServerPluginPaths = TypeScriptServiceConfiguration.readTsServerPluginPaths(configuration);
-    this.implictProjectConfiguration = new ImplicitProjectConfiguration(configuration);
-    this.disableAutomaticTypeAcquisition = TypeScriptServiceConfiguration.readDisableAutomaticTypeAcquisition(configuration);
-    this.separateSyntaxServer = TypeScriptServiceConfiguration.readUseSeparateSyntaxServer(configuration);
-    this.enableProjectDiagnostics = TypeScriptServiceConfiguration.readEnableProjectDiagnostics(configuration);
-    this.maxTsServerMemory = TypeScriptServiceConfiguration.readMaxTsServerMemory(configuration);
-    this.enablePromptUseWorkspaceTsdk = TypeScriptServiceConfiguration.readEnablePromptUseWorkspaceTsdk(configuration);
-    this.watchOptions = TypeScriptServiceConfiguration.readWatchOptions(configuration);
-    this.includePackageJsonAutoImports = TypeScriptServiceConfiguration.readIncludePackageJsonAutoImports(configuration);
-    this.enableTsServerTracing = TypeScriptServiceConfiguration.readEnableTsServerTracing(configuration);
+    this.locale = TSServiceConfig.extractLocale(configuration);
+    this.globalTsdk = TSServiceConfig.extractGlobalTsdk(configuration);
+    this.localTsdk = TSServiceConfig.extractLocalTsdk(configuration);
+    this.npmLocation = TSServiceConfig.readNpmLocation(configuration);
+    this.tsServerLogLevel = TSServiceConfig.readTSServerLogLevel(configuration);
+    this.tsServerPluginPaths = TSServiceConfig.readTSServerPluginPaths(configuration);
+    this.implictProjectConfig = new ImplicitProjectConfig(configuration);
+    this.disableAutomaticTypeAcquisition = TSServiceConfig.readDisableAutomaticTypeAcquisition(configuration);
+    this.separateSyntaxServer = TSServiceConfig.readUseSeparateSyntaxServer(configuration);
+    this.enableProjectDiags = TSServiceConfig.readEnableProjectDiags(configuration);
+    this.maxTSServerMemory = TSServiceConfig.readMaxTSServerMemory(configuration);
+    this.enablePromptUseWorkspaceTsdk = TSServiceConfig.readEnablePromptUseWorkspaceTsdk(configuration);
+    this.watchOptions = TSServiceConfig.readWatchOptions(configuration);
+    this.includePackageJsonAutoImports = TSServiceConfig.readIncludePackageJsonAutoImports(configuration);
+    this.enableTSServerTracing = TSServiceConfig.readEnableTSServerTracing(configuration);
   }
 
-  public isEqualTo(other: TypeScriptServiceConfiguration): boolean {
+  public isEqualTo(other: TSServiceConfig): boolean {
     return qu.equals(this, other);
   }
 
@@ -134,7 +134,7 @@ export class TypeScriptServiceConfiguration {
     return inspectValue;
   }
 
-  private static extractGlobalTsdk(configuration: qv.WorkspaceConfiguration): string | null {
+  private static extractGlobalTsdk(configuration: qv.WorkspaceConfig): string | null {
     const inspect = configuration.inspect('typescript.tsdk');
     if (inspect && typeof inspect.globalValue === 'string') {
       return this.fixPathPrefixes(inspect.globalValue);
@@ -142,7 +142,7 @@ export class TypeScriptServiceConfiguration {
     return null;
   }
 
-  private static extractLocalTsdk(configuration: qv.WorkspaceConfiguration): string | null {
+  private static extractLocalTsdk(configuration: qv.WorkspaceConfig): string | null {
     const inspect = configuration.inspect('typescript.tsdk');
     if (inspect && typeof inspect.workspaceValue === 'string') {
       return this.fixPathPrefixes(inspect.workspaceValue);
@@ -150,62 +150,62 @@ export class TypeScriptServiceConfiguration {
     return null;
   }
 
-  private static readTsServerLogLevel(configuration: qv.WorkspaceConfiguration): TsServerLogLevel {
+  private static readTSServerLogLevel(configuration: qv.WorkspaceConfig): TSServerLogLevel {
     const setting = configuration.get<string>('typescript.tsserver.log', 'off');
-    return TsServerLogLevel.fromString(setting);
+    return TSServerLogLevel.fromString(setting);
   }
 
-  private static readTsServerPluginPaths(configuration: qv.WorkspaceConfiguration): string[] {
+  private static readTSServerPluginPaths(configuration: qv.WorkspaceConfig): string[] {
     return configuration.get<string[]>('typescript.tsserver.pluginPaths', []);
   }
 
-  private static readNpmLocation(configuration: qv.WorkspaceConfiguration): string | null {
+  private static readNpmLocation(configuration: qv.WorkspaceConfig): string | null {
     return configuration.get<string | null>('typescript.npm', null);
   }
 
-  private static readDisableAutomaticTypeAcquisition(configuration: qv.WorkspaceConfiguration): boolean {
+  private static readDisableAutomaticTypeAcquisition(configuration: qv.WorkspaceConfig): boolean {
     return configuration.get<boolean>('typescript.disableAutomaticTypeAcquisition', false);
   }
 
-  private static extractLocale(configuration: qv.WorkspaceConfiguration): string | null {
+  private static extractLocale(configuration: qv.WorkspaceConfig): string | null {
     return configuration.get<string | null>('typescript.locale', null);
   }
 
-  private static readUseSeparateSyntaxServer(configuration: qv.WorkspaceConfiguration): SeparateSyntaxServerConfiguration {
+  private static readUseSeparateSyntaxServer(configuration: qv.WorkspaceConfig): SeparateSyntaxServerConfig {
     const value = configuration.get('typescript.tsserver.useSeparateSyntaxServer', true);
     if (value === true) {
-      return SeparateSyntaxServerConfiguration.Enabled;
+      return SeparateSyntaxServerConfig.Enabled;
     }
-    return SeparateSyntaxServerConfiguration.Disabled;
+    return SeparateSyntaxServerConfig.Disabled;
   }
 
-  private static readEnableProjectDiagnostics(configuration: qv.WorkspaceConfiguration): boolean {
-    return configuration.get<boolean>('typescript.tsserver.experimental.enableProjectDiagnostics', false);
+  private static readEnableProjectDiags(configuration: qv.WorkspaceConfig): boolean {
+    return configuration.get<boolean>('typescript.tsserver.experimental.enableProjectDiags', false);
   }
 
-  private static readWatchOptions(configuration: qv.WorkspaceConfiguration): protocol.WatchOptions | undefined {
+  private static readWatchOptions(configuration: qv.WorkspaceConfig): protocol.WatchOptions | undefined {
     return configuration.get<protocol.WatchOptions>('typescript.tsserver.watchOptions');
   }
 
-  private static readIncludePackageJsonAutoImports(configuration: qv.WorkspaceConfiguration): 'auto' | 'on' | 'off' | undefined {
+  private static readIncludePackageJsonAutoImports(configuration: qv.WorkspaceConfig): 'auto' | 'on' | 'off' | undefined {
     return configuration.get<'auto' | 'on' | 'off'>('typescript.preferences.includePackageJsonAutoImports');
   }
 
-  private static readMaxTsServerMemory(configuration: qv.WorkspaceConfiguration): number {
+  private static readMaxTSServerMemory(configuration: qv.WorkspaceConfig): number {
     const defaultMaxMemory = 3072;
     const minimumMaxMemory = 128;
-    const memoryInMB = configuration.get<number>('typescript.tsserver.maxTsServerMemory', defaultMaxMemory);
+    const memoryInMB = configuration.get<number>('typescript.tsserver.maxTSServerMemory', defaultMaxMemory);
     if (!Number.isSafeInteger(memoryInMB)) {
       return defaultMaxMemory;
     }
     return Math.max(memoryInMB, minimumMaxMemory);
   }
 
-  private static readEnablePromptUseWorkspaceTsdk(configuration: qv.WorkspaceConfiguration): boolean {
+  private static readEnablePromptUseWorkspaceTsdk(configuration: qv.WorkspaceConfig): boolean {
     return configuration.get<boolean>('typescript.enablePromptUseWorkspaceTsdk', false);
   }
 
-  private static readEnableTsServerTracing(configuration: qv.WorkspaceConfiguration): boolean {
+  private static readEnableTSServerTracing(configuration: qv.WorkspaceConfig): boolean {
     return configuration.get<boolean>('typescript.tsserver.enableTracing', false);
   }
 }

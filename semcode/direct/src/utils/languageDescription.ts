@@ -2,29 +2,29 @@ import { basename } from 'path';
 import * as qv from 'vscode';
 import * as languageModeIds from './languageModeIds';
 
-export const enum DiagnosticLanguage {
+export const enum DiagLang {
   JavaScript,
   TypeScript,
 }
 
-export const allDiagnosticLanguages = [DiagnosticLanguage.JavaScript, DiagnosticLanguage.TypeScript];
+export const allDiagLangs = [DiagLang.JavaScript, DiagLang.TypeScript];
 
-export interface LanguageDescription {
+export interface LangDescription {
   readonly id: string;
   readonly diagnosticOwner: string;
   readonly diagnosticSource: string;
-  readonly diagnosticLanguage: DiagnosticLanguage;
+  readonly diagnosticLang: DiagLang;
   readonly modeIds: string[];
   readonly configFilePattern?: RegExp;
   readonly isExternal?: boolean;
 }
 
-export const standardLanguageDescriptions: LanguageDescription[] = [
+export const standardLangDescriptions: LangDescription[] = [
   {
     id: 'typescript',
     diagnosticOwner: 'typescript',
     diagnosticSource: 'ts',
-    diagnosticLanguage: DiagnosticLanguage.TypeScript,
+    diagnosticLang: DiagLang.TypeScript,
     modeIds: [languageModeIds.typescript, languageModeIds.typescriptreact],
     configFilePattern: /^tsconfig(\..*)?\.json$/gi,
   },
@@ -32,7 +32,7 @@ export const standardLanguageDescriptions: LanguageDescription[] = [
     id: 'javascript',
     diagnosticOwner: 'typescript',
     diagnosticSource: 'ts',
-    diagnosticLanguage: DiagnosticLanguage.JavaScript,
+    diagnosticLang: DiagLang.JavaScript,
     modeIds: [languageModeIds.javascript, languageModeIds.javascriptreact],
     configFilePattern: /^jsconfig(\..*)?\.json$/gi,
   },

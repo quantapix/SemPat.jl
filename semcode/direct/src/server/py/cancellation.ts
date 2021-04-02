@@ -43,7 +43,7 @@ class FileCancellationSenderStrategy implements CancellationSenderStrategy {
     function rimraf(location: string) {
       const stat = fs.lstatSync(location);
       if (stat) {
-        if (stat.isDirectory() && !stat.isSymbolicLink()) {
+        if (stat.isDir() && !stat.isSymbolicLink()) {
           for (const dir of fs.readdirSync(location)) {
             rimraf(path.join(location, dir));
           }

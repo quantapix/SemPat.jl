@@ -110,11 +110,11 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
       return printExpression(node.baseExpression, flags) + '[' + node.items.map((item) => printArgument(item, flags)).join(', ') + ']' + (node.trailingComma ? ',' : '');
     }
 
-    case ParseNodeType.UnaryOperation: {
+    case ParseNodeType.UnaryOp: {
       return printOperator(node.operator) + ' ' + printExpression(node.expression, flags);
     }
 
-    case ParseNodeType.BinaryOperation: {
+    case ParseNodeType.BinaryOp: {
       return printExpression(node.leftExpression, flags) + ' ' + printOperator(node.operator) + ' ' + printExpression(node.rightExpression, flags);
     }
 
@@ -1120,8 +1120,8 @@ export function printParseNodeType(type: ParseNodeType) {
     case ParseNodeType.Await:
       return 'Await';
 
-    case ParseNodeType.BinaryOperation:
-      return 'BinaryOperation';
+    case ParseNodeType.BinaryOp:
+      return 'BinaryOp';
 
     case ParseNodeType.Break:
       return 'Break';
@@ -1264,8 +1264,8 @@ export function printParseNodeType(type: ParseNodeType) {
     case ParseNodeType.TypeAnnotation:
       return 'TypeAnnotation';
 
-    case ParseNodeType.UnaryOperation:
-      return 'UnaryOperation';
+    case ParseNodeType.UnaryOp:
+      return 'UnaryOp';
 
     case ParseNodeType.Unpack:
       return 'Unpack';

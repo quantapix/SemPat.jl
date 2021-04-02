@@ -1,5 +1,5 @@
 import { JuliaDebugFeature } from './debug';
-import { LanguageClient, LanguageClientOptions, RevealOutputChannelOn, State } from 'vscode-languageclient/node';
+import { LangClient, LangClientOptions, RevealOutputChannelOn, State } from 'vscode-languageclient/node';
 import { unwatchFile, watchFile } from 'async-file';
 import * as documentation from './docs';
 import * as fs from 'async-file';
@@ -11,7 +11,7 @@ import * as tasks from './task';
 import * as qu from './utils';
 import * as qv from 'vscode';
 
-import { RLSConfiguration } from './configuration';
+import { RLSConfig } from './configuration';
 import * as rls from './rls';
 import * as rustAnalyzer from './rustAnalyzer';
 import { rustupUpdate } from './rustup';
@@ -23,15 +23,15 @@ export interface Api {
 
 export async function activate(c: qv.ExtensionContext): Promise<Api> {
   c.subscriptions.push(
-    ...[configureLanguage(), ...registerCommands(), qv.workspace.onDidChangeWorkspaceFolders(whenChangingWorkspaceFolders), qv.window.onDidChangeActiveTextEditor(onDidChangeActiveTextEditor)]
+    ...[configureLang(), ...registerCommands(), qv.workspace.onDidChangeWorkspaceFolders(whenChangingWorkspaceFolders), qv.window.onDidChangeActiveTextEditor(onDidChangeActiveTextEditor)]
   );
   onDidChangeActiveTextEditor(qv.window.activeTextEditor);
-  const config = qv.workspace.getConfiguration();
+  const config = qv.workspace.getConfig();
   if (typeof config.get<boolean | null>('rust-client.enableMultiProjectSetup', null) === 'boolean') {
     qv.window
       .showWarningMessage('The multi-project setup for RLS is always enabled, so the `rust-client.enableMultiProjectSetup` setting is now redundant', { modal: false }, { title: 'Remove' })
       .then((x) => {
-        if (x && x.title === 'Remove') return config.update('rust-client.enableMultiProjectSetup', null, qv.ConfigurationTarget.Global);
+        if (x && x.title === 'Remove') return config.update('rust-client.enableMultiProjectSetup', null, qv.ConfigTarget.Global);
         return;
       });
   }
@@ -92,8 +92,8 @@ export type WorkspaceProgress = { state: 'progress'; message: string } | { state
 
 export class ClientWorkspace {
   public readonly folder: qv.WorkspaceFolder;
-  private readonly config: RLSConfiguration;
-  private lc: LanguageClient | null = null;
+  private readonly config: RLSConfig;
+  private lc: LangClient | null = null;
   private disposables: qv.Disposable[];
   private _progress: qu.Observable<WorkspaceProgress>;
   get progress() {
@@ -101,7 +101,7 @@ export class ClientWorkspace {
   }
 
   constructor(folder: qv.WorkspaceFolder) {
-    this.config = RLSConfiguration.loadFromWorkspace(folder.uri.fsPath);
+    this.config = RLSConfig.loadFromWorkspace(folder.uri.fsPath);
     this.folder = folder;
     this.disposables = [];
     this._progress = new qu.Observable<WorkspaceProgress>({ state: 'standby' });
@@ -112,8 +112,8 @@ export class ClientWorkspace {
   }
 
   public async start() {
-    const { createLanguageClient, setupClient, setupProgress } = this.config.engine === 'rls' ? rls : rustAnalyzer;
-    const client = await createLanguageClient(this.folder, {
+    const { createLangClient, setupClient, setupProgress } = this.config.engine === 'rls' ? rls : rustAnalyzer;
+    const client = await createLangClient(this.folder, {
       updateOnStartup: this.config.updateOnStartup,
       revealOutputChannelOn: this.config.revealOutputChannelOn,
       logToFile: this.config.logToFile,
@@ -168,8 +168,8 @@ function registerCommands(): qv.Disposable[] {
   ];
 }
 
-function configureLanguage(): qv.Disposable {
-  return qv.languages.setLanguageConfiguration('rust', {
+function configureLang(): qv.Disposable {
+  return qv.languages.setLangConfig('rust', {
     onEnterRules: [
       {
         beforeText: /^\s*\/{3}.*$/,
@@ -200,7 +200,7 @@ function configureLanguage(): qv.Disposable {
   });
 }
 
-let g_languageClient: LanguageClient = null;
+let g_languageClient: LangClient = null;
 let g_context: qv.ExtensionContext = null;
 let g_watchedEnvironmentFile: string = null;
 let g_startupNotification: qv.StatusBarItem = null;
@@ -215,8 +215,8 @@ export async function activate(ctx: qv.ExtensionContext) {
 
   g_context = ctx;
   console.log('Activating extension language-julia');
-  ctx.subscriptions.push(qv.workspace.onDidChangeConfiguration(changeConfig));
-  qv.languages.setLanguageConfiguration('julia', {
+  ctx.subscriptions.push(qv.workspace.onDidChangeConfig(changeConfig));
+  qv.languages.setLangConfig('julia', {
     indentationRules: {
       increaseIndentPattern: /^(\s*|.*=\s*|.*@\w*\s*)[\w\s]*(?:["'`][^"'`]*["'`])*[\w\s]*\b(if|while|for|function|macro|(mutable\s+)?struct|abstract\s+type|primitive\s+type|let|quote|try|begin|.*\)\s*do|else|elseif|catch|finally)\b(?!(?:.*\bend\b[^\]]*)|(?:[^\[]*\].*)$).*$/,
       decreaseIndentPattern: /^\s*(end|else|elseif|catch|finally)\b.*$/,
@@ -232,10 +232,10 @@ export async function activate(ctx: qv.ExtensionContext) {
   ctx.subscriptions.push(new packs.JuliaPackageDevFeature(ctx));
   g_startupNotification = qv.window.createStatusBarItem();
   ctx.subscriptions.push(g_startupNotification);
-  startLanguageServer();
+  startLangServer();
   ctx.subscriptions.push(
-    qv.commands.registerCommand('language-julia.refreshLanguageServer', refreshLanguageServer),
-    qv.commands.registerCommand('language-julia.restartLanguageServer', restartLanguageServer),
+    qv.commands.registerCommand('language-julia.refreshLangServer', refreshLangServer),
+    qv.commands.registerCommand('language-julia.restartLangServer', restartLangServer),
     qv.workspace.registerTextDocumentContentProvider('juliavsodeprofilerresults', new qu.ProfilerResultsProvider())
   );
   const api = {
@@ -247,45 +247,45 @@ export async function activate(ctx: qv.ExtensionContext) {
       return await packs.getJuliaExePath();
     },
     getPkgServer() {
-      return qv.workspace.getConfiguration('julia').get('packageServer');
+      return qv.workspace.getConfig('julia').get('packageServer');
     },
   };
   return api;
 }
 
-const g_onSetLanguageClient = new qv.EventEmitter<LanguageClient>();
-export const onSetLanguageClient = g_onSetLanguageClient.event;
-function setLanguageClient(c?: LanguageClient) {
-  g_onSetLanguageClient.fire(c);
+const g_onSetLangClient = new qv.EventEmitter<LangClient>();
+export const onSetLangClient = g_onSetLangClient.event;
+function setLangClient(c?: LangClient) {
+  g_onSetLangClient.fire(c);
   g_languageClient = c;
 }
 
-export async function withLanguageClient(callback: (c: LanguageClient) => any, callbackOnHandledErr: (err: Error) => any) {
+export async function withLangClient(callback: (c: LangClient) => any, callbackOnHandledErr: (err: Error) => any) {
   if (g_languageClient === null) {
-    return callbackOnHandledErr(new Error('Language client is not active'));
+    return callbackOnHandledErr(new Error('Lang client is not active'));
   }
   await g_languageClient.onReady();
   try {
     return callback(g_languageClient);
   } catch (err) {
-    if (err.message === 'Language client is not ready yet') {
+    if (err.message === 'Lang client is not ready yet') {
       return callbackOnHandledErr(err);
     }
     throw err;
   }
 }
 
-const g_onDidChangeConfig = new qv.EventEmitter<qv.ConfigurationChangeEvent>();
+const g_onDidChangeConfig = new qv.EventEmitter<qv.ConfigChangeEvent>();
 export const onDidChangeConfig = g_onDidChangeConfig.event;
-function changeConfig(event: qv.ConfigurationChangeEvent) {
+function changeConfig(event: qv.ConfigChangeEvent) {
   g_onDidChangeConfig.fire(event);
-  if (event.affectsConfiguration('julia.executablePath')) {
-    restartLanguageServer();
+  if (event.affectsConfig('julia.executablePath')) {
+    restartLangServer();
   }
 }
 
-async function startLanguageServer() {
-  g_startupNotification.text = 'Starting Julia Language Server…';
+async function startLangServer() {
+  g_startupNotification.text = 'Starting Julia Lang Server…';
   g_startupNotification.show();
   let jlEnvPath = '';
   try {
@@ -297,7 +297,7 @@ async function startLanguageServer() {
     return;
   }
   const languageServerDepotPath = path.join(g_context.globalStoragePath, 'lsdepot', 'v1');
-  await fs.createDirectory(languageServerDepotPath);
+  await fs.createDir(languageServerDepotPath);
   const oldDepotPath = process.env.JULIA_DEPOT_PATH ? process.env.JULIA_DEPOT_PATH : '';
   const envForLSPath = path.join(g_context.extensionPath, 'scripts', 'environments', 'languageserver');
   const serverArgsRun = ['--startup-file=no', '--history-file=no', '--depwarn=no', `--project=${envForLSPath}`, 'main.jl', jlEnvPath, '--debug=no', 'pipe', oldDepotPath, g_context.globalStoragePath];
@@ -327,13 +327,13 @@ async function startLanguageServer() {
     run: { command: jlexepath, args: serverArgsRun, options: spawnOptions },
     debug: { command: jlexepath, args: serverArgsDebug, options: spawnOptions },
   };
-  const clientOptions: LanguageClientOptions = {
+  const clientOptions: LangClientOptions = {
     documentSelector: ['julia', 'juliamarkdown'],
     synchronize: {
       fileEvents: qv.workspace.createFileSystemWatcher('**/*.{jl,jmd}'),
     },
     revealOutputChannelOn: RevealOutputChannelOn.Never,
-    traceOutputChannel: qv.window.createOutputChannel('Julia Language Server trace'),
+    traceOutputChannel: qv.window.createOutputChannel('Julia Lang Server trace'),
     middleware: {
       provideCompletionItem: async (document, position, context, token, next) => {
         const validatedPosition = document.validatePosition(position);
@@ -347,7 +347,7 @@ async function startLanguageServer() {
       },
     },
   };
-  const languageClient = new LanguageClient('julia', 'Julia Language Server', serverOptions, clientOptions);
+  const languageClient = new LangClient('julia', 'Julia Lang Server', serverOptions, clientOptions);
   languageClient.registerProposedFeatures();
   if (g_watchedEnvironmentFile) {
     unwatchFile(g_watchedEnvironmentFile);
@@ -359,38 +359,38 @@ async function startLanguageServer() {
         if (!languageClient.needsStop()) {
           return;
         }
-        refreshLanguageServer(languageClient);
+        refreshLangServer(languageClient);
       }
     });
   }
-  const disposable = qv.commands.registerCommand('language-julia.showLanguageServerOutput', () => {
+  const disposable = qv.commands.registerCommand('language-julia.showLangServerOutput', () => {
     languageClient.outputChannel.show(true);
   });
   try {
     g_context.subscriptions.push(languageClient.start());
-    g_startupNotification.command = 'language-julia.showLanguageServerOutput';
-    setLanguageClient(languageClient);
+    g_startupNotification.command = 'language-julia.showLangServerOutput';
+    setLangClient(languageClient);
     languageClient.onReady().finally(() => {
       disposable.dispose();
       g_startupNotification.hide();
     });
   } catch (e) {
     qv.window.showErrorMessage('Could not start the Julia language server. Make sure the configuration setting julia.executablePath points to the Julia binary.');
-    setLanguageClient();
+    setLangClient();
     disposable.dispose();
     g_startupNotification.hide();
   }
 }
 
-function refreshLanguageServer(c: LanguageClient = g_languageClient) {
+function refreshLangServer(c: LangClient = g_languageClient) {
   if (!c) return;
-  c.sendNotification('julia/refreshLanguageServer');
+  c.sendNotification('julia/refreshLangServer');
 }
 
-function restartLanguageServer(c: LanguageClient = g_languageClient) {
+function restartLangServer(c: LangClient = g_languageClient) {
   if (c !== null) {
     c.stop();
-    setLanguageClient();
+    setLangClient();
   }
-  startLanguageServer();
+  startLangServer();
 }

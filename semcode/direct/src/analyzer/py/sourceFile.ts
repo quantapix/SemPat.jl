@@ -3,12 +3,12 @@ import { TextDocument, TextDocumentContentChangeEvent } from 'vscode-languageser
 import { isMainThread } from 'worker_threads';
 
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
-import { OperationCanceledException } from '../common/cancellationUtils';
-import { ConfigOptions, ExecutionEnvironment, getBasicDiagnosticRuleSet } from '../common/configOptions';
+import { OpCanceledException } from '../common/cancellationUtils';
+import { ConfigOptions, ExecutionEnvironment, getBasicDiagRuleSet } from '../common/configOptions';
 import { Console, StdConsole } from '../common/console';
 import { assert } from '../common/debug';
-import { convertLevelToCategory, Diagnostic, DiagnosticCategory } from '../common/diagnostic';
-import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
+import { convertLevelToCategory, Diag, DiagCategory } from '../common/diagnostic';
+import { DiagSink, TextRangeDiagSink } from '../common/diagnosticSink';
 import { TextEditAction } from '../common/editAction';
 import { FileSystem } from '../common/fileSystem';
 import { LogTracker } from '../common/logTracker';
@@ -98,11 +98,11 @@ export class SourceFile {
 
   private _isBindingInProgress = false;
 
-  private _parseDiagnostics: Diagnostic[] = [];
-  private _bindDiagnostics: Diagnostic[] = [];
-  private _checkerDiagnostics: Diagnostic[] = [];
+  private _parseDiags: Diag[] = [];
+  private _bindDiags: Diag[] = [];
+  private _checkerDiags: Diag[] = [];
 
-  private _diagnosticRuleSet = getBasicDiagnosticRuleSet();
+  private _diagnosticRuleSet = getBasicDiagRuleSet();
 
   private _circularDependencies: CircularDependency[] = [];
 
@@ -159,7 +159,7 @@ export class SourceFile {
     return this._filePath;
   }
 
-  getDiagnosticVersion(): number {
+  getDiagVersion(): number {
     return this._diagnosticVersion;
   }
 
@@ -167,8 +167,8 @@ export class SourceFile {
     return this._isStubFile;
   }
 
-  getDiagnostics(options: ConfigOptions, prevDiagnosticVersion?: number): Diagnostic[] | undefined {
-    if (this._diagnosticVersion === prevDiagnosticVersion) {
+  getDiags(options: ConfigOptions, prevDiagVersion?: number): Diag[] | undefined {
+    if (this._diagnosticVersion === prevDiagVersion) {
       return undefined;
     }
 
@@ -178,14 +178,14 @@ export class SourceFile {
       includeWarningsAndErrors = false;
     }
 
-    let diagList: Diagnostic[] = [];
-    diagList = diagList.concat(this._parseDiagnostics, this._bindDiagnostics, this._checkerDiagnostics);
+    let diagList: Diag[] = [];
+    diagList = diagList.concat(this._parseDiags, this._bindDiags, this._checkerDiags);
 
     if (options.diagnosticRuleSet.enableTypeIgnoreComments) {
       const typeIgnoreLines = this._parseResults ? this._parseResults.tokenizerOutput.typeIgnoreLines : {};
       if (Object.keys(typeIgnoreLines).length > 0) {
         diagList = diagList.filter((d) => {
-          if (d.category !== DiagnosticCategory.UnusedCode) {
+          if (d.category !== DiagCategory.UnusedCode) {
             for (let line = d.range.start.line; line <= d.range.end.line; line++) {
               if (typeIgnoreLines[line]) {
                 return false;
@@ -203,9 +203,9 @@ export class SourceFile {
 
       this._circularDependencies.forEach((cirDep) => {
         diagList.push(
-          new Diagnostic(
+          new Diag(
             category,
-            Localizer.Diagnostic.importCycleDetected() +
+            Localizer.Diag.importCycleDetected() +
               '\n' +
               cirDep
                 .getPaths()
@@ -218,7 +218,7 @@ export class SourceFile {
     }
 
     if (this._hitMaxImportDepth !== undefined) {
-      diagList.push(new Diagnostic(DiagnosticCategory.Error, Localizer.Diagnostic.importDepthExceeded().format({ depth: this._hitMaxImportDepth }), getEmptyRange()));
+      diagList.push(new Diag(DiagCategory.Error, Localizer.Diag.importDepthExceeded().format({ depth: this._hitMaxImportDepth }), getEmptyRange()));
     }
 
     if (options.ignore.find((ignoreFileSpec) => ignoreFileSpec.regExp.test(this._filePath))) {
@@ -232,7 +232,7 @@ export class SourceFile {
     }
 
     if (!includeWarningsAndErrors) {
-      diagList = diagList.filter((diag) => diag.category === DiagnosticCategory.UnusedCode);
+      diagList = diagList.filter((diag) => diag.category === DiagCategory.UnusedCode);
     }
 
     return diagList;
@@ -404,12 +404,12 @@ export class SourceFile {
         return false;
       }
 
-      const diagSink = new DiagnosticSink();
+      const diagSink = new DiagSink();
       let fileContents = this.getFileContents();
       if (fileContents === undefined) {
         try {
           const startTime = timingStats.readFileTime.totalTime;
-          timingStats.readFileTime.timeOperation(() => {
+          timingStats.readFileTime.timeOp(() => {
             fileContents = content ?? this.fileSystem.readFileSync(this._filePath, 'utf8');
 
             this._lastFileContentLength = fileContents.length;
@@ -440,7 +440,7 @@ export class SourceFile {
         assert(parseResults !== undefined && parseResults.tokenizerOutput !== undefined);
         this._parseResults = parseResults;
 
-        timingStats.resolveImportsTime.timeOperation(() => {
+        timingStats.resolveImportsTime.timeOp(() => {
           const importResult = this._resolveImports(importResolver, parseResults.importedModules, execEnvironment);
 
           this._imports = importResult.imports;
@@ -449,7 +449,7 @@ export class SourceFile {
           this._typeshedModulePath = importResult.typeshedModulePath;
           this._collectionsModulePath = importResult.collectionsModulePath;
 
-          this._parseDiagnostics = diagSink.fetchAndClear();
+          this._parseDiags = diagSink.fetchAndClear();
         });
 
         const useStrict = configOptions.strict.find((strictFileSpec) => strictFileSpec.regExp.test(this._filePath)) !== undefined;
@@ -457,7 +457,7 @@ export class SourceFile {
         this._diagnosticRuleSet = CommentUtils.getFileLevelDirectives(this._parseResults.tokenizerOutput.tokens, configOptions.diagnosticRuleSet, useStrict);
       } catch (e) {
         const message: string = (e.stack ? e.stack.toString() : undefined) || (typeof e.message === 'string' ? e.message : undefined) || JSON.stringify(e);
-        this._console.error(Localizer.Diagnostic.internalParseError().format({ file: this.getFilePath(), message }));
+        this._console.error(Localizer.Diag.internalParseError().format({ file: this.getFilePath(), message }));
 
         this._parseResults = {
           text: '',
@@ -478,9 +478,9 @@ export class SourceFile {
         this._imports = undefined;
         this._builtinsImport = undefined;
 
-        const diagSink = new DiagnosticSink();
-        diagSink.addError(Localizer.Diagnostic.internalParseError().format({ file: this.getFilePath(), message }), getEmptyRange());
-        this._parseDiagnostics = diagSink.fetchAndClear();
+        const diagSink = new DiagSink();
+        diagSink.addError(Localizer.Diag.internalParseError().format({ file: this.getFilePath(), message }), getEmptyRange());
+        this._parseDiags = diagSink.fetchAndClear();
       }
 
       this._analyzedFileContentsVersion = this._fileContentsVersion;
@@ -698,7 +698,7 @@ export class SourceFile {
 
     return this._logTracker.log(`binding: ${this._getPathForLogging(this._filePath)}`, () => {
       try {
-        timingStats.bindTime.timeOperation(() => {
+        timingStats.bindTime.timeOp(() => {
           this._cleanParseTreeIfRequired();
 
           const fileInfo = this._buildFileInfo(configOptions, this._parseResults!.text, importLookup, builtinsScope);
@@ -713,18 +713,18 @@ export class SourceFile {
             testWalker.walk(this._parseResults!.parseTree);
           }
 
-          this._bindDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
+          this._bindDiags = fileInfo.diagnosticSink.fetchAndClear();
           const moduleScope = AnalyzerNodeInfo.getScope(this._parseResults!.parseTree);
           assert(moduleScope !== undefined);
           this._moduleSymbolTable = moduleScope!.symbolTable;
         });
       } catch (e) {
         const message: string = (e.stack ? e.stack.toString() : undefined) || (typeof e.message === 'string' ? e.message : undefined) || JSON.stringify(e);
-        this._console.error(Localizer.Diagnostic.internalBindError().format({ file: this.getFilePath(), message }));
+        this._console.error(Localizer.Diag.internalBindError().format({ file: this.getFilePath(), message }));
 
-        const diagSink = new DiagnosticSink();
-        diagSink.addError(Localizer.Diagnostic.internalBindError().format({ file: this.getFilePath(), message }), getEmptyRange());
-        this._bindDiagnostics = diagSink.fetchAndClear();
+        const diagSink = new DiagSink();
+        diagSink.addError(Localizer.Diag.internalBindError().format({ file: this.getFilePath(), message }), getEmptyRange());
+        this._bindDiags = diagSink.fetchAndClear();
       } finally {
         this._isBindingInProgress = false;
       }
@@ -745,23 +745,23 @@ export class SourceFile {
 
     return this._logTracker.log(`checking: ${this._getPathForLogging(this._filePath)}`, () => {
       try {
-        timingStats.typeCheckerTime.timeOperation(() => {
+        timingStats.typeCheckerTime.timeOp(() => {
           const checker = new Checker(this._parseResults!.parseTree, evaluator);
           checker.check();
           this._isCheckingNeeded = false;
 
           const fileInfo = AnalyzerNodeInfo.getFileInfo(this._parseResults!.parseTree)!;
-          this._checkerDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
+          this._checkerDiags = fileInfo.diagnosticSink.fetchAndClear();
         });
       } catch (e) {
-        const isCancellation = OperationCanceledException.is(e);
+        const isCancellation = OpCanceledException.is(e);
         if (!isCancellation) {
           const message: string = (e.stack ? e.stack.toString() : undefined) || (typeof e.message === 'string' ? e.message : undefined) || JSON.stringify(e);
-          this._console.error(Localizer.Diagnostic.internalTypeCheckingError().format({ file: this.getFilePath(), message }));
-          const diagSink = new DiagnosticSink();
-          diagSink.addError(Localizer.Diagnostic.internalTypeCheckingError().format({ file: this.getFilePath(), message }), getEmptyRange());
+          this._console.error(Localizer.Diag.internalTypeCheckingError().format({ file: this.getFilePath(), message }));
+          const diagSink = new DiagSink();
+          diagSink.addError(Localizer.Diag.internalTypeCheckingError().format({ file: this.getFilePath(), message }), getEmptyRange());
 
-          this._checkerDiagnostics = diagSink.fetchAndClear();
+          this._checkerDiags = diagSink.fetchAndClear();
 
           this._isCheckingNeeded = false;
         }
@@ -776,7 +776,7 @@ export class SourceFile {
 
   private _buildFileInfo(configOptions: ConfigOptions, fileContents: string, importLookup: ImportLookup, builtinsScope?: Scope) {
     assert(this._parseResults !== undefined);
-    const analysisDiagnostics = new TextRangeDiagnosticSink(this._parseResults!.tokenizerOutput.lines);
+    const analysisDiags = new TextRangeDiagSink(this._parseResults!.tokenizerOutput.lines);
 
     const fileInfo: AnalyzerFileInfo = {
       importLookup,
@@ -785,7 +785,7 @@ export class SourceFile {
       typingModulePath: this._typingModulePath,
       typeshedModulePath: this._typeshedModulePath,
       collectionsModulePath: this._collectionsModulePath,
-      diagnosticSink: analysisDiagnostics,
+      diagnosticSink: analysisDiags,
       executionEnvironment: configOptions.findExecEnvironment(this._filePath),
       diagnosticRuleSet: this._diagnosticRuleSet,
       fileContents,

@@ -1,12 +1,12 @@
 import { ClientCap, ServiceClient } from '../service';
-import { Command, CommandManager } from '../../old/ts/commands/commandManager';
+import { Command, CommandMgr } from '../../old/ts/commands/commandMgr';
 import { condRegistration, requireSomeCap } from '../registration';
-import { DiagnosticsManager } from '../../old/ts/languageFeatures/diagnostics';
+import { DiagsMgr } from '../../old/ts/languageFeatures/diagnostics';
 import { TelemetryReporter } from '../../old/ts/utils/telemetry';
 import * as qu from '../utils';
 import * as qv from 'vscode';
 import API from '../../old/ts/utils/api';
-import FileConfigurationManager from '../../old/ts/languageFeatures/fileConfigurationManager';
+import FileConfigMgr from '../../old/ts/languageFeatures/fileConfigMgr';
 import type * as qp from '../protocol';
 
 class ApplyCodeActionCommand implements Command {
@@ -55,20 +55,20 @@ class ApplyFixAllCodeAction implements Command {
   }
 }
 
-class DiagnosticsSet {
-  public static from(diagnostics: qv.Diagnostic[]) {
-    const values = new Map<string, qv.Diagnostic>();
+class DiagsSet {
+  public static from(diagnostics: qv.Diag[]) {
+    const values = new Map<string, qv.Diag>();
     for (const diagnostic of diagnostics) {
-      values.set(DiagnosticsSet.key(diagnostic), diagnostic);
+      values.set(DiagsSet.key(diagnostic), diagnostic);
     }
-    return new DiagnosticsSet(values);
+    return new DiagsSet(values);
   }
-  private static key(diagnostic: qv.Diagnostic) {
+  private static key(diagnostic: qv.Diag) {
     const { start, end } = diagnostic.range;
     return `${diagnostic.code}-${start.line},${start.character}-${end.line},${end.character}`;
   }
-  private constructor(private readonly _values: Map<string, qv.Diagnostic>) {}
-  public get values(): Iterable<qv.Diagnostic> {
+  private constructor(private readonly _values: Map<string, qv.Diag>) {}
+  public get values(): Iterable<qv.Diag> {
     return this._values.values();
   }
   public get size() {
@@ -123,12 +123,12 @@ class CodeActionSet {
 
 class SupportedCodeActionProvider {
   public constructor(private readonly client: ServiceClient) {}
-  public async getFixableDiagnosticsForContext(context: qv.CodeActionContext): Promise<DiagnosticsSet> {
-    const fixableCodes = await this.fixableDiagnosticCodes;
-    return DiagnosticsSet.from(context.diagnostics.filter((diagnostic) => typeof diagnostic.code !== 'undefined' && fixableCodes.has(diagnostic.code + '')));
+  public async getFixableDiagsForContext(context: qv.CodeActionContext): Promise<DiagsSet> {
+    const fixableCodes = await this.fixableDiagCodes;
+    return DiagsSet.from(context.diagnostics.filter((diagnostic) => typeof diagnostic.code !== 'undefined' && fixableCodes.has(diagnostic.code + '')));
   }
   @qu.memoize
-  private get fixableDiagnosticCodes(): Thenable<Set<string>> {
+  private get fixableDiagCodes(): Thenable<Set<string>> {
     return this.client
       .execute('getSupportedCodeFixes', null, qu.nulToken)
       .then((response) => (response.type === 'response' ? response.body || [] : []))
@@ -143,26 +143,26 @@ class QuickFix implements qv.CodeActionProvider<VsCodeCodeAction> {
   private readonly supportedCodeActionProvider: SupportedCodeActionProvider;
   constructor(
     private readonly client: ServiceClient,
-    private readonly formattingConfigurationManager: FileConfigurationManager,
-    commandManager: CommandManager,
-    private readonly diagnosticsManager: DiagnosticsManager,
+    private readonly formattingConfigMgr: FileConfigMgr,
+    commandMgr: CommandMgr,
+    private readonly diagnosticsMgr: DiagsMgr,
     telemetryReporter: TelemetryReporter
   ) {
-    commandManager.register(new ApplyCodeActionCommand(client, telemetryReporter));
-    commandManager.register(new ApplyFixAllCodeAction(client, telemetryReporter));
+    commandMgr.register(new ApplyCodeActionCommand(client, telemetryReporter));
+    commandMgr.register(new ApplyFixAllCodeAction(client, telemetryReporter));
     this.supportedCodeActionProvider = new SupportedCodeActionProvider(client);
   }
 
   public async provideCodeActions(document: qv.TextDocument, _range: qv.Range, context: qv.CodeActionContext, token: qv.CancellationToken): Promise<VsCodeCodeAction[]> {
     const file = this.client.toOpenedFilePath(document);
     if (!file) return [];
-    const fixableDiagnostics = await this.supportedCodeActionProvider.getFixableDiagnosticsForContext(context);
-    if (!fixableDiagnostics.size) return [];
-    if (this.client.bufferSyncSupport.hasPendingDiagnostics(document.uri)) return [];
-    await this.formattingConfigurationManager.ensureConfigurationForDocument(document, token);
+    const fixableDiags = await this.supportedCodeActionProvider.getFixableDiagsForContext(context);
+    if (!fixableDiags.size) return [];
+    if (this.client.bufferSyncSupport.hasPendingDiags(document.uri)) return [];
+    await this.formattingConfigMgr.ensureConfigForDocument(document, token);
     const results = new CodeActionSet();
-    for (const diagnostic of fixableDiagnostics.values) {
-      await this.getFixesForDiagnostic(document, file, diagnostic, results, token);
+    for (const diagnostic of fixableDiags.values) {
+      await this.getFixesForDiag(document, file, diagnostic, results, token);
     }
     const allActions = Array.from(results.values);
     for (const action of allActions) {
@@ -188,7 +188,7 @@ class QuickFix implements qv.CodeActionProvider<VsCodeCodeAction> {
     return codeAction;
   }
 
-  private async getFixesForDiagnostic(document: qv.TextDocument, file: string, diagnostic: qv.Diagnostic, results: CodeActionSet, token: qv.CancellationToken): Promise<CodeActionSet> {
+  private async getFixesForDiag(document: qv.TextDocument, file: string, diagnostic: qv.Diag, results: CodeActionSet, token: qv.CancellationToken): Promise<CodeActionSet> {
     const args: qp.CodeFixRequestArgs = {
       ...qu.Range.toFileRangeRequestArgs(file, diagnostic.range),
       errorCodes: [+diagnostic.code!],
@@ -201,13 +201,13 @@ class QuickFix implements qv.CodeActionProvider<VsCodeCodeAction> {
     return results;
   }
 
-  private addAllFixesForTsCodeAction(results: CodeActionSet, document: qv.TextDocument, file: string, diagnostic: qv.Diagnostic, tsAction: qp.CodeFixAction): CodeActionSet {
+  private addAllFixesForTsCodeAction(results: CodeActionSet, document: qv.TextDocument, file: string, diagnostic: qv.Diag, tsAction: qp.CodeFixAction): CodeActionSet {
     results.addAction(this.getSingleFixForTsCodeAction(diagnostic, tsAction));
     this.addFixAllForTsCodeAction(results, document, file, diagnostic, tsAction as qp.CodeFixAction);
     return results;
   }
 
-  private getSingleFixForTsCodeAction(diagnostic: qv.Diagnostic, tsAction: qp.CodeFixAction): VsCodeCodeAction {
+  private getSingleFixForTsCodeAction(diagnostic: qv.Diag, tsAction: qp.CodeFixAction): VsCodeCodeAction {
     const codeAction = new VsCodeCodeAction(tsAction, tsAction.description, qv.CodeActionKind.QuickFix);
     codeAction.edit = qu.getEditForCodeAction(this.client, tsAction);
     codeAction.diagnostics = [diagnostic];
@@ -219,10 +219,10 @@ class QuickFix implements qv.CodeActionProvider<VsCodeCodeAction> {
     return codeAction;
   }
 
-  private addFixAllForTsCodeAction(results: CodeActionSet, document: qv.TextDocument, file: string, diagnostic: qv.Diagnostic, tsAction: qp.CodeFixAction): CodeActionSet {
+  private addFixAllForTsCodeAction(results: CodeActionSet, document: qv.TextDocument, file: string, diagnostic: qv.Diag, tsAction: qp.CodeFixAction): CodeActionSet {
     if (!tsAction.fixId || this.client.apiVersion.lt(API.v270) || results.hasFixAllAction(tsAction.fixId)) return results;
     if (
-      !this.diagnosticsManager.getDiagnostics(document.uri).some((x) => {
+      !this.diagnosticsMgr.getDiags(document.uri).some((x) => {
         if (x === diagnostic) return false;
         return x.code === diagnostic.code || (fixAllErrorCodes.has(x.code as number) && fixAllErrorCodes.get(x.code as number) === fixAllErrorCodes.get(diagnostic.code as number));
       })
@@ -276,15 +276,8 @@ function isPreferredFix(action: VsCodeCodeAction, allActions: readonly VsCodeCod
   });
 }
 
-export function register(
-  s: qu.DocumentSelector,
-  c: ServiceClient,
-  fileConfigurationManager: FileConfigurationManager,
-  commandManager: CommandManager,
-  diagnosticsManager: DiagnosticsManager,
-  telemetryReporter: TelemetryReporter
-) {
+export function register(s: qu.DocumentSelector, c: ServiceClient, fileConfigMgr: FileConfigMgr, commandMgr: CommandMgr, diagnosticsMgr: DiagsMgr, telemetryReporter: TelemetryReporter) {
   return condRegistration([requireSomeCap(c, ClientCap.Semantic)], () => {
-    return qv.languages.registerCodeActionsProvider(s.semantic, new QuickFix(c, fileConfigurationManager, commandManager, diagnosticsManager, telemetryReporter), QuickFix.metadata);
+    return qv.languages.registerCodeActionsProvider(s.semantic, new QuickFix(c, fileConfigMgr, commandMgr, diagnosticsMgr, telemetryReporter), QuickFix.metadata);
   });
 }

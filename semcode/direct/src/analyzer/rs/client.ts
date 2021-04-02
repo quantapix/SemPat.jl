@@ -19,7 +19,7 @@ function renderHoverActions(actions: ra.CommandLinkGroup[]): qv.MarkdownString {
   return result;
 }
 
-export function createClient(serverPath: string, cwd: string): lc.LanguageClient {
+export function createClient(serverPath: string, cwd: string): lc.LangClient {
   const run: lc.Executable = {
     command: serverPath,
     options: { cwd },
@@ -28,11 +28,11 @@ export function createClient(serverPath: string, cwd: string): lc.LanguageClient
     run,
     debug: run,
   };
-  const traceOutputChannel = qv.window.createOutputChannel('Rust Analyzer Language Server Trace');
+  const traceOutputChannel = qv.window.createOutputChannel('Rust Analyzer Lang Server Trace');
 
-  const clientOptions: lc.LanguageClientOptions = {
+  const clientOptions: lc.LangClientOptions = {
     documentSelector: [{ scheme: 'file', language: 'rust' }],
-    initializationOptions: qv.workspace.getConfiguration('rust-analyzer'),
+    initializationOptions: qv.workspace.getConfig('rust-analyzer'),
     traceOutputChannel,
     middleware: {
       async provideDocumentSemanticTokens(document: qv.TextDocument, token: qv.CancellationToken, next: DocumentSemanticsTokensSignature) {
@@ -129,7 +129,7 @@ export function createClient(serverPath: string, cwd: string): lc.LanguageClient
     } as any,
   };
 
-  const client = new lc.LanguageClient('rust-analyzer', 'Rust Analyzer Language Server', serverOptions, clientOptions);
+  const client = new lc.LangClient('rust-analyzer', 'Rust Analyzer Lang Server', serverOptions, clientOptions);
 
   client.registerFeature(new CallHierarchyFeature(client));
   client.registerFeature(new SemanticTokensFeature(client));
@@ -139,7 +139,7 @@ export function createClient(serverPath: string, cwd: string): lc.LanguageClient
 }
 
 class ExperimentalFeatures implements lc.StaticFeature {
-  fillClientCapabilities(capabilities: lc.ClientCapabilities): void {
+  fillClientCaps(capabilities: lc.ClientCaps): void {
     const caps: any = capabilities.experimental ?? {};
     caps.snippetTextEdit = true;
     caps.codeActionGroup = true;
@@ -156,7 +156,7 @@ function isCodeActionWithoutEditsAndCommands(value: any): boolean {
   return (
     candidate &&
     Is.string(candidate.title) &&
-    (candidate.diagnostics === void 0 || Is.typedArray(candidate.diagnostics, lc.Diagnostic.is)) &&
+    (candidate.diagnostics === void 0 || Is.typedArray(candidate.diagnostics, lc.Diag.is)) &&
     (candidate.kind === void 0 || Is.string(candidate.kind)) &&
     candidate.edit === void 0 &&
     candidate.command === void 0

@@ -55,7 +55,7 @@ function createLargeProjectMonitorFromTypeScript(item: ExcludeHintItem, client: 
     index: number;
   }
 
-  return client.onProjectLanguageServiceStateChanged((body) => {
+  return client.onProjectLangServiceStateChanged((body) => {
     if (body.languageServiceEnabled) {
       item.hide();
     } else {

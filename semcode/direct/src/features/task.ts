@@ -4,7 +4,7 @@ import * as qv from 'vscode';
 import { wait } from '../test/testUtils';
 import { ServiceClient, ServerResponse } from '../service';
 import { coalesce, flatten } from '../utils/arrays';
-import { Disposable } from '../utils/dispose';
+import { Disposable } from '../utils';
 import { exists } from '../utils/fs';
 import { isTsConfigFileName } from '../../old/ts/utils/languageDescription';
 import { Lazy } from '../utils/lazy';
@@ -34,8 +34,8 @@ class TscTaskProvider extends Disposable implements qv.TaskProvider {
     super();
     this.tsconfigProvider = new TsConfigProvider();
 
-    this._register(qv.workspace.onDidChangeConfiguration(this.onConfigurationChanged, this));
-    this.onConfigurationChanged();
+    this._register(qv.workspace.onDidChangeConfig(this.onConfigChanged, this));
+    this.onConfigChanged();
   }
 
   public async provideTasks(token: qv.CancellationToken): Promise<qv.Task[]> {
@@ -254,8 +254,8 @@ class TscTaskProvider extends Disposable implements qv.TaskProvider {
     return project.posixPath;
   }
 
-  private onConfigurationChanged(): void {
-    const type = qv.workspace.getConfiguration('typescript.tsc').get<AutoDetect>('autoDetect');
+  private onConfigChanged(): void {
+    const type = qv.workspace.getConfig('typescript.tsc').get<AutoDetect>('autoDetect');
     this.autoDetect = typeof type === 'undefined' ? AutoDetect.on : type;
   }
 }

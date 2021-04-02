@@ -1,21 +1,21 @@
-import { ChildProcess } from 'child_process';
+import { ChildProc } from 'child_process';
 import kill = require('tree-kill');
-import { AttachItem, ProcessListCommand } from '../pickProcess';
+import { AttachItem, ProcListCommand } from '../pickProc';
 const secondColumnCharacters = 50;
 const commColumnTitle = ''.padStart(secondColumnCharacters, 'a');
-export const psLinuxCommand: ProcessListCommand = {
+export const psLinuxCommand: ProcListCommand = {
   command: 'ps',
   args: ['axww', '-o', `pid=,comm=${commColumnTitle},args=`],
 };
-export const psDarwinCommand: ProcessListCommand = {
+export const psDarwinCommand: ProcListCommand = {
   command: 'ps',
   args: ['axww', '-o', `pid=,comm=${commColumnTitle},args=`, '-c'],
 };
-export function parsePsProcesses(processes: string): AttachItem[] {
+export function parsePsProces(processes: string): AttachItem[] {
   const lines: string[] = processes.split('\n');
-  return parseProcessesFromPsArray(lines);
+  return parseProcesFromPsArray(lines);
 }
-function parseProcessesFromPsArray(processArray: string[]): AttachItem[] {
+function parseProcesFromPsArray(processArray: string[]): AttachItem[] {
   const processEntries: AttachItem[] = [];
   for (let i = 1; i < processArray.length; i += 1) {
     const line = processArray[i];
@@ -50,7 +50,7 @@ function parseLineFromPs(line: string): AttachItem | undefined {
     return attachItem;
   }
 }
-export function killProcessTree(p: ChildProcess, logger?: (...args: any[]) => void): Promise<void> {
+export function killProcTree(p: ChildProc, logger?: (...args: any[]) => void): Promise<void> {
   if (!logger) {
     logger = console.log;
   }
@@ -66,7 +66,7 @@ export function killProcessTree(p: ChildProcess, logger?: (...args: any[]) => vo
     });
   });
 }
-export function killProcess(p: ChildProcess) {
+export function killProc(p: ChildProc) {
   if (p && p.pid && p.exitCode === null) {
     try {
       p.kill();
@@ -77,7 +77,7 @@ export function killProcess(p: ChildProcess) {
 }
 const wmicNameTitle = 'Name';
 const wmicCommandLineTitle = 'CommandLine';
-const wmicPidTitle = 'ProcessId';
+const wmicPidTitle = 'ProcId';
 const wmicExecutableTitle = 'ExecutablePath';
 const defaultEmptyEntry: AttachItem = {
   label: '',
@@ -87,11 +87,11 @@ const defaultEmptyEntry: AttachItem = {
   processName: '',
   commandLine: '',
 };
-export const wmicCommand: ProcessListCommand = {
+export const wmicCommand: ProcListCommand = {
   command: 'wmic',
-  args: ['process', 'get', 'Name,ProcessId,CommandLine,ExecutablePath', '/FORMAT:list'],
+  args: ['process', 'get', 'Name,ProcId,CommandLine,ExecutablePath', '/FORMAT:list'],
 };
-export function parseWmicProcesses(processes: string): AttachItem[] {
+export function parseWmicProces(processes: string): AttachItem[] {
   const lines: string[] = processes.split('\r\n');
   const processEntries: AttachItem[] = [];
   let entry = { ...defaultEmptyEntry };
@@ -132,15 +132,15 @@ function parseLineFromWmic(line: string, item: AttachItem): AttachItem {
   }
   return currentItem;
 }
-export const lsofDarwinCommand: ProcessListCommand = {
+export const lsofDarwinCommand: ProcListCommand = {
   command: 'lsof',
   args: ['-Pnl', '-F', 'pn', '-d', 'txt'],
 };
-export function parseLsofProcesses(processes: string): AttachItem[] {
+export function parseLsofProces(processes: string): AttachItem[] {
   const lines: string[] = processes.split('\n');
-  return parseProcessesFromLsofArray(lines);
+  return parseProcesFromLsofArray(lines);
 }
-function parseProcessesFromLsofArray(processArray: string[], includesEnv?: boolean): AttachItem[] {
+function parseProcesFromLsofArray(processArray: string[], includesEnv?: boolean): AttachItem[] {
   const processEntries: AttachItem[] = [];
   let i = 0;
   while (i < processArray.length) {

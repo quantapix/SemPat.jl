@@ -8,7 +8,7 @@ import { isRustEditor, RustEditor } from './util';
 import { Status } from './lsp_ext';
 
 export class Ctx {
-  private constructor(readonly config: Config, private readonly extCtx: qv.ExtensionContext, readonly client: lc.LanguageClient, readonly serverPath: string, readonly statusBar: qv.StatusBarItem) {}
+  private constructor(readonly config: Config, private readonly extCtx: qv.ExtensionContext, readonly client: lc.LangClient, readonly serverPath: string, readonly statusBar: qv.StatusBarItem) {}
 
   static async create(config: Config, extCtx: qv.ExtensionContext, serverPath: string, cwd: string): Promise<Ctx> {
     const client = createClient(serverPath, cwd);

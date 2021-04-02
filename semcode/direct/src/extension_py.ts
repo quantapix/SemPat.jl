@@ -2,12 +2,12 @@ import * as path from 'path';
 import { commands, ExtensionContext, extensions, OutputChannel, Position, Range, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
 import {
   CancellationToken,
-  ConfigurationParams,
-  ConfigurationRequest,
-  DidChangeConfigurationNotification,
+  ConfigParams,
+  ConfigRequest,
+  DidChangeConfigNotification,
   HandlerResult,
-  LanguageClient,
-  LanguageClientOptions,
+  LangClient,
+  LangClientOptions,
   ResponseError,
   ServerOptions,
   TextEdit,
@@ -50,7 +50,7 @@ export function activate(context: ExtensionContext) {
     },
   };
 
-  const clientOptions: LanguageClientOptions = {
+  const clientOptions: LangClientOptions = {
     documentSelector: [
       {
         scheme: 'file',
@@ -63,7 +63,7 @@ export function activate(context: ExtensionContext) {
     connectionOptions: { cancellationStrategy: cancellationStrategy },
     middleware: {
       workspace: {
-        configuration: (params: ConfigurationParams, token: CancellationToken, next: ConfigurationRequest.HandlerSignature): HandlerResult<any[], void> => {
+        configuration: (params: ConfigParams, token: CancellationToken, next: ConfigRequest.HandlerSignature): HandlerResult<any[], void> => {
           const result: any[] | ResponseError<void> | Thenable<any[] | ResponseError<void>> = next(params, token);
           const addPythonPath = (settings: any[] | ResponseError<void>): Promise<any[] | ResponseError<any>> => {
             if (settings instanceof ResponseError) {
@@ -74,7 +74,7 @@ export function activate(context: ExtensionContext) {
               if (item.section === 'python') {
                 const uri = item.scopeUri ? Uri.parse(item.scopeUri) : undefined;
                 return getPythonPathFromPythonExtension(languageClient.outputChannel, uri, () => {
-                  languageClient.sendNotification(DidChangeConfigurationNotification.type, {
+                  languageClient.sendNotification(DidChangeConfigNotification.type, {
                     settings: null,
                   });
                 });
@@ -102,7 +102,7 @@ export function activate(context: ExtensionContext) {
     },
   };
 
-  const languageClient = new LanguageClient('python', 'Pyright', serverOptions, clientOptions);
+  const languageClient = new LangClient('python', 'Pyright', serverOptions, clientOptions);
   const disposable = languageClient.start();
 
   context.subscriptions.push(disposable);

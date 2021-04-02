@@ -160,11 +160,11 @@ export async function getServer({ askBeforeDownload, package: pkg }: RustAnalyze
   return dest;
 }
 
-let INSTANCE: lc.LanguageClient | undefined;
+let INSTANCE: lc.LangClient | undefined;
 
 const PROGRESS: Observable<WorkspaceProgress> = new Observable<WorkspaceProgress>({ state: 'standby' });
 
-export async function createLanguageClient(
+export async function createLangClient(
   folder: vs.WorkspaceFolder,
   config: {
     revealOutputChannelOn?: lc.RevealOutputChannelOn;
@@ -172,7 +172,7 @@ export async function createLanguageClient(
     rustup: { disabled: boolean; path: string; channel: string };
     rustAnalyzer: { path?: string; releaseTag: string };
   }
-): Promise<lc.LanguageClient> {
+): Promise<lc.LangClient> {
   if (!config.rustup.disabled) {
     await rustup.ensureToolchain(config.rustup);
     await rustup.ensureComponents(config.rustup, REQUIRED_COMPONENTS);
@@ -200,17 +200,17 @@ export async function createLanguageClient(
       throw new Error("Couldn't fetch Rust Analyzer binary");
     }
 
-    const childProcess = child_process.exec(binPath);
+    const childProc = child_process.exec(binPath);
     if (config.logToFile) {
       const logPath = path.join(folder.uri.fsPath, `ra-${Date.now()}.log`);
       const logStream = fs.createWriteStream(logPath, { flags: 'w+' });
-      childProcess.stderr?.pipe(logStream);
+      childProc.stderr?.pipe(logStream);
     }
 
-    return childProcess;
+    return childProc;
   };
 
-  const clientOptions: lc.LanguageClientOptions = {
+  const clientOptions: lc.LangClientOptions = {
     documentSelector: [
       { language: 'rust', scheme: 'file' },
       { language: 'rust', scheme: 'untitled' },
@@ -219,10 +219,10 @@ export async function createLanguageClient(
 
     revealOutputChannelOn: config.revealOutputChannelOn,
 
-    initializationOptions: vs.workspace.getConfiguration('rust.rust-analyzer'),
+    initializationOptions: vs.workspace.getConfig('rust.rust-analyzer'),
   };
 
-  INSTANCE = new lc.LanguageClient('rust-client', 'Rust Analyzer', serverOptions, clientOptions);
+  INSTANCE = new lc.LangClient('rust-client', 'Rust Analyzer', serverOptions, clientOptions);
 
   INSTANCE.registerProposedFeatures();
 
@@ -231,7 +231,7 @@ export async function createLanguageClient(
   return INSTANCE;
 }
 
-async function setupGlobalProgress(client: lc.LanguageClient) {
+async function setupGlobalProgress(client: lc.LangClient) {
   client.onDidChangeState(async ({ newState }) => {
     if (newState === lc.State.Starting) {
       await client.onReady();
@@ -256,11 +256,11 @@ async function setupGlobalProgress(client: lc.LanguageClient) {
   });
 }
 
-export function setupClient(_client: lc.LanguageClient, _folder: vs.WorkspaceFolder): vs.Disposable[] {
+export function setupClient(_client: lc.LangClient, _folder: vs.WorkspaceFolder): vs.Disposable[] {
   return [];
 }
 
-export function setupProgress(_client: lc.LanguageClient, workspaceProgress: Observable<WorkspaceProgress>) {
+export function setupProgress(_client: lc.LangClient, workspaceProgress: Observable<WorkspaceProgress>) {
   workspaceProgress.value = PROGRESS.value;
 
   PROGRESS.observe((progress) => {

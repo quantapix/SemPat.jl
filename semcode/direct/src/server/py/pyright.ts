@@ -9,8 +9,8 @@ import { PackageTypeVerifier, PackageTypeReport } from './analyzer/packageTypeVe
 import { AnalyzerService } from './analyzer/service';
 import { CommandLineOptions as PyrightCommandLineOptions } from './common/commandLineOptions';
 import { NullConsole } from './common/console';
-import { Diagnostic, DiagnosticCategory } from './common/diagnostic';
-import { FileDiagnostics } from './common/diagnosticSink';
+import { Diag, DiagCategory } from './common/diagnostic';
+import { FileDiags } from './common/diagnosticSink';
 import { combinePaths, normalizePath } from './common/pathUtils';
 import { createFromRealFileSystem } from './common/fileSystem';
 import { isEmptyRange, Range } from './common/textRange';
@@ -30,7 +30,7 @@ enum ExitStatus {
 interface PyrightJsonResults {
   version: string;
   time: string;
-  diagnostics: PyrightJsonDiagnostic[];
+  diagnostics: PyrightJsonDiag[];
   summary: PyrightJsonSummary;
   typeCompleteness?: PyrightTypeCompletenessReport;
 }
@@ -38,7 +38,7 @@ interface PyrightJsonResults {
 interface PyrightTypeCompletenessReport {
   packageName: string;
   ignoreUnknownTypesFromImports: boolean;
-  packageRootDirectory?: string;
+  packageRootDir?: string;
   pyTypedPath?: string;
   symbolCount: number;
   unknownTypeCount: number;
@@ -61,7 +61,7 @@ interface PyrightPublicSymbolReport {
   symbolType: string;
 }
 
-interface PyrightJsonDiagnostic {
+interface PyrightJsonDiag {
   file: string;
   severity: 'error' | 'warning' | 'information';
   message: string;
@@ -77,7 +77,7 @@ interface PyrightJsonSummary {
   timeInSec: number;
 }
 
-interface DiagnosticResult {
+interface DiagResult {
   errorCount: number;
   warningCount: number;
   informationCount: number;
@@ -249,10 +249,10 @@ function processArgs() {
     let errorCount = 0;
     if (results.diagnostics.length > 0 && !args.createstub && !args['verifytypes']) {
       if (args.outputjson) {
-        const report = reportDiagnosticsAsJson(results.diagnostics, results.filesInProgram, results.elapsedTime);
+        const report = reportDiagsAsJson(results.diagnostics, results.filesInProgram, results.elapsedTime);
         errorCount += report.errorCount;
       } else {
-        const report = reportDiagnosticsAsText(results.diagnostics);
+        const report = reportDiagsAsText(results.diagnostics);
         errorCount += report.errorCount;
       }
     }
@@ -341,9 +341,9 @@ function buildTypeCompletenessReport(packageName: string, completenessReport: Pa
     },
   };
 
-  completenessReport.fileDiagnostics.forEach((fileDiagnostics) => {
-    fileDiagnostics.diagnostics.forEach((diag) => {
-      const jsonDiag = convertDiagnosticToJson(fileDiagnostics.filePath, diag);
+  completenessReport.fileDiags.forEach((fileDiags) => {
+    fileDiags.diagnostics.forEach((diag) => {
+      const jsonDiag = convertDiagToJson(fileDiags.filePath, diag);
       report.diagnostics.push(jsonDiag);
 
       if (jsonDiag.severity === 'error') {
@@ -359,7 +359,7 @@ function buildTypeCompletenessReport(packageName: string, completenessReport: Pa
   report.typeCompleteness = {
     packageName,
     ignoreUnknownTypesFromImports: completenessReport.ignoreUnknownTypesFromImports,
-    packageRootDirectory: completenessReport.rootDirectory,
+    packageRootDir: completenessReport.rootDir,
     pyTypedPath: completenessReport.pyTypedPath,
     symbolCount: completenessReport.symbolCount,
     unknownTypeCount: completenessReport.unknownTypeCount,
@@ -405,8 +405,8 @@ function printTypeCompletenessReportText(results: PyrightJsonResults, verboseOut
   const completenessReport = results.typeCompleteness!;
 
   console.log(`Package name: "${completenessReport.packageName}"`);
-  if (completenessReport.packageRootDirectory !== undefined) {
-    console.log(`Package directory: "${completenessReport.packageRootDirectory}"`);
+  if (completenessReport.packageRootDir !== undefined) {
+    console.log(`Package directory: "${completenessReport.packageRootDir}"`);
   }
 
   if (completenessReport.pyTypedPath !== undefined) {
@@ -415,13 +415,13 @@ function printTypeCompletenessReportText(results: PyrightJsonResults, verboseOut
 
   results.diagnostics.forEach((diag) => {
     if (diag.severity === 'error') {
-      logDiagnosticToConsole(diag);
+      logDiagToConsole(diag);
     }
   });
 
   results.diagnostics.forEach((diag) => {
     if (diag.severity !== 'error') {
-      logDiagnosticToConsole(diag);
+      logDiagToConsole(diag);
     }
   });
 
@@ -470,7 +470,7 @@ function printUsage() {
       '  --pythonversion VERSION          Analyze for a specific version (3.3, 3.4, etc.)\n' +
       '  --stats                          Print detailed performance stats\n' +
       '  -t,--typeshed-path DIRECTORY     Use typeshed type stubs at this location\n' +
-      '  -v,--venv-path DIRECTORY         Directory that contains virtual environments\n' +
+      '  -v,--venv-path DIRECTORY         Dir that contains virtual environments\n' +
       '  --verbose                        Emit verbose diagnostics\n' +
       '  --verifytypes PACKAGE            Verify type completeness of a py.typed package\n' +
       '  --version                        Print Pyright version\n' +
@@ -487,7 +487,7 @@ function printVersion() {
   console.log(`${toolName} ${getVersionString()}`);
 }
 
-function reportDiagnosticsAsJson(fileDiagnostics: FileDiagnostics[], filesInProgram: number, timeInSec: number): DiagnosticResult {
+function reportDiagsAsJson(fileDiags: FileDiags[], filesInProgram: number, timeInSec: number): DiagResult {
   const report: PyrightJsonResults = {
     version: getVersionString(),
     time: Date.now().toString(),
@@ -505,16 +505,16 @@ function reportDiagnosticsAsJson(fileDiagnostics: FileDiagnostics[], filesInProg
   let warningCount = 0;
   let informationCount = 0;
 
-  fileDiagnostics.forEach((fileDiag) => {
+  fileDiags.forEach((fileDiag) => {
     fileDiag.diagnostics.forEach((diag) => {
-      if (diag.category === DiagnosticCategory.Error || diag.category === DiagnosticCategory.Warning || diag.category === DiagnosticCategory.Information) {
-        report.diagnostics.push(convertDiagnosticToJson(fileDiag.filePath, diag));
+      if (diag.category === DiagCategory.Error || diag.category === DiagCategory.Warning || diag.category === DiagCategory.Information) {
+        report.diagnostics.push(convertDiagToJson(fileDiag.filePath, diag));
 
-        if (diag.category === DiagnosticCategory.Error) {
+        if (diag.category === DiagCategory.Error) {
           errorCount++;
-        } else if (diag.category === DiagnosticCategory.Warning) {
+        } else if (diag.category === DiagCategory.Warning) {
           warningCount++;
-        } else if (diag.category === DiagnosticCategory.Information) {
+        } else if (diag.category === DiagCategory.Information) {
           informationCount++;
         }
       }
@@ -535,34 +535,34 @@ function reportDiagnosticsAsJson(fileDiagnostics: FileDiagnostics[], filesInProg
   };
 }
 
-function convertDiagnosticToJson(filePath: string, diag: Diagnostic): PyrightJsonDiagnostic {
+function convertDiagToJson(filePath: string, diag: Diag): PyrightJsonDiag {
   return {
     file: filePath,
-    severity: diag.category === DiagnosticCategory.Error ? 'error' : diag.category === DiagnosticCategory.Warning ? 'warning' : 'information',
+    severity: diag.category === DiagCategory.Error ? 'error' : diag.category === DiagCategory.Warning ? 'warning' : 'information',
     message: diag.message,
     range: isEmptyRange(diag.range) ? undefined : diag.range,
     rule: diag.getRule(),
   };
 }
 
-function reportDiagnosticsAsText(fileDiagnostics: FileDiagnostics[]): DiagnosticResult {
+function reportDiagsAsText(fileDiags: FileDiags[]): DiagResult {
   let errorCount = 0;
   let warningCount = 0;
   let informationCount = 0;
 
-  fileDiagnostics.forEach((fileDiagnostics) => {
-    const fileErrorsAndWarnings = fileDiagnostics.diagnostics.filter((diag) => diag.category !== DiagnosticCategory.UnusedCode);
+  fileDiags.forEach((fileDiags) => {
+    const fileErrorsAndWarnings = fileDiags.diagnostics.filter((diag) => diag.category !== DiagCategory.UnusedCode);
 
     if (fileErrorsAndWarnings.length > 0) {
-      console.log(`${fileDiagnostics.filePath}`);
+      console.log(`${fileDiags.filePath}`);
       fileErrorsAndWarnings.forEach((diag) => {
-        logDiagnosticToConsole(convertDiagnosticToJson(fileDiagnostics.filePath, diag));
+        logDiagToConsole(convertDiagToJson(fileDiags.filePath, diag));
 
-        if (diag.category === DiagnosticCategory.Error) {
+        if (diag.category === DiagCategory.Error) {
           errorCount++;
-        } else if (diag.category === DiagnosticCategory.Warning) {
+        } else if (diag.category === DiagCategory.Warning) {
           warningCount++;
-        } else if (diag.category === DiagnosticCategory.Information) {
+        } else if (diag.category === DiagCategory.Information) {
           informationCount++;
         }
       });
@@ -583,7 +583,7 @@ function reportDiagnosticsAsText(fileDiagnostics: FileDiagnostics[]): Diagnostic
   };
 }
 
-function logDiagnosticToConsole(diag: PyrightJsonDiagnostic, prefix = '  ') {
+function logDiagToConsole(diag: PyrightJsonDiag, prefix = '  ') {
   let message = prefix;
   if (diag.file) {
     message += `${diag.file}:`;

@@ -29,7 +29,7 @@ async function findExecutablesInPath(path: string): Promise<string[]> {
   path = FsUtil.untildify(path);
   try {
     const pathStats = await lstatAsync(path);
-    if (pathStats.isDirectory()) {
+    if (pathStats.isDir()) {
       const childrenPaths = await readdirAsync(path);
       const files = [];
       for (const childrenPath of childrenPaths) {

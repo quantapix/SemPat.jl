@@ -1,8 +1,8 @@
 import * as qv from 'vscode';
-import { Disposable } from '../utils/dispose';
+import { Disposable } from '../utils';
 import * as languageModeIds from '../utils/languageModeIds';
 
-const jsTsLanguageConfiguration: qv.LanguageConfiguration = {
+const jsTsLangConfig: qv.LangConfig = {
   indentationRules: {
     decreaseIndentPattern: /^((?!.*?\/\*).*\*\/)?\s*[\}\]].*$/,
     increaseIndentPattern: /^((?!\/\/).)*(\{([^}"'`]*|(\t|[ ])*\/\/.*)|\([^)"'`]*|\[[^\]"'`]*)$/,
@@ -43,7 +43,7 @@ const jsTsLanguageConfiguration: qv.LanguageConfiguration = {
 
 const EMPTY_ELEMENTS: string[] = ['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'keygen', 'link', 'menuitem', 'meta', 'param', 'source', 'track', 'wbr'];
 
-const jsxTagsLanguageConfiguration: qv.LanguageConfiguration = {
+const jsxTagsLangConfig: qv.LangConfig = {
   wordPattern: /(-?\d*\.\d\w*)|([^\`\~\!\@\$\^\&\*\(\)\=\+\[\{\]\}\\\|\;\:\'\"\,\.\<\>\/\s]+)/g,
   onEnterRules: [
     {
@@ -67,18 +67,18 @@ const jsxTagsLanguageConfiguration: qv.LanguageConfiguration = {
   ],
 };
 
-export class LanguageConfigurationManager extends Disposable {
+export class LangConfigMgr extends Disposable {
   constructor() {
     super();
-    const standardLanguages = [languageModeIds.javascript, languageModeIds.javascriptreact, languageModeIds.typescript, languageModeIds.typescriptreact];
-    for (const language of standardLanguages) {
-      this.registerConfiguration(language, jsTsLanguageConfiguration);
+    const standardLangs = [languageModeIds.javascript, languageModeIds.javascriptreact, languageModeIds.typescript, languageModeIds.typescriptreact];
+    for (const language of standardLangs) {
+      this.registerConfig(language, jsTsLangConfig);
     }
 
-    this.registerConfiguration(languageModeIds.jsxTags, jsxTagsLanguageConfiguration);
+    this.registerConfig(languageModeIds.jsxTags, jsxTagsLangConfig);
   }
 
-  private registerConfiguration(language: string, config: qv.LanguageConfiguration) {
-    this._register(qv.languages.setLanguageConfiguration(language, config));
+  private registerConfig(language: string, config: qv.LangConfig) {
+    this._register(qv.languages.setLangConfig(language, config));
   }
 }

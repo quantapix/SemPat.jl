@@ -3,7 +3,7 @@ import * as qv from 'vscode';
 import type * as qp from '../protocol';
 import { ServiceClient, ServerResponse } from '../service';
 import { nulToken } from '../utils';
-import { TypeScriptServiceConfiguration } from './configuration';
+import { TSServiceConfig } from './configuration';
 
 export const enum ProjectType {
   TypeScript,
@@ -14,29 +14,29 @@ export function isImplicitProjectConfigFile(configFileName: string) {
   return configFileName.startsWith('/dev/null/');
 }
 
-export function inferredProjectCompilerOptions(projectType: ProjectType, serviceConfig: TypeScriptServiceConfiguration): qp.ExternalProjectCompilerOptions {
+export function inferredProjectCompilerOptions(projectType: ProjectType, serviceConfig: TSServiceConfig): qp.ExternalProjectCompilerOptions {
   const projectConfig: qp.ExternalProjectCompilerOptions = {
     module: 'commonjs' as qp.ModuleKind,
     target: 'es2016' as qp.ScriptTarget,
     jsx: 'preserve' as qp.JsxEmit,
   };
 
-  if (serviceConfig.implictProjectConfiguration.checkJs) {
+  if (serviceConfig.implictProjectConfig.checkJs) {
     projectConfig.checkJs = true;
     if (projectType === ProjectType.TypeScript) {
       projectConfig.allowJs = true;
     }
   }
 
-  if (serviceConfig.implictProjectConfiguration.experimentalDecorators) {
+  if (serviceConfig.implictProjectConfig.experimentalDecorators) {
     projectConfig.experimentalDecorators = true;
   }
 
-  if (serviceConfig.implictProjectConfiguration.strictNullChecks) {
+  if (serviceConfig.implictProjectConfig.strictNullChecks) {
     projectConfig.strictNullChecks = true;
   }
 
-  if (serviceConfig.implictProjectConfiguration.strictFunctionTypes) {
+  if (serviceConfig.implictProjectConfig.strictFunctionTypes) {
     projectConfig.strictFunctionTypes = true;
   }
 
@@ -47,7 +47,7 @@ export function inferredProjectCompilerOptions(projectType: ProjectType, service
   return projectConfig;
 }
 
-function inferredProjectConfigSnippet(projectType: ProjectType, config: TypeScriptServiceConfiguration) {
+function inferredProjectConfigSnippet(projectType: ProjectType, config: TSServiceConfig) {
   const baseConfig = inferredProjectCompilerOptions(projectType, config);
   const compilerOptions = Object.keys(baseConfig).map((key) => `"${key}": ${JSON.stringify(baseConfig[key])}`);
   return new qv.SnippetString(`{
@@ -61,7 +61,7 @@ function inferredProjectConfigSnippet(projectType: ProjectType, config: TypeScri
 }`);
 }
 
-export async function openOrCreateConfig(projectType: ProjectType, rootPath: string, configuration: TypeScriptServiceConfiguration): Promise<qv.TextEditor | null> {
+export async function openOrCreateConfig(projectType: ProjectType, rootPath: string, configuration: TSServiceConfig): Promise<qv.TextEditor | null> {
   const configFile = qv.Uri.file(path.join(rootPath, projectType === ProjectType.TypeScript ? 'tsconfig.json' : 'jsconfig.json'));
   const col = qv.window.activeTextEditor?.viewColumn;
   try {

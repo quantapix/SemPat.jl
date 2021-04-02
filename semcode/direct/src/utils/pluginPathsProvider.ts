@@ -1,12 +1,12 @@
 import * as path from 'path';
 import * as qv from 'vscode';
-import { TypeScriptServiceConfiguration } from './configuration';
+import { TSServiceConfig } from './configuration';
 import { RelativeWorkspacePathResolver } from './relativePathResolver';
 
-export class TypeScriptPluginPathsProvider {
-  public constructor(private configuration: TypeScriptServiceConfiguration) {}
+export class TSPluginPathsProvider {
+  public constructor(private configuration: TSServiceConfig) {}
 
-  public updateConfiguration(configuration: TypeScriptServiceConfiguration): void {
+  public updateConfig(configuration: TSServiceConfig): void {
     this.configuration = configuration;
   }
 

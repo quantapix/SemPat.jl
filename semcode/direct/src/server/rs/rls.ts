@@ -50,7 +50,7 @@ interface ProgressParams {
   done?: boolean;
 }
 
-export function createLanguageClient(
+export function createLangClient(
   folder: vs.WorkspaceFolder,
   config: {
     updateOnStartup?: boolean;
@@ -59,12 +59,12 @@ export function createLanguageClient(
     rustup: { disabled: boolean; path: string; channel: string };
     rls: { path?: string };
   }
-): lc.LanguageClient {
+): lc.LangClient {
   const serverOptions: lc.ServerOptions = async () => {
     if (config.updateOnStartup && !config.rustup.disabled) {
       await rustupUpdate(config.rustup);
     }
-    return makeRlsProcess(
+    return makeRlsProc(
       config.rustup,
       {
         path: config.rls.path,
@@ -74,7 +74,7 @@ export function createLanguageClient(
     );
   };
 
-  const clientOptions: lc.LanguageClientOptions = {
+  const clientOptions: lc.LangClientOptions = {
     documentSelector: [{ language: 'rust', scheme: 'untitled' }, documentFilter(folder)],
     diagnosticCollectionName: `rust-${folder.uri}`,
     synchronize: { configurationSection: OBSERVED_SETTINGS },
@@ -87,14 +87,14 @@ export function createLanguageClient(
     workspaceFolder: folder,
   };
 
-  return new lc.LanguageClient('rust-client', 'Rust Language Server', serverOptions, clientOptions);
+  return new lc.LangClient('rust-client', 'Rust Lang Server', serverOptions, clientOptions);
 }
 
-export function setupClient(client: lc.LanguageClient, folder: vs.WorkspaceFolder): vs.Disposable[] {
+export function setupClient(client: lc.LangClient, folder: vs.WorkspaceFolder): vs.Disposable[] {
   return [vs.languages.registerSignatureHelpProvider(documentFilter(folder), new SignatureHelpProvider(client), '(', ',')];
 }
 
-export function setupProgress(client: lc.LanguageClient, observableProgress: Observable<WorkspaceProgress>) {
+export function setupProgress(client: lc.LangClient, observableProgress: Observable<WorkspaceProgress>) {
   const runningProgress: Set<string> = new Set();
   client.onReady().then(() =>
     client.onNotification(new lc.NotificationType<ProgressParams, void>('window/progress'), (progress) => {
@@ -166,18 +166,14 @@ async function makeRlsEnv(
   return env;
 }
 
-async function makeRlsProcess(
-  rustup: { disabled: boolean; path: string; channel: string },
-  rls: { path?: string; cwd: string },
-  options: { logToFile?: boolean } = {}
-): Promise<child_process.ChildProcess> {
+async function makeRlsProc(rustup: { disabled: boolean; path: string; channel: string }, rls: { path?: string; cwd: string }, options: { logToFile?: boolean } = {}): Promise<child_process.ChildProc> {
   const rlsPath = rls.path || 'rls';
   const cwd = rls.cwd;
-  let childProcess: child_process.ChildProcess;
+  let childProc: child_process.ChildProc;
   if (rustup.disabled) {
     console.info(`running without rustup: ${rlsPath}`);
     const env = await makeRlsEnv(rustup, { setLibPath: true });
-    childProcess = child_process.spawn(rlsPath, [], {
+    childProc = child_process.spawn(rlsPath, [], {
       env,
       cwd,
       shell: true,
@@ -191,9 +187,9 @@ async function makeRlsProcess(
       await ensureComponents(config, REQUIRED_COMPONENTS);
     }
     const env = await makeRlsEnv(rustup, { setLibPath: false });
-    childProcess = child_process.spawn(config.path, ['run', config.channel, rlsPath], { env, cwd, shell: true });
+    childProc = child_process.spawn(config.path, ['run', config.channel, rlsPath], { env, cwd, shell: true });
   }
-  childProcess.on('error', (err: { code?: string; message: string }) => {
+  childProc.on('error', (err: { code?: string; message: string }) => {
     if (err.code === 'ENOENT') {
       console.error(`Could not spawn RLS: ${err.message}`);
       vs.window.showWarningMessage(`Could not spawn RLS: \`${err.message}\``);
@@ -202,7 +198,7 @@ async function makeRlsProcess(
   if (options.logToFile) {
     const logPath = path.join(rls.cwd, `rls${Date.now()}.log`);
     const logStream = fs.createWriteStream(logPath, { flags: 'w+' });
-    childProcess.stderr?.pipe(logStream);
+    childProc.stderr?.pipe(logStream);
   }
-  return childProcess;
+  return childProc;
 }

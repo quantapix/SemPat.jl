@@ -48,13 +48,13 @@ export function condRegistration(cs: readonly Condition[], reg: () => qv.Disposa
   return new CondRegistration(cs, reg);
 }
 export function requireMinVer(c: ServiceClient, minVer: API) {
-  return new Condition(() => c.apiVersion.gte(minVer), c.onTsServerStarted);
+  return new Condition(() => c.apiVersion.gte(minVer), c.onTSServerStarted);
 }
 export function requireConfig(lang: string, cfg: string) {
   return new Condition(() => {
-    const c = qv.workspace.getConfiguration(lang, null);
+    const c = qv.workspace.getConfig(lang, null);
     return !!c.get<boolean>(cfg);
-  }, qv.workspace.onDidChangeConfiguration);
+  }, qv.workspace.onDidChangeConfig);
 }
 export function requireSomeCap(c: ServiceClient, ...cs: readonly ClientCap[]) {
   return new Condition(() => cs.some((x) => c.capabilities.has(x)), c.onDidChangeCapabilities);

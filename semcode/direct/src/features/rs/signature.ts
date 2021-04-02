@@ -1,11 +1,11 @@
 import * as qv from 'vscode';
-import { HoverRequest, LanguageClient } from 'vscode-languageclient';
+import { HoverRequest, LangClient } from 'vscode-languageclient';
 
 export class SignatureHelpProvider implements qv.SignatureHelpProvider {
-  private languageClient: LanguageClient;
+  private languageClient: LangClient;
   private previousFunctionPosition?: qv.Position;
 
-  constructor(lc: LanguageClient) {
+  constructor(lc: LangClient) {
     this.languageClient = lc;
   }
 
@@ -27,7 +27,7 @@ export class SignatureHelpProvider implements qv.SignatureHelpProvider {
     }
   }
 
-  private provideHover(lc: LanguageClient, document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): Promise<qv.Hover> {
+  private provideHover(lc: LangClient, document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): Promise<qv.Hover> {
     return new Promise((resolve, reject) => {
       lc.sendRequest(HoverRequest.type, lc.code2ProtocolConverter.asTextDocumentPositionParams(document, position.translate(0, -1)), token).then(
         (data) => resolve(lc.protocol2CodeConverter.asHover(data)),

@@ -1,6 +1,6 @@
 import { isNumber, isString } from '../common/core';
 import { assertNever } from '../common/debug';
-import { ensureTrailingDirectorySeparator, stripFileExtension } from '../common/pathUtils';
+import { ensureTrailingDirSeparator, stripFileExtension } from '../common/pathUtils';
 import { isExpressionNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationType } from './declaration';
@@ -21,7 +21,7 @@ export function createTracePrinter(roots: string[]): TracePrinter {
   }
 
   roots = roots
-    .map((r) => ensureTrailingDirectorySeparator(r))
+    .map((r) => ensureTrailingDirSeparator(r))
     .sort((a, b) => a.localeCompare(b))
     .reverse();
 

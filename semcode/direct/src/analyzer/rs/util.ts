@@ -57,7 +57,7 @@ export const log = new (class {
   }
 })();
 
-export async function sendRequestWithRetry<TParam, TRet>(client: lc.LanguageClient, reqType: lc.RequestType<TParam, TRet, unknown>, param: TParam, token?: qv.CancellationToken): Promise<TRet> {
+export async function sendRequestWithRetry<TParam, TRet>(client: lc.LangClient, reqType: lc.RequestType<TParam, TRet, unknown>, param: TParam, token?: qv.CancellationToken): Promise<TRet> {
   for (const delay of [2, 4, 6, 8, 10, null]) {
     try {
       return await (token ? client.sendRequest(reqType, param, token) : client.sendRequest(reqType, param));

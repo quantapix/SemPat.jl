@@ -16,7 +16,7 @@ export class TimingStat {
   totalTime = 0;
   callCount = 0;
   isTiming = false;
-  timeOperation<T>(callback: () => T): T {
+  timeOp<T>(callback: () => T): T {
     this.callCount++;
     if (this.isTiming) {
       return callback();

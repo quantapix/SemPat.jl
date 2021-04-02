@@ -3,7 +3,7 @@ import type * as qp from '../protocol';
 import { ServiceClient } from '../service';
 import API from '../utils/api';
 import { conditionalRegistration, requireMinVersion, requireConfig, Condition } from '../../../src/registration';
-import { Disposable } from '../utils/dispose';
+import { Disposable } from '../utils';
 import { DocumentSelector } from '../utils/documentSelector';
 import * as qu from '../utils/qu';
 

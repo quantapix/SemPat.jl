@@ -5,19 +5,19 @@ import { Disposable } from './dispose';
 export interface TypeScriptServerPlugin {
   readonly path: string;
   readonly name: string;
-  readonly enableForWorkspaceTypeScriptVersions: boolean;
+  readonly enableForWorkspaceTSVersions: boolean;
   readonly languages: ReadonlyArray<string>;
   readonly configNamespace?: string;
 }
 
 namespace TypeScriptServerPlugin {
   export function equals(a: TypeScriptServerPlugin, b: TypeScriptServerPlugin): boolean {
-    return a.path === b.path && a.name === b.name && a.enableForWorkspaceTypeScriptVersions === b.enableForWorkspaceTypeScriptVersions && arrays.equals(a.languages, b.languages);
+    return a.path === b.path && a.name === b.name && a.enableForWorkspaceTSVersions === b.enableForWorkspaceTSVersions && arrays.equals(a.languages, b.languages);
   }
 }
 
-export class PluginManager extends Disposable {
-  private readonly _pluginConfigurations = new Map<string, {}>();
+export class PluginMgr extends Disposable {
+  private readonly _pluginConfigs = new Map<string, {}>();
 
   private _plugins: Map<string, ReadonlyArray<TypeScriptServerPlugin>> | undefined;
 
@@ -53,13 +53,13 @@ export class PluginManager extends Disposable {
   private readonly _onDidUpdateConfig = this._register(new qv.EventEmitter<{ pluginId: string; config: {} }>());
   public readonly onDidUpdateConfig = this._onDidUpdateConfig.event;
 
-  public setConfiguration(pluginId: string, config: {}) {
-    this._pluginConfigurations.set(pluginId, config);
+  public setConfig(pluginId: string, config: {}) {
+    this._pluginConfigs.set(pluginId, config);
     this._onDidUpdateConfig.fire({ pluginId, config });
   }
 
   public configurations(): IterableIterator<[string, {}]> {
-    return this._pluginConfigurations.entries();
+    return this._pluginConfigs.entries();
   }
 
   private readPlugins() {
@@ -71,7 +71,7 @@ export class PluginManager extends Disposable {
         for (const plugin of pack.contributes.typescriptServerPlugins) {
           plugins.push({
             name: plugin.name,
-            enableForWorkspaceTypeScriptVersions: !!plugin.enableForWorkspaceTypeScriptVersions,
+            enableForWorkspaceTSVersions: !!plugin.enableForWorkspaceTSVersions,
             path: extension.extensionPath,
             languages: Array.isArray(plugin.languages) ? plugin.languages : [],
             configNamespace: plugin.configNamespace,

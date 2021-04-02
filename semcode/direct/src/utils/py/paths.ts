@@ -24,20 +24,20 @@ export interface FileSystemEntries {
   files: string[];
   directories: string[];
 }
-export function forEachAncestorDirectory(directory: string, callback: (directory: string) => string | undefined): string | undefined {
+export function forEachAncestorDir(directory: string, callback: (directory: string) => string | undefined): string | undefined {
   while (true) {
     const result = callback(directory);
     if (result !== undefined) {
       return result;
     }
-    const parentPath = getDirectoryPath(directory);
+    const parentPath = getDirPath(directory);
     if (parentPath === directory) {
       return undefined;
     }
     directory = parentPath;
   }
 }
-export function getDirectoryPath(pathString: string): string {
+export function getDirPath(pathString: string): string {
   return pathString.substr(0, Math.max(getRootLength(pathString), pathString.lastIndexOf(path.sep)));
 }
 export function getRootLength(pathString: string): number {
@@ -100,11 +100,11 @@ export function combinePathComponents(components: string[]): string {
   if (components.length === 0) {
     return '';
   }
-  const root = components[0] && ensureTrailingDirectorySeparator(components[0]);
+  const root = components[0] && ensureTrailingDirSeparator(components[0]);
   return normalizeSlashes(root + components.slice(1).join(path.sep));
 }
 export function getRelativePath(dirPath: string, relativeTo: string) {
-  if (!dirPath.startsWith(ensureTrailingDirectorySeparator(relativeTo))) {
+  if (!dirPath.startsWith(ensureTrailingDirSeparator(relativeTo))) {
     return undefined;
   }
   const pathComponents = getPathComponents(dirPath);
@@ -140,7 +140,7 @@ export function fileExists(fs: FileSystem, path: string): boolean {
   return fileSystemEntryExists(fs, path, FileSystemEntryKind.File);
 }
 export function directoryExists(fs: FileSystem, path: string): boolean {
-  return fileSystemEntryExists(fs, path, FileSystemEntryKind.Directory);
+  return fileSystemEntryExists(fs, path, FileSystemEntryKind.Dir);
 }
 export function normalizeSlashes(pathString: string): string {
   const separatorRegExp = /[\\/]/g;
@@ -161,32 +161,32 @@ export function combinePaths(pathString: string, ...paths: (string | undefined)[
     if (!pathString || getRootLength(relativePath) !== 0) {
       pathString = relativePath;
     } else {
-      pathString = ensureTrailingDirectorySeparator(pathString) + relativePath;
+      pathString = ensureTrailingDirSeparator(pathString) + relativePath;
     }
   }
   return pathString;
 }
 export function comparePaths(a: string, b: string, ignoreCase?: boolean): Comparison;
-export function comparePaths(a: string, b: string, currentDirectory: string, ignoreCase?: boolean): Comparison;
-export function comparePaths(a: string, b: string, currentDirectory?: string | boolean, ignoreCase?: boolean) {
+export function comparePaths(a: string, b: string, currentDir: string, ignoreCase?: boolean): Comparison;
+export function comparePaths(a: string, b: string, currentDir?: string | boolean, ignoreCase?: boolean) {
   a = normalizePath(a);
   b = normalizePath(b);
-  if (typeof currentDirectory === 'string') {
-    a = combinePaths(currentDirectory, a);
-    b = combinePaths(currentDirectory, b);
-  } else if (typeof currentDirectory === 'boolean') {
-    ignoreCase = currentDirectory;
+  if (typeof currentDir === 'string') {
+    a = combinePaths(currentDir, a);
+    b = combinePaths(currentDir, b);
+  } else if (typeof currentDir === 'boolean') {
+    ignoreCase = currentDir;
   }
   return comparePathsWorker(a, b, getStringComparer(ignoreCase));
 }
 export function containsPath(parent: string, child: string, ignoreCase?: boolean): boolean;
-export function containsPath(parent: string, child: string, currentDirectory: string, ignoreCase?: boolean): boolean;
-export function containsPath(parent: string, child: string, currentDirectory?: string | boolean, ignoreCase?: boolean) {
-  if (typeof currentDirectory === 'string') {
-    parent = combinePaths(currentDirectory, parent);
-    child = combinePaths(currentDirectory, child);
-  } else if (typeof currentDirectory === 'boolean') {
-    ignoreCase = currentDirectory;
+export function containsPath(parent: string, child: string, currentDir: string, ignoreCase?: boolean): boolean;
+export function containsPath(parent: string, child: string, currentDir?: string | boolean, ignoreCase?: boolean) {
+  if (typeof currentDir === 'string') {
+    parent = combinePaths(currentDir, parent);
+    child = combinePaths(currentDir, child);
+  } else if (typeof currentDir === 'boolean') {
+    ignoreCase = currentDir;
   }
   if (parent === undefined || child === undefined) {
     return false;
@@ -218,7 +218,7 @@ export function getAnyExtensionFromPath(path: string): string;
 export function getAnyExtensionFromPath(path: string, extensions: string | readonly string[], ignoreCase: boolean): string;
 export function getAnyExtensionFromPath(path: string, extensions?: string | readonly string[], ignoreCase?: boolean): string {
   if (extensions) {
-    return getAnyExtensionFromPathWorker(stripTrailingDirectorySeparator(path), extensions, ignoreCase ? equateStringsCaseInsensitive : equateStringsCaseSensitive);
+    return getAnyExtensionFromPathWorker(stripTrailingDirSeparator(path), extensions, ignoreCase ? equateStringsCaseInsensitive : equateStringsCaseSensitive);
   }
   const baseFileName = getBaseFileName(path);
   const extensionIndex = baseFileName.lastIndexOf('.');
@@ -235,22 +235,22 @@ export function getBaseFileName(pathString: string, extensions?: string | readon
   if (rootLength === pathString.length) {
     return '';
   }
-  pathString = stripTrailingDirectorySeparator(pathString);
+  pathString = stripTrailingDirSeparator(pathString);
   const name = pathString.slice(Math.max(getRootLength(pathString), pathString.lastIndexOf(path.sep) + 1));
   const extension = extensions !== undefined && ignoreCase !== undefined ? getAnyExtensionFromPath(name, extensions, ignoreCase) : undefined;
   return extension ? name.slice(0, name.length - extension.length) : name;
 }
-export function getRelativePathFromDirectory(from: string, to: string, ignoreCase: boolean): string;
-export function getRelativePathFromDirectory(fromDirectory: string, to: string, getCanonicalFileName: GetCanonicalFileName): string;
-export function getRelativePathFromDirectory(fromDirectory: string, to: string, getCanonicalFileNameOrIgnoreCase: GetCanonicalFileName | boolean) {
-  const pathComponents = getRelativePathComponentsFromDirectory(fromDirectory, to, getCanonicalFileNameOrIgnoreCase);
+export function getRelativePathFromDir(from: string, to: string, ignoreCase: boolean): string;
+export function getRelativePathFromDir(fromDir: string, to: string, getCanonicalFileName: GetCanonicalFileName): string;
+export function getRelativePathFromDir(fromDir: string, to: string, getCanonicalFileNameOrIgnoreCase: GetCanonicalFileName | boolean) {
+  const pathComponents = getRelativePathComponentsFromDir(fromDir, to, getCanonicalFileNameOrIgnoreCase);
   return combinePathComponents(pathComponents);
 }
-export function getRelativePathComponentsFromDirectory(fromDirectory: string, to: string, getCanonicalFileNameOrIgnoreCase: GetCanonicalFileName | boolean) {
-  debug.assert(getRootLength(fromDirectory) > 0 === getRootLength(to) > 0, 'Paths must either both be absolute or both be relative');
+export function getRelativePathComponentsFromDir(fromDir: string, to: string, getCanonicalFileNameOrIgnoreCase: GetCanonicalFileName | boolean) {
+  debug.assert(getRootLength(fromDir) > 0 === getRootLength(to) > 0, 'Paths must either both be absolute or both be relative');
   const getCanonicalFileName = typeof getCanonicalFileNameOrIgnoreCase === 'function' ? getCanonicalFileNameOrIgnoreCase : identity;
   const ignoreCase = typeof getCanonicalFileNameOrIgnoreCase === 'boolean' ? getCanonicalFileNameOrIgnoreCase : false;
-  const pathComponents = getPathComponentsRelativeTo(fromDirectory, to, ignoreCase ? equateStringsCaseInsensitive : equateStringsCaseSensitive, getCanonicalFileName);
+  const pathComponents = getPathComponentsRelativeTo(fromDir, to, ignoreCase ? equateStringsCaseInsensitive : equateStringsCaseSensitive, getCanonicalFileName);
   return pathComponents;
 }
 export function comparePathsCaseSensitive(a: string, b: string) {
@@ -259,21 +259,21 @@ export function comparePathsCaseSensitive(a: string, b: string) {
 export function comparePathsCaseInsensitive(a: string, b: string) {
   return comparePathsWorker(a, b, compareStringsCaseInsensitive);
 }
-export function ensureTrailingDirectorySeparator(pathString: string): string {
-  if (!hasTrailingDirectorySeparator(pathString)) {
+export function ensureTrailingDirSeparator(pathString: string): string {
+  if (!hasTrailingDirSeparator(pathString)) {
     return pathString + path.sep;
   }
   return pathString;
 }
-export function hasTrailingDirectorySeparator(pathString: string) {
+export function hasTrailingDirSeparator(pathString: string) {
   if (pathString.length === 0) {
     return false;
   }
   const ch = pathString.charCodeAt(pathString.length - 1);
   return ch === Char.Slash || ch === Char.Backslash;
 }
-export function stripTrailingDirectorySeparator(pathString: string) {
-  if (!hasTrailingDirectorySeparator(pathString)) {
+export function stripTrailingDirSeparator(pathString: string) {
+  if (!hasTrailingDirSeparator(pathString)) {
     return pathString;
   }
   return pathString.substr(0, pathString.length - 1);
@@ -296,8 +296,8 @@ export function stripFileExtension(fileName: string, multiDotExtension = false) 
 export function normalizePath(pathString: string): string {
   return normalizeSlashes(path.normalize(pathString));
 }
-export function isDirectory(fs: FileSystem, path: string): boolean {
-  return tryStat(fs, path)?.isDirectory() ?? false;
+export function isDir(fs: FileSystem, path: string): boolean {
+  return tryStat(fs, path)?.isDir() ?? false;
 }
 export function isFile(fs: FileSystem, path: string): boolean {
   return tryStat(fs, path)?.isFile() ?? false;
@@ -334,14 +334,14 @@ export function getFileSystemEntriesFromDirEntries(dirEntries: Dirent[], fs: Fil
     }
     if (entry.isFile()) {
       files.push(entry.name);
-    } else if (entry.isDirectory()) {
+    } else if (entry.isDir()) {
       directories.push(entry.name);
     } else if (entry.isSymbolicLink()) {
       const entryPath = combinePaths(path, entry.name);
       const stat = tryStat(fs, entryPath);
       if (stat?.isFile()) {
         files.push(entry.name);
-      } else if (stat?.isDirectory()) {
+      } else if (stat?.isDir()) {
         directories.push(entry.name);
       }
     }
@@ -351,14 +351,14 @@ export function getFileSystemEntriesFromDirEntries(dirEntries: Dirent[], fs: Fil
 export function getWildcardRegexPattern(rootPath: string, fileSpec: string): string {
   let absolutePath = normalizePath(combinePaths(rootPath, fileSpec));
   if (!absolutePath.endsWith('.py') && !absolutePath.endsWith('.pyi')) {
-    absolutePath = ensureTrailingDirectorySeparator(absolutePath);
+    absolutePath = ensureTrailingDirSeparator(absolutePath);
   }
   const pathComponents = getPathComponents(absolutePath);
   const escapedSeparator = getRegexEscapedSeparator();
   const doubleAsteriskRegexFragment = `(${escapedSeparator}[^${escapedSeparator}.][^${escapedSeparator}]*)*?`;
   const reservedCharacterPattern = new RegExp(`[^\\w\\s${escapedSeparator}]`, 'g');
   if (pathComponents.length > 0) {
-    pathComponents[0] = stripTrailingDirectorySeparator(pathComponents[0]);
+    pathComponents[0] = stripTrailingDirSeparator(pathComponents[0]);
   }
   let regExPattern = '';
   let firstComponent = true;
@@ -386,11 +386,11 @@ export function getWildcardRegexPattern(rootPath: string, fileSpec: string): str
 export function getWildcardRoot(rootPath: string, fileSpec: string): string {
   let absolutePath = normalizePath(combinePaths(rootPath, fileSpec));
   if (!absolutePath.endsWith('.py') && !absolutePath.endsWith('.pyi')) {
-    absolutePath = ensureTrailingDirectorySeparator(absolutePath);
+    absolutePath = ensureTrailingDirSeparator(absolutePath);
   }
   const pathComponents = getPathComponents(absolutePath);
   if (pathComponents.length > 0) {
-    pathComponents[0] = stripTrailingDirectorySeparator(pathComponents[0]);
+    pathComponents[0] = stripTrailingDirSeparator(pathComponents[0]);
   }
   let wildcardRoot = '';
   let firstComponent = true;
@@ -513,7 +513,7 @@ function getPathComponentsRelativeTo(from: string, to: string, stringEqualityCom
 }
 const enum FileSystemEntryKind {
   File,
-  Directory,
+  Dir,
 }
 function fileSystemEntryExists(fs: FileSystem, path: string, entryKind: FileSystemEntryKind): boolean {
   try {
@@ -521,8 +521,8 @@ function fileSystemEntryExists(fs: FileSystem, path: string, entryKind: FileSyst
     switch (entryKind) {
       case FileSystemEntryKind.File:
         return stat.isFile();
-      case FileSystemEntryKind.Directory:
-        return stat.isDirectory();
+      case FileSystemEntryKind.Dir:
+        return stat.isDir();
       default:
         return false;
     }

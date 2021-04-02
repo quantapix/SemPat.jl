@@ -3,17 +3,17 @@ import { CancellationToken } from 'vscode-languageserver/node';
 import { ConfigOptions } from './common/configOptions';
 import { Console, log, LogLevel } from './common/console';
 import { createFromRealFileSystem, FileSystem } from './common/fileSystem';
-import { Diagnostic } from './common/diagnostic';
+import { Diag } from './common/diagnostic';
 import { disposeCancellationToken, getCancellationTokenFromId, getCancellationTokenId, throwIfCancellationRequested } from './common/cancellationUtils';
-import { FileDiagnostics } from './common/diagnosticSink';
+import { FileDiags } from './common/diagnosticSink';
 import { FileSpec } from './common/pathUtils';
 import { ImportResolver } from './analyzer/importResolver';
 import { IndexResults } from './languageService/documentSymbolProvider';
 import { Indices, Program } from './analyzer/program';
-import { LanguageServiceExtension } from './common/extensibility';
+import { LangServiceExtension } from './common/extensibility';
 import { LogTracker } from './common/logTracker';
 import { MessageChannel, MessagePort, parentPort, threadId, Worker, workerData } from 'worker_threads';
-import { OperationCanceledException, setCancellationFolderName } from './common/cancellationUtils';
+import { OpCanceledException, setCancellationFolderName } from './common/cancellationUtils';
 import { PyrightFileSystem } from './fileSystem';
 import { Range } from './common/textRange';
 import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
@@ -25,7 +25,7 @@ export class BackgroundThreadBase {
 
   protected constructor(data: InitializationData) {
     setCancellationFolderName(data.cancellationFolderName);
-    (global as any).__rootDirectory = data.rootDirectory;
+    (global as any).__rootDir = data.rootDir;
     this.fs = new PyrightFileSystem(createFromRealFileSystem(this.getConsole()));
   }
 
@@ -90,7 +90,7 @@ export function run(code: () => any, port: MessagePort) {
     const result = code();
     port.postMessage({ kind: 'ok', data: result });
   } catch (e) {
-    if (OperationCanceledException.is(e)) {
+    if (OpCanceledException.is(e)) {
       port.postMessage({ kind: 'cancelled', data: e.message });
       return;
     }
@@ -108,7 +108,7 @@ export function getBackgroundWaiter<T>(port: MessagePort): Promise<T> {
           break;
 
         case 'cancelled':
-          reject(new OperationCanceledException());
+          reject(new OpCanceledException());
           break;
 
         case 'failed':
@@ -123,7 +123,7 @@ export function getBackgroundWaiter<T>(port: MessagePort): Promise<T> {
 }
 
 export interface InitializationData {
-  rootDirectory: string;
+  rootDir: string;
   cancellationFolderName?: string;
   runner?: string;
 }
@@ -265,15 +265,15 @@ export class BackgroundAnalysisBase {
     /* noop */
   }
 
-  async getDiagnosticsForRange(filePath: string, range: Range, token: CancellationToken): Promise<Diagnostic[]> {
+  async getDiagsForRange(filePath: string, range: Range, token: CancellationToken): Promise<Diag[]> {
     throwIfCancellationRequested(token);
 
     const { port1, port2 } = new MessageChannel();
-    const waiter = getBackgroundWaiter<Diagnostic[]>(port1);
+    const waiter = getBackgroundWaiter<Diag[]>(port1);
 
     const cancellationId = getCancellationTokenId(token);
     this.enqueueRequest({
-      requestType: 'getDiagnosticsForRange',
+      requestType: 'getDiagsForRange',
       data: { filePath, range, cancellationId },
       port: port2,
     });
@@ -283,7 +283,7 @@ export class BackgroundAnalysisBase {
     port2.close();
     port1.close();
 
-    return convertDiagnostics(result);
+    return convertDiags(result);
   }
 
   async writeTypeStub(targetImportPath: string, targetIsSingleFile: boolean, stubPath: string, token: CancellationToken): Promise<any> {
@@ -334,13 +334,13 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
     return this._program;
   }
 
-  protected constructor(private _extension?: LanguageServiceExtension) {
+  protected constructor(private _extension?: LangServiceExtension) {
     super(workerData as InitializationData);
 
     const data = workerData as InitializationData;
-    this.log(LogLevel.Info, `Background analysis(${threadId}) root directory: ${data.rootDirectory}`);
+    this.log(LogLevel.Info, `Background analysis(${threadId}) root directory: ${data.rootDir}`);
 
-    this._configOptions = new ConfigOptions(data.rootDirectory);
+    this._configOptions = new ConfigOptions(data.rootDir);
     this._importResolver = this.createImportResolver(this.fs, this._configOptions);
 
     const console = this.getConsole();
@@ -394,13 +394,13 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
         break;
       }
 
-      case 'getDiagnosticsForRange': {
+      case 'getDiagsForRange': {
         run(() => {
           const { filePath, range, cancellationId } = msg.data;
           const token = getCancellationTokenFromId(cancellationId);
           throwIfCancellationRequested(token);
 
-          return this.program.getDiagnosticsForRange(filePath, range);
+          return this.program.getDiagsForRange(filePath, range);
         }, msg.port!);
         break;
       }
@@ -426,7 +426,7 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
 
       case 'setTrackedFiles': {
         const diagnostics = this.program.setTrackedFiles(msg.data);
-        this._reportDiagnostics(diagnostics, this.program.getFilesToAnalyzeCount(), 0);
+        this._reportDiags(diagnostics, this.program.getFilesToAnalyzeCount(), 0);
         break;
       }
 
@@ -449,7 +449,7 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
 
       case 'setFileClosed': {
         const diagnostics = this.program.setFileClosed(msg.data);
-        this._reportDiagnostics(diagnostics, this.program.getFilesToAnalyzeCount(), 0);
+        this._reportDiags(diagnostics, this.program.getFilesToAnalyzeCount(), 0);
         break;
       }
 
@@ -507,7 +507,7 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
     port.postMessage({ requestType: 'indexResult', data: result });
   }
 
-  private _reportDiagnostics(diagnostics: FileDiagnostics[], filesLeftToAnalyze: number, elapsedTime: number) {
+  private _reportDiags(diagnostics: FileDiags[], filesLeftToAnalyze: number, elapsedTime: number) {
     if (parentPort) {
       this._onAnalysisCompletion(parentPort, {
         diagnostics,
@@ -535,19 +535,19 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
 }
 
 function convertAnalysisResults(result: AnalysisResults): AnalysisResults {
-  result.diagnostics = result.diagnostics.map((f: FileDiagnostics) => {
+  result.diagnostics = result.diagnostics.map((f: FileDiags) => {
     return {
       filePath: f.filePath,
-      diagnostics: convertDiagnostics(f.diagnostics),
+      diagnostics: convertDiags(f.diagnostics),
     };
   });
 
   return result;
 }
 
-function convertDiagnostics(diagnostics: Diagnostic[]) {
-  return diagnostics.map<Diagnostic>((d: any) => {
-    const diag = new Diagnostic(d.category, d.message, d.range);
+function convertDiags(diagnostics: Diag[]) {
+  return diagnostics.map<Diag>((d: any) => {
+    const diag = new Diag(d.category, d.message, d.range);
     if (d._actions) {
       for (const action of d._actions) {
         diag.addAction(action);
@@ -569,7 +569,7 @@ function convertDiagnostics(diagnostics: Diagnostic[]) {
 }
 
 export interface InitializationData {
-  rootDirectory: string;
+  rootDir: string;
   cancellationFolderName?: string;
   runner?: string;
 }
@@ -588,7 +588,7 @@ export interface AnalysisRequest {
     | 'markFilesDirty'
     | 'invalidateAndForceReanalysis'
     | 'restart'
-    | 'getDiagnosticsForRange'
+    | 'getDiagsForRange'
     | 'writeTypeStub'
     | 'getSemanticTokens';
 
@@ -605,7 +605,7 @@ export class BackgroundAnalysis extends BackgroundAnalysisBase {
   constructor(console: Console) {
     super(console);
     const initialData: InitializationData = {
-      rootDirectory: (global as any).__rootDirectory as string,
+      rootDir: (global as any).__rootDir as string,
       cancellationFolderName: getCancellationFolderName(),
     };
     const worker = new Worker(__filename, { workerData: initialData });

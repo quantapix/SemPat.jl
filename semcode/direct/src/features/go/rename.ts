@@ -6,7 +6,7 @@ import { toolExecutionEnvironment } from './goEnv';
 import { promptForMissingTool } from './goInstallTools';
 import { outputChannel } from './goStatus';
 import { byteOffsetAt, canonicalizeGOPATHPrefix, getBinPath } from './util';
-import { killProcessTree } from './utils/processUtils';
+import { killProcTree } from './utils/processUtils';
 
 export class GoRenameProvider implements qv.RenameProvider {
   public provideRenameEdits(document: qv.TextDocument, position: qv.Position, newName: string, token: qv.CancellationToken): Thenable<qv.WorkspaceEdit> {
@@ -33,9 +33,9 @@ export class GoRenameProvider implements qv.RenameProvider {
         gorenameArgs.push('-d');
       }
 
-      let p: cp.ChildProcess;
+      let p: cp.ChildProc;
       if (token) {
-        token.onCancellationRequested(() => killProcessTree(p));
+        token.onCancellationRequested(() => killProcTree(p));
       }
 
       p = cp.execFile(gorename, gorenameArgs, { env }, (err, stdout, stderr) => {

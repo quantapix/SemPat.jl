@@ -1,31 +1,26 @@
 import type * as qp from '../protocol';
-
-export enum RequestQueueingType {
+export enum RequestQueueType {
   Normal = 1,
   LowPriority = 2,
   Fence = 3,
 }
-
 export interface RequestItem {
   readonly request: qp.Request;
   readonly expectsResponse: boolean;
   readonly isAsync: boolean;
-  readonly queueingType: RequestQueueingType;
+  readonly queueingType: RequestQueueType;
 }
-
 export class RequestQueue {
   private readonly queue: RequestItem[] = [];
   private sequenceNumber: number = 0;
-
   public get length(): number {
     return this.queue.length;
   }
-
   public enqueue(item: RequestItem): void {
-    if (item.queueingType === RequestQueueingType.Normal) {
+    if (item.queueingType === RequestQueueType.Normal) {
       let index = this.queue.length - 1;
       while (index >= 0) {
-        if (this.queue[index].queueingType !== RequestQueueingType.LowPriority) {
+        if (this.queue[index].queueingType !== RequestQueueType.LowPriority) {
           break;
         }
         --index;
@@ -35,11 +30,9 @@ export class RequestQueue {
       this.queue.push(item);
     }
   }
-
   public dequeue(): RequestItem | undefined {
     return this.queue.shift();
   }
-
   public tryDeletePendingRequest(seq: number): boolean {
     for (let i = 0; i < this.queue.length; i++) {
       if (this.queue[i].request.seq === seq) {
@@ -49,7 +42,6 @@ export class RequestQueue {
     }
     return false;
   }
-
   public createRequest(command: string, args: any): qp.Request {
     return {
       seq: this.sequenceNumber++,

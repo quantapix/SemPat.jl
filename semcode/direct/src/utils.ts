@@ -132,7 +132,7 @@ export function generatePipeName(pid: string, n: string) {
 }
 
 export function inferJuliaNumThreads(): string {
-  const config: number | undefined = qv.workspace.getConfiguration('julia').get('NumThreads') ?? undefined;
+  const config: number | undefined = qv.workspace.getConfig('julia').get('NumThreads') ?? undefined;
   const env: string | undefined = process.env['JULIA_NUM_THREADS'];
   if (config !== undefined) {
     return config.toString();
@@ -157,8 +157,8 @@ function applyTextEdit(x: any) {
 }
 
 function toggleLinter() {
-  const cval = qv.workspace.getConfiguration('julia').get('lint.run', false);
-  qv.workspace.getConfiguration('julia').update('lint.run', !cval, true);
+  const cval = qv.workspace.getConfig('julia').get('lint.run', false);
+  qv.workspace.getConfig('julia').update('lint.run', !cval, true);
 }
 
 const g_profilerResults = new Map<string, string>();

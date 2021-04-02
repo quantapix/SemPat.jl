@@ -4,7 +4,7 @@ import { getGoConfig } from '../config';
 import { toolExecutionEnvironment } from '../goEnv';
 import { promptForMissingTool, promptForUpdatingTool } from '../goInstallTools';
 import { getBinPath, getFileArchive, makeMemoizedByteOffsetConverter } from '../util';
-import { killProcess } from './utils/processUtils';
+import { killProc } from './utils/processUtils';
 
 export interface GoOutlineRange {
   start: number;
@@ -51,9 +51,9 @@ export function runGoOutline(options: GoOutlineOptions, token: qv.CancellationTo
       gooutlineFlags.push('-modified');
     }
 
-    let p: cp.ChildProcess;
+    let p: cp.ChildProc;
     if (token) {
-      token.onCancellationRequested(() => killProcess(p));
+      token.onCancellationRequested(() => killProc(p));
     }
 
     p = cp.execFile(gooutline, gooutlineFlags, { env: toolExecutionEnvironment() }, (err, stdout, stderr) => {

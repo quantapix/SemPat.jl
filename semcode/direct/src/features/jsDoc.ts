@@ -3,7 +3,7 @@ import { ServiceClient } from '../service';
 import { conditionalRegistration, requireConfig } from '../../../src/registration';
 import { DocumentSelector } from '../utils/documentSelector';
 import * as qu from '../utils/qu';
-import FileConfigurationManager from './fileConfigurationManager';
+import FileConfigMgr from './fileConfigMgr';
 
 const defaultJsDoc = new qv.SnippetString(`/**\n * $0\n */`);
 
@@ -23,7 +23,7 @@ class JsDocCompletionItem extends qv.CompletionItem {
 }
 
 class JsDocCompletionProvider implements qv.CompletionItemProvider {
-  constructor(private readonly client: ServiceClient, private readonly fileConfigurationManager: FileConfigurationManager) {}
+  constructor(private readonly client: ServiceClient, private readonly fileConfigMgr: FileConfigMgr) {}
 
   public async provideCompletionItems(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): Promise<qv.CompletionItem[] | undefined> {
     const file = this.client.toOpenedFilePath(document);
@@ -36,7 +36,7 @@ class JsDocCompletionProvider implements qv.CompletionItemProvider {
     }
 
     const response = await this.client.interruptGetErr(async () => {
-      await this.fileConfigurationManager.ensureConfigurationForDocument(document, token);
+      await this.fileConfigMgr.ensureConfigForDocument(document, token);
 
       const args = qu.Position.toFileLocationRequestArgs(file, position);
       return this.client.execute('docCommentTemplate', args, token);
@@ -89,8 +89,8 @@ export function templateToSnippet(template: string): qv.SnippetString {
   return new qv.SnippetString(template);
 }
 
-export function register(selector: DocumentSelector, modeId: string, client: ServiceClient, fileConfigurationManager: FileConfigurationManager): qv.Disposable {
+export function register(selector: DocumentSelector, modeId: string, client: ServiceClient, fileConfigMgr: FileConfigMgr): qv.Disposable {
   return conditionalRegistration([requireConfig(modeId, 'suggest.completeJSDocs')], () => {
-    return qv.languages.registerCompletionItemProvider(selector.syntax, new JsDocCompletionProvider(client, fileConfigurationManager), '*');
+    return qv.languages.registerCompletionItemProvider(selector.syntax, new JsDocCompletionProvider(client, fileConfigMgr), '*');
   });
 }

@@ -1,17 +1,9 @@
-import {
-  cloneDiagnosticRuleSet,
-  DiagnosticLevel,
-  DiagnosticRuleSet,
-  getBooleanDiagnosticRules,
-  getDiagLevelDiagnosticRules,
-  getStrictDiagnosticRuleSet,
-  getStrictModeNotOverriddenRules,
-} from '../common/configOptions';
+import { cloneDiagRuleSet, DiagLevel, DiagRuleSet, getBooleanDiagRules, getDiagLevelDiagRules, getStrictDiagRuleSet, getStrictModeNotOverriddenRules } from '../common/configOptions';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Token } from '../parser/tokenizerTypes';
 
-export function getFileLevelDirectives(tokens: TextRangeCollection<Token>, defaultRuleSet: DiagnosticRuleSet, useStrict: boolean): DiagnosticRuleSet {
-  let ruleSet = cloneDiagnosticRuleSet(defaultRuleSet);
+export function getFileLevelDirectives(tokens: TextRangeCollection<Token>, defaultRuleSet: DiagRuleSet, useStrict: boolean): DiagRuleSet {
+  let ruleSet = cloneDiagRuleSet(defaultRuleSet);
 
   if (useStrict) {
     _applyStrictRules(ruleSet);
@@ -31,10 +23,10 @@ export function getFileLevelDirectives(tokens: TextRangeCollection<Token>, defau
   return ruleSet;
 }
 
-function _applyStrictRules(ruleSet: DiagnosticRuleSet) {
-  const strictRuleSet = getStrictDiagnosticRuleSet();
-  const boolRuleNames = getBooleanDiagnosticRules();
-  const diagRuleNames = getDiagLevelDiagnosticRules();
+function _applyStrictRules(ruleSet: DiagRuleSet) {
+  const strictRuleSet = getStrictDiagRuleSet();
+  const boolRuleNames = getBooleanDiagRules();
+  const diagRuleNames = getDiagLevelDiagRules();
   const skipRuleNames = getStrictModeNotOverriddenRules();
 
   for (const ruleName of boolRuleNames) {
@@ -52,8 +44,8 @@ function _applyStrictRules(ruleSet: DiagnosticRuleSet) {
       continue;
     }
 
-    const strictValue: DiagnosticLevel = (strictRuleSet as any)[ruleName];
-    const prevValue: DiagnosticLevel = (ruleSet as any)[ruleName];
+    const strictValue: DiagLevel = (strictRuleSet as any)[ruleName];
+    const prevValue: DiagLevel = (ruleSet as any)[ruleName];
 
     if (strictValue === 'error' || (strictValue === 'warning' && prevValue !== 'error') || (strictValue === 'information' && prevValue !== 'error' && prevValue !== 'warning')) {
       (ruleSet as any)[ruleName] = strictValue;
@@ -61,7 +53,7 @@ function _applyStrictRules(ruleSet: DiagnosticRuleSet) {
   }
 }
 
-function _parsePyrightComment(commentValue: string, ruleSet: DiagnosticRuleSet) {
+function _parsePyrightComment(commentValue: string, ruleSet: DiagRuleSet) {
   const validPrefixes = ['pyright:', 'mspython:'];
   const prefix = validPrefixes.find((p) => commentValue.startsWith(p));
   if (prefix) {
@@ -80,15 +72,15 @@ function _parsePyrightComment(commentValue: string, ruleSet: DiagnosticRuleSet) 
   return ruleSet;
 }
 
-function _parsePyrightOperand(operand: string, ruleSet: DiagnosticRuleSet) {
+function _parsePyrightOperand(operand: string, ruleSet: DiagRuleSet) {
   const operandSplit = operand.split('=').map((s) => s.trim());
   if (operandSplit.length !== 2) {
     return ruleSet;
   }
 
   const ruleName = operandSplit[0];
-  const boolRules = getBooleanDiagnosticRules();
-  const diagLevelRules = getDiagLevelDiagnosticRules();
+  const boolRules = getBooleanDiagRules();
+  const diagLevelRules = getDiagLevelDiagRules();
 
   if (diagLevelRules.find((r) => r === ruleName)) {
     const diagLevelValue = _parseDiagLevel(operandSplit[1]);
@@ -105,7 +97,7 @@ function _parsePyrightOperand(operand: string, ruleSet: DiagnosticRuleSet) {
   return ruleSet;
 }
 
-function _parseDiagLevel(value: string): DiagnosticLevel | undefined {
+function _parseDiagLevel(value: string): DiagLevel | undefined {
   switch (value) {
     case 'false':
     case 'none':

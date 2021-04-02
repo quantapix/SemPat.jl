@@ -2,16 +2,16 @@ import { condRegistration, requireConfig } from '../registration';
 import { ServiceClient } from '../service';
 import * as qu from '../utils';
 import * as qv from 'vscode';
-import FileConfigurationManager from './fileConfigurationManager';
+import FileConfigMgr from './fileConfigMgr';
 import type * as qp from '../protocol';
 
 class Formatting implements qv.DocumentRangeFormattingEditProvider, qv.OnTypeFormattingEditProvider {
-  public constructor(private readonly client: ServiceClient, private readonly manager: FileConfigurationManager) {}
+  public constructor(private readonly client: ServiceClient, private readonly manager: FileConfigMgr) {}
 
   public async provideDocumentRangeFormattingEdits(d: qv.TextDocument, r: qv.Range, opts: qv.FormattingOptions, t: qv.CancellationToken): Promise<qv.TextEdit[] | undefined> {
     const f = this.client.toOpenedFilePath(d);
     if (!f) return undefined;
-    await this.manager.ensureConfigurationOptions(d, opts, t);
+    await this.manager.ensureConfigOptions(d, opts, t);
     const xs = qu.Range.toFormattingRequestArgs(f, r);
     const y = await this.client.execute('format', xs, t);
     if (y.type !== 'response' || !y.body) return undefined;
@@ -21,7 +21,7 @@ class Formatting implements qv.DocumentRangeFormattingEditProvider, qv.OnTypeFor
   public async provideOnTypeFormattingEdits(d: qv.TextDocument, p: qv.Position, k: string, opts: qv.FormattingOptions, t: qv.CancellationToken): Promise<qv.TextEdit[]> {
     const f = this.client.toOpenedFilePath(d);
     if (!f) return [];
-    await this.manager.ensureConfigurationOptions(d, opts, t);
+    await this.manager.ensureConfigOptions(d, opts, t);
     const xs: qp.FormatOnKeyRequestArgs = {
       ...qu.Position.toFileLocationRequestArgs(f, p),
       key: k,
@@ -41,7 +41,7 @@ class Formatting implements qv.DocumentRangeFormattingEditProvider, qv.OnTypeFor
   }
 }
 
-export function register(s: qu.DocumentSelector, modeId: string, c: ServiceClient, m: FileConfigurationManager) {
+export function register(s: qu.DocumentSelector, modeId: string, c: ServiceClient, m: FileConfigMgr) {
   return condRegistration([requireConfig(modeId, 'format.enable')], () => {
     const p = new Formatting(c, m);
     return qv.Disposable.from(qv.languages.registerOnTypeFormattingEditProvider(s.syntax, p, ';', '}', '\n'), qv.languages.registerDocumentRangeFormattingEditProvider(s.syntax, p));

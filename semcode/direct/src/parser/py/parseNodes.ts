@@ -10,7 +10,7 @@ export const enum ParseNodeType {
   AssignmentExpression,
   AugmentedAssignment,
   Await,
-  BinaryOperation,
+  BinaryOp,
   Break,
   Call,
 
@@ -63,7 +63,7 @@ export const enum ParseNodeType {
   Tuple,
   Try,
   TypeAnnotation,
-  UnaryOperation,
+  UnaryOp,
   Unpack,
   While,
   With,
@@ -593,8 +593,8 @@ export type SmallStatementNode = ExpressionNode | DelNode | PassNode | ImportNod
 
 export type ExpressionNode =
   | ErrorNode
-  | UnaryOperationNode
-  | BinaryOperationNode
+  | UnaryOpNode
+  | BinaryOpNode
   | AssignmentNode
   | TypeAnnotationNode
   | AssignmentExpressionNode
@@ -628,8 +628,8 @@ export type ExpressionNode =
 export function isExpressionNode(node: ParseNode): node is ExpressionNode {
   switch (node.nodeType) {
     case ParseNodeType.Error:
-    case ParseNodeType.UnaryOperation:
-    case ParseNodeType.BinaryOperation:
+    case ParseNodeType.UnaryOp:
+    case ParseNodeType.BinaryOp:
     case ParseNodeType.AssignmentExpression:
     case ParseNodeType.TypeAnnotation:
     case ParseNodeType.Await:
@@ -700,19 +700,19 @@ export namespace ErrorNode {
   }
 }
 
-export interface UnaryOperationNode extends ParseNodeBase {
-  readonly nodeType: ParseNodeType.UnaryOperation;
+export interface UnaryOpNode extends ParseNodeBase {
+  readonly nodeType: ParseNodeType.UnaryOp;
   expression: ExpressionNode;
   operatorToken: Token;
   operator: OperatorType;
 }
 
-export namespace UnaryOperationNode {
+export namespace UnaryOpNode {
   export function create(operatorToken: Token, expression: ExpressionNode, operator: OperatorType) {
-    const node: UnaryOperationNode = {
+    const node: UnaryOpNode = {
       start: operatorToken.start,
       length: operatorToken.length,
-      nodeType: ParseNodeType.UnaryOperation,
+      nodeType: ParseNodeType.UnaryOp,
       id: _nextNodeId++,
       operator,
       operatorToken,
@@ -727,8 +727,8 @@ export namespace UnaryOperationNode {
   }
 }
 
-export interface BinaryOperationNode extends ParseNodeBase {
-  readonly nodeType: ParseNodeType.BinaryOperation;
+export interface BinaryOpNode extends ParseNodeBase {
+  readonly nodeType: ParseNodeType.BinaryOp;
   leftExpression: ExpressionNode;
   operatorToken: Token;
   operator: OperatorType;
@@ -736,12 +736,12 @@ export interface BinaryOperationNode extends ParseNodeBase {
   parenthesized?: boolean;
 }
 
-export namespace BinaryOperationNode {
+export namespace BinaryOpNode {
   export function create(leftExpression: ExpressionNode, rightExpression: ExpressionNode, operatorToken: Token, operator: OperatorType) {
-    const node: BinaryOperationNode = {
+    const node: BinaryOpNode = {
       start: leftExpression.start,
       length: leftExpression.length,
-      nodeType: ParseNodeType.BinaryOperation,
+      nodeType: ParseNodeType.BinaryOp,
       id: _nextNodeId++,
       leftExpression,
       operatorToken,
@@ -2113,7 +2113,7 @@ export type ParseNode =
   | AssignmentNode
   | AugmentedAssignmentNode
   | AwaitNode
-  | BinaryOperationNode
+  | BinaryOpNode
   | BreakNode
   | CallNode
   | CaseNode
@@ -2175,7 +2175,7 @@ export type ParseNode =
   | TupleNode
   | TryNode
   | TypeAnnotationNode
-  | UnaryOperationNode
+  | UnaryOpNode
   | UnpackNode
   | WhileNode
   | WithNode

@@ -13,8 +13,8 @@ export class CodeActionProvider {
 
     const codeActions: CodeAction[] = [];
 
-    if (!workspace.disableLanguageServices) {
-      const diags = await workspace.serviceInstance.getDiagnosticsForRange(filePath, range, token);
+    if (!workspace.disableLangServices) {
+      const diags = await workspace.serviceInstance.getDiagsForRange(filePath, range, token);
       const typeStubDiag = diags.find((d) => {
         const actions = d.getActions();
         return actions && actions.find((a) => a.action === Commands.createTypeStub);

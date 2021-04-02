@@ -1,22 +1,22 @@
 import * as path from 'path';
 import * as qv from 'vscode';
 import type * as qp from '../protocol';
-import { ClientCapability, ServiceClient } from '../service';
+import { ClientCap, ServiceClient } from '../service';
 import API from '../utils/api';
 import { Delayer } from '../utils/async';
 import { nulToken } from '../utils/cancellation';
 import { conditionalRegistration, requireSomeCap, requireMinVersion } from '../../../src/registration';
-import { Disposable } from '../utils/dispose';
+import { Disposable } from '../utils';
 import * as fileSchemes from '../utils/fileSchemes';
 import { doesResourceLookLikeATypeScriptFile } from '../utils/languageDescription';
 import * as qu from '../utils/qu';
-import FileConfigurationManager from './fileConfigurationManager';
+import FileConfigMgr from './fileConfigMgr';
 
 const updateImportsOnFileMoveName = 'updateImportsOnFileMove.enabled';
 
-async function isDirectory(resource: qv.Uri): Promise<boolean> {
+async function isDir(resource: qv.Uri): Promise<boolean> {
   try {
-    return (await qv.workspace.fs.stat(resource)).type === qv.FileType.Directory;
+    return (await qv.workspace.fs.stat(resource)).type === qv.FileType.Dir;
   } catch {
     return false;
   }
@@ -42,7 +42,7 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
   private readonly _delayer = new Delayer(50);
   private readonly _pendingRenames = new Set<RenameAction>();
 
-  public constructor(private readonly client: ServiceClient, private readonly fileConfigurationManager: FileConfigurationManager, private readonly _handles: (uri: qv.Uri) => Promise<boolean>) {
+  public constructor(private readonly client: ServiceClient, private readonly fileConfigMgr: FileConfigMgr, private readonly _handles: (uri: qv.Uri) => Promise<boolean>) {
     super();
 
     this._register(
@@ -58,7 +58,7 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
           return;
         }
 
-        const config = this.getConfiguration(newUri);
+        const config = this.getConfig(newUri);
         const setting = config.get<UpdateImportsOnFileMoveSetting>(updateImportsOnFileMoveName);
         if (setting === UpdateImportsOnFileMoveSetting.Never) {
           return;
@@ -114,7 +114,7 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
       return false;
     }
 
-    const config = this.getConfiguration(newResources[0]);
+    const config = this.getConfig(newResources[0]);
     const setting = config.get<UpdateImportsOnFileMoveSetting>(updateImportsOnFileMoveName);
     switch (setting) {
       case UpdateImportsOnFileMoveSetting.Always:
@@ -127,8 +127,8 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
     }
   }
 
-  private getConfiguration(resource: qv.Uri) {
-    return qv.workspace.getConfiguration(doesResourceLookLikeATypeScriptFile(resource) ? 'typescript' : 'javascript', resource);
+  private getConfig(resource: qv.Uri) {
+    return qv.workspace.getConfig(doesResourceLookLikeATypeScriptFile(resource) ? 'typescript' : 'javascript', resource);
   }
 
   private async promptUser(newResources: readonly qv.Uri[]): Promise<boolean> {
@@ -184,13 +184,13 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
         return false;
       }
       case Choice.Always: {
-        const config = this.getConfiguration(newResources[0]);
-        config.update(updateImportsOnFileMoveName, UpdateImportsOnFileMoveSetting.Always, qv.ConfigurationTarget.Global);
+        const config = this.getConfig(newResources[0]);
+        config.update(updateImportsOnFileMoveName, UpdateImportsOnFileMoveSetting.Always, qv.ConfigTarget.Global);
         return true;
       }
       case Choice.Never: {
-        const config = this.getConfiguration(newResources[0]);
-        config.update(updateImportsOnFileMoveName, UpdateImportsOnFileMoveSetting.Never, qv.ConfigurationTarget.Global);
+        const config = this.getConfig(newResources[0]);
+        config.update(updateImportsOnFileMoveName, UpdateImportsOnFileMoveSetting.Never, qv.ConfigTarget.Global);
         return false;
       }
     }
@@ -203,7 +203,7 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
       return undefined;
     }
 
-    if (await isDirectory(resource)) {
+    if (await isDir(resource)) {
       const files = await qv.workspace.findFiles(
         {
           base: resource.fsPath,
@@ -220,7 +220,7 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
 
   private async withEditsForFileRename(edits: qv.WorkspaceEdit, document: qv.TextDocument, oldFilePath: string, newFilePath: string): Promise<boolean> {
     const response = await this.client.interruptGetErr(() => {
-      this.fileConfigurationManager.setGlobalConfigurationFromDocument(document, nulToken);
+      this.fileConfigMgr.setGlobalConfigFromDocument(document, nulToken);
       const args: qp.GetEditsForFileRenameRequestArgs = {
         oldFilePath,
         newFilePath,
@@ -269,8 +269,8 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
   }
 }
 
-export function register(client: ServiceClient, fileConfigurationManager: FileConfigurationManager, handles: (uri: qv.Uri) => Promise<boolean>) {
-  return conditionalRegistration([requireMinVersion(client, UpdateImportsOnFileRenameHandler.minVersion), requireSomeCap(client, ClientCapability.Semantic)], () => {
-    return new UpdateImportsOnFileRenameHandler(client, fileConfigurationManager, handles);
+export function register(client: ServiceClient, fileConfigMgr: FileConfigMgr, handles: (uri: qv.Uri) => Promise<boolean>) {
+  return conditionalRegistration([requireMinVersion(client, UpdateImportsOnFileRenameHandler.minVersion), requireSomeCap(client, ClientCap.Semantic)], () => {
+    return new UpdateImportsOnFileRenameHandler(client, fileConfigMgr, handles);
   });
 }

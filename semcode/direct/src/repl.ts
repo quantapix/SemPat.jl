@@ -7,7 +7,7 @@ import { uuid } from 'uuidv4';
 import * as qv from 'vscode';
 import * as rpc from 'vscode-jsonrpc/node';
 import * as vslc from 'vscode-languageclient/node';
-import { onSetLanguageClient } from './extension_rs';
+import { onSetLangClient } from './extension_rs';
 import { switchEnvToPath } from './packs';
 import * as packs from './packs';
 import { generatePipeName, getVersionedParamsAtPosition, inferJuliaNumThreads, registerCommand, setContext } from '../utils';
@@ -20,7 +20,7 @@ import { Frame } from './results';
 import * as workspace from './features/jl/workspace';
 
 let g_context: qv.ExtensionContext = null;
-let g_languageClient: vslc.LanguageClient = null;
+let g_languageClient: vslc.LangClient = null;
 
 let g_terminal: qv.Terminal = null;
 
@@ -35,7 +35,7 @@ function is_remote_env(): boolean {
 }
 
 function get_editor(): string {
-  const editor: string | null = qv.workspace.getConfiguration('julia').get('editor');
+  const editor: string | null = qv.workspace.getConfig('julia').get('editor');
 
   if (editor) {
     return editor;
@@ -56,9 +56,9 @@ async function startREPL(preserveFocus: boolean, showTerminal: boolean = true) {
     const startupPath = path.join(g_context.extensionPath, 'scripts', 'terminalserver', 'terminalserver.jl');
     function getArgs() {
       const jlarg2 = [startupPath, pipename, 'pipe'];
-      jlarg2.push(`USE_REVISE=${qv.workspace.getConfiguration('julia').get('useRevise')}`);
-      jlarg2.push(`USE_PLOTPANE=${qv.workspace.getConfiguration('julia').get('usePlotPane')}`);
-      jlarg2.push(`USE_PROGRESS=${qv.workspace.getConfiguration('julia').get('useProgressFrontend')}`);
+      jlarg2.push(`USE_REVISE=${qv.workspace.getConfig('julia').get('useRevise')}`);
+      jlarg2.push(`USE_PLOTPANE=${qv.workspace.getConfig('julia').get('usePlotPane')}`);
+      jlarg2.push(`USE_PROGRESS=${qv.workspace.getConfig('julia').get('useProgressFrontend')}`);
       jlarg2.push(`DEBUG_MODE=${process.env.DEBUG_MODE}`);
       return jlarg2;
     }
@@ -68,7 +68,7 @@ async function startREPL(preserveFocus: boolean, showTerminal: boolean = true) {
       JULIA_NUM_THREADS: inferJuliaNumThreads(),
     };
 
-    const pkgServer: string = qv.workspace.getConfiguration('julia').get('packageServer');
+    const pkgServer: string = qv.workspace.getConfig('julia').get('packageServer');
     if (pkgServer.length !== 0) {
       env['JULIA_PKG_SERVER'] = pkgServer;
     }
@@ -77,7 +77,7 @@ async function startREPL(preserveFocus: boolean, showTerminal: boolean = true) {
     const exepath = await packs.getJuliaExePath();
     const pkgenvpath = await packs.getAbsEnvPath();
     if (pkgenvpath === null) {
-      const jlarg1 = ['-i', '--banner=no'].concat(qv.workspace.getConfiguration('julia').get('additionalArgs'));
+      const jlarg1 = ['-i', '--banner=no'].concat(qv.workspace.getConfig('julia').get('additionalArgs'));
       g_terminal = qv.window.createTerminal({
         name: 'Julia REPL',
         shellPath: exepath,
@@ -88,7 +88,7 @@ async function startREPL(preserveFocus: boolean, showTerminal: boolean = true) {
       const env_file_paths = await packs.getProjectFilePaths(pkgenvpath);
 
       let sysImageArgs = [];
-      if (qv.workspace.getConfiguration('julia').get('useCustomSysimage') && env_file_paths.sysimage_path && env_file_paths.project_toml_path && env_file_paths.manifest_toml_path) {
+      if (qv.workspace.getConfig('julia').get('useCustomSysimage') && env_file_paths.sysimage_path && env_file_paths.project_toml_path && env_file_paths.manifest_toml_path) {
         const date_sysimage = await fs.stat(env_file_paths.sysimage_path);
         const date_manifest = await fs.stat(env_file_paths.manifest_toml_path);
 
@@ -98,7 +98,7 @@ async function startREPL(preserveFocus: boolean, showTerminal: boolean = true) {
           qv.window.showWarningMessage('Julia sysimage for this environment is out-of-date and not used for REPL.');
         }
       }
-      const jlarg1 = ['-i', '--banner=no', `--project=${pkgenvpath}`].concat(sysImageArgs).concat(qv.workspace.getConfiguration('julia').get('additionalArgs'));
+      const jlarg1 = ['-i', '--banner=no', `--project=${pkgenvpath}`].concat(sysImageArgs).concat(qv.workspace.getConfig('julia').get('additionalArgs'));
       g_terminal = qv.window.createTerminal({
         name: 'Julia REPL',
         shellPath: exepath,
@@ -356,7 +356,7 @@ async function getBlockRange(params: VersionedTextDocumentPositionParams) {
   try {
     return await g_languageClient.sendRequest('julia/getCurrentBlockRange', params);
   } catch (err) {
-    if (err.message === 'Language client is not ready yet') {
+    if (err.message === 'Lang client is not ready yet') {
       qv.window.showErrorMessage(err);
       return zeroReturn;
     } else {
@@ -506,7 +506,7 @@ async function evaluateBlockOrSelection(shouldMove: boolean = false) {
 }
 
 async function evaluate(editor: qv.TextEditor, range: qv.Range, text: string, module: string) {
-  const section = qv.workspace.getConfiguration('julia');
+  const section = qv.workspace.getConfig('julia');
   const resultType: string = section.get('execution.resultType');
   const codeInREPL: boolean = section.get('execution.codeInREPL');
 
@@ -674,7 +674,7 @@ async function getDirUriFsPath(uri: qv.Uri | undefined) {
   const stat = await fs.stat(uriPath);
   if (stat.isFile()) {
     return path.dirname(uriPath);
-  } else if (stat.isDirectory()) {
+  } else if (stat.isDir()) {
     return uriPath;
   } else {
     return undefined;
@@ -691,7 +691,7 @@ export function activate(context: qv.ExtensionContext) {
   g_context = context;
 
   context.subscriptions.push(
-    onSetLanguageClient((languageClient) => {
+    onSetLangClient((languageClient) => {
       g_languageClient = languageClient;
     }),
     onInit((connection) => {
@@ -724,16 +724,16 @@ export function activate(context: qv.ExtensionContext) {
       clearProgress();
       setContext('isJuliaEvaluating', false);
     }),
-    qv.workspace.onDidChangeConfiguration((event) => {
-      if (event.affectsConfiguration('julia.usePlotPane')) {
+    qv.workspace.onDidChangeConfig((event) => {
+      if (event.affectsConfig('julia.usePlotPane')) {
         try {
-          g_connection.sendNotification('repl/togglePlotPane', { enable: qv.workspace.getConfiguration('julia').get('usePlotPane') });
+          g_connection.sendNotification('repl/togglePlotPane', { enable: qv.workspace.getConfig('julia').get('usePlotPane') });
         } catch (err) {
           console.warn(err);
         }
-      } else if (event.affectsConfiguration('julia.useProgressFrontend')) {
+      } else if (event.affectsConfig('julia.useProgressFrontend')) {
         try {
-          g_connection.sendNotification('repl/toggleProgress', { enable: qv.workspace.getConfiguration('julia').get('useProgressFrontend') });
+          g_connection.sendNotification('repl/toggleProgress', { enable: qv.workspace.getConfig('julia').get('useProgressFrontend') });
         } catch (err) {
           console.warn(err);
         }
@@ -769,7 +769,7 @@ export function activate(context: qv.ExtensionContext) {
     registerCommand('language-julia.activateFromDir', activateFromDir)
   );
 
-  const terminalConfig = qv.workspace.getConfiguration('terminal.integrated');
+  const terminalConfig = qv.workspace.getConfig('terminal.integrated');
   const shellSkipCommands: Array<String> = terminalConfig.get('commandsToSkipShell');
   if (shellSkipCommands.indexOf('language-julia.interrupt') === -1) {
     shellSkipCommands.push('language-julia.interrupt');

@@ -1,7 +1,7 @@
 import * as markdownit from 'markdown-it';
 import * as path from 'path';
 import * as qv from 'vscode';
-import { withLanguageClient } from './extension_rs';
+import { withLangClient } from './extension_rs';
 import { constructCommandString, getVersionedParamsAtPosition, registerCommand } from './utils';
 
 function openArgs(href: string) {
@@ -110,7 +110,7 @@ class DocumentationViewProvider implements qv.WebviewViewProvider {
   }
 
   async getDocumentationFromWord(word: string): Promise<string> {
-    return await withLanguageClient(
+    return await withLangClient(
       async (languageClient) => {
         return await languageClient.sendRequest('julia/getDocFromWord', { word: word });
       },
@@ -139,7 +139,7 @@ class DocumentationViewProvider implements qv.WebviewViewProvider {
   }
 
   async getDocumentation(editor: qv.TextEditor): Promise<string> {
-    return await withLanguageClient(
+    return await withLangClient(
       async (languageClient) => {
         return await languageClient.sendRequest<string>('julia/getDocAt', getVersionedParamsAtPosition(editor.document, editor.selection.start));
       },

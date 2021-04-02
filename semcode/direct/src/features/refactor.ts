@@ -1,12 +1,12 @@
 import { ClientCap, ServiceClient } from '../service';
-import { Command, CommandManager } from '../../old/ts/commands/commandManager';
+import { Command, CommandMgr } from '../../old/ts/commands/commandMgr';
 import { condRegistration, requireMinVer, requireSomeCap } from '../registration';
 import { LearnMoreAboutRefactoringsCommand } from '../../old/ts/commands/learnMoreAboutRefactorings';
 import { TelemetryReporter } from '../../old/ts/utils/telemetry';
 import * as qu from '../utils';
 import * as qv from 'vscode';
 import API from '../../old/ts/utils/api';
-import FormattingOptionsManager from '../../old/ts/languageFeatures/fileConfigurationManager';
+import FormattingOptionsMgr from '../../old/ts/languageFeatures/fileConfigMgr';
 import type * as qp from '../protocol';
 
 interface DidApplyRefactoringCommand_Args {
@@ -202,9 +202,9 @@ type TsCodeAction = InlinedCodeAction | SelectCodeAction;
 class Refactor implements qv.CodeActionProvider<TsCodeAction> {
   public static readonly minVersion = API.v240;
 
-  constructor(private readonly client: ServiceClient, private readonly formattingOptionsManager: FormattingOptionsManager, commandManager: CommandManager, telemetryReporter: TelemetryReporter) {
-    const didApplyRefactoringCommand = commandManager.register(new DidApplyRefactoringCommand(telemetryReporter));
-    commandManager.register(new SelectRefactorCommand(this.client, didApplyRefactoringCommand));
+  constructor(private readonly client: ServiceClient, private readonly formattingOptionsMgr: FormattingOptionsMgr, commandMgr: CommandMgr, telemetryReporter: TelemetryReporter) {
+    const didApplyRefactoringCommand = commandMgr.register(new DidApplyRefactoringCommand(telemetryReporter));
+    commandMgr.register(new SelectRefactorCommand(this.client, didApplyRefactoringCommand));
   }
 
   public static readonly metadata: qv.CodeActionProviderMetadata = {
@@ -231,7 +231,7 @@ class Refactor implements qv.CodeActionProvider<TsCodeAction> {
     const response = await this.client.interruptGetErr(() => {
       const file = this.client.toOpenedFilePath(document);
       if (!file) return undefined;
-      this.formattingOptionsManager.ensureConfigurationForDocument(document, token);
+      this.formattingOptionsMgr.ensureConfigForDocument(document, token);
       const args: qp.GetApplicableRefactorsRequestArgs & { kind?: string } = {
         ...qu.Range.toFileRangeRequestArgs(file, rangeOrSelection),
         triggerReason: this.toTsTriggerReason(context),
@@ -369,8 +369,8 @@ class Refactor implements qv.CodeActionProvider<TsCodeAction> {
   }
 }
 
-export function register(s: qu.DocumentSelector, c: ServiceClient, formattingOptionsManager: FormattingOptionsManager, commandManager: CommandManager, telemetryReporter: TelemetryReporter) {
+export function register(s: qu.DocumentSelector, c: ServiceClient, formattingOptionsMgr: FormattingOptionsMgr, commandMgr: CommandMgr, telemetryReporter: TelemetryReporter) {
   return condRegistration([requireMinVer(c, Refactor.minVersion), requireSomeCap(c, ClientCap.Semantic)], () => {
-    return qv.languages.registerCodeActionsProvider(s.semantic, new Refactor(c, formattingOptionsManager, commandManager, telemetryReporter), Refactor.metadata);
+    return qv.languages.registerCodeActionsProvider(s.semantic, new Refactor(c, formattingOptionsMgr, commandMgr, telemetryReporter), Refactor.metadata);
   });
 }

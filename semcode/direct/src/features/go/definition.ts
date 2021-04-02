@@ -7,7 +7,7 @@ import { promptForMissingTool, promptForUpdatingTool } from '../goInstallTools';
 import { getModFolderPath, promptToUpdateToolForModules } from '../goModules';
 import { byteOffsetAt, getBinPath, getFileArchive, getModuleCache, getWorkspaceFolderPath, goKeywords, isPositionInString, runGodoc } from '../util';
 import { getCurrentGoRoot } from './utils/pathUtils';
-import { killProcessTree } from './utils/processUtils';
+import { killProcTree } from './utils/processUtils';
 
 const missingToolMsg = 'Missing tool: ';
 
@@ -46,7 +46,7 @@ interface GuruDefinitionOuput {
 export function definitionLocation(
   document: qv.TextDocument,
   position: qv.Position,
-  goConfig: qv.WorkspaceConfiguration,
+  goConfig: qv.WorkspaceConfig,
   includeDocs: boolean,
   token: qv.CancellationToken
 ): Promise<GoDefinitionInformation> {
@@ -108,9 +108,9 @@ function definitionLocation_godef(
   const offset = byteOffsetAt(input.document, input.position);
   const env = toolExecutionEnvironment();
   env['GOROOT'] = getCurrentGoRoot();
-  let p: cp.ChildProcess;
+  let p: cp.ChildProc;
   if (token) {
-    token.onCancellationRequested(() => killProcessTree(p));
+    token.onCancellationRequested(() => killProcTree(p));
   }
 
   return new Promise<GoDefinitionInformation>((resolve, reject) => {
@@ -182,9 +182,9 @@ function definitionLocation_gogetdoc(input: GoDefinitionInput, token: qv.Cancell
   }
   const offset = byteOffsetAt(input.document, input.position);
   const env = toolExecutionEnvironment();
-  let p: cp.ChildProcess;
+  let p: cp.ChildProc;
   if (token) {
-    token.onCancellationRequested(() => killProcessTree(p));
+    token.onCancellationRequested(() => killProcTree(p));
   }
 
   return new Promise<GoDefinitionInformation>((resolve, reject) => {
@@ -242,9 +242,9 @@ function definitionLocation_guru(input: GoDefinitionInput, token: qv.Cancellatio
   }
   const offset = byteOffsetAt(input.document, input.position);
   const env = toolExecutionEnvironment();
-  let p: cp.ChildProcess;
+  let p: cp.ChildProc;
   if (token) {
-    token.onCancellationRequested(() => killProcessTree(p));
+    token.onCancellationRequested(() => killProcTree(p));
   }
   return new Promise<GoDefinitionInformation>((resolve, reject) => {
     p = cp.execFile(guru, ['-json', '-modified', 'definition', input.document.fileName + ':#' + offset.toString()], { env }, (err, stdout, stderr) => {
@@ -294,9 +294,9 @@ export function parseMissingError(err: any): [boolean, string] {
 }
 
 export class GoDefinitionProvider implements qv.DefinitionProvider {
-  private goConfig: qv.WorkspaceConfiguration = null;
+  private goConfig: qv.WorkspaceConfig = null;
 
-  constructor(goConfig?: qv.WorkspaceConfiguration) {
+  constructor(goConfig?: qv.WorkspaceConfig) {
     this.goConfig = goConfig;
   }
 

@@ -127,7 +127,7 @@ class FileCancellationReceiverStrategy implements CancellationReceiverStrategy {
     return new FileBasedCancellationTokenSource(getCancellationFilePath(this.folderName, id));
   }
 }
-export class OperationCanceledException extends ResponseError<void> {
+export class OpCanceledException extends ResponseError<void> {
   constructor() {
     super(LSPErrorCodes.RequestCancelled, 'request cancelled');
   }
@@ -137,7 +137,7 @@ export class OperationCanceledException extends ResponseError<void> {
 }
 export function throwIfCancellationRequested(token: CancellationToken) {
   if (token.isCancellationRequested) {
-    throw new OperationCanceledException();
+    throw new OpCanceledException();
   }
 }
 let cancellationFolderName: string | undefined;

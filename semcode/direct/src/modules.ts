@@ -1,14 +1,14 @@
 import * as qv from 'vscode';
 import * as rpc from 'vscode-jsonrpc';
 import * as vslc from 'vscode-languageclient/node';
-import { onSetLanguageClient } from './extension_rs';
+import { onSetLangClient } from './extension_rs';
 import { registerCommand } from './utils';
 import { VersionedTextDocumentPositionParams } from './misc';
 import { onExit, onInit } from './repl';
 
 let statusBarItem: qv.StatusBarItem = null;
 let g_connection: rpc.MessageConnection = null;
-let g_languageClient: vslc.LanguageClient = null;
+let g_languageClient: vslc.LangClient = null;
 let g_currentGetModuleRequestCancelTokenSource: qv.CancellationTokenSource = null;
 
 const manuallySetDocuments = [];
@@ -36,7 +36,7 @@ export function activate(context: qv.ExtensionContext) {
   context.subscriptions.push(registerCommand('language-julia.chooseModule', chooseModule));
 
   context.subscriptions.push(
-    onSetLanguageClient((languageClient) => {
+    onSetLangClient((languageClient) => {
       g_languageClient = languageClient;
     })
   );
@@ -100,7 +100,7 @@ export async function getModuleForEditor(document: qv.TextDocument, position: qv
 
     return;
   } catch (err) {
-    if (err.message === 'Language client is not ready yet') {
+    if (err.message === 'Lang client is not ready yet') {
       qv.window.showErrorMessage(err);
     } else if (languageClient) {
       console.error(err);

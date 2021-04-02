@@ -213,7 +213,7 @@ export function serverVersion(ctx: Ctx): Cmd {
 
 export function toggleInlayHints(ctx: Ctx): Cmd {
   return async () => {
-    await qv.workspace.getConfiguration(`${ctx.config.rootSection}.inlayHints`).update('enable', !ctx.config.inlayHints.enable, qv.ConfigurationTarget.Workspace);
+    await qv.workspace.getConfig(`${ctx.config.rootSection}.inlayHints`).update('enable', !ctx.config.inlayHints.enable, qv.ConfigTarget.Workspace);
   };
 }
 
@@ -256,7 +256,7 @@ export function syntaxTree(ctx: Ctx): Cmd {
 
   ctx.pushCleanup(qv.workspace.registerTextDocumentContentProvider('rust-analyzer', tdcp));
   ctx.pushCleanup(
-    qv.languages.setLanguageConfiguration('ra_syntax_tree', {
+    qv.languages.setLangConfig('ra_syntax_tree', {
       brackets: [['[', ')']],
     })
   );

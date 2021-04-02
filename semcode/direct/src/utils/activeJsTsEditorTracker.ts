@@ -1,7 +1,7 @@
 import * as qv from 'vscode';
 import { Disposable } from './dispose';
 import { isJsConfigOrTsConfigFileName } from './languageDescription';
-import { isSupportedLanguageMode } from './languageModeIds';
+import { isSupportedLangMode } from './languageModeIds';
 
 export class ActiveJsTsEditorTracker extends Disposable {
   private _activeJsTsEditor: qv.TextEditor | undefined;
@@ -53,7 +53,7 @@ export class ActiveJsTsEditorTracker extends Disposable {
   }
 
   private isManagedScriptFile(editor: qv.TextEditor): boolean {
-    return isSupportedLanguageMode(editor.document);
+    return isSupportedLangMode(editor.document);
   }
 
   private isManagedConfigFile(editor: qv.TextEditor): boolean {

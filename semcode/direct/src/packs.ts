@@ -10,12 +10,12 @@ import * as os from 'os';
 import * as process from 'process';
 import * as which from 'which';
 import * as vslc from 'vscode-languageclient/node';
-import { onSetLanguageClient } from './extension_rs';
+import { onSetLangClient } from './extension_rs';
 
 let juliaPackagePath = '';
 let juliaDepotPath = '';
 let actualJuliaExePath = '';
-let g_languageClient: vslc.LanguageClient = null;
+let g_languageClient: vslc.LangClient = null;
 let g_current_environment: qv.StatusBarItem = null;
 let g_path_of_current_environment: string = null;
 let g_path_of_default_environment: string = null;
@@ -39,15 +39,15 @@ export async function getProjectFilePaths(envpath: string) {
 
 export async function switchEnvToPath(envpath: string, notifyLS: boolean) {
   g_path_of_current_environment = envpath;
-  const section = qv.workspace.getConfiguration('julia');
+  const section = qv.workspace.getConfig('julia');
   const currentConfigValue = section.get<string>('environmentPath');
   if (g_path_of_current_environment !== (await getDefaultEnvPath())) {
     if (currentConfigValue !== g_path_of_current_environment) {
-      section.update('environmentPath', g_path_of_current_environment, qv.ConfigurationTarget.Workspace);
+      section.update('environmentPath', g_path_of_current_environment, qv.ConfigTarget.Workspace);
     }
   } else {
     if (currentConfigValue !== null) {
-      section.update('environmentPath', undefined, qv.ConfigurationTarget.Workspace);
+      section.update('environmentPath', undefined, qv.ConfigTarget.Workspace);
     }
   }
   g_current_environment.text = 'Julia env: ' + (await getEnvName());
@@ -162,7 +162,7 @@ async function getDefaultEnvPath() {
 
 async function getEnvPath() {
   if (g_path_of_current_environment === null) {
-    const section = qv.workspace.getConfiguration('julia');
+    const section = qv.workspace.getConfig('julia');
     const envPathConfig = section.get<string>('environmentPath');
     if (envPathConfig) {
       if (await fs.exists(absEnvPath(envPathConfig))) {
@@ -252,7 +252,7 @@ export async function getJuliaExePath() {
 }
 
 function getExecutablePath() {
-  const c = qv.workspace.getConfiguration('julia');
+  const c = qv.workspace.getConfig('julia');
   const p = c ? c.get('executablePath', undefined) : undefined;
   return p === undefined ? '' : p;
 }
@@ -275,7 +275,7 @@ export async function getPkgDepotPath() {
   return juliaDepotPath;
 }
 
-async function openPackageDirectoryCommand() {
+async function openPackageDirCommand() {
   const optionsPackage: qv.QuickPickOptions = {
     placeHolder: 'Select package',
   };
@@ -304,15 +304,15 @@ async function openPackageDirectoryCommand() {
 export function activate(c: qv.ExtensionContext) {
   c.subscriptions.push(
     onDidChangeConfig((x) => {
-      if (x.affectsConfiguration('julia.executablePath')) {
+      if (x.affectsConfig('julia.executablePath')) {
         juliaPackagePath = '';
         actualJuliaExePath = '';
       }
     })
   );
-  c.subscriptions.push(registerCommand('language-julia.openPackageDirectory', openPackageDirectoryCommand));
+  c.subscriptions.push(registerCommand('language-julia.openPackageDir', openPackageDirCommand));
   c.subscriptions.push(
-    onSetLanguageClient((languageClient) => {
+    onSetLangClient((languageClient) => {
       g_languageClient = languageClient;
     })
   );

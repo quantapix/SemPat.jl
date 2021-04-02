@@ -1,4 +1,4 @@
-export enum DiagnosticRule {
+export enum DiagRule {
   strictListInference = 'strictListInference',
   strictDictionaryInference = 'strictDictionaryInference',
   strictParameterNoneValue = 'strictParameterNoneValue',
@@ -20,7 +20,7 @@ export enum DiagnosticRule {
   reportOptionalMemberAccess = 'reportOptionalMemberAccess',
   reportOptionalCall = 'reportOptionalCall',
   reportOptionalIterable = 'reportOptionalIterable',
-  reportOptionalContextManager = 'reportOptionalContextManager',
+  reportOptionalContextMgr = 'reportOptionalContextMgr',
   reportOptionalOperand = 'reportOptionalOperand',
   reportUntypedFunctionDecorator = 'reportUntypedFunctionDecorator',
   reportUntypedClassDecorator = 'reportUntypedClassDecorator',

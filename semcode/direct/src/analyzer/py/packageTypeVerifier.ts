@@ -1,8 +1,8 @@
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
-import { Diagnostic, DiagnosticAddendum, DiagnosticCategory } from '../common/diagnostic';
-import { FileDiagnostics } from '../common/diagnosticSink';
+import { Diag, DiagAddendum, DiagCategory } from '../common/diagnostic';
+import { FileDiags } from '../common/diagnosticSink';
 import { FileSystem } from '../common/fileSystem';
-import { combinePaths, getDirectoryPath, getFileExtension, stripFileExtension, tryStat } from '../common/pathUtils';
+import { combinePaths, getDirPath, getFileExtension, stripFileExtension, tryStat } from '../common/pathUtils';
 import { getEmptyRange } from '../common/textRange';
 import { DeclarationType, FunctionDeclaration, VariableDeclaration } from './declaration';
 import { ImportedModuleDescriptor, ImportResolver } from './importResolver';
@@ -43,7 +43,7 @@ export type AlternateSymbolNameMap = Map<string, string[]>;
 export interface PackageTypeReport {
   packageName: string;
   ignoreUnknownTypesFromImports: boolean;
-  rootDirectory: string | undefined;
+  rootDir: string | undefined;
   pyTypedPath: string | undefined;
   symbolCount: number;
   unknownTypeCount: number;
@@ -52,12 +52,12 @@ export interface PackageTypeReport {
   missingDefaultParamCount: number;
   modules: PackageModule[];
   alternateSymbolNames: AlternateSymbolNameMap;
-  fileDiagnostics: FileDiagnostics[];
+  fileDiags: FileDiags[];
 }
 
 interface TypeVerificationInfo {
   isFullyKnown: boolean;
-  diag: DiagnosticAddendum;
+  diag: DiagAddendum;
 
   classFields: Map<string, TypeVerificationInfo> | undefined;
 }
@@ -89,7 +89,7 @@ export class PackageTypeVerifier {
     const report: PackageTypeReport = {
       packageName: packageNameParts[0],
       ignoreUnknownTypesFromImports,
-      rootDirectory: this._getDirectoryForPackage(packageNameParts[0]),
+      rootDir: this._getDirForPackage(packageNameParts[0]),
       pyTypedPath: undefined,
       symbolCount: 0,
       unknownTypeCount: 0,
@@ -98,27 +98,27 @@ export class PackageTypeVerifier {
       missingDefaultParamCount: 0,
       alternateSymbolNames: new Map<string, string[]>(),
       modules: [],
-      fileDiagnostics: [{ filePath: '', diagnostics: [] }],
+      fileDiags: [{ filePath: '', diagnostics: [] }],
     };
 
-    const commonDiagnostics = report.fileDiagnostics[0].diagnostics;
+    const commonDiags = report.fileDiags[0].diagnostics;
 
     try {
       if (!trimmedPackageName) {
-        commonDiagnostics.push(new Diagnostic(DiagnosticCategory.Error, `Package name "${trimmedPackageName}" is invalid`, getEmptyRange()));
-      } else if (!report.rootDirectory) {
-        commonDiagnostics.push(new Diagnostic(DiagnosticCategory.Error, `Package "${trimmedPackageName}" cannot be resolved`, getEmptyRange()));
+        commonDiags.push(new Diag(DiagCategory.Error, `Package name "${trimmedPackageName}" is invalid`, getEmptyRange()));
+      } else if (!report.rootDir) {
+        commonDiags.push(new Diag(DiagCategory.Error, `Package "${trimmedPackageName}" cannot be resolved`, getEmptyRange()));
       } else {
-        const pyTypedInfo = getPyTypedInfo(this._fileSystem, report.rootDirectory);
+        const pyTypedInfo = getPyTypedInfo(this._fileSystem, report.rootDir);
         if (!pyTypedInfo) {
-          commonDiagnostics.push(new Diagnostic(DiagnosticCategory.Error, 'No py.typed file found', getEmptyRange()));
+          commonDiags.push(new Diag(DiagCategory.Error, 'No py.typed file found', getEmptyRange()));
         } else {
           report.pyTypedPath = pyTypedInfo.pyTypedPath;
 
-          const publicModules = this._getListOfPublicModules(report.rootDirectory, packageNameParts[0], trimmedPackageName);
+          const publicModules = this._getListOfPublicModules(report.rootDir, packageNameParts[0], trimmedPackageName);
 
           if (publicModules.length === 0) {
-            commonDiagnostics.push(new Diagnostic(DiagnosticCategory.Error, `Module "${trimmedPackageName}" cannot be resolved`, getEmptyRange()));
+            commonDiags.push(new Diag(DiagCategory.Error, `Module "${trimmedPackageName}" cannot be resolved`, getEmptyRange()));
           }
 
           const publicSymbolMap = new Map<string, string>();
@@ -133,7 +133,7 @@ export class PackageTypeVerifier {
       }
     } catch (e) {
       const message: string = (e.stack ? e.stack.toString() : undefined) || (typeof e.message === 'string' ? e.message : undefined) || JSON.stringify(e);
-      commonDiagnostics.push(new Diagnostic(DiagnosticCategory.Error, `An internal error occurred while verifying types: "${message}"`, getEmptyRange()));
+      commonDiags.push(new Diag(DiagCategory.Error, `An internal error occurred while verifying types: "${message}"`, getEmptyRange()));
     }
 
     return report;
@@ -265,12 +265,12 @@ export class PackageTypeVerifier {
 
     const importResult = this._resolveImport(moduleName);
     if (!importResult.isImportFound) {
-      report.fileDiagnostics[0].diagnostics.push(new Diagnostic(DiagnosticCategory.Error, `Could not resolve module "${moduleName}"`, getEmptyRange()));
+      report.fileDiags[0].diagnostics.push(new Diag(DiagCategory.Error, `Could not resolve module "${moduleName}"`, getEmptyRange()));
     } else if (importResult.isStubPackage) {
-      report.fileDiagnostics[0].diagnostics.push(new Diagnostic(DiagnosticCategory.Error, `No inlined types found for module "${moduleName}" because stub package was present`, getEmptyRange()));
+      report.fileDiags[0].diagnostics.push(new Diag(DiagCategory.Error, `No inlined types found for module "${moduleName}" because stub package was present`, getEmptyRange()));
     } else {
       const modulePath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
-      report.fileDiagnostics.push({ filePath: modulePath, diagnostics: [] });
+      report.fileDiags.push({ filePath: modulePath, diagnostics: [] });
       this._program.addTrackedFiles([modulePath], /* isThirdPartyImport */ true, /* isInPyTypedPackage */ true);
 
       const sourceFile = this._program.getBoundSourceFile(modulePath);
@@ -281,7 +281,7 @@ export class PackageTypeVerifier {
 
         this._verifySymbolsInSymbolTable(report, module, module.name, moduleScope.symbolTable, ScopeType.Module, publicSymbolMap, '');
       } else {
-        report.fileDiagnostics[0].diagnostics.push(new Diagnostic(DiagnosticCategory.Error, `Could not bind file "${modulePath}"`, getEmptyRange()));
+        report.fileDiags[0].diagnostics.push(new Diag(DiagCategory.Error, `Could not bind file "${modulePath}"`, getEmptyRange()));
       }
     }
   }
@@ -310,12 +310,12 @@ export class PackageTypeVerifier {
 
     dirEntries.forEach((entry) => {
       let isFile = entry.isFile();
-      let isDirectory = entry.isDirectory();
+      let isDir = entry.isDir();
       if (entry.isSymbolicLink()) {
         const stat = tryStat(this._fileSystem, combinePaths(dirPath, entry.name));
         if (stat) {
           isFile = stat.isFile();
-          isDirectory = stat.isDirectory();
+          isDir = stat.isDir();
         }
       }
 
@@ -333,7 +333,7 @@ export class PackageTypeVerifier {
             }
           }
         }
-      } else if (isDirectory) {
+      } else if (isDir) {
         if (!isPrivateOrProtectedName(entry.name) && this._isLegalModulePartName(entry.name)) {
           this._addPublicModulesRecursive(combinePaths(dirPath, entry.name), `${modulePath}.${entry.name}`, publicModules);
         }
@@ -367,7 +367,7 @@ export class PackageTypeVerifier {
         const fullName = `${scopeName}.${name}`;
         const symbolType = this._program.getTypeForSymbol(symbol);
         let errorMessage = '';
-        const diagnostics = report.fileDiagnostics[report.fileDiagnostics.length - 1].diagnostics;
+        const diagnostics = report.fileDiags[report.fileDiags.length - 1].diagnostics;
         const range = (symbol.hasDeclarations() && symbol.getDeclarations()[0].range) || getEmptyRange();
         const packageSymbolType = this._getPackageSymbolType(symbol, symbolType);
         const packageSymbolTypeText = PackageTypeVerifier.getSymbolTypeString(packageSymbolType);
@@ -389,7 +389,7 @@ export class PackageTypeVerifier {
               errorMessage = `Type unknown for ${packageSymbolTypeText} "${fullName}"`;
             }
           } else {
-            const diag = new DiagnosticAddendum();
+            const diag = new DiagAddendum();
             if (!this._validateTypeIsCompletelyKnown(report, symbolType, diag, publicSymbolMap, fullName, [])) {
               errorMessage = `Type partially unknown for ${packageSymbolTypeText} "${fullName}"` + diag.getString(diagnosticMaxDepth, diagnosticMaxLineCount);
             }
@@ -397,7 +397,7 @@ export class PackageTypeVerifier {
         }
 
         if (errorMessage) {
-          diagnostics.push(new Diagnostic(DiagnosticCategory.Error, errorMessage, range));
+          diagnostics.push(new Diag(DiagCategory.Error, errorMessage, range));
           report.unknownTypeCount++;
         }
 
@@ -406,7 +406,7 @@ export class PackageTypeVerifier {
           if (classDecl) {
             if (isClass(symbolType)) {
               if (!symbolType.details.docString) {
-                diagnostics.push(new Diagnostic(DiagnosticCategory.Warning, `No docstring found for class "${fullName}"`, range));
+                diagnostics.push(new Diag(DiagCategory.Warning, `No docstring found for class "${fullName}"`, range));
 
                 report.missingClassDocStringCount++;
               }
@@ -443,14 +443,14 @@ export class PackageTypeVerifier {
 
             if (isDocStringMissing) {
               if (!isDunderName(name)) {
-                diagnostics.push(new Diagnostic(DiagnosticCategory.Warning, `No docstring found for function "${fullName}"`, range));
+                diagnostics.push(new Diag(DiagCategory.Warning, `No docstring found for function "${fullName}"`, range));
 
                 report.missingFunctionDocStringCount++;
               }
             }
 
             if (isDefaultValueEllipsis) {
-              diagnostics.push(new Diagnostic(DiagnosticCategory.Warning, `One or more default values in function "${fullName}" is specified as "..."`, range));
+              diagnostics.push(new Diag(DiagCategory.Warning, `One or more default values in function "${fullName}" is specified as "..."`, range));
 
               report.missingDefaultParamCount++;
             }
@@ -467,7 +467,7 @@ export class PackageTypeVerifier {
     return result;
   }
 
-  private _validateTypeIsCompletelyKnown(report: PackageTypeReport, type: Type, diag: DiagnosticAddendum, publicSymbolMap: PublicSymbolMap, currentSymbol: string, typeStack: string[]): boolean {
+  private _validateTypeIsCompletelyKnown(report: PackageTypeReport, type: Type, diag: DiagAddendum, publicSymbolMap: PublicSymbolMap, currentSymbol: string, typeStack: string[]): boolean {
     if (typeStack.length > maxTypeRecursionCount) {
       return true;
     }
@@ -610,7 +610,7 @@ export class PackageTypeVerifier {
 
   private _validateClassTypeIsCompletelyKnown(report: PackageTypeReport, type: ClassType, publicSymbolMap: PublicSymbolMap, currentSymbol: string, typeStack: string[]): TypeVerificationInfo {
     let typeInfo: TypeVerificationInfo | undefined;
-    const diag = new DiagnosticAddendum();
+    const diag = new DiagAddendum();
 
     if (currentSymbol !== type.details.fullName && publicSymbolMap.has(type.details.fullName)) {
       typeInfo = {
@@ -652,7 +652,7 @@ export class PackageTypeVerifier {
               const symbolType = this._program.getTypeForSymbol(symbol);
               const packageSymbolType = this._getPackageSymbolType(symbol, symbolType);
               const symbolTypeText = PackageTypeVerifier.getSymbolTypeString(packageSymbolType);
-              const symbolDiag = new DiagnosticAddendum();
+              const symbolDiag = new DiagAddendum();
 
               if (!this._isSymbolTypeImplied(ScopeType.Class, name)) {
                 if (isUnknown(symbolType)) {
@@ -690,7 +690,7 @@ export class PackageTypeVerifier {
                   if (!classFieldMap.has(name)) {
                     const reportError = !info.isFullyKnown && !isBaseClassPublicSymbol;
 
-                    const diag = new DiagnosticAddendum();
+                    const diag = new DiagAddendum();
                     if (reportError) {
                       diag.addAddendum(info.diag);
                       diag.addMessage(`Type partially unknown for symbol "${name}" defined in base class "${this._program.printType(convertToInstance(mroType), /* expandTypeAlias */ false)}"`);
@@ -714,7 +714,7 @@ export class PackageTypeVerifier {
             } else if (!ClassType.isBuiltIn(type.details.effectiveMetaclass)) {
               const metaclassInfo = this._validateClassTypeIsCompletelyKnown(report, type.details.effectiveMetaclass, publicSymbolMap, currentSymbol, typeStack);
 
-              const metaclassDiag = new DiagnosticAddendum();
+              const metaclassDiag = new DiagAddendum();
               let isMetaclassKnown = true;
               if (!metaclassInfo.isFullyKnown) {
                 metaclassDiag.addAddendum(metaclassInfo.diag);
@@ -737,7 +737,7 @@ export class PackageTypeVerifier {
           }
 
           type.details.baseClasses.forEach((baseClass, index) => {
-            const baseClassDiag = new DiagnosticAddendum();
+            const baseClassDiag = new DiagAddendum();
             if (!isClass(baseClass)) {
               baseClassDiag.addMessage(`Type unknown for base class ${index + 1}`);
               isKnown = false;
@@ -766,7 +766,7 @@ export class PackageTypeVerifier {
 
     if (type.typeArguments) {
       this._pushType(typeStack, type.details.fullName, () => {
-        const diag = new DiagnosticAddendum();
+        const diag = new DiagAddendum();
         typeInfo!.diag.getChildren().forEach((childDiag) => {
           diag.addAddendum(childDiag);
         });
@@ -778,7 +778,7 @@ export class PackageTypeVerifier {
         };
 
         type.typeArguments!.forEach((typeArg, index) => {
-          const typeArgDiag = new DiagnosticAddendum();
+          const typeArgDiag = new DiagAddendum();
           const typeVarText = index < type.details.typeParameters.length ? ` which corresponds to TypeVar ${type.details.typeParameters[index].details.name}` : '';
 
           if (isUnknown(typeArg)) {
@@ -803,7 +803,7 @@ export class PackageTypeVerifier {
       return typeInfo;
     }
 
-    const diag = new DiagnosticAddendum();
+    const diag = new DiagAddendum();
 
     if (typeStack.length > maxTypeRecursionCount) {
       return {
@@ -820,7 +820,7 @@ export class PackageTypeVerifier {
         const symbolType = this._program.getTypeForSymbol(symbol);
         const packageSymbolType = this._getPackageSymbolType(symbol, symbolType);
         const symbolTypeText = PackageTypeVerifier.getSymbolTypeString(packageSymbolType);
-        const symbolDiag = new DiagnosticAddendum();
+        const symbolDiag = new DiagAddendum();
 
         if (isUnknown(symbolType)) {
           symbolDiag.addMessage(`Type unknown for ${symbolTypeText} "${name}"`);
@@ -896,7 +896,7 @@ export class PackageTypeVerifier {
     }
   }
 
-  private _getDirectoryForPackage(packageName: string): string | undefined {
+  private _getDirForPackage(packageName: string): string | undefined {
     const moduleDescriptor: ImportedModuleDescriptor = {
       leadingDots: 0,
       nameParts: [packageName],
@@ -907,7 +907,7 @@ export class PackageTypeVerifier {
 
     if (importResult.isImportFound) {
       const resolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
-      return getDirectoryPath(resolvedPath);
+      return getDirPath(resolvedPath);
     }
 
     return undefined;

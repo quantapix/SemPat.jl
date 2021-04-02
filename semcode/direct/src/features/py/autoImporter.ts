@@ -10,7 +10,7 @@ import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ExecutionEnvironment } from '../common/configOptions';
 import { TextEditAction } from '../common/editAction';
-import { combinePaths, getDirectoryPath, getFileName, stripFileExtension } from '../common/pathUtils';
+import { combinePaths, getDirPath, getFileName, stripFileExtension } from '../common/pathUtils';
 import * as StringUtils from '../common/stringUtils';
 import { Position } from '../common/textRange';
 import { Duration } from '../common/timing';
@@ -233,7 +233,7 @@ export class AutoImporter {
   }
 
   private _isStubFileOrHasInit<T>(map: Map<string, T>, filePath: string) {
-    const fileDir = getDirectoryPath(filePath);
+    const fileDir = getDirPath(filePath);
     const initPathPy = combinePaths(fileDir, '__init__.py');
     const initPathPyi = initPathPy + 'i';
     const isStub = filePath.endsWith('.pyi');
@@ -435,7 +435,7 @@ export class AutoImporter {
   private _getImportParts(filePath: string) {
     const name = stripFileExtension(getFileName(filePath));
     if (name === '__init__') {
-      return createImportParts(this._getModuleNameAndTypeFromFilePath(getDirectoryPath(filePath)));
+      return createImportParts(this._getModuleNameAndTypeFromFilePath(getDirPath(filePath)));
     }
     return createImportParts(this._getModuleNameAndTypeFromFilePath(filePath));
 

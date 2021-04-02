@@ -156,17 +156,17 @@ export default class Analyzer {
     });
     return symbols;
   }
-  public analyze(uri: string, document: LSP.TextDocument): LSP.Diagnostic[] {
+  public analyze(uri: string, document: LSP.TextDocument): LSP.Diag[] {
     const contents = document.getText();
     const tree = this.parser.parse(contents);
     this.uriToTextDocument[uri] = document;
     this.uriToTreeSitterTrees[uri] = tree;
     this.uriToDeclarations[uri] = {};
     this.uriToFileContent[uri] = contents;
-    const problems: LSP.Diagnostic[] = [];
+    const problems: LSP.Diag[] = [];
     TreeSitterUtil.forEach(tree.rootNode, (n: Parser.SyntaxNode) => {
       if (n.type === 'ERROR') {
-        problems.push(LSP.Diagnostic.create(TreeSitterUtil.range(n), 'Failed to parse expression', LSP.DiagnosticSeverity.Error));
+        problems.push(LSP.Diag.create(TreeSitterUtil.range(n), 'Failed to parse expression', LSP.DiagSeverity.Error));
         return;
       } else if (TreeSitterUtil.isDefinition(n)) {
         const named = n.firstNamedChild;
@@ -183,7 +183,7 @@ export default class Analyzer {
     });
     function findMissingNodes(node: Parser.SyntaxNode) {
       if (node.isMissing()) {
-        problems.push(LSP.Diagnostic.create(TreeSitterUtil.range(node), `Syntax error: expected "${node.type}" somewhere in the file`, LSP.DiagnosticSeverity.Warning));
+        problems.push(LSP.Diag.create(TreeSitterUtil.range(node), `Syntax error: expected "${node.type}" somewhere in the file`, LSP.DiagSeverity.Warning));
       } else if (node.hasError()) {
         node.children.forEach(findMissingNodes);
       }

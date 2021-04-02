@@ -1,7 +1,7 @@
 import TypeScriptServiceClientHost from '../typeScriptServiceClientHost';
 import { ActiveJsTsEditorTracker } from './utils/activeJsTsEditorTracker';
 import { Lazy } from '../utils/lazy';
-import { PluginManager } from './utils/plugins';
+import { PluginMgr } from './utils/plugins';
 import * as qv from 'vscode';
 import { openProjectConfigForFile, ProjectType } from './utils/tsconfig';
 import { isTypeScriptDocument } from './utils/languageModeIds';
@@ -11,7 +11,7 @@ export interface Command {
   execute(...xs: any[]): void;
 }
 
-export class CommandManager {
+export class CommandMgr {
   private readonly cmds = new Map<string, qv.Disposable>();
   public dispose() {
     for (const r of this.cmds.values()) {
@@ -33,9 +33,9 @@ export class CommandManager {
 
 export class ConfigurePluginCommand implements Command {
   public readonly id = '_typescript.configurePlugin';
-  public constructor(private readonly pluginManager: PluginManager) {}
+  public constructor(private readonly pluginMgr: PluginMgr) {}
   public execute(id: string, cfg: any) {
-    this.pluginManager.setConfiguration(id, cfg);
+    this.pluginMgr.setConfig(id, cfg);
   }
 }
 
@@ -67,11 +67,11 @@ class LearnMoreAboutRefactoringsCommand implements Command {
   }
 }
 
-class OpenTsServerLogCommand implements Command {
-  public readonly id = 'typescript.openTsServerLog';
+class OpenTSServerLogCommand implements Command {
+  public readonly id = 'typescript.openTSServerLog';
   public constructor(private readonly lazyClientHost: Lazy<TypeScriptServiceClientHost>) {}
   public execute() {
-    this.lazyClientHost.value.serviceClient.openTsServerLogFile();
+    this.lazyClientHost.value.serviceClient.openTSServerLogFile();
   }
 }
 
@@ -91,35 +91,30 @@ class ReloadJavaScriptProjectsCommand implements Command {
   }
 }
 
-class RestartTsServerCommand implements Command {
-  public readonly id = 'typescript.restartTsServer';
+class RestartTSServerCommand implements Command {
+  public readonly id = 'typescript.restartTSServer';
   public constructor(private readonly lazyClientHost: Lazy<TypeScriptServiceClientHost>) {}
   public execute() {
-    this.lazyClientHost.value.serviceClient.restartTsServer();
+    this.lazyClientHost.value.serviceClient.restartTSServer();
   }
 }
 
-class SelectTypeScriptVersionCommand implements Command {
-  public readonly id = 'typescript.selectTypeScriptVersion';
+class SelectTSVersionCommand implements Command {
+  public readonly id = 'typescript.selectTSVersion';
   public constructor(private readonly lazyClientHost: Lazy<TypeScriptServiceClientHost>) {}
   public execute() {
     this.lazyClientHost.value.serviceClient.showVersionPicker();
   }
 }
 
-export function registerBaseCommands(
-  commandManager: CommandManager,
-  lazyClientHost: Lazy<TypeScriptServiceClientHost>,
-  pluginManager: PluginManager,
-  activeJsTsEditorTracker: ActiveJsTsEditorTracker
-): void {
-  commandManager.register(new ReloadTypeScriptProjectsCommand(lazyClientHost));
-  commandManager.register(new ReloadJavaScriptProjectsCommand(lazyClientHost));
-  commandManager.register(new SelectTypeScriptVersionCommand(lazyClientHost));
-  commandManager.register(new OpenTsServerLogCommand(lazyClientHost));
-  commandManager.register(new RestartTsServerCommand(lazyClientHost));
-  commandManager.register(new TypeScriptGoToProjectConfigCommand(activeJsTsEditorTracker, lazyClientHost));
-  commandManager.register(new JavaScriptGoToProjectConfigCommand(activeJsTsEditorTracker, lazyClientHost));
-  commandManager.register(new ConfigurePluginCommand(pluginManager));
-  commandManager.register(new LearnMoreAboutRefactoringsCommand());
+export function registerBaseCommands(commandMgr: CommandMgr, lazyClientHost: Lazy<TypeScriptServiceClientHost>, pluginMgr: PluginMgr, activeJsTsEditorTracker: ActiveJsTsEditorTracker): void {
+  commandMgr.register(new ReloadTypeScriptProjectsCommand(lazyClientHost));
+  commandMgr.register(new ReloadJavaScriptProjectsCommand(lazyClientHost));
+  commandMgr.register(new SelectTSVersionCommand(lazyClientHost));
+  commandMgr.register(new OpenTSServerLogCommand(lazyClientHost));
+  commandMgr.register(new RestartTSServerCommand(lazyClientHost));
+  commandMgr.register(new TypeScriptGoToProjectConfigCommand(activeJsTsEditorTracker, lazyClientHost));
+  commandMgr.register(new JavaScriptGoToProjectConfigCommand(activeJsTsEditorTracker, lazyClientHost));
+  commandMgr.register(new ConfigurePluginCommand(pluginMgr));
+  commandMgr.register(new LearnMoreAboutRefactoringsCommand());
 }

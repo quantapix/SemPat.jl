@@ -1,10 +1,10 @@
 import { CancellationToken } from 'vscode-languageserver';
 
-import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
+import { OpCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { Console } from '../common/console';
 import * as debug from '../common/debug';
-import { FileDiagnostics } from '../common/diagnosticSink';
+import { FileDiags } from '../common/diagnosticSink';
 import { Duration } from '../common/timing';
 import { MaxAnalysisTime, Program } from './program';
 
@@ -13,7 +13,7 @@ export const nullCallback: AnalysisCompleteCallback = (_) => {
 };
 
 export interface AnalysisResults {
-  diagnostics: FileDiagnostics[];
+  diagnostics: FileDiags[];
   filesInProgram: number;
   checkingOnlyOpenFiles: boolean;
   filesRequiringAnalysis: number;
@@ -46,7 +46,7 @@ export function analyzeProgram(
     const filesLeftToAnalyze = program.getFilesToAnalyzeCount();
     debug.assert(filesLeftToAnalyze === 0 || moreToAnalyze);
 
-    const diagnostics = program.getDiagnostics(configOptions);
+    const diagnostics = program.getDiags(configOptions);
     const diagnosticFileCount = diagnostics.length;
     const elapsedTime = duration.getDurationInSeconds();
 
@@ -62,7 +62,7 @@ export function analyzeProgram(
       });
     }
   } catch (e) {
-    if (OperationCanceledException.is(e)) {
+    if (OpCanceledException.is(e)) {
       return false;
     }
 

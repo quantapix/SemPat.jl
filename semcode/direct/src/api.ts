@@ -1,11 +1,11 @@
 import * as qv from 'vscode';
-import { PluginManager } from './utils/plugins';
+import { PluginMgr } from './utils/plugins';
 
 class ApiV0 {
-  public constructor(public readonly onCompletionAccepted: qv.Event<qv.CompletionItem & { metadata?: any }>, private readonly _pluginManager: PluginManager) {}
+  public constructor(public readonly onCompletionAccepted: qv.Event<qv.CompletionItem & { metadata?: any }>, private readonly _pluginMgr: PluginMgr) {}
 
   configurePlugin(pluginId: string, configuration: {}): void {
-    this._pluginManager.setConfiguration(pluginId, configuration);
+    this._pluginMgr.setConfig(pluginId, configuration);
   }
 }
 
@@ -13,11 +13,11 @@ export interface Api {
   getAPI(version: 0): ApiV0 | undefined;
 }
 
-export function getExtensionApi(onCompletionAccepted: qv.Event<qv.CompletionItem>, pluginManager: PluginManager): Api {
+export function getExtensionApi(onCompletionAccepted: qv.Event<qv.CompletionItem>, pluginMgr: PluginMgr): Api {
   return {
     getAPI(version) {
       if (version === 0) {
-        return new ApiV0(onCompletionAccepted, pluginManager);
+        return new ApiV0(onCompletionAccepted, pluginMgr);
       }
       return undefined;
     },

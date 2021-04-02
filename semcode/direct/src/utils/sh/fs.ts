@@ -1,8 +1,8 @@
 import * as glob from 'glob';
 import * as Os from 'os';
 export function untildify(pathWithTilde: string): string {
-  const homeDirectory = Os.homedir();
-  return homeDirectory ? pathWithTilde.replace(/^~(?=$|\/|\\)/, homeDirectory) : pathWithTilde;
+  const homeDir = Os.homedir();
+  return homeDir ? pathWithTilde.replace(/^~(?=$|\/|\\)/, homeDir) : pathWithTilde;
 }
 export async function getFilePaths({ globPattern, rootPath }: { globPattern: string; rootPath: string }): Promise<string[]> {
   return new Promise((resolve, reject) => {

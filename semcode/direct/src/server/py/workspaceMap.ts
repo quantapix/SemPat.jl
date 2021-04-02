@@ -1,10 +1,10 @@
 import { createDeferred } from './common/deferred';
-import { LanguageServerBase, WorkspaceServiceInstance } from './serverBase';
+import { LangServerBase, WorkspaceServiceInstance } from './serverBase';
 
 export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
   private _defaultWorkspacePath = '<default>';
 
-  constructor(private _ls: LanguageServerBase) {
+  constructor(private _ls: LangServerBase) {
     super();
   }
 
@@ -47,7 +47,7 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
           rootPath: '',
           rootUri: '',
           serviceInstance: this._ls.createAnalyzerService(this._defaultWorkspacePath),
-          disableLanguageServices: false,
+          disableLangServices: false,
           disableOrganizeImports: false,
           isInitialized: createDeferred<boolean>(),
         };

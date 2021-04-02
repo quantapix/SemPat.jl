@@ -4,7 +4,7 @@ import { getPyTypedInfo } from './analyzer/pyTypedUtils';
 import { ExecutionEnvironment } from './common/configOptions';
 import { FileSystem, FileWatcher, FileWatcherEventHandler, MkDirOptions, Stats, TmpfileOptions } from './common/fileSystem';
 import { stubsSuffix } from './common/pathConsts';
-import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath, getFileName, isDirectory, tryStat } from './common/pathUtils';
+import { combinePaths, ensureTrailingDirSeparator, getDirPath, getFileName, isDir, tryStat } from './common/pathUtils';
 
 export class PyrightFileSystem implements FileSystem {
   private readonly _fileMap = new Map<string, string>();
@@ -37,7 +37,7 @@ export class PyrightFileSystem implements FileSystem {
       return !this._partialStubPackagePaths.has(dirPath);
     });
 
-    const partialStubs = this._folderMap.get(ensureTrailingDirectorySeparator(path));
+    const partialStubs = this._folderMap.get(ensureTrailingDirSeparator(path));
     if (!partialStubs) {
       return entries;
     }
@@ -51,7 +51,7 @@ export class PyrightFileSystem implements FileSystem {
       return !this._partialStubPackagePaths.has(dirPath);
     });
 
-    const partialStubs = this._folderMap.get(ensureTrailingDirectorySeparator(path));
+    const partialStubs = this._folderMap.get(ensureTrailingDirSeparator(path));
     if (!partialStubs) {
       return entries;
     }
@@ -129,15 +129,15 @@ export class PyrightFileSystem implements FileSystem {
     for (const path of paths) {
       this._rootSearched.add(path);
 
-      if (!this._realFS.existsSync(path) || !isDirectory(this._realFS, path)) {
+      if (!this._realFS.existsSync(path) || !isDir(this._realFS, path)) {
         continue;
       }
 
       for (const entry of this._realFS.readdirEntriesSync(path)) {
         const partialStubPackagePath = combinePaths(path, entry.name);
-        const isDirectory = !entry.isSymbolicLink() ? entry.isDirectory() : !!tryStat(this._realFS, partialStubPackagePath)?.isDirectory();
+        const isDir = !entry.isSymbolicLink() ? entry.isDir() : !!tryStat(this._realFS, partialStubPackagePath)?.isDir();
 
-        if (!isDirectory || !entry.name.endsWith(stubsSuffix)) {
+        if (!isDir || !entry.name.endsWith(stubsSuffix)) {
           continue;
         }
 
@@ -154,7 +154,7 @@ export class PyrightFileSystem implements FileSystem {
           const packagePath = combinePaths(root, packageName);
           try {
             const stat = tryStat(this._realFS, packagePath);
-            if (!stat?.isDirectory()) {
+            if (!stat?.isDir()) {
               continue;
             }
 
@@ -174,7 +174,7 @@ export class PyrightFileSystem implements FileSystem {
               this._fileMap.set(mappedPyiFile, originalPyiFile);
               this._reverseFileMap.set(originalPyiFile, mappedPyiFile);
 
-              const directory = ensureTrailingDirectorySeparator(getDirectoryPath(mappedPyiFile));
+              const directory = ensureTrailingDirSeparator(getDirPath(mappedPyiFile));
               let folderInfo = this._folderMap.get(directory);
               if (!folderInfo) {
                 folderInfo = [];
@@ -214,22 +214,22 @@ export class PyrightFileSystem implements FileSystem {
   private _getRelativePathPartialStubs(path: string) {
     const paths: string[] = [];
 
-    const partialStubPathLength = ensureTrailingDirectorySeparator(path).length;
+    const partialStubPathLength = ensureTrailingDirSeparator(path).length;
     const searchAllStubs = (path: string) => {
       for (const entry of this._realFS.readdirEntriesSync(path)) {
         const filePath = combinePaths(path, entry.name);
 
-        let isDirectory = entry.isDirectory();
+        let isDir = entry.isDir();
         let isFile = entry.isFile();
         if (entry.isSymbolicLink()) {
           const stat = tryStat(this._realFS, filePath);
           if (stat) {
-            isDirectory = stat.isDirectory();
+            isDir = stat.isDir();
             isFile = stat.isFile();
           }
         }
 
-        if (isDirectory) {
+        if (isDir) {
           searchAllStubs(filePath);
         }
 
@@ -256,7 +256,7 @@ class FakeFile extends fs.Dirent {
     return true;
   }
 
-  isDirectory(): boolean {
+  isDir(): boolean {
     return false;
   }
 

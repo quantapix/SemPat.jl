@@ -1,8 +1,8 @@
 import Char from 'typescript-char';
 
 import { assert } from '../common/debug';
-import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
-import { DiagnosticSink } from '../common/diagnosticSink';
+import { Diag, DiagAddendum } from '../common/diagnostic';
+import { DiagSink } from '../common/diagnosticSink';
 import { convertOffsetsToRange, convertPositionToOffset } from '../common/positionUtils';
 import { latestStablePythonVersion, PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
@@ -17,7 +17,7 @@ import {
   AssignmentNode,
   AugmentedAssignmentNode,
   AwaitNode,
-  BinaryOperationNode,
+  BinaryOpNode,
   BreakNode,
   CallNode,
   CaseNode,
@@ -91,7 +91,7 @@ import {
   TryNode,
   TupleNode,
   TypeAnnotationNode,
-  UnaryOperationNode,
+  UnaryOpNode,
   UnpackNode,
   WhileNode,
   WithItemNode,
@@ -138,7 +138,7 @@ export interface ParseResults {
 export interface ParseExpressionTextResults {
   parseTree?: ExpressionNode;
   lines: TextRangeCollection<TextRange>;
-  diagnostics: Diagnostic[];
+  diagnostics: Diag[];
 }
 
 export interface ModuleImport {
@@ -161,7 +161,7 @@ export class Parser {
   private _tokenIndex = 0;
   private _areErrorsSuppressed = false;
   private _parseOptions: ParseOptions = new ParseOptions();
-  private _diagSink: DiagnosticSink = new DiagnosticSink();
+  private _diagSink: DiagSink = new DiagSink();
   private _isInLoop = false;
   private _isInFunction = false;
   private _isInFinally = false;
@@ -174,14 +174,14 @@ export class Parser {
   private _typingImportAliases: string[] = [];
   private _typingSymbolAliases: Map<string, string> = new Map<string, string>();
 
-  parseSourceFile(fileContents: string, parseOptions: ParseOptions, diagSink: DiagnosticSink): ParseResults {
-    timingStats.tokenizeFileTime.timeOperation(() => {
+  parseSourceFile(fileContents: string, parseOptions: ParseOptions, diagSink: DiagSink): ParseResults {
+    timingStats.tokenizeFileTime.timeOp(() => {
       this._startNewParse(fileContents, 0, fileContents.length, parseOptions, diagSink);
     });
 
     const moduleNode = ModuleNode.create({ start: 0, length: fileContents.length });
 
-    timingStats.parseFileTime.timeOperation(() => {
+    timingStats.parseFileTime.timeOp(() => {
       while (!this._atEof()) {
         if (!this._consumeTokenIfType(TokenType.NewLine)) {
           const nextToken = this._peekToken();
@@ -189,9 +189,9 @@ export class Parser {
             this._getNextToken();
             const indentToken = nextToken as IndentToken;
             if (indentToken.isIndentAmbiguous) {
-              this._addError(Localizer.Diagnostic.inconsistentTabs(), indentToken);
+              this._addError(Localizer.Diag.inconsistentTabs(), indentToken);
             } else {
-              this._addError(Localizer.Diagnostic.unexpectedIndent(), nextToken);
+              this._addError(Localizer.Diag.unexpectedIndent(), nextToken);
             }
           }
 
@@ -225,7 +225,7 @@ export class Parser {
     parseTextMode = ParseTextMode.Expression,
     initialParenDepth = 0
   ): ParseExpressionTextResults {
-    const diagSink = new DiagnosticSink();
+    const diagSink = new DiagSink();
     this._startNewParse(fileContents, textOffset, textLength, parseOptions, diagSink, initialParenDepth);
 
     let parseTree: ExpressionNode | undefined;
@@ -239,7 +239,7 @@ export class Parser {
         parseTree = exprListResult.parseError;
       } else {
         if (exprListResult.list.length === 0) {
-          this._addError(Localizer.Diagnostic.expectedExpr(), this._peekToken());
+          this._addError(Localizer.Diag.expectedExpr(), this._peekToken());
         }
         parseTree = this._makeExpressionOrTuple(exprListResult, /* enclosedInParens */ false);
       }
@@ -250,7 +250,7 @@ export class Parser {
     }
 
     if (!this._atEof()) {
-      this._addError(Localizer.Diagnostic.unexpectedExprToken(), this._peekToken());
+      this._addError(Localizer.Diag.unexpectedExprToken(), this._peekToken());
     }
 
     return {
@@ -260,7 +260,7 @@ export class Parser {
     };
   }
 
-  private _startNewParse(fileContents: string, textOffset: number, textLength: number, parseOptions: ParseOptions, diagSink: DiagnosticSink, initialParenDepth = 0) {
+  private _startNewParse(fileContents: string, textOffset: number, textLength: number, parseOptions: ParseOptions, diagSink: DiagSink, initialParenDepth = 0) {
     this._fileContents = fileContents;
     this._parseOptions = parseOptions;
     this._diagSink = diagSink;
@@ -272,7 +272,7 @@ export class Parser {
 
   private _parseStatement(): StatementNode | ErrorNode | undefined {
     if (this._consumeTokenIfType(TokenType.Dedent)) {
-      this._addError(Localizer.Diagnostic.unexpectedUnindent(), this._peekToken());
+      this._addError(Localizer.Diag.unexpectedUnindent(), this._peekToken());
     }
 
     switch (this._peekKeywordType()) {
@@ -350,7 +350,7 @@ export class Parser {
         return this._parseForStatement(asyncToken);
     }
 
-    this._addError(Localizer.Diagnostic.unexpectedAsyncToken(), asyncToken);
+    this._addError(Localizer.Diag.unexpectedAsyncToken(), asyncToken);
 
     return undefined;
   }
@@ -361,7 +361,7 @@ export class Parser {
     let smellsLikeMatchStatement = false;
     this._suppressErrors(() => {
       const curTokenIndex = this._tokenIndex;
-      this._parseTestOrStarListAsExpression(/* allowAssignmentExpression */ true, ErrorExpressionCategory.MissingPatternSubject, Localizer.Diagnostic.expectedReturnExpr());
+      this._parseTestOrStarListAsExpression(/* allowAssignmentExpression */ true, ErrorExpressionCategory.MissingPatternSubject, Localizer.Diag.expectedReturnExpr());
       smellsLikeMatchStatement = this._peekToken().type === TokenType.Colon;
 
       this._tokenIndex = curTokenIndex;
@@ -371,27 +371,27 @@ export class Parser {
       return undefined;
     }
 
-    const subjectExpression = this._parseTestOrStarListAsExpression(/* allowAssignmentExpression */ true, ErrorExpressionCategory.MissingPatternSubject, Localizer.Diagnostic.expectedReturnExpr());
+    const subjectExpression = this._parseTestOrStarListAsExpression(/* allowAssignmentExpression */ true, ErrorExpressionCategory.MissingPatternSubject, Localizer.Diag.expectedReturnExpr());
     const matchNode = MatchNode.create(matchToken, subjectExpression);
 
     const nextToken = this._peekToken();
 
     if (!this._consumeTokenIfType(TokenType.Colon)) {
-      this._addError(Localizer.Diagnostic.expectedColon(), nextToken);
+      this._addError(Localizer.Diag.expectedColon(), nextToken);
 
       if (this._consumeTokensUntilType([TokenType.NewLine, TokenType.Colon])) {
         this._getNextToken();
       }
     } else if (!this._consumeTokenIfType(TokenType.NewLine)) {
-      this._addError(Localizer.Diagnostic.expectedNewline(), nextToken);
+      this._addError(Localizer.Diag.expectedNewline(), nextToken);
     } else {
       const possibleIndent = this._peekToken();
       if (!this._consumeTokenIfType(TokenType.Indent)) {
-        this._addError(Localizer.Diagnostic.expectedIndentedBlock(), this._peekToken());
+        this._addError(Localizer.Diag.expectedIndentedBlock(), this._peekToken());
       } else {
         const indentToken = possibleIndent as IndentToken;
         if (indentToken.isIndentAmbiguous) {
-          this._addError(Localizer.Diagnostic.inconsistentTabs(), indentToken);
+          this._addError(Localizer.Diag.inconsistentTabs(), indentToken);
         }
       }
 
@@ -401,9 +401,9 @@ export class Parser {
           this._getNextToken();
           const indentToken = nextToken as IndentToken;
           if (indentToken.isIndentAmbiguous) {
-            this._addError(Localizer.Diagnostic.inconsistentTabs(), indentToken);
+            this._addError(Localizer.Diag.inconsistentTabs(), indentToken);
           } else {
-            this._addError(Localizer.Diagnostic.unexpectedIndent(), nextToken);
+            this._addError(Localizer.Diag.unexpectedIndent(), nextToken);
           }
         }
 
@@ -420,7 +420,7 @@ export class Parser {
         const dedentToken = this._peekToken() as DedentToken;
         if (this._consumeTokenIfType(TokenType.Dedent)) {
           if (!dedentToken.matchesIndent) {
-            this._addError(Localizer.Diagnostic.inconsistentIndent(), dedentToken);
+            this._addError(Localizer.Diag.inconsistentIndent(), dedentToken);
           }
           break;
         }
@@ -433,18 +433,18 @@ export class Parser {
       if (matchNode.cases.length > 0) {
         extendRange(matchNode, matchNode.cases[matchNode.cases.length - 1]);
       } else {
-        this._addError(Localizer.Diagnostic.zeroCaseStatementsFound(), matchToken);
+        this._addError(Localizer.Diag.zeroCaseStatementsFound(), matchToken);
       }
     }
 
-    if (this._getLanguageVersion() < PythonVersion.V3_10) {
-      this._addError(Localizer.Diagnostic.matchIncompatible(), matchToken);
+    if (this._getLangVersion() < PythonVersion.V3_10) {
+      this._addError(Localizer.Diag.matchIncompatible(), matchToken);
     }
 
     for (let i = 0; i < matchNode.cases.length - 1; i++) {
       const caseNode = matchNode.cases[i];
       if (!caseNode.guardExpression && this._isPatternIrrefutable(caseNode.pattern)) {
-        this._addError(Localizer.Diagnostic.casePatternIsIrrefutable(), caseNode.pattern);
+        this._addError(Localizer.Diag.casePatternIsIrrefutable(), caseNode.pattern);
       }
     }
 
@@ -455,7 +455,7 @@ export class Parser {
     const caseToken = this._peekToken();
 
     if (!this._consumeTokenIfKeyword(KeywordType.Case)) {
-      this._addError(Localizer.Diagnostic.expectedCase(), caseToken);
+      this._addError(Localizer.Diag.expectedCase(), caseToken);
       return undefined;
     }
 
@@ -465,7 +465,7 @@ export class Parser {
     if (patternList.parseError) {
       casePattern = patternList.parseError;
     } else if (patternList.list.length === 0) {
-      this._addError(Localizer.Diagnostic.expectedPatternExpr(), this._peekToken());
+      this._addError(Localizer.Diag.expectedPatternExpr(), this._peekToken());
       casePattern = ErrorNode.create(caseToken, ErrorExpressionCategory.MissingPattern);
     } else if (patternList.list.length === 1 && !patternList.trailingComma) {
       const pattern = patternList.list[0].orPatterns[0];
@@ -558,7 +558,7 @@ export class Parser {
 
     const starEntries = patternList.list.filter((entry) => entry.orPatterns.length === 1 && entry.orPatterns[0].nodeType === ParseNodeType.PatternCapture && entry.orPatterns[0].isStar);
     if (starEntries.length > 1) {
-      this._addError(Localizer.Diagnostic.duplicateStarPattern(), starEntries[1].orPatterns[0]);
+      this._addError(Localizer.Diag.duplicateStarPattern(), starEntries[1].orPatterns[0]);
     }
 
     const captureTargetMap = new Map<string, PatternAtomNode>();
@@ -567,7 +567,7 @@ export class Parser {
         if (patternAtom.nodeType === ParseNodeType.PatternCapture && !patternAtom.isStar && !patternAtom.isWildcard) {
           if (captureTargetMap.has(patternAtom.target.value)) {
             this._addError(
-              Localizer.Diagnostic.duplicateCapturePatternTarget().format({
+              Localizer.Diag.duplicateCapturePatternTarget().format({
                 name: patternAtom.target.value,
               }),
               patternAtom
@@ -597,7 +597,7 @@ export class Parser {
     if (orPatterns.length > 1) {
       orPatterns.forEach((patternAtom) => {
         if (patternAtom.nodeType === ParseNodeType.PatternCapture && patternAtom.isStar) {
-          this._addError(Localizer.Diagnostic.starPatternInOrPattern(), patternAtom);
+          this._addError(Localizer.Diag.starPatternInOrPattern(), patternAtom);
         }
       });
     }
@@ -608,17 +608,17 @@ export class Parser {
       if (nameToken) {
         target = NameNode.create(nameToken);
       } else {
-        this._addError(Localizer.Diagnostic.expectedNameAfterAs(), this._peekToken());
+        this._addError(Localizer.Diag.expectedNameAfterAs(), this._peekToken());
       }
     }
 
     if (target && orPatterns.length === 1 && orPatterns[0].nodeType === ParseNodeType.PatternCapture && orPatterns[0].isStar) {
-      this._addError(Localizer.Diagnostic.starPatternInAsPattern(), orPatterns[0]);
+      this._addError(Localizer.Diag.starPatternInAsPattern(), orPatterns[0]);
     }
 
     orPatterns.forEach((orPattern, index) => {
       if (index < orPatterns.length - 1 && this._isPatternIrrefutable(orPattern)) {
-        this._addError(Localizer.Diagnostic.orPatternIrrefutable(), orPattern);
+        this._addError(Localizer.Diag.orPatternIrrefutable(), orPattern);
       }
     });
 
@@ -633,13 +633,13 @@ export class Parser {
 
       if (localNameMap.size < fullNameMap.size) {
         const missingNames = Array.from(fullNameMap.keys()).filter((name) => !localNameMap.has(name));
-        const diag = new DiagnosticAddendum();
+        const diag = new DiagAddendum();
         diag.addMessage(
-          Localizer.DiagnosticAddendum.orPatternMissingName().format({
+          Localizer.DiagAddendum.orPatternMissingName().format({
             name: missingNames.map((name) => `"${name}"`).join(', '),
           })
         );
-        this._addError(Localizer.Diagnostic.orPatternMissingName() + diag.getString(), orPattern);
+        this._addError(Localizer.Diag.orPatternMissingName() + diag.getString(), orPattern);
       }
     });
 
@@ -664,7 +664,7 @@ export class Parser {
       const classPattern = PatternClassNode.create(classNameExpr, args);
 
       if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
-        this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
+        this._addError(Localizer.Diag.expectedCloseParen(), this._peekToken());
 
         this._consumeTokensUntilType([TokenType.NewLine]);
 
@@ -681,7 +681,7 @@ export class Parser {
       const starToken = this._getNextToken();
       const identifierToken = this._getTokenIfIdentifier();
       if (!identifierToken) {
-        this._addError(Localizer.Diagnostic.expectedIdentifier(), this._peekToken());
+        this._addError(Localizer.Diag.expectedIdentifier(), this._peekToken());
         return ErrorNode.create(starToken, ErrorExpressionCategory.MissingExpression);
       } else {
         return PatternCaptureNode.create(NameNode.create(identifierToken), starToken);
@@ -713,7 +713,7 @@ export class Parser {
       if (this._consumeTokenIfType(nextToken.type === TokenType.OpenParenthesis ? TokenType.CloseParenthesis : TokenType.CloseBracket)) {
         extendRange(casePattern, endToken);
       } else {
-        this._addError(nextToken.type === TokenType.OpenParenthesis ? Localizer.Diagnostic.expectedCloseParen() : Localizer.Diagnostic.expectedCloseBracket(), this._peekToken());
+        this._addError(nextToken.type === TokenType.OpenParenthesis ? Localizer.Diag.expectedCloseParen() : Localizer.Diag.expectedCloseBracket(), this._peekToken());
         this._consumeTokensUntilType([TokenType.Colon, nextToken.type === TokenType.OpenParenthesis ? TokenType.CloseParenthesis : TokenType.CloseBracket]);
       }
 
@@ -726,14 +726,14 @@ export class Parser {
       if (this._consumeTokenIfType(TokenType.CloseCurlyBrace)) {
         extendRange(mappingPattern, lastToken);
       } else {
-        this._addError(Localizer.Diagnostic.expectedCloseBrace(), this._peekToken());
+        this._addError(Localizer.Diag.expectedCloseBrace(), this._peekToken());
         this._consumeTokensUntilType([TokenType.Colon, TokenType.CloseCurlyBrace]);
       }
 
       return mappingPattern;
     }
 
-    return this._handleExpressionParseError(ErrorExpressionCategory.MissingPattern, Localizer.Diagnostic.expectedPatternExpr());
+    return this._handleExpressionParseError(ErrorExpressionCategory.MissingPattern, Localizer.Diag.expectedPatternExpr());
   }
 
   private _parseClassPatternArgList(): PatternClassArgumentNode[] {
@@ -750,7 +750,7 @@ export class Parser {
       if (arg.name) {
         sawKeywordArg = true;
       } else if (sawKeywordArg && !arg.name) {
-        this._addError(Localizer.Diagnostic.positionArgAfterNamedArg(), arg);
+        this._addError(Localizer.Diag.positionArgAfterNamedArg(), arg);
       }
       argList.push(arg);
 
@@ -797,7 +797,7 @@ export class Parser {
 
       stringList.strings.forEach((stringAtom) => {
         if (stringAtom.token.flags & StringTokenFlags.Format) {
-          this._addError(Localizer.Diagnostic.formatStringInPattern(), stringAtom);
+          this._addError(Localizer.Diag.formatStringInPattern(), stringAtom);
         }
       });
 
@@ -817,7 +817,7 @@ export class Parser {
     let realValue: ExpressionNode | undefined;
     let imagValue: ExpressionNode | undefined;
 
-    if (expression.nodeType === ParseNodeType.BinaryOperation) {
+    if (expression.nodeType === ParseNodeType.BinaryOp) {
       if (expression.operator === OperatorType.Subtract || expression.operator === OperatorType.Add) {
         realValue = expression.leftExpression;
         imagValue = expression.rightExpression;
@@ -827,23 +827,23 @@ export class Parser {
     }
 
     if (realValue) {
-      if (realValue.nodeType === ParseNodeType.UnaryOperation && realValue.operator === OperatorType.Subtract) {
+      if (realValue.nodeType === ParseNodeType.UnaryOp && realValue.operator === OperatorType.Subtract) {
         realValue = realValue.expression;
       }
 
       if (realValue.nodeType !== ParseNodeType.Number || (imagValue !== undefined && realValue.isImaginary)) {
-        this._addError(Localizer.Diagnostic.expectedComplexNumberLiteral(), expression);
+        this._addError(Localizer.Diag.expectedComplexNumberLiteral(), expression);
         imagValue = undefined;
       }
     }
 
     if (imagValue) {
-      if (imagValue.nodeType === ParseNodeType.UnaryOperation && imagValue.operator === OperatorType.Subtract) {
+      if (imagValue.nodeType === ParseNodeType.UnaryOp && imagValue.operator === OperatorType.Subtract) {
         imagValue = imagValue.expression;
       }
 
       if (imagValue.nodeType !== ParseNodeType.Number || !imagValue.isImaginary) {
-        this._addError(Localizer.Diagnostic.expectedComplexNumberLiteral(), expression);
+        this._addError(Localizer.Diag.expectedComplexNumberLiteral(), expression);
       }
     }
 
@@ -856,7 +856,7 @@ export class Parser {
     if (itemList.list.length > 0) {
       const starStarEntries = itemList.list.filter((entry) => entry.nodeType === ParseNodeType.PatternMappingExpandEntry);
       if (starStarEntries.length > 1) {
-        this._addError(Localizer.Diagnostic.duplicateStarStarPattern(), starStarEntries[1]);
+        this._addError(Localizer.Diag.duplicateStarStarPattern(), starStarEntries[1]);
       }
 
       return PatternMappingNode.create(firstToken, itemList.list);
@@ -872,13 +872,13 @@ export class Parser {
     if (this._consumeTokenIfOperator(OperatorType.Power)) {
       const identifierToken = this._getTokenIfIdentifier();
       if (!identifierToken) {
-        this._addError(Localizer.Diagnostic.expectedIdentifier(), this._peekToken());
+        this._addError(Localizer.Diag.expectedIdentifier(), this._peekToken());
         return ErrorNode.create(this._peekToken(), ErrorExpressionCategory.MissingPattern);
       }
 
       const nameNode = NameNode.create(identifierToken);
       if (identifierToken.value === '_') {
-        this._addError(Localizer.Diagnostic.starStarWildcardNotAllowed(), nameNode);
+        this._addError(Localizer.Diag.starStarWildcardNotAllowed(), nameNode);
       }
 
       return PatternMappingExpandEntryNode.create(doubleStar, nameNode);
@@ -893,20 +893,20 @@ export class Parser {
         if (patternCaptureOrValue.nodeType === ParseNodeType.PatternValue) {
           keyExpression = patternCaptureOrValue;
         } else {
-          this._addError(Localizer.Diagnostic.expectedPatternValue(), patternCaptureOrValue);
+          this._addError(Localizer.Diag.expectedPatternValue(), patternCaptureOrValue);
           keyExpression = ErrorNode.create(this._peekToken(), ErrorExpressionCategory.MissingPattern);
         }
       }
     }
 
     if (!keyExpression) {
-      this._addError(Localizer.Diagnostic.expectedPatternExpr(), this._peekToken());
+      this._addError(Localizer.Diag.expectedPatternExpr(), this._peekToken());
       keyExpression = ErrorNode.create(this._peekToken(), ErrorExpressionCategory.MissingPattern);
     }
 
     let valuePattern: PatternAtomNode | undefined;
     if (!this._consumeTokenIfType(TokenType.Colon)) {
-      this._addError(Localizer.Diagnostic.expectedColon(), this._peekToken());
+      this._addError(Localizer.Diag.expectedColon(), this._peekToken());
       valuePattern = ErrorNode.create(this._peekToken(), ErrorExpressionCategory.MissingPattern);
     } else {
       valuePattern = this._parsePatternAs();
@@ -927,7 +927,7 @@ export class Parser {
           const nameNode = NameNode.create(identifierToken);
           nameOrMember = nameOrMember ? MemberAccessNode.create(nameOrMember, nameNode) : nameNode;
         } else {
-          this._addError(Localizer.Diagnostic.expectedIdentifier(), this._peekToken());
+          this._addError(Localizer.Diag.expectedIdentifier(), this._peekToken());
           break;
         }
 
@@ -937,7 +937,7 @@ export class Parser {
       }
 
       if (!nameOrMember) {
-        this._addError(Localizer.Diagnostic.expectedIdentifier(), this._peekToken());
+        this._addError(Localizer.Diag.expectedIdentifier(), this._peekToken());
         return ErrorNode.create(this._peekToken(), ErrorExpressionCategory.MissingPattern);
       }
 
@@ -990,7 +990,7 @@ export class Parser {
     const suite = SuiteNode.create(nextToken);
 
     if (!this._consumeTokenIfType(TokenType.Colon)) {
-      this._addError(Localizer.Diagnostic.expectedColon(), nextToken);
+      this._addError(Localizer.Diag.expectedColon(), nextToken);
 
       if (this._consumeTokensUntilType([TokenType.NewLine, TokenType.Colon])) {
         this._getNextToken();
@@ -1011,11 +1011,11 @@ export class Parser {
 
       const possibleIndent = this._peekToken();
       if (!this._consumeTokenIfType(TokenType.Indent)) {
-        this._addError(Localizer.Diagnostic.expectedIndentedBlock(), this._peekToken());
+        this._addError(Localizer.Diag.expectedIndentedBlock(), this._peekToken());
       } else {
         const indentToken = possibleIndent as IndentToken;
         if (indentToken.isIndentAmbiguous) {
-          this._addError(Localizer.Diagnostic.inconsistentTabs(), indentToken);
+          this._addError(Localizer.Diag.inconsistentTabs(), indentToken);
         }
       }
 
@@ -1025,9 +1025,9 @@ export class Parser {
           this._getNextToken();
           const indentToken = nextToken as IndentToken;
           if (indentToken.isIndentAmbiguous) {
-            this._addError(Localizer.Diagnostic.inconsistentTabs(), indentToken);
+            this._addError(Localizer.Diag.inconsistentTabs(), indentToken);
           } else {
-            this._addError(Localizer.Diagnostic.unexpectedIndent(), nextToken);
+            this._addError(Localizer.Diag.unexpectedIndent(), nextToken);
           }
         }
 
@@ -1042,7 +1042,7 @@ export class Parser {
         const dedentToken = this._peekToken() as DedentToken;
         if (this._consumeTokenIfType(TokenType.Dedent)) {
           if (!dedentToken.matchesIndent) {
-            this._addError(Localizer.Diagnostic.inconsistentIndent(), dedentToken);
+            this._addError(Localizer.Diag.inconsistentIndent(), dedentToken);
           }
           break;
         }
@@ -1076,10 +1076,10 @@ export class Parser {
     let elseSuite: SuiteNode | undefined;
 
     if (!this._consumeTokenIfKeyword(KeywordType.In)) {
-      seqExpr = this._handleExpressionParseError(ErrorExpressionCategory.MissingIn, Localizer.Diagnostic.expectedIn());
+      seqExpr = this._handleExpressionParseError(ErrorExpressionCategory.MissingIn, Localizer.Diag.expectedIn());
       forSuite = SuiteNode.create(this._peekToken());
     } else {
-      seqExpr = this._parseTestListAsExpression(ErrorExpressionCategory.MissingExpression, Localizer.Diagnostic.expectedInExpr());
+      seqExpr = this._parseTestListAsExpression(ErrorExpressionCategory.MissingExpression, Localizer.Diag.expectedInExpr());
       forSuite = this._parseLoopSuite();
 
       if (this._consumeTokenIfKeyword(KeywordType.Else)) {
@@ -1110,9 +1110,9 @@ export class Parser {
     }
 
     if (target.nodeType === ParseNodeType.Unpack) {
-      this._addError(Localizer.Diagnostic.unpackIllegalInComprehension(), target);
+      this._addError(Localizer.Diag.unpackIllegalInComprehension(), target);
     } else if (target.nodeType === ParseNodeType.DictionaryExpandEntry) {
-      this._addError(Localizer.Diagnostic.dictExpandIllegalInComprehension(), target);
+      this._addError(Localizer.Diag.dictExpandIllegalInComprehension(), target);
     }
 
     const listCompNode = ListComprehensionNode.create(target);
@@ -1161,7 +1161,7 @@ export class Parser {
     let seqExpr: ExpressionNode | undefined;
 
     if (!this._consumeTokenIfKeyword(KeywordType.In)) {
-      seqExpr = this._handleExpressionParseError(ErrorExpressionCategory.MissingIn, Localizer.Diagnostic.expectedIn());
+      seqExpr = this._handleExpressionParseError(ErrorExpressionCategory.MissingIn, Localizer.Diag.expectedIn());
     } else {
       this._disallowAssignmentExpression(() => {
         seqExpr = this._parseOrTest();
@@ -1224,12 +1224,12 @@ export class Parser {
         if (this._consumeTokenIfKeyword(KeywordType.As)) {
           symbolName = this._getTokenIfIdentifier();
           if (!symbolName) {
-            this._addError(Localizer.Diagnostic.expectedNameAfterAs(), this._peekToken());
+            this._addError(Localizer.Diag.expectedNameAfterAs(), this._peekToken());
           }
         } else {
           const peekToken = this._peekToken();
           if (this._consumeTokenIfType(TokenType.Comma)) {
-            this._addError(Localizer.Diagnostic.expectedAsAfterException(), peekToken);
+            this._addError(Localizer.Diag.expectedAsAfterException(), peekToken);
 
             this._parseTestExpression(/* allowAssignmentExpression */ false);
           }
@@ -1238,12 +1238,12 @@ export class Parser {
 
       if (!typeExpr) {
         if (sawCatchAllExcept) {
-          this._addError(Localizer.Diagnostic.duplicateCatchAll(), exceptToken);
+          this._addError(Localizer.Diag.duplicateCatchAll(), exceptToken);
         }
         sawCatchAllExcept = true;
       } else {
         if (sawCatchAllExcept) {
-          this._addError(Localizer.Diagnostic.namedExceptAfterCatchAll(), typeExpr);
+          this._addError(Localizer.Diag.namedExceptAfterCatchAll(), typeExpr);
         }
       }
 
@@ -1280,7 +1280,7 @@ export class Parser {
     }
 
     if (!tryNode.finallySuite && tryNode.exceptClauses.length === 0) {
-      this._addError(Localizer.Diagnostic.tryWithoutExcept(), tryToken);
+      this._addError(Localizer.Diag.tryWithoutExcept(), tryToken);
     }
 
     return tryNode;
@@ -1291,19 +1291,19 @@ export class Parser {
 
     const nameToken = this._getTokenIfIdentifier();
     if (!nameToken) {
-      this._addError(Localizer.Diagnostic.expectedFunctionName(), defToken);
+      this._addError(Localizer.Diag.expectedFunctionName(), defToken);
       return ErrorNode.create(defToken, ErrorExpressionCategory.MissingFunctionParameterList, undefined, decorators);
     }
 
     if (!this._consumeTokenIfType(TokenType.OpenParenthesis)) {
-      this._addError(Localizer.Diagnostic.expectedOpenParen(), this._peekToken());
+      this._addError(Localizer.Diag.expectedOpenParen(), this._peekToken());
       return ErrorNode.create(nameToken, ErrorExpressionCategory.MissingFunctionParameterList, NameNode.create(nameToken), decorators);
     }
 
     const paramList = this._parseVarArgsList(TokenType.CloseParenthesis, /* allowAnnotations */ true);
 
     if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
-      this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
+      this._addError(Localizer.Diag.expectedCloseParen(), this._peekToken());
       this._consumeTokensUntilType([TokenType.Colon]);
     }
 
@@ -1378,22 +1378,22 @@ export class Parser {
       if (param.name) {
         const name = param.name.value;
         if (paramMap.has(name)) {
-          this._addError(Localizer.Diagnostic.duplicateParam().format({ name }), param.name);
+          this._addError(Localizer.Diag.duplicateParam().format({ name }), param.name);
         } else {
           paramMap.set(name, name);
         }
       } else if (param.category === ParameterCategory.Simple) {
         if (paramList.length === 0) {
-          this._addError(Localizer.Diagnostic.positionOnlyFirstParam(), param);
+          this._addError(Localizer.Diag.positionOnlyFirstParam(), param);
         }
       }
 
       if (param.category === ParameterCategory.Simple) {
         if (!param.name) {
           if (sawPositionOnlySeparator) {
-            this._addError(Localizer.Diagnostic.duplicatePositionOnly(), param);
+            this._addError(Localizer.Diag.duplicatePositionOnly(), param);
           } else if (sawKwSeparator) {
-            this._addError(Localizer.Diagnostic.positionOnlyAfterNameOnly(), param);
+            this._addError(Localizer.Diag.positionOnlyAfterNameOnly(), param);
           }
           sawPositionOnlySeparator = true;
         } else {
@@ -1401,7 +1401,7 @@ export class Parser {
             sawDefaultParam = true;
           } else if (sawDefaultParam && !sawKwSeparator && !sawVarArgs) {
             if (!reportedNonDefaultParamErr) {
-              this._addError(Localizer.Diagnostic.nonDefaultAfterDefault(), param);
+              this._addError(Localizer.Diag.nonDefaultAfterDefault(), param);
               reportedNonDefaultParamErr = true;
             }
           }
@@ -1413,12 +1413,12 @@ export class Parser {
       if (param.category === ParameterCategory.VarArgList) {
         if (!param.name) {
           if (sawKwSeparator) {
-            this._addError(Localizer.Diagnostic.duplicateNameOnly(), param);
+            this._addError(Localizer.Diag.duplicateNameOnly(), param);
           }
           sawKwSeparator = true;
         } else {
           if (sawVarArgs) {
-            this._addError(Localizer.Diagnostic.duplicateArgsParam(), param);
+            this._addError(Localizer.Diag.duplicateArgsParam(), param);
           }
           sawVarArgs = true;
         }
@@ -1426,11 +1426,11 @@ export class Parser {
 
       if (param.category === ParameterCategory.VarArgDictionary) {
         if (sawKwArgs) {
-          this._addError(Localizer.Diagnostic.duplicateKwargsParam(), param);
+          this._addError(Localizer.Diag.duplicateKwargsParam(), param);
         }
         sawKwArgs = true;
       } else if (sawKwArgs) {
-        this._addError(Localizer.Diagnostic.paramAfterKwargsParam(), param);
+        this._addError(Localizer.Diag.paramAfterKwargsParam(), param);
       }
 
       const foundComma = this._consumeTokenIfType(TokenType.Comma);
@@ -1452,7 +1452,7 @@ export class Parser {
     if (paramList.length > 0) {
       const lastParam = paramList[paramList.length - 1];
       if (lastParam.category === ParameterCategory.VarArgList && !lastParam.name) {
-        this._addError(Localizer.Diagnostic.expectedNamedParameter(), lastParam);
+        this._addError(Localizer.Diag.expectedNamedParameter(), lastParam);
       }
     }
 
@@ -1469,8 +1469,8 @@ export class Parser {
     } else if (this._consumeTokenIfOperator(OperatorType.Power)) {
       starCount = 2;
     } else if (this._consumeTokenIfOperator(OperatorType.Divide)) {
-      if (this._getLanguageVersion() < PythonVersion.V3_8) {
-        this._addError(Localizer.Diagnostic.positionOnlyIncompatible(), firstToken);
+      if (this._getLangVersion() < PythonVersion.V3_8) {
+        this._addError(Localizer.Diag.positionOnlyIncompatible(), firstToken);
       }
       slashCount = 1;
     }
@@ -1490,9 +1490,9 @@ export class Parser {
         if (this._consumeTokensUntilType([TokenType.CloseParenthesis])) {
           this._getNextToken();
         }
-        this._addError(Localizer.Diagnostic.sublistParamsIncompatible(), sublistStart);
+        this._addError(Localizer.Diag.sublistParamsIncompatible(), sublistStart);
       } else {
-        this._addError(Localizer.Diagnostic.expectedParamName(), this._peekToken());
+        this._addError(Localizer.Diag.expectedParamName(), this._peekToken());
       }
     }
 
@@ -1521,7 +1521,7 @@ export class Parser {
       extendRange(paramNode, paramNode.defaultValue);
 
       if (starCount > 0) {
-        this._addError(Localizer.Diagnostic.defaultValueNotAllowed(), paramNode.defaultValue);
+        this._addError(Localizer.Diag.defaultValueNotAllowed(), paramNode.defaultValue);
       }
     }
 
@@ -1557,8 +1557,8 @@ export class Parser {
 
     if (isParenthesizedWithItemList) {
       this._consumeTokenIfType(TokenType.OpenParenthesis);
-      if (this._getLanguageVersion() < PythonVersion.V3_10) {
-        this._addError(Localizer.Diagnostic.parenthesizedContextManagerIllegal(), possibleParen);
+      if (this._getLangVersion() < PythonVersion.V3_10) {
+        this._addError(Localizer.Diag.parenthesizedContextMgrIllegal(), possibleParen);
       }
     }
 
@@ -1572,7 +1572,7 @@ export class Parser {
 
     if (isParenthesizedWithItemList) {
       if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
-        this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
+        this._addError(Localizer.Diag.expectedCloseParen(), this._peekToken());
       }
     }
 
@@ -1621,7 +1621,7 @@ export class Parser {
         this._getNextToken();
 
         if (this._peekKeywordType() !== KeywordType.Def) {
-          this._addError(Localizer.Diagnostic.expectedFunctionAfterAsync(), this._peekToken());
+          this._addError(Localizer.Diag.expectedFunctionAfterAsync(), this._peekToken());
         } else {
           return this._parseFunctionDef(nextToken, decoratorList);
         }
@@ -1632,7 +1632,7 @@ export class Parser {
       }
     }
 
-    this._addError(Localizer.Diagnostic.expectedAfterDecorator(), this._peekToken());
+    this._addError(Localizer.Diag.expectedAfterDecorator(), this._peekToken());
 
     return ClassNode.createDummyForDecorators(decoratorList);
   }
@@ -1643,7 +1643,7 @@ export class Parser {
 
     const expression = this._parseTestExpression(/* allowAssignmentExpression */ true);
 
-    if (this._getLanguageVersion() < PythonVersion.V3_9) {
+    if (this._getLangVersion() < PythonVersion.V3_9) {
       let isSupportedExpressionForm = false;
       if (this._isNameOrMemberAccessExpression(expression)) {
         isSupportedExpressionForm = true;
@@ -1652,14 +1652,14 @@ export class Parser {
       }
 
       if (!isSupportedExpressionForm) {
-        this._addError(Localizer.Diagnostic.expectedDecoratorExpr(), expression);
+        this._addError(Localizer.Diag.expectedDecoratorExpr(), expression);
       }
     }
 
     const decoratorNode = DecoratorNode.create(atOperator, expression);
 
     if (!this._consumeTokenIfType(TokenType.NewLine)) {
-      this._addError(Localizer.Diagnostic.expectedDecoratorNewline(), this._peekToken());
+      this._addError(Localizer.Diag.expectedDecoratorNewline(), this._peekToken());
       this._consumeTokensUntilType([TokenType.NewLine]);
     }
 
@@ -1681,7 +1681,7 @@ export class Parser {
 
     let nameToken = this._getTokenIfIdentifier();
     if (!nameToken) {
-      this._addError(Localizer.Diagnostic.expectedClassName(), this._peekToken());
+      this._addError(Localizer.Diag.expectedClassName(), this._peekToken());
       nameToken = IdentifierToken.create(0, 0, '', undefined);
     }
 
@@ -1690,7 +1690,7 @@ export class Parser {
       argList = this._parseArgList();
 
       if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
-        this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
+        this._addError(Localizer.Diag.expectedCloseParen(), this._peekToken());
       }
     }
 
@@ -1723,7 +1723,7 @@ export class Parser {
     const breakToken = this._getKeywordToken(KeywordType.Break);
 
     if (!this._isInLoop) {
-      this._addError(Localizer.Diagnostic.breakOutsideLoop(), breakToken);
+      this._addError(Localizer.Diag.breakOutsideLoop(), breakToken);
     }
 
     return BreakNode.create(breakToken);
@@ -1733,9 +1733,9 @@ export class Parser {
     const continueToken = this._getKeywordToken(KeywordType.Continue);
 
     if (!this._isInLoop) {
-      this._addError(Localizer.Diagnostic.continueOutsideLoop(), continueToken);
+      this._addError(Localizer.Diag.continueOutsideLoop(), continueToken);
     } else if (this._isInFinally) {
-      this._addError(Localizer.Diagnostic.continueInFinally(), continueToken);
+      this._addError(Localizer.Diag.continueInFinally(), continueToken);
     }
 
     return ContinueNode.create(continueToken);
@@ -1747,11 +1747,11 @@ export class Parser {
     const returnNode = ReturnNode.create(returnToken);
 
     if (!this._isInFunction) {
-      this._addError(Localizer.Diagnostic.returnOutsideFunction(), returnToken);
+      this._addError(Localizer.Diag.returnOutsideFunction(), returnToken);
     }
 
     if (!this._isNextTokenNeverExpression()) {
-      const returnExpr = this._parseTestOrStarListAsExpression(/* allowAssignmentExpression */ true, ErrorExpressionCategory.MissingExpression, Localizer.Diagnostic.expectedReturnExpr());
+      const returnExpr = this._parseTestOrStarListAsExpression(/* allowAssignmentExpression */ true, ErrorExpressionCategory.MissingExpression, Localizer.Diag.expectedReturnExpr());
       this._reportConditionalErrorForStarTupleElement(returnExpr);
       returnNode.returnExpression = returnExpr;
       returnNode.returnExpression.parent = returnNode;
@@ -1771,7 +1771,7 @@ export class Parser {
 
     const possibleInputToken = this._peekToken();
     if (!this._consumeTokenIfKeyword(KeywordType.Import)) {
-      this._addError(Localizer.Diagnostic.expectedImport(), this._peekToken());
+      this._addError(Localizer.Diag.expectedImport(), this._peekToken());
       if (!modName.hasTrailingDot) {
         importFromNode.missingImportKeyword = true;
       }
@@ -1798,7 +1798,7 @@ export class Parser {
           if (this._consumeTokenIfKeyword(KeywordType.As)) {
             const aliasName = this._getTokenIfIdentifier();
             if (!aliasName) {
-              this._addError(Localizer.Diagnostic.expectedImportAlias(), this._peekToken());
+              this._addError(Localizer.Diag.expectedImportAlias(), this._peekToken());
             } else {
               importFromAsNode.alias = NameNode.create(aliasName);
               importFromAsNode.alias.parent = importFromAsNode;
@@ -1820,7 +1820,7 @@ export class Parser {
         }
 
         if (importFromNode.imports.length === 0) {
-          this._addError(Localizer.Diagnostic.expectedImportSymbols(), this._peekToken());
+          this._addError(Localizer.Diag.expectedImportSymbols(), this._peekToken());
         }
 
         if (inParen) {
@@ -1828,7 +1828,7 @@ export class Parser {
 
           const nextToken = this._peekToken();
           if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
-            this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
+            this._addError(Localizer.Diag.expectedCloseParen(), this._peekToken());
           } else {
             extendRange(importFromNode, nextToken);
           }
@@ -1887,12 +1887,12 @@ export class Parser {
           importAsNode.alias.parent = importAsNode;
           extendRange(importAsNode, importAsNode.alias);
         } else {
-          this._addError(Localizer.Diagnostic.expectedImportAlias(), this._peekToken());
+          this._addError(Localizer.Diag.expectedImportAlias(), this._peekToken());
         }
       }
 
       if (importAsNode.module.leadingDots > 0) {
-        this._addError(Localizer.Diagnostic.relativeImportNotAllowed(), importAsNode.module);
+        this._addError(Localizer.Diag.relativeImportNotAllowed(), importAsNode.module);
       }
 
       importNode.list.push(importAsNode);
@@ -1941,7 +1941,7 @@ export class Parser {
       const identifier = this._getTokenIfIdentifier([KeywordType.Import]);
       if (!identifier) {
         if (!allowJustDots || moduleNameNode.leadingDots === 0) {
-          this._addError(Localizer.Diagnostic.expectedModuleName(), this._peekToken());
+          this._addError(Localizer.Diag.expectedModuleName(), this._peekToken());
           moduleNameNode.hasTrailingDot = true;
         }
         break;
@@ -1997,7 +1997,7 @@ export class Parser {
     while (true) {
       const name = this._getTokenIfIdentifier();
       if (!name) {
-        this._addError(Localizer.Diagnostic.expectedIdentifier(), this._peekToken());
+        this._addError(Localizer.Diag.expectedIdentifier(), this._peekToken());
         break;
       }
 
@@ -2063,7 +2063,7 @@ export class Parser {
 
     const exprListResult = this._parseExpressionList(/* allowStar */ true);
     if (!exprListResult.parseError && exprListResult.list.length === 0) {
-      this._addError(Localizer.Diagnostic.expectedDelExpr(), this._peekToken());
+      this._addError(Localizer.Diag.expectedDelExpr(), this._peekToken());
     }
     const delNode = DelNode.create(delToken);
     delNode.expressions = exprListResult.list;
@@ -2081,15 +2081,15 @@ export class Parser {
 
     const nextToken = this._peekToken();
     if (this._consumeTokenIfKeyword(KeywordType.From)) {
-      if (this._getLanguageVersion() < PythonVersion.V3_3) {
-        this._addError(Localizer.Diagnostic.yieldFromIllegal(), nextToken);
+      if (this._getLangVersion() < PythonVersion.V3_3) {
+        this._addError(Localizer.Diag.yieldFromIllegal(), nextToken);
       }
       return YieldFromNode.create(yieldToken, this._parseTestExpression(/* allowAssignmentExpression */ true));
     }
 
     let exprList: ExpressionNode | undefined;
     if (!this._isNextTokenNeverExpression()) {
-      exprList = this._parseTestOrStarListAsExpression(/* allowAssignmentExpression */ true, ErrorExpressionCategory.MissingExpression, Localizer.Diagnostic.expectedYieldExpr());
+      exprList = this._parseTestOrStarListAsExpression(/* allowAssignmentExpression */ true, ErrorExpressionCategory.MissingExpression, Localizer.Diag.expectedYieldExpr());
       this._reportConditionalErrorForStarTupleElement(exprList);
     }
 
@@ -2113,7 +2113,7 @@ export class Parser {
         const text = this._fileContents!.substr(invalidToken.start, invalidToken.length);
 
         const cleanedText = text.replace(/[\S\W]/g, '');
-        this._addError(Localizer.Diagnostic.invalidTokenChars().format({ text: cleanedText }), invalidToken);
+        this._addError(Localizer.Diag.invalidTokenChars().format({ text: cleanedText }), invalidToken);
         this._consumeTokensUntilType([TokenType.NewLine]);
         break;
       }
@@ -2138,7 +2138,7 @@ export class Parser {
     }
 
     if (!this._consumeTokenIfType(TokenType.NewLine)) {
-      this._addError(Localizer.Diagnostic.expectedNewlineOrSemicolon(), this._peekToken());
+      this._addError(Localizer.Diag.expectedNewlineOrSemicolon(), this._peekToken());
     }
 
     return statement;
@@ -2189,7 +2189,7 @@ export class Parser {
   private _makeExpressionOrTuple(exprListResult: ListResult<ExpressionNode>, enclosedInParens: boolean): ExpressionNode {
     if (exprListResult.list.length === 1 && !exprListResult.trailingComma) {
       if (exprListResult.list[0].nodeType === ParseNodeType.Unpack) {
-        this._addError(Localizer.Diagnostic.unpackNotAllowed(), exprListResult.list[0]);
+        this._addError(Localizer.Diag.unpackNotAllowed(), exprListResult.list[0]);
       }
       return exprListResult.list[0];
     }
@@ -2248,7 +2248,7 @@ export class Parser {
       for (const expr of exprListResult.list) {
         if (expr.nodeType === ParseNodeType.Unpack) {
           if (sawStar) {
-            this._addError(Localizer.Diagnostic.duplicateUnpack(), expr);
+            this._addError(Localizer.Diag.duplicateUnpack(), expr);
             break;
           }
           sawStar = true;
@@ -2297,7 +2297,7 @@ export class Parser {
     }
 
     if (!this._consumeTokenIfKeyword(KeywordType.Else)) {
-      return this._handleExpressionParseError(ErrorExpressionCategory.MissingElse, Localizer.Diagnostic.expectedElse());
+      return this._handleExpressionParseError(ErrorExpressionCategory.MissingElse, Localizer.Diag.expectedElse());
     }
 
     const elseExpr = this._parseTestExpression(/* allowAssignmentExpression */ true);
@@ -2324,11 +2324,11 @@ export class Parser {
     }
 
     if (!this._assignmentExpressionsAllowed) {
-      this._addError(Localizer.Diagnostic.walrusNotAllowed(), walrusToken);
+      this._addError(Localizer.Diag.walrusNotAllowed(), walrusToken);
     }
 
-    if (this._getLanguageVersion() < PythonVersion.V3_8) {
-      this._addError(Localizer.Diagnostic.walrusIllegal(), walrusToken);
+    if (this._getLangVersion() < PythonVersion.V3_8) {
+      this._addError(Localizer.Diag.walrusIllegal(), walrusToken);
     }
 
     const rightExpr = this._parseTestExpression(/* allowAssignmentExpression */ false);
@@ -2348,7 +2348,7 @@ export class Parser {
         break;
       }
       const rightExpr = this._parseAndTest();
-      leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, OperatorType.Or);
+      leftExpr = BinaryOpNode.create(leftExpr, rightExpr, peekToken, OperatorType.Or);
     }
 
     return leftExpr;
@@ -2366,7 +2366,7 @@ export class Parser {
         break;
       }
       const rightExpr = this._parseNotTest();
-      leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, OperatorType.And);
+      leftExpr = BinaryOpNode.create(leftExpr, rightExpr, peekToken, OperatorType.And);
     }
 
     return leftExpr;
@@ -2376,7 +2376,7 @@ export class Parser {
     const notToken = this._peekToken();
     if (this._consumeTokenIfKeyword(KeywordType.Not)) {
       const notExpr = this._parseNotTest();
-      return UnaryOperationNode.create(notToken, notExpr, OperatorType.Not);
+      return UnaryOpNode.create(notToken, notExpr, OperatorType.Not);
     }
 
     return this._parseComparison();
@@ -2395,7 +2395,7 @@ export class Parser {
       if (Tokenizer.isOperatorComparison(this._peekOperatorType())) {
         comparisonOperator = this._peekOperatorType();
         if (comparisonOperator === OperatorType.LessOrGreaterThan) {
-          this._addError(Localizer.Diagnostic.operatorLessOrGreaterDeprecated(), peekToken);
+          this._addError(Localizer.Diag.operatorLessOrGreaterDeprecated(), peekToken);
           comparisonOperator = OperatorType.NotEquals;
         }
         this._getNextToken();
@@ -2421,7 +2421,7 @@ export class Parser {
       }
 
       const rightExpr = this._parseComparison();
-      leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, comparisonOperator);
+      leftExpr = BinaryOpNode.create(leftExpr, rightExpr, peekToken, comparisonOperator);
     }
 
     return leftExpr;
@@ -2439,7 +2439,7 @@ export class Parser {
         break;
       }
       const rightExpr = this._parseBitwiseXorExpression();
-      leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, OperatorType.BitwiseOr);
+      leftExpr = BinaryOpNode.create(leftExpr, rightExpr, peekToken, OperatorType.BitwiseOr);
     }
 
     return leftExpr;
@@ -2457,7 +2457,7 @@ export class Parser {
         break;
       }
       const rightExpr = this._parseBitwiseAndExpression();
-      leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, OperatorType.BitwiseXor);
+      leftExpr = BinaryOpNode.create(leftExpr, rightExpr, peekToken, OperatorType.BitwiseXor);
     }
 
     return leftExpr;
@@ -2475,7 +2475,7 @@ export class Parser {
         break;
       }
       const rightExpr = this._parseShiftExpression();
-      leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, OperatorType.BitwiseAnd);
+      leftExpr = BinaryOpNode.create(leftExpr, rightExpr, peekToken, OperatorType.BitwiseAnd);
     }
 
     return leftExpr;
@@ -2492,7 +2492,7 @@ export class Parser {
     while (nextOperator === OperatorType.LeftShift || nextOperator === OperatorType.RightShift) {
       this._getNextToken();
       const rightExpr = this._parseArithmeticExpression();
-      leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, nextOperator);
+      leftExpr = BinaryOpNode.create(leftExpr, rightExpr, peekToken, nextOperator);
       peekToken = this._peekToken();
       nextOperator = this._peekOperatorType();
     }
@@ -2515,7 +2515,7 @@ export class Parser {
         return rightExpr;
       }
 
-      leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, nextOperator);
+      leftExpr = BinaryOpNode.create(leftExpr, rightExpr, peekToken, nextOperator);
       peekToken = this._peekToken();
       nextOperator = this._peekOperatorType();
     }
@@ -2540,7 +2540,7 @@ export class Parser {
     ) {
       this._getNextToken();
       const rightExpr = this._parseArithmeticFactor();
-      leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, nextOperator);
+      leftExpr = BinaryOpNode.create(leftExpr, rightExpr, peekToken, nextOperator);
       peekToken = this._peekToken();
       nextOperator = this._peekOperatorType();
     }
@@ -2554,7 +2554,7 @@ export class Parser {
     if (nextOperator === OperatorType.Add || nextOperator === OperatorType.Subtract || nextOperator === OperatorType.BitwiseInvert) {
       this._getNextToken();
       const expression = this._parseArithmeticFactor();
-      return UnaryOperationNode.create(nextToken, expression, nextOperator);
+      return UnaryOpNode.create(nextToken, expression, nextOperator);
     }
 
     const leftExpr = this._parseAtomExpression();
@@ -2565,7 +2565,7 @@ export class Parser {
     const peekToken = this._peekToken();
     if (this._consumeTokenIfOperator(OperatorType.Power)) {
       const rightExpr = this._parseArithmeticFactor();
-      return BinaryOperationNode.create(leftExpr, rightExpr, peekToken, OperatorType.Power);
+      return BinaryOpNode.create(leftExpr, rightExpr, peekToken, OperatorType.Power);
     }
 
     return leftExpr;
@@ -2591,8 +2591,8 @@ export class Parser {
     let awaitToken: KeywordToken | undefined;
     if (this._peekKeywordType() === KeywordType.Await && !this._isParsingTypeAnnotation) {
       awaitToken = this._getKeywordToken(KeywordType.Await);
-      if (this._getLanguageVersion() < PythonVersion.V3_5) {
-        this._addError(Localizer.Diagnostic.awaitIllegal(), awaitToken);
+      if (this._getLangVersion() < PythonVersion.V3_5) {
+        this._addError(Localizer.Diag.awaitIllegal(), awaitToken);
       }
     }
 
@@ -2619,7 +2619,7 @@ export class Parser {
         const nextToken = this._peekToken();
         let isArgListTerminated = false;
         if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
-          this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
+          this._addError(Localizer.Diag.expectedCloseParen(), this._peekToken());
 
           this._consumeTokensUntilType([TokenType.NewLine]);
 
@@ -2632,10 +2632,10 @@ export class Parser {
         this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
 
         if (this._isParsingTypeAnnotation) {
-          const diag = new DiagnosticAddendum();
+          const diag = new DiagAddendum();
           if (atomExpression.nodeType === ParseNodeType.Name && atomExpression.value === 'type') {
-            diag.addMessage(Localizer.DiagnosticAddendum.useTypeInstead());
-            this._addError(Localizer.Diagnostic.typeCallNotAllowed() + diag.getString(), callNode);
+            diag.addMessage(Localizer.DiagAddendum.useTypeInstead());
+            this._addError(Localizer.Diag.typeCallNotAllowed() + diag.getString(), callNode);
           }
         }
 
@@ -2663,14 +2663,14 @@ export class Parser {
         extendRange(indexNode, indexNode);
 
         if (!this._consumeTokenIfType(TokenType.CloseBracket)) {
-          this._handleExpressionParseError(ErrorExpressionCategory.MissingIndexCloseBracket, Localizer.Diagnostic.expectedCloseBracket(), indexNode);
+          this._handleExpressionParseError(ErrorExpressionCategory.MissingIndexCloseBracket, Localizer.Diag.expectedCloseBracket(), indexNode);
         }
 
         atomExpression = indexNode;
       } else if (this._consumeTokenIfType(TokenType.Dot)) {
         const memberName = this._getTokenIfIdentifier();
         if (!memberName) {
-          return this._handleExpressionParseError(ErrorExpressionCategory.MissingMemberAccessName, Localizer.Diagnostic.expectedMemberName(), atomExpression);
+          return this._handleExpressionParseError(ErrorExpressionCategory.MissingMemberAccessName, Localizer.Diag.expectedMemberName(), atomExpression);
         }
         atomExpression = MemberAccessNode.create(atomExpression, NameNode.create(memberName));
       } else {
@@ -2715,7 +2715,7 @@ export class Parser {
           if (nameExpr.nodeType === ParseNodeType.Name) {
             nameIdentifier = nameExpr.token;
           } else {
-            this._addError(Localizer.Diagnostic.expectedParamName(), nameExpr);
+            this._addError(Localizer.Diag.expectedParamName(), nameExpr);
           }
         }
       }
@@ -2729,16 +2729,16 @@ export class Parser {
       if (argNode.name) {
         sawKeywordArg = true;
       } else if (sawKeywordArg && argNode.argumentCategory === ArgumentCategory.Simple) {
-        this._addError(Localizer.Diagnostic.positionArgAfterNamedArg(), argNode);
+        this._addError(Localizer.Diag.positionArgAfterNamedArg(), argNode);
       }
       argList.push(argNode);
 
-      if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V3_10) {
+      if (!this._parseOptions.isStubFile && this._getLangVersion() < PythonVersion.V3_10) {
         if (argNode.name) {
-          this._addError(Localizer.Diagnostic.keywordSubscriptIllegal(), argNode.name);
+          this._addError(Localizer.Diag.keywordSubscriptIllegal(), argNode.name);
         }
         if (argType !== ArgumentCategory.Simple) {
-          this._addError(Localizer.Diagnostic.unpackedSubscriptIllegal(), argNode);
+          this._addError(Localizer.Diag.unpackedSubscriptIllegal(), argNode);
         }
       }
 
@@ -2751,7 +2751,7 @@ export class Parser {
     }
 
     if (argList.length === 0) {
-      const errorNode = this._handleExpressionParseError(ErrorExpressionCategory.MissingIndexOrSlice, Localizer.Diagnostic.expectedSliceIndex(), /* childNode */ undefined, [TokenType.CloseBracket]);
+      const errorNode = this._handleExpressionParseError(ErrorExpressionCategory.MissingIndexOrSlice, Localizer.Diag.expectedSliceIndex(), /* childNode */ undefined, [TokenType.CloseBracket]);
       argList.push(ArgumentNode.create(this._peekToken(), errorNode, ArgumentCategory.Simple));
     }
 
@@ -2827,7 +2827,7 @@ export class Parser {
       if (arg.name) {
         sawKeywordArg = true;
       } else if (sawKeywordArg && arg.argumentCategory === ArgumentCategory.Simple) {
-        this._addError(Localizer.Diagnostic.positionArgAfterNamedArg(), arg);
+        this._addError(Localizer.Diag.positionArgAfterNamedArg(), arg);
       }
       argList.push(arg);
 
@@ -2860,7 +2860,7 @@ export class Parser {
         if (nameExpr.nodeType === ParseNodeType.Name) {
           nameIdentifier = nameExpr.token;
         } else {
-          this._addError(Localizer.Diagnostic.expectedParamName(), nameExpr);
+          this._addError(Localizer.Diag.expectedParamName(), nameExpr);
         }
       } else {
         const listComp = this._tryParseListComprehension(valueExpr);
@@ -2901,9 +2901,9 @@ export class Parser {
     if (nextToken.type === TokenType.Backtick) {
       this._getNextToken();
 
-      this._addError(Localizer.Diagnostic.backticksIllegal(), nextToken);
+      this._addError(Localizer.Diag.backticksIllegal(), nextToken);
 
-      const expressionNode = this._parseTestListAsExpression(ErrorExpressionCategory.MissingExpression, Localizer.Diagnostic.expectedExpr());
+      const expressionNode = this._parseTestListAsExpression(ErrorExpressionCategory.MissingExpression, Localizer.Diag.expectedExpr());
 
       this._consumeTokenIfType(TokenType.Backtick);
       return expressionNode;
@@ -2912,29 +2912,29 @@ export class Parser {
     if (nextToken.type === TokenType.OpenParenthesis) {
       const possibleTupleNode = this._parseTupleAtom();
       if (possibleTupleNode.nodeType === ParseNodeType.Tuple && this._isParsingTypeAnnotation && !this._isParsingIndexTrailer) {
-        const diag = new DiagnosticAddendum();
-        diag.addMessage(Localizer.DiagnosticAddendum.useTupleInstead());
-        this._addError(Localizer.Diagnostic.tupleInAnnotation() + diag.getString(), possibleTupleNode);
+        const diag = new DiagAddendum();
+        diag.addMessage(Localizer.DiagAddendum.useTupleInstead());
+        this._addError(Localizer.Diag.tupleInAnnotation() + diag.getString(), possibleTupleNode);
       }
 
-      if (possibleTupleNode.nodeType === ParseNodeType.BinaryOperation) {
+      if (possibleTupleNode.nodeType === ParseNodeType.BinaryOp) {
         possibleTupleNode.parenthesized = true;
       }
       return possibleTupleNode;
     } else if (nextToken.type === TokenType.OpenBracket) {
       const listNode = this._parseListAtom();
       if (this._isParsingTypeAnnotation && !this._isParsingIndexTrailer) {
-        const diag = new DiagnosticAddendum();
-        diag.addMessage(Localizer.DiagnosticAddendum.useListInstead());
-        this._addError(Localizer.Diagnostic.listInAnnotation() + diag.getString(), listNode);
+        const diag = new DiagAddendum();
+        diag.addMessage(Localizer.DiagAddendum.useListInstead());
+        this._addError(Localizer.Diag.listInAnnotation() + diag.getString(), listNode);
       }
       return listNode;
     } else if (nextToken.type === TokenType.OpenCurlyBrace) {
       const dictNode = this._parseDictionaryOrSetAtom();
       if (this._isParsingTypeAnnotation) {
-        const diag = new DiagnosticAddendum();
-        diag.addMessage(Localizer.DiagnosticAddendum.useDictInstead());
-        this._addError(Localizer.Diagnostic.dictInAnnotation() + diag.getString(), dictNode);
+        const diag = new DiagAddendum();
+        diag.addMessage(Localizer.DiagAddendum.useDictInstead());
+        this._addError(Localizer.Diag.dictInAnnotation() + diag.getString(), dictNode);
       }
       return dictNode;
     }
@@ -2956,7 +2956,7 @@ export class Parser {
       }
     }
 
-    return this._handleExpressionParseError(ErrorExpressionCategory.MissingExpression, Localizer.Diagnostic.expectedExpr());
+    return this._handleExpressionParseError(ErrorExpressionCategory.MissingExpression, Localizer.Diag.expectedExpr());
   }
 
   private _handleExpressionParseError(category: ErrorExpressionCategory, errorMsg: string, childNode?: ExpressionNode, additionalStopTokens?: TokenType[]): ErrorNode {
@@ -2976,7 +2976,7 @@ export class Parser {
     const argList = this._parseVarArgsList(TokenType.Colon, /* allowAnnotations */ false);
 
     if (!this._consumeTokenIfType(TokenType.Colon)) {
-      this._addError(Localizer.Diagnostic.expectedColon(), this._peekToken());
+      this._addError(Localizer.Diag.expectedColon(), this._peekToken());
     }
 
     let testExpr: ExpressionNode;
@@ -3009,7 +3009,7 @@ export class Parser {
     const yieldExpr = this._tryParseYieldExpression();
     if (yieldExpr) {
       if (this._peekTokenType() !== TokenType.CloseParenthesis) {
-        return this._handleExpressionParseError(ErrorExpressionCategory.MissingTupleCloseParen, Localizer.Diagnostic.expectedCloseParen());
+        return this._handleExpressionParseError(ErrorExpressionCategory.MissingTupleCloseParen, Localizer.Diag.expectedCloseParen());
       } else {
         extendRange(yieldExpr, this._getNextToken());
       }
@@ -3023,7 +3023,7 @@ export class Parser {
     extendRange(tupleOrExpression, startParen);
 
     if (this._peekTokenType() !== TokenType.CloseParenthesis) {
-      return this._handleExpressionParseError(ErrorExpressionCategory.MissingTupleCloseParen, Localizer.Diagnostic.expectedCloseParen());
+      return this._handleExpressionParseError(ErrorExpressionCategory.MissingTupleCloseParen, Localizer.Diag.expectedCloseParen());
     } else {
       extendRange(tupleOrExpression, this._getNextToken());
     }
@@ -3038,7 +3038,7 @@ export class Parser {
     const exprListResult = this._parseTestListWithComprehension();
     const closeBracket: Token | undefined = this._peekToken();
     if (!this._consumeTokenIfType(TokenType.CloseBracket)) {
-      return this._handleExpressionParseError(ErrorExpressionCategory.MissingListCloseBracket, Localizer.Diagnostic.expectedCloseBracket());
+      return this._handleExpressionParseError(ErrorExpressionCategory.MissingListCloseBracket, Localizer.Diag.expectedCloseBracket());
     }
 
     const listAtom = ListNode.create(startBracket);
@@ -3104,11 +3104,11 @@ export class Parser {
 
       if (keyExpression && valueExpression) {
         if (keyExpression.nodeType === ParseNodeType.Unpack) {
-          this._addError(Localizer.Diagnostic.unpackInDict(), keyExpression);
+          this._addError(Localizer.Diag.unpackInDict(), keyExpression);
         }
 
         if (isSet) {
-          this._addError(Localizer.Diagnostic.keyValueInSet(), valueExpression);
+          this._addError(Localizer.Diag.keyValueInSet(), valueExpression);
         } else {
           const keyEntryNode = DictionaryKeyEntryNode.create(keyExpression, valueExpression);
           let dictEntry: DictionaryEntryNode = keyEntryNode;
@@ -3118,7 +3118,7 @@ export class Parser {
             sawListComprehension = true;
 
             if (!isFirstEntry) {
-              this._addError(Localizer.Diagnostic.comprehensionInDict(), dictEntry);
+              this._addError(Localizer.Diag.comprehensionInDict(), dictEntry);
             }
           }
           dictionaryEntries.push(dictEntry);
@@ -3126,7 +3126,7 @@ export class Parser {
         }
       } else if (doubleStarExpression) {
         if (isSet) {
-          this._addError(Localizer.Diagnostic.unpackInSet(), doubleStarExpression);
+          this._addError(Localizer.Diag.unpackInSet(), doubleStarExpression);
         } else {
           const listEntryNode = DictionaryExpandEntryNode.create(doubleStarExpression);
           extendRange(listEntryNode, doubleStar);
@@ -3137,7 +3137,7 @@ export class Parser {
             sawListComprehension = true;
 
             if (!isFirstEntry) {
-              this._addError(Localizer.Diagnostic.comprehensionInDict(), doubleStarExpression);
+              this._addError(Localizer.Diag.comprehensionInDict(), doubleStarExpression);
             }
           }
           dictionaryEntries.push(expandEntryNode);
@@ -3147,7 +3147,7 @@ export class Parser {
         assert(keyExpression !== undefined);
         if (keyExpression) {
           if (isDictionary) {
-            this._addError(Localizer.Diagnostic.dictKeyValuePairs(), keyExpression);
+            this._addError(Localizer.Diag.dictKeyValuePairs(), keyExpression);
           } else {
             const listComp = this._tryParseListComprehension(keyExpression);
             if (listComp) {
@@ -3155,7 +3155,7 @@ export class Parser {
               sawListComprehension = true;
 
               if (!isFirstEntry) {
-                this._addError(Localizer.Diagnostic.comprehensionInSet(), keyExpression);
+                this._addError(Localizer.Diag.comprehensionInSet(), keyExpression);
               }
             }
             setEntries.push(keyExpression);
@@ -3177,7 +3177,7 @@ export class Parser {
 
     let closeCurlyBrace: Token | undefined = this._peekToken();
     if (!this._consumeTokenIfType(TokenType.CloseCurlyBrace)) {
-      this._addError(Localizer.Diagnostic.expectedCloseBrace(), this._peekToken());
+      this._addError(Localizer.Diag.expectedCloseBrace(), this._peekToken());
       closeCurlyBrace = undefined;
     }
 
@@ -3247,7 +3247,7 @@ export class Parser {
   }
 
   private _parseExpressionStatement(): ExpressionNode {
-    let leftExpr = this._parseTestOrStarListAsExpression(/* allowAssignmentExpression */ false, ErrorExpressionCategory.MissingExpression, Localizer.Diagnostic.expectedExpr());
+    let leftExpr = this._parseTestOrStarListAsExpression(/* allowAssignmentExpression */ false, ErrorExpressionCategory.MissingExpression, Localizer.Diag.expectedExpr());
     let annotationExpr: ExpressionNode | undefined;
 
     if (leftExpr.nodeType === ParseNodeType.Error) {
@@ -3258,8 +3258,8 @@ export class Parser {
       annotationExpr = this._parseTypeAnnotation();
       leftExpr = TypeAnnotationNode.create(leftExpr, annotationExpr);
 
-      if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V3_6) {
-        this._addError(Localizer.Diagnostic.varAnnotationIllegal(), annotationExpr);
+      if (!this._parseOptions.isStubFile && this._getLangVersion() < PythonVersion.V3_6) {
+        this._addError(Localizer.Diag.varAnnotationIllegal(), annotationExpr);
       }
 
       if (!this._consumeTokenIfOperator(OperatorType.Assign)) {
@@ -3275,7 +3275,7 @@ export class Parser {
 
       const rightExpr =
         this._tryParseYieldExpression() ||
-        this._parseTestOrStarListAsExpression(/* allowAssignmentExpression */ false, ErrorExpressionCategory.MissingExpression, Localizer.Diagnostic.expectedAssignRightHandExpr());
+        this._parseTestOrStarListAsExpression(/* allowAssignmentExpression */ false, ErrorExpressionCategory.MissingExpression, Localizer.Diag.expectedAssignRightHandExpr());
 
       this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
 
@@ -3289,7 +3289,7 @@ export class Parser {
     if (Tokenizer.isOperatorAssignment(this._peekOperatorType())) {
       const operatorToken = this._getNextToken() as OperatorToken;
 
-      const rightExpr = this._tryParseYieldExpression() || this._parseTestListAsExpression(ErrorExpressionCategory.MissingExpression, Localizer.Diagnostic.expectedBinaryRightHandExpr());
+      const rightExpr = this._tryParseYieldExpression() || this._parseTestListAsExpression(ErrorExpressionCategory.MissingExpression, Localizer.Diag.expectedBinaryRightHandExpr());
 
       const destExpr = Object.assign({}, leftExpr);
       destExpr.id = getNextNodeId();
@@ -3303,7 +3303,7 @@ export class Parser {
   private _parseChainAssignments(leftExpr: ExpressionNode): ExpressionNode {
     let rightExpr =
       this._tryParseYieldExpression() ||
-      this._parseTestOrStarListAsExpression(/* allowAssignmentExpression */ false, ErrorExpressionCategory.MissingExpression, Localizer.Diagnostic.expectedAssignRightHandExpr());
+      this._parseTestOrStarListAsExpression(/* allowAssignmentExpression */ false, ErrorExpressionCategory.MissingExpression, Localizer.Diag.expectedAssignRightHandExpr());
 
     if (rightExpr.nodeType === ParseNodeType.Error) {
       return AssignmentNode.create(leftExpr, rightExpr);
@@ -3331,7 +3331,7 @@ export class Parser {
   private _parseFunctionTypeAnnotation(): FunctionAnnotationNode | undefined {
     const openParenToken = this._peekToken();
     if (!this._consumeTokenIfType(TokenType.OpenParenthesis)) {
-      this._addError(Localizer.Diagnostic.expectedOpenParen(), this._peekToken());
+      this._addError(Localizer.Diag.expectedOpenParen(), this._peekToken());
       return undefined;
     }
 
@@ -3352,12 +3352,12 @@ export class Parser {
     }
 
     if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
-      this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
+      this._addError(Localizer.Diag.expectedCloseParen(), this._peekToken());
       this._consumeTokensUntilType([TokenType.Colon]);
     }
 
     if (!this._consumeTokenIfType(TokenType.Arrow)) {
-      this._addError(Localizer.Diagnostic.expectedArrow(), this._peekToken());
+      this._addError(Localizer.Diag.expectedArrow(), this._peekToken());
       return undefined;
     }
 
@@ -3390,24 +3390,24 @@ export class Parser {
 
   private _reportStringTokenErrors(stringToken: StringToken, unescapedResult: StringTokenUtils.UnescapedString) {
     if (stringToken.flags & StringTokenFlags.Unterminated) {
-      this._addError(Localizer.Diagnostic.stringUnterminated(), stringToken);
+      this._addError(Localizer.Diag.stringUnterminated(), stringToken);
     }
 
     if (unescapedResult.nonAsciiInBytes) {
-      this._addError(Localizer.Diagnostic.stringNonAsciiBytes(), stringToken);
+      this._addError(Localizer.Diag.stringNonAsciiBytes(), stringToken);
     }
 
     if (stringToken.flags & StringTokenFlags.Format) {
-      if (this._getLanguageVersion() < PythonVersion.V3_6) {
-        this._addError(Localizer.Diagnostic.formatStringIllegal(), stringToken);
+      if (this._getLangVersion() < PythonVersion.V3_6) {
+        this._addError(Localizer.Diag.formatStringIllegal(), stringToken);
       }
 
       if (stringToken.flags & StringTokenFlags.Bytes) {
-        this._addError(Localizer.Diagnostic.formatStringBytes(), stringToken);
+        this._addError(Localizer.Diag.formatStringBytes(), stringToken);
       }
 
       if (stringToken.flags & StringTokenFlags.Unicode) {
-        this._addError(Localizer.Diagnostic.formatStringUnicode(), stringToken);
+        this._addError(Localizer.Diag.formatStringUnicode(), stringToken);
       }
     }
   }
@@ -3649,11 +3649,11 @@ export class Parser {
 
     if (this._isParsingTypeAnnotation) {
       if (stringNode.strings.length > 1) {
-        this._addError(Localizer.Diagnostic.annotationSpansStrings(), stringNode);
+        this._addError(Localizer.Diag.annotationSpansStrings(), stringNode);
       } else if (stringNode.strings[0].token.flags & StringTokenFlags.Triplicate) {
-        this._addError(Localizer.Diagnostic.annotationTripleQuote(), stringNode);
+        this._addError(Localizer.Diag.annotationTripleQuote(), stringNode);
       } else if (stringNode.strings[0].token.flags & StringTokenFlags.Format) {
-        this._addError(Localizer.Diagnostic.annotationFormatString(), stringNode);
+        this._addError(Localizer.Diag.annotationFormatString(), stringNode);
       } else {
         const stringToken = stringNode.strings[0].token;
         const stringValue = StringTokenUtils.getUnescapedString(stringNode.strings[0].token);
@@ -3662,7 +3662,7 @@ export class Parser {
         const prefixLength = stringToken.prefixLength + stringToken.quoteMarkLength;
 
         if (unescapedString.length !== stringToken.length - prefixLength - stringToken.quoteMarkLength) {
-          this._addError(Localizer.Diagnostic.annotationStringEscape(), stringNode);
+          this._addError(Localizer.Diag.annotationStringEscape(), stringNode);
         } else {
           const parser = new Parser();
           const parseResults = parser.parseTextExpression(this._fileContents!, tokenOffset + prefixLength, unescapedString.length, this._parseOptions, ParseTextMode.VariableAnnotation);
@@ -3697,7 +3697,7 @@ export class Parser {
 
     for (const expr of possibleTupleExpr.expressions) {
       if (expr.nodeType === ParseNodeType.Unpack) {
-        this._addError(Localizer.Diagnostic.unpackTuplesIllegal(), expr);
+        this._addError(Localizer.Diag.unpackTuplesIllegal(), expr);
         return;
       }
     }
@@ -3816,7 +3816,7 @@ export class Parser {
 
     if (nextToken.type === TokenType.Invalid) {
       this._getNextToken();
-      this._addError(Localizer.Diagnostic.invalidIdentifierChar(), nextToken);
+      this._addError(Localizer.Diag.invalidIdentifierChar(), nextToken);
       return IdentifierToken.create(nextToken.start, nextToken.length, '', nextToken.comments);
     }
 
@@ -3881,7 +3881,7 @@ export class Parser {
     return keywordToken;
   }
 
-  private _getLanguageVersion() {
+  private _getLangVersion() {
     return this._parseOptions.pythonVersion;
   }
 

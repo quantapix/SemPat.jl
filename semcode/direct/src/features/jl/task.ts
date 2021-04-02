@@ -39,7 +39,7 @@ class JuliaTaskProvider {
           folder,
           `Run tests`,
           'julia',
-          new qv.ProcessExecution(jlexepath, ['--color=yes', `--project=${pkgenvpath}`, '-e', `using Pkg; Pkg.test("${folder.name}")`], { env: { JULIA_NUM_THREADS: inferJuliaNumThreads() } }),
+          new qv.ProcExecution(jlexepath, ['--color=yes', `--project=${pkgenvpath}`, '-e', `using Pkg; Pkg.test("${folder.name}")`], { env: { JULIA_NUM_THREADS: inferJuliaNumThreads() } }),
           ''
         );
         testTask.group = qv.TaskGroup.Test;
@@ -51,7 +51,7 @@ class JuliaTaskProvider {
           folder,
           `Run tests with coverage`,
           'julia',
-          new qv.ProcessExecution(jlexepath, ['--color=yes', `--project=${pkgenvpath}`, path.join(this.context.extensionPath, 'scripts', 'tasks', 'task_test.jl'), folder.name], {
+          new qv.ProcExecution(jlexepath, ['--color=yes', `--project=${pkgenvpath}`, path.join(this.context.extensionPath, 'scripts', 'tasks', 'task_test.jl'), folder.name], {
             env: { JULIA_NUM_THREADS: inferJuliaNumThreads() },
           }),
           ''
@@ -66,7 +66,7 @@ class JuliaTaskProvider {
         folder,
         `Build custom sysimage for current environment (experimental)`,
         'julia',
-        new qv.ProcessExecution(jlexepath, [
+        new qv.ProcExecution(jlexepath, [
           '--color=yes',
           `--project=${path.join(this.context.extensionPath, 'scripts', 'environments', 'sysimagecompile')}`,
           '--startup-file=no',
@@ -86,7 +86,7 @@ class JuliaTaskProvider {
           folder,
           `Run build`,
           'julia',
-          new qv.ProcessExecution(jlexepath, ['--color=yes', `--project=${pkgenvpath}`, '-e', `using Pkg; Pkg.build("${folder.name}")`]),
+          new qv.ProcExecution(jlexepath, ['--color=yes', `--project=${pkgenvpath}`, '-e', `using Pkg; Pkg.build("${folder.name}")`]),
           ''
         );
         buildTask.group = qv.TaskGroup.Build;
@@ -100,7 +100,7 @@ class JuliaTaskProvider {
           folder,
           `Run benchmark`,
           'julia',
-          new qv.ProcessExecution(jlexepath, ['--color=yes', `--project=${pkgenvpath}`, '-e', 'using PkgBenchmark; benchmarkpkg(Base.ARGS[1], resultfile="benchmark/results.json")', folder.name]),
+          new qv.ProcExecution(jlexepath, ['--color=yes', `--project=${pkgenvpath}`, '-e', 'using PkgBenchmark; benchmarkpkg(Base.ARGS[1], resultfile="benchmark/results.json")', folder.name]),
           ''
         );
         benchmarkTask.presentationOptions = { echo: false, focus: false, panel: qv.TaskPanelKind.Dedicated, clear: true };
@@ -113,7 +113,7 @@ class JuliaTaskProvider {
           folder,
           `Build documentation`,
           'julia',
-          new qv.ProcessExecution(
+          new qv.ProcExecution(
             jlexepath,
             [
               `--project=${pkgenvpath}`,

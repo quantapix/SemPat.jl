@@ -5,12 +5,12 @@ import * as qv from 'vscode';
 import * as qu from '../utils';
 import API from '../../old/ts/utils/api';
 
-const minTypeScriptVersion = API.fromVersionString(`${VersionRequirement.major}.${VersionRequirement.minor}`);
+const minTSVersion = API.fromVersionString(`${VersionRequirement.major}.${VersionRequirement.minor}`);
 
 const CONTENT_LENGTH_LIMIT = 100000;
 
 export function register(s: qu.DocumentSelector, c: ServiceClient) {
-  return condRegistration([requireMinVer(c, minTypeScriptVersion), requireSomeCap(c, ClientCap.Semantic)], () => {
+  return condRegistration([requireMinVer(c, minTSVersion), requireSomeCap(c, ClientCap.Semantic)], () => {
     const p = new SemanticTokens(c);
     return qv.Disposable.from(qv.languages.registerDocumentRangeSemanticTokensProvider(s.semantic, p, p.getLegend()));
   });
@@ -174,12 +174,12 @@ tokenTypeMap[ExperimentalProtocol.ClassificationType.parameterName] = TokenType.
 
 namespace ExperimentalProtocol {
   export interface IExtendedTypeScriptServiceClient {
-    execute<K extends keyof ExperimentalProtocol.ExtendedTsServerRequests>(
+    execute<K extends keyof ExperimentalProtocol.ExtendedTSServerRequests>(
       command: K,
-      args: ExperimentalProtocol.ExtendedTsServerRequests[K][0],
+      args: ExperimentalProtocol.ExtendedTSServerRequests[K][0],
       token: qv.CancellationToken,
       config?: ExecConfig
-    ): Promise<ServerResponse.Response<ExperimentalProtocol.ExtendedTsServerRequests[K][1]>>;
+    ): Promise<ServerResponse.Response<ExperimentalProtocol.ExtendedTSServerRequests[K][1]>>;
   }
   export interface EncodedSemanticClassificationsRequest extends qp.FileRequest {
     arguments: EncodedSemanticClassificationsRequestArgs;
@@ -234,7 +234,7 @@ namespace ExperimentalProtocol {
     };
   }
 
-  export interface ExtendedTsServerRequests {
+  export interface ExtendedTSServerRequests {
     'encodedSemanticClassifications-full': [ExperimentalProtocol.EncodedSemanticClassificationsRequestArgs, ExperimentalProtocol.EncodedSemanticClassificationsResponse];
   }
 }
@@ -272,7 +272,7 @@ const legend = (function () {
 })();
 
 export function activate(context: qv.ExtensionContext) {
-  context.subscriptions.push(qv.languages.registerDocumentSemanticTokensProvider({ language: 'semanticLanguage' }, new DocumentSemanticTokensProvider(), legend));
+  context.subscriptions.push(qv.languages.registerDocumentSemanticTokensProvider({ language: 'semanticLang' }, new DocumentSemanticTokensProvider(), legend));
 }
 
 interface IParsedToken {

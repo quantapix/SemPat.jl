@@ -1,10 +1,10 @@
-import { CancellationToken, ParameterInformation, Position, SignatureHelp, SignatureHelpProvider, SignatureInformation, TextDocument, WorkspaceConfiguration } from 'vscode';
+import { CancellationToken, ParameterInformation, Position, SignatureHelp, SignatureHelpProvider, SignatureInformation, TextDocument, WorkspaceConfig } from 'vscode';
 import { getGoConfig } from './config';
 import { definitionLocation } from './go/definition';
 import { getParametersAndReturnType, isPositionInComment, isPositionInString } from './util';
 
 export class GoSignatureHelpProvider implements SignatureHelpProvider {
-  constructor(private goConfig?: WorkspaceConfiguration) {}
+  constructor(private goConfig?: WorkspaceConfig) {}
 
   public async provideSignatureHelp(document: TextDocument, position: Position, token: CancellationToken): Promise<SignatureHelp> {
     let goConfig = this.goConfig || getGoConfig(document.uri);

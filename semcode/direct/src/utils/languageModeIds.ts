@@ -6,7 +6,7 @@ export const javascript = 'javascript';
 export const javascriptreact = 'javascriptreact';
 export const jsxTags = 'jsx-tags';
 
-export function isSupportedLanguageMode(doc: qv.TextDocument) {
+export function isSupportedLangMode(doc: qv.TextDocument) {
   return qv.languages.match([typescript, typescriptreact, javascript, javascriptreact], doc) > 0;
 }
 

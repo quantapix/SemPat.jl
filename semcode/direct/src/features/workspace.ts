@@ -28,7 +28,7 @@ class WsSymbol implements qv.WorkspaceSymbolProvider {
   }
 
   private get searchAllOpenProjects() {
-    return this.client.apiVersion.gte(API.v390) && qv.workspace.getConfiguration('typescript').get('workspaceSymbols.scope', 'allOpenProjects') === 'allOpenProjects';
+    return this.client.apiVersion.gte(API.v390) && qv.workspace.getConfig('typescript').get('workspaceSymbols.scope', 'allOpenProjects') === 'allOpenProjects';
   }
 
   private async toOpenedFiledPath(d: qv.TextDocument) {

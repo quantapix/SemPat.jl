@@ -1,8 +1,8 @@
 import { Commands } from '../commands/commands';
-import { DiagnosticLevel } from '../common/configOptions';
+import { DiagLevel } from '../common/configOptions';
 import { assert, assertNever, fail } from '../common/debug';
-import { CreateTypeStubFileAction, Diagnostic } from '../common/diagnostic';
-import { DiagnosticRule } from '../common/diagnosticRules';
+import { CreateTypeStubFileAction, Diag } from '../common/diagnostic';
+import { DiagRule } from '../common/diagnosticRules';
 import { getFileName, stripFileExtension } from '../common/pathUtils';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { getEmptyRange } from '../common/textRange';
@@ -15,7 +15,7 @@ import {
   AssignmentNode,
   AugmentedAssignmentNode,
   AwaitNode,
-  BinaryOperationNode,
+  BinaryOpNode,
   BreakNode,
   CallNode,
   ClassNode,
@@ -51,7 +51,7 @@ import {
   TernaryNode,
   TryNode,
   TypeAnnotationNode,
-  UnaryOperationNode,
+  UnaryOpNode,
   WhileNode,
   WithNode,
   YieldFromNode,
@@ -71,7 +71,7 @@ import {
   FlowFlags,
   FlowLabel,
   FlowNode,
-  FlowPostContextManagerLabel,
+  FlowPostContextMgrLabel,
   FlowPostFinally,
   FlowPreFinallyGate,
   FlowVariableAnnotation,
@@ -226,20 +226,15 @@ export class Binder extends ParseTreeWalker {
     }
 
     if (!importResult.isImportFound) {
-      this._addDiagnostic(
-        this._fileInfo.diagnosticRuleSet.reportMissingImports,
-        DiagnosticRule.reportMissingImports,
-        Localizer.Diagnostic.importResolveFailure().format({ importName: importResult.importName }),
-        node
-      );
+      this._addDiag(this._fileInfo.diagnosticRuleSet.reportMissingImports, DiagRule.reportMissingImports, Localizer.Diag.importResolveFailure().format({ importName: importResult.importName }), node);
       return true;
     }
 
     if (!importResult.isStubFile && importResult.importType === ImportType.ThirdParty && !importResult.pyTypedInfo) {
-      const diagnostic = this._addDiagnostic(
+      const diagnostic = this._addDiag(
         this._fileInfo.diagnosticRuleSet.reportMissingTypeStubs,
-        DiagnosticRule.reportMissingTypeStubs,
-        Localizer.Diagnostic.stubFileMissing().format({ importName: importResult.importName }),
+        DiagRule.reportMissingTypeStubs,
+        Localizer.Diag.stubFileMissing().format({ importName: importResult.importName }),
         node
       );
       if (diagnostic) {
@@ -253,10 +248,10 @@ export class Binder extends ParseTreeWalker {
 
     if (importResult.isStubFile && importResult.importType !== ImportType.BuiltIn && importResult.nonStubImportResult && !importResult.nonStubImportResult.isImportFound) {
       if (!this._fileInfo.isStubFile) {
-        this._addDiagnostic(
+        this._addDiag(
           this._fileInfo.diagnosticRuleSet.reportMissingModuleSource,
-          DiagnosticRule.reportMissingModuleSource,
-          Localizer.Diagnostic.importSourceResolveFailure().format({
+          DiagRule.reportMissingModuleSource,
+          Localizer.Diag.importSourceResolveFailure().format({
             importName: importResult.importName,
           }),
           node
@@ -501,7 +496,7 @@ export class Binder extends ParseTreeWalker {
       }
 
       if (emitDunderAllWarning) {
-        this._addDiagnostic(this._fileInfo.diagnosticRuleSet.reportUnsupportedDunderAll, DiagnosticRule.reportUnsupportedDunderAll, Localizer.Diagnostic.unsupportedDunderAllOperation(), node);
+        this._addDiag(this._fileInfo.diagnosticRuleSet.reportUnsupportedDunderAll, DiagRule.reportUnsupportedDunderAll, Localizer.Diag.unsupportedDunderAllOp(), node);
       }
     }
 
@@ -567,7 +562,7 @@ export class Binder extends ParseTreeWalker {
         }
 
         if (emitDunderAllWarning) {
-          this._addDiagnostic(this._fileInfo.diagnosticRuleSet.reportUnsupportedDunderAll, DiagnosticRule.reportUnsupportedDunderAll, Localizer.Diagnostic.unsupportedDunderAllOperation(), node);
+          this._addDiag(this._fileInfo.diagnosticRuleSet.reportUnsupportedDunderAll, DiagRule.reportUnsupportedDunderAll, Localizer.Diag.unsupportedDunderAllOp(), node);
         }
       }
     }
@@ -582,7 +577,7 @@ export class Binder extends ParseTreeWalker {
 
     const evaluationNode = ParseTreeUtils.getEvaluationNodeForAssignmentExpression(node);
     if (!evaluationNode) {
-      this._addError(Localizer.Diagnostic.assignmentExprContext(), node);
+      this._addError(Localizer.Diag.assignmentExprContext(), node);
       this.walk(node.name);
     } else {
       const containerScope = AnalyzerNodeInfo.getScope(evaluationNode)!;
@@ -591,7 +586,7 @@ export class Binder extends ParseTreeWalker {
       while (curScope && curScope !== containerScope) {
         const localSymbol = curScope.lookUpSymbol(node.name.value);
         if (localSymbol) {
-          this._addError(Localizer.Diagnostic.assignmentExprComprehension().format({ name: node.name.value }), node.name);
+          this._addError(Localizer.Diag.assignmentExprComprehension().format({ name: node.name.value }), node.name);
           break;
         }
 
@@ -638,7 +633,7 @@ export class Binder extends ParseTreeWalker {
       }
 
       if (emitDunderAllWarning) {
-        this._addDiagnostic(this._fileInfo.diagnosticRuleSet.reportUnsupportedDunderAll, DiagnosticRule.reportUnsupportedDunderAll, Localizer.Diagnostic.unsupportedDunderAllOperation(), node);
+        this._addDiag(this._fileInfo.diagnosticRuleSet.reportUnsupportedDunderAll, DiagRule.reportUnsupportedDunderAll, Localizer.Diag.unsupportedDunderAllOp(), node);
       }
     }
 
@@ -752,7 +747,7 @@ export class Binder extends ParseTreeWalker {
 
   visitYield(node: YieldNode): boolean {
     if (this._isInListComprehension(node)) {
-      this._addError(Localizer.Diagnostic.yieldWithinListCompr(), node);
+      this._addError(Localizer.Diag.yieldWithinListCompr(), node);
     }
 
     this._bindYield(node);
@@ -761,7 +756,7 @@ export class Binder extends ParseTreeWalker {
 
   visitYieldFrom(node: YieldFromNode): boolean {
     if (this._isInListComprehension(node)) {
-      this._addError(Localizer.Diagnostic.yieldWithinListCompr(), node);
+      this._addError(Localizer.Diag.yieldWithinListCompr(), node);
     }
 
     this._bindYield(node);
@@ -894,7 +889,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     if (!node.typeExpression && this._nestedExceptDepth === 0) {
-      this._addError(Localizer.Diagnostic.raiseParams(), node);
+      this._addError(Localizer.Diag.raiseParams(), node);
     }
 
     if (node.typeExpression) {
@@ -992,7 +987,7 @@ export class Binder extends ParseTreeWalker {
   visitAwait(node: AwaitNode) {
     const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
     if (enclosingFunction === undefined || !enclosingFunction.isAsync) {
-      this._addError(Localizer.Diagnostic.awaitNotInAsync(), node);
+      this._addError(Localizer.Diag.awaitNotInAsync(), node);
     }
 
     return true;
@@ -1008,18 +1003,13 @@ export class Binder extends ParseTreeWalker {
           const textRange = { start, length: error.length };
 
           if (error.errorType === StringTokenUtils.UnescapeErrorType.InvalidEscapeSequence) {
-            this._addDiagnostic(
-              this._fileInfo.diagnosticRuleSet.reportInvalidStringEscapeSequence,
-              DiagnosticRule.reportInvalidStringEscapeSequence,
-              Localizer.Diagnostic.stringUnsupportedEscape(),
-              textRange
-            );
+            this._addDiag(this._fileInfo.diagnosticRuleSet.reportInvalidStringEscapeSequence, DiagRule.reportInvalidStringEscapeSequence, Localizer.Diag.stringUnsupportedEscape(), textRange);
           } else if (error.errorType === StringTokenUtils.UnescapeErrorType.EscapeWithinFormatExpression) {
-            this._addError(Localizer.Diagnostic.formatStringEscape(), textRange);
+            this._addError(Localizer.Diag.formatStringEscape(), textRange);
           } else if (error.errorType === StringTokenUtils.UnescapeErrorType.SingleCloseBraceWithinFormatLiteral) {
-            this._addError(Localizer.Diagnostic.formatStringBrace(), textRange);
+            this._addError(Localizer.Diag.formatStringBrace(), textRange);
           } else if (error.errorType === StringTokenUtils.UnescapeErrorType.UnterminatedFormatExpression) {
-            this._addError(Localizer.Diagnostic.formatStringUnterminated(), textRange);
+            this._addError(Localizer.Diag.formatStringUnterminated(), textRange);
           }
         });
       }
@@ -1035,13 +1025,13 @@ export class Binder extends ParseTreeWalker {
       const nameValue = name.value;
 
       if (this._currentScope.getBindingType(nameValue) === NameBindingType.Nonlocal) {
-        this._addError(Localizer.Diagnostic.nonLocalRedefinition().format({ name: nameValue }), name);
+        this._addError(Localizer.Diag.nonLocalRedefinition().format({ name: nameValue }), name);
       }
 
       const valueWithScope = this._currentScope.lookUpSymbolRecursive(nameValue);
 
       if (valueWithScope && valueWithScope.scope === this._currentScope) {
-        this._addError(Localizer.Diagnostic.globalReassignment().format({ name: nameValue }), name);
+        this._addError(Localizer.Diag.globalReassignment().format({ name: nameValue }), name);
       }
 
       this._bindNameToScope(globalScope, nameValue);
@@ -1058,21 +1048,21 @@ export class Binder extends ParseTreeWalker {
     const globalScope = this._currentScope.getGlobalScope();
 
     if (this._currentScope === globalScope) {
-      this._addError(Localizer.Diagnostic.nonLocalInModule(), node);
+      this._addError(Localizer.Diag.nonLocalInModule(), node);
     } else {
       node.nameList.forEach((name) => {
         const nameValue = name.value;
 
         if (this._currentScope.getBindingType(nameValue) === NameBindingType.Global) {
-          this._addError(Localizer.Diagnostic.globalRedefinition().format({ name: nameValue }), name);
+          this._addError(Localizer.Diag.globalRedefinition().format({ name: nameValue }), name);
         }
 
         const valueWithScope = this._currentScope.lookUpSymbolRecursive(nameValue);
 
         if (valueWithScope && valueWithScope.scope === this._currentScope) {
-          this._addError(Localizer.Diagnostic.nonLocalReassignment().format({ name: nameValue }), name);
+          this._addError(Localizer.Diag.nonLocalReassignment().format({ name: nameValue }), name);
         } else if (!valueWithScope || valueWithScope.scope === globalScope) {
-          this._addError(Localizer.Diagnostic.nonLocalNoBinding().format({ name: nameValue }), name);
+          this._addError(Localizer.Diag.nonLocalNoBinding().format({ name: nameValue }), name);
         }
 
         if (valueWithScope) {
@@ -1147,7 +1137,7 @@ export class Binder extends ParseTreeWalker {
 
     if (node.isWildcardImport) {
       if (ParseTreeUtils.getEnclosingClass(node) || ParseTreeUtils.getEnclosingFunction(node)) {
-        this._addError(Localizer.Diagnostic.wildcardInFunction(), node);
+        this._addError(Localizer.Diag.wildcardInFunction(), node);
       }
 
       if (importInfo) {
@@ -1304,21 +1294,21 @@ export class Binder extends ParseTreeWalker {
       }
     });
 
-    const contextManagerExceptionTarget = this._createContextManagerLabel(
+    const contextMgrExceptionTarget = this._createContextMgrLabel(
       node.withItems.map((item) => item.expression),
       !!node.isAsync
     );
-    this._addAntecedent(contextManagerExceptionTarget, this._currentFlowNode!);
+    this._addAntecedent(contextMgrExceptionTarget, this._currentFlowNode!);
 
-    const postContextManagerLabel = this._createBranchLabel();
-    this._addAntecedent(postContextManagerLabel, contextManagerExceptionTarget!);
+    const postContextMgrLabel = this._createBranchLabel();
+    this._addAntecedent(postContextMgrLabel, contextMgrExceptionTarget!);
 
-    this._useExceptTargets([contextManagerExceptionTarget], () => {
+    this._useExceptTargets([contextMgrExceptionTarget], () => {
       this.walk(node.suite);
     });
 
-    this._addAntecedent(postContextManagerLabel, this._currentFlowNode!);
-    this._currentFlowNode = postContextManagerLabel;
+    this._addAntecedent(postContextMgrLabel, this._currentFlowNode!);
+    this._currentFlowNode = postContextMgrLabel;
 
     return false;
   }
@@ -1343,7 +1333,7 @@ export class Binder extends ParseTreeWalker {
     return false;
   }
 
-  visitUnaryOperation(node: UnaryOperationNode): boolean {
+  visitUnaryOp(node: UnaryOpNode): boolean {
     if (node.operator === OperatorType.Not && this._currentFalseTarget && this._currentTrueTarget) {
       this._bindConditional(node.expression, this._currentFalseTarget, this._currentTrueTarget);
     } else {
@@ -1355,7 +1345,7 @@ export class Binder extends ParseTreeWalker {
     return false;
   }
 
-  visitBinaryOperation(node: BinaryOperationNode): boolean {
+  visitBinaryOp(node: BinaryOpNode): boolean {
     if (node.operator === OperatorType.And || node.operator === OperatorType.Or) {
       let trueTarget = this._currentTrueTarget;
       let falseTarget = this._currentFalseTarget;
@@ -1736,9 +1726,9 @@ export class Binder extends ParseTreeWalker {
     return flowNode;
   }
 
-  private _createContextManagerLabel(expressions: ExpressionNode[], isAsync: boolean) {
-    const flowNode: FlowPostContextManagerLabel = {
-      flags: FlowFlags.PostContextManager | FlowFlags.BranchLabel,
+  private _createContextMgrLabel(expressions: ExpressionNode[], isAsync: boolean) {
+    const flowNode: FlowPostContextMgrLabel = {
+      flags: FlowFlags.PostContextMgr | FlowFlags.BranchLabel,
       id: getUniqueFlowNodeId(),
       antecedents: [],
       expressions,
@@ -1771,9 +1761,9 @@ export class Binder extends ParseTreeWalker {
   private _bindNeverCondition(node: ExpressionNode, target: FlowLabel, isPositiveTest: boolean) {
     const expressionList: CodeFlowReferenceExpressionNode[] = [];
 
-    if (node.nodeType === ParseNodeType.UnaryOperation && node.operator === OperatorType.Not) {
+    if (node.nodeType === ParseNodeType.UnaryOp && node.operator === OperatorType.Not) {
       this._bindNeverCondition(node.expression, target, !isPositiveTest);
-    } else if (node.nodeType === ParseNodeType.BinaryOperation && (node.operator === OperatorType.And || node.operator === OperatorType.Or)) {
+    } else if (node.nodeType === ParseNodeType.BinaryOp && (node.operator === OperatorType.And || node.operator === OperatorType.Or)) {
       if (node.operator === OperatorType.And) {
         const savedCurrentFlowNode = this._currentFlowNode;
         this._bindNeverCondition(node.leftExpression, target, isPositiveTest);
@@ -1861,11 +1851,11 @@ export class Binder extends ParseTreeWalker {
 
   private _isLogicalExpression(expression: ExpressionNode): boolean {
     switch (expression.nodeType) {
-      case ParseNodeType.UnaryOperation: {
+      case ParseNodeType.UnaryOp: {
         return expression.operator === OperatorType.Not;
       }
 
-      case ParseNodeType.BinaryOperation: {
+      case ParseNodeType.BinaryOp: {
         return expression.operator === OperatorType.And || expression.operator === OperatorType.Or;
       }
     }
@@ -1901,7 +1891,7 @@ export class Binder extends ParseTreeWalker {
         return true;
       }
 
-      case ParseNodeType.BinaryOperation: {
+      case ParseNodeType.BinaryOp: {
         const isOrIsNotOperator = expression.operator === OperatorType.Is || expression.operator === OperatorType.IsNot;
         const equalsOrNotEqualsOperator = expression.operator === OperatorType.Equals || expression.operator === OperatorType.NotEquals;
 
@@ -1946,7 +1936,7 @@ export class Binder extends ParseTreeWalker {
         return false;
       }
 
-      case ParseNodeType.UnaryOperation: {
+      case ParseNodeType.UnaryOp: {
         return expression.operator === OperatorType.Not && this._isNarrowingExpression(expression.expression, expressionList, filterForNeverNarrowing, /* isComplexExpression */ false);
       }
 
@@ -2399,7 +2389,7 @@ export class Binder extends ParseTreeWalker {
             typeAnnotationNode = undefined;
 
             if (this._currentScope.type !== ScopeType.Module) {
-              this._addError(Localizer.Diagnostic.typeAliasNotInModule(), typeAnnotation);
+              this._addError(Localizer.Diag.typeAliasNotInModule(), typeAnnotation);
             }
           } else if (finalInfo.isFinal) {
             typeAnnotationNode = finalInfo.finalTypeNode;
@@ -2475,7 +2465,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     if (!declarationHandled) {
-      this._addError(Localizer.Diagnostic.annotationNotSupported(), typeAnnotation);
+      this._addError(Localizer.Diag.annotationNotSupported(), typeAnnotation);
     }
   }
 
@@ -2708,10 +2698,10 @@ export class Binder extends ParseTreeWalker {
 
     if (!functionNode) {
       if (!ParseTreeUtils.getEnclosingLambda(node)) {
-        this._addError(Localizer.Diagnostic.yieldOutsideFunction(), node);
+        this._addError(Localizer.Diag.yieldOutsideFunction(), node);
       }
     } else if (functionNode.isAsync && node.nodeType === ParseNodeType.YieldFrom) {
-      this._addError(Localizer.Diagnostic.yieldFromOutsideAsync(), node);
+      this._addError(Localizer.Diag.yieldFromOutsideAsync(), node);
     }
 
     if (this._targetFunctionDeclaration) {
@@ -2729,8 +2719,8 @@ export class Binder extends ParseTreeWalker {
     AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
   }
 
-  private _addDiagnostic(diagLevel: DiagnosticLevel, rule: string, message: string, textRange: TextRange) {
-    let diagnostic: Diagnostic | undefined;
+  private _addDiag(diagLevel: DiagLevel, rule: string, message: string, textRange: TextRange) {
+    let diagnostic: Diag | undefined;
     switch (diagLevel) {
       case 'error':
         diagnostic = this._addError(message, textRange);
@@ -2759,15 +2749,15 @@ export class Binder extends ParseTreeWalker {
   }
 
   private _addError(message: string, textRange: TextRange) {
-    return this._fileInfo.diagnosticSink.addDiagnosticWithTextRange('error', message, textRange);
+    return this._fileInfo.diagnosticSink.addDiagWithTextRange('error', message, textRange);
   }
 
   private _addWarning(message: string, textRange: TextRange) {
-    return this._fileInfo.diagnosticSink.addDiagnosticWithTextRange('warning', message, textRange);
+    return this._fileInfo.diagnosticSink.addDiagWithTextRange('warning', message, textRange);
   }
 
   private _addInformation(message: string, textRange: TextRange) {
-    return this._fileInfo.diagnosticSink.addDiagnosticWithTextRange('information', message, textRange);
+    return this._fileInfo.diagnosticSink.addDiagWithTextRange('information', message, textRange);
   }
 }
 

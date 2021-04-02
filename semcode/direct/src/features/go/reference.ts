@@ -5,7 +5,7 @@ import { getGoConfig } from '../../../../old/go/config';
 import { toolExecutionEnvironment } from '../../../../old/go/goEnv';
 import { promptForMissingTool } from '../../../../old/go/goInstallTools';
 import { byteOffsetAt, canonicalizeGOPATHPrefix, getBinPath, getFileArchive } from '../../../../old/go/util';
-import { killProcessTree } from './utils/processUtils';
+import { killProcTree } from './utils/processUtils';
 
 export class GoReferenceProvider implements qv.ReferenceProvider {
   public provideReferences(document: qv.TextDocument, position: qv.Position, options: { includeDeclaration: boolean }, token: qv.CancellationToken): Thenable<qv.Location[]> {
@@ -71,7 +71,7 @@ export class GoReferenceProvider implements qv.ReferenceProvider {
       if (process.pid) {
         process.stdin.end(getFileArchive(document));
       }
-      token.onCancellationRequested(() => killProcessTree(process));
+      token.onCancellationRequested(() => killProcTree(process));
     });
   }
 }

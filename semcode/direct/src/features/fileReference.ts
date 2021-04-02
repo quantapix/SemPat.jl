@@ -1,8 +1,8 @@
 import * as qv from 'vscode';
-import { Command, CommandManager } from '../commands/commandManager';
+import { Command, CommandMgr } from '../commands/commandMgr';
 import { ServiceClient } from '../service';
 import API from '../utils/api';
-import { isSupportedLanguageMode } from '../utils/languageModeIds';
+import { isSupportedLangMode } from '../utils/languageModeIds';
 import * as qu from '../utils/qu';
 
 class FileReferencesCommand implements Command {
@@ -29,8 +29,8 @@ class FileReferencesCommand implements Command {
     }
 
     const document = await qv.workspace.openTextDocument(resource);
-    if (!isSupportedLanguageMode(document)) {
-      qv.window.showErrorMessage('error.unsupportedLanguage');
+    if (!isSupportedLangMode(document)) {
+      qv.window.showErrorMessage('error.unsupportedLang');
       return;
     }
 
@@ -59,7 +59,7 @@ class FileReferencesCommand implements Command {
 
         const locations: qv.Location[] = response.body.refs.map((reference) => qu.Location.fromTextSpan(this.client.toResource(reference.file), reference));
 
-        const config = qv.workspace.getConfiguration('references');
+        const config = qv.workspace.getConfig('references');
         const existingSetting = config.inspect<string>('preferredLocation');
 
         await config.update('preferredLocation', 'view');
@@ -73,12 +73,12 @@ class FileReferencesCommand implements Command {
   }
 }
 
-export function register(client: ServiceClient, commandManager: CommandManager) {
+export function register(client: ServiceClient, commandMgr: CommandMgr) {
   function updateContext() {
     qv.commands.executeCommand('setContext', FileReferencesCommand.context, client.apiVersion.gte(FileReferencesCommand.minVersion));
   }
   updateContext();
 
-  commandManager.register(new FileReferencesCommand(client));
-  return client.onTsServerStarted(() => updateContext());
+  commandMgr.register(new FileReferencesCommand(client));
+  return client.onTSServerStarted(() => updateContext());
 }

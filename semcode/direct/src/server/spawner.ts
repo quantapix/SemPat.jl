@@ -1,46 +1,43 @@
 import * as path from 'path';
 import * as qv from 'vscode';
-import { OngoingRequestCancellerFactory } from '../tsServer/cancellation';
-import { ClientCapabilities, ClientCapability, ServerType } from '../service';
+import { OngoingRequestCancelFact } from '../tsServer/cancellation';
+import { ClientCaps, ClientCap, ServerType } from '../service';
 import API from '../utils/api';
-import { SeparateSyntaxServerConfiguration, TsServerLogLevel, TypeScriptServiceConfiguration } from '../utils/configuration';
+import { SeparateSyntaxServerConfig, TSServerLogLevel, TSServiceConfig } from '../utils/configuration';
 import { Logger } from '../utils/logger';
 import { isWeb } from '../utils/platform';
-import { TypeScriptPluginPathsProvider } from '../utils/pluginPathsProvider';
-import { PluginManager } from '../utils/plugins';
+import { TSPluginPathsProvider } from '../utils/pluginPathsProvider';
+import { PluginMgr } from '../utils/plugins';
 import { TelemetryReporter } from '../utils/telemetry';
 import Tracer from '../utils/tracer';
-import { ILogDirectoryProvider } from './logDirectoryProvider';
-import { GetErrRoutingTsServer, ITypeScriptServer, ProcessBasedTsServer, SyntaxRoutingTsServer, TsServerDelegate, TsServerProcessFactory, TsServerProcessKind } from './server';
-import { TypeScriptVersionManager } from './manager';
-import { ITypeScriptVersionProvider, TypeScriptVersion } from './version';
-
+import { LogDirProvider } from './log';
+import { GetErrRoutingTSServer, ITypeScriptServer, ProcBasedTSServer, SyntaxRoutingTSServer, TSServerDelegate, TSServerProcFact, TSServerProcKind } from './server';
+import { TSVersionMgr } from './manager';
+import { TSVersionProvider, TSVersion } from './version';
 const enum CompositeServerType {
   Single,
   SeparateSyntax,
   DynamicSeparateSyntax,
   SyntaxOnly,
 }
-
-export class TypeScriptServerSpawner {
+export class TSServerSpawner {
   public constructor(
-    private readonly _versionProvider: ITypeScriptVersionProvider,
-    private readonly _versionManager: TypeScriptVersionManager,
-    private readonly _logDirectoryProvider: ILogDirectoryProvider,
-    private readonly _pluginPathsProvider: TypeScriptPluginPathsProvider,
+    private readonly _versionProvider: TSVersionProvider,
+    private readonly _versionMgr: TSVersionMgr,
+    private readonly _logDirProvider: LogDirProvider,
+    private readonly _pluginPathsProvider: TSPluginPathsProvider,
     private readonly _logger: Logger,
     private readonly _telemetryReporter: TelemetryReporter,
     private readonly _tracer: Tracer,
-    private readonly _factory: TsServerProcessFactory
+    private readonly _factory: TSServerProcFact
   ) {}
-
   public spawn(
-    version: TypeScriptVersion,
-    capabilities: ClientCapabilities,
-    configuration: TypeScriptServiceConfiguration,
-    pluginManager: PluginManager,
-    cancellerFactory: OngoingRequestCancellerFactory,
-    delegate: TsServerDelegate
+    version: TSVersion,
+    capabilities: ClientCaps,
+    configuration: TSServiceConfig,
+    pluginMgr: PluginMgr,
+    cancellerFact: OngoingRequestCancelFact,
+    delegate: TSServerDelegate
   ): ITypeScriptServer {
     let primaryServer: ITypeScriptServer;
     const serverType = this.getCompositeServerType(version, capabilities, configuration);
@@ -48,10 +45,10 @@ export class TypeScriptServerSpawner {
       case CompositeServerType.SeparateSyntax:
       case CompositeServerType.DynamicSeparateSyntax: {
         const enableDynamicRouting = serverType === CompositeServerType.DynamicSeparateSyntax;
-        primaryServer = new SyntaxRoutingTsServer(
+        primaryServer = new SyntaxRoutingTSServer(
           {
-            syntax: this.spawnTsServer(TsServerProcessKind.Syntax, version, configuration, pluginManager, cancellerFactory),
-            semantic: this.spawnTsServer(TsServerProcessKind.Semantic, version, configuration, pluginManager, cancellerFactory),
+            syntax: this.spawnTSServer(TSServerProcKind.Syntax, version, configuration, pluginMgr, cancellerFact),
+            semantic: this.spawnTSServer(TSServerProcKind.Semantic, version, configuration, pluginMgr, cancellerFact),
           },
           delegate,
           enableDynamicRouting
@@ -59,19 +56,18 @@ export class TypeScriptServerSpawner {
         break;
       }
       case CompositeServerType.Single: {
-        primaryServer = this.spawnTsServer(TsServerProcessKind.Main, version, configuration, pluginManager, cancellerFactory);
+        primaryServer = this.spawnTSServer(TSServerProcKind.Main, version, configuration, pluginMgr, cancellerFact);
         break;
       }
       case CompositeServerType.SyntaxOnly: {
-        primaryServer = this.spawnTsServer(TsServerProcessKind.Syntax, version, configuration, pluginManager, cancellerFactory);
+        primaryServer = this.spawnTSServer(TSServerProcKind.Syntax, version, configuration, pluginMgr, cancellerFact);
         break;
       }
     }
-
-    if (this.shouldUseSeparateDiagnosticsServer(configuration)) {
-      return new GetErrRoutingTsServer(
+    if (this.shouldUseSeparateDiagsServer(configuration)) {
+      return new GetErrRoutingTSServer(
         {
-          getErr: this.spawnTsServer(TsServerProcessKind.Diagnostics, version, configuration, pluginManager, cancellerFactory),
+          getErr: this.spawnTSServer(TSServerProcKind.Diags, version, configuration, pluginMgr, cancellerFact),
           primary: primaryServer,
         },
         delegate
@@ -79,80 +75,69 @@ export class TypeScriptServerSpawner {
     }
     return primaryServer;
   }
-
-  private getCompositeServerType(version: TypeScriptVersion, capabilities: ClientCapabilities, configuration: TypeScriptServiceConfiguration): CompositeServerType {
-    if (!capabilities.has(ClientCapability.Semantic)) {
+  private getCompositeServerType(version: TSVersion, capabilities: ClientCaps, configuration: TSServiceConfig): CompositeServerType {
+    if (!capabilities.has(ClientCap.Semantic)) {
       return CompositeServerType.SyntaxOnly;
     }
     switch (configuration.separateSyntaxServer) {
-      case SeparateSyntaxServerConfiguration.Disabled:
+      case SeparateSyntaxServerConfig.Disabled:
         return CompositeServerType.Single;
-      case SeparateSyntaxServerConfiguration.Enabled:
+      case SeparateSyntaxServerConfig.Enabled:
         if (version.apiVersion?.gte(API.v340)) {
           return version.apiVersion?.gte(API.v400) ? CompositeServerType.DynamicSeparateSyntax : CompositeServerType.SeparateSyntax;
         }
         return CompositeServerType.Single;
     }
   }
-
-  private shouldUseSeparateDiagnosticsServer(configuration: TypeScriptServiceConfiguration): boolean {
-    return configuration.enableProjectDiagnostics;
+  private shouldUseSeparateDiagsServer(configuration: TSServiceConfig): boolean {
+    return configuration.enableProjectDiags;
   }
-
-  private spawnTsServer(
-    kind: TsServerProcessKind,
-    version: TypeScriptVersion,
-    configuration: TypeScriptServiceConfiguration,
-    pluginManager: PluginManager,
-    cancellerFactory: OngoingRequestCancellerFactory
-  ): ITypeScriptServer {
+  private spawnTSServer(kind: TSServerProcKind, version: TSVersion, configuration: TSServiceConfig, pluginMgr: PluginMgr, cancellerFact: OngoingRequestCancelFact): ITypeScriptServer {
     const apiVersion = version.apiVersion || API.defaultVersion;
-    const canceller = cancellerFactory.create(kind, this._tracer);
-    const { args, tsServerLogFile, tsServerTraceDirectory } = this.getTsServerArgs(kind, configuration, version, apiVersion, pluginManager, canceller.cancellationPipeName);
-    if (TypeScriptServerSpawner.isLoggingEnabled(configuration)) {
+    const canceller = cancellerFact.create(kind, this._tracer);
+    const { args, tsServerLogFile, tsServerTraceDir } = this.getTSServerArgs(kind, configuration, version, apiVersion, pluginMgr, canceller.cancellationPipeName);
+    if (TSServerSpawner.isLoggingEnabled(configuration)) {
       if (tsServerLogFile) {
         this._logger.info(`<${kind}> Log file: ${tsServerLogFile}`);
       } else {
         this._logger.error(`<${kind}> Could not create log directory`);
       }
     }
-    if (configuration.enableTsServerTracing) {
-      if (tsServerTraceDirectory) {
-        this._logger.info(`<${kind}> Trace directory: ${tsServerTraceDirectory}`);
+    if (configuration.enableTSServerTracing) {
+      if (tsServerTraceDir) {
+        this._logger.info(`<${kind}> Trace directory: ${tsServerTraceDir}`);
       } else {
         this._logger.error(`<${kind}> Could not create trace directory`);
       }
     }
     this._logger.info(`<${kind}> Forking...`);
-    const process = this._factory.fork(version.tsServerPath, args, kind, configuration, this._versionManager);
+    const process = this._factory.fork(version.tsServerPath, args, kind, configuration, this._versionMgr);
     this._logger.info(`<${kind}> Starting...`);
-    return new ProcessBasedTsServer(kind, this.kindToServerType(kind), process!, tsServerLogFile, canceller, version, this._telemetryReporter, this._tracer);
+    return new ProcBasedTSServer(kind, this.kindToServerType(kind), process!, tsServerLogFile, canceller, version, this._telemetryReporter, this._tracer);
   }
-
-  private kindToServerType(kind: TsServerProcessKind): ServerType {
+  private kindToServerType(kind: TSServerProcKind): ServerType {
     switch (kind) {
-      case TsServerProcessKind.Syntax:
+      case TSServerProcKind.Syntax:
         return ServerType.Syntax;
-      case TsServerProcessKind.Main:
-      case TsServerProcessKind.Semantic:
-      case TsServerProcessKind.Diagnostics:
+      case TSServerProcKind.Main:
+      case TSServerProcKind.Semantic:
+      case TSServerProcKind.Diags:
       default:
         return ServerType.Semantic;
     }
   }
-
-  private getTsServerArgs(
-    kind: TsServerProcessKind,
-    configuration: TypeScriptServiceConfiguration,
-    currentVersion: TypeScriptVersion,
+  private getTSServerArgs(
+    kind: TSServerProcKind,
+    configuration: TSServiceConfig,
+    currentVersion: TSVersion,
     apiVersion: API,
-    pluginManager: PluginManager,
+    pluginMgr: PluginMgr,
     cancellationPipeName: string | undefined
-  ): { args: string[]; tsServerLogFile: string | undefined; tsServerTraceDirectory: string | undefined } {
+  ): { args: string[]; tsServerLogFile: string | undefined; tsServerTraceDir: string | undefined } {
     const args: string[] = [];
     let tsServerLogFile: string | undefined;
-    let tsServerTraceDirectory: string | undefined;
-    if (kind === TsServerProcessKind.Syntax) {
+    let tsServerTraceDir: string | undefined;
+    if (kind === TSServerProcKind.Syntax) {
       if (apiVersion.gte(API.v401)) {
         args.push('--serverMode', 'partialSemantic');
       } else {
@@ -164,40 +149,40 @@ export class TypeScriptServerSpawner {
     } else {
       args.push('--useSingleInferredProject');
     }
-    if (configuration.disableAutomaticTypeAcquisition || kind === TsServerProcessKind.Syntax || kind === TsServerProcessKind.Diagnostics) {
+    if (configuration.disableAutomaticTypeAcquisition || kind === TSServerProcKind.Syntax || kind === TSServerProcKind.Diags) {
       args.push('--disableAutomaticTypingAcquisition');
     }
-    if (kind === TsServerProcessKind.Semantic || kind === TsServerProcessKind.Main) {
+    if (kind === TSServerProcKind.Semantic || kind === TSServerProcKind.Main) {
       args.push('--enableTelemetry');
     }
     if (cancellationPipeName) {
       args.push('--cancellationPipeName', cancellationPipeName + '*');
     }
-    if (TypeScriptServerSpawner.isLoggingEnabled(configuration)) {
+    if (TSServerSpawner.isLoggingEnabled(configuration)) {
       if (isWeb()) {
-        args.push('--logVerbosity', TsServerLogLevel.toString(configuration.tsServerLogLevel));
+        args.push('--logVerbosity', TSServerLogLevel.toString(configuration.tsServerLogLevel));
       } else {
-        const logDir = this._logDirectoryProvider.getNewLogDirectory();
+        const logDir = this._logDirProvider.getNewLogDir();
         if (logDir) {
           tsServerLogFile = path.join(logDir, `tsserver.log`);
-          args.push('--logVerbosity', TsServerLogLevel.toString(configuration.tsServerLogLevel));
+          args.push('--logVerbosity', TSServerLogLevel.toString(configuration.tsServerLogLevel));
           args.push('--logFile', tsServerLogFile);
         }
       }
     }
-    if (configuration.enableTsServerTracing && !isWeb()) {
-      tsServerTraceDirectory = this._logDirectoryProvider.getNewLogDirectory();
-      if (tsServerTraceDirectory) {
-        args.push('--traceDirectory', tsServerTraceDirectory);
+    if (configuration.enableTSServerTracing && !isWeb()) {
+      tsServerTraceDir = this._logDirProvider.getNewLogDir();
+      if (tsServerTraceDir) {
+        args.push('--traceDir', tsServerTraceDir);
       }
     }
     if (!isWeb()) {
       const pluginPaths = this._pluginPathsProvider.getPluginPaths();
-      if (pluginManager.plugins.length) {
-        args.push('--globalPlugins', pluginManager.plugins.map((x) => x.name).join(','));
-        const isUsingBundledTypeScriptVersion = currentVersion.path === this._versionProvider.defaultVersion.path;
-        for (const plugin of pluginManager.plugins) {
-          if (isUsingBundledTypeScriptVersion || plugin.enableForWorkspaceTypeScriptVersions) {
+      if (pluginMgr.plugins.length) {
+        args.push('--globalPlugins', pluginMgr.plugins.map((x) => x.name).join(','));
+        const isUsingBundledTSVersion = currentVersion.path === this._versionProvider.defaultVersion.path;
+        for (const plugin of pluginMgr.plugins) {
+          if (isUsingBundledTSVersion || plugin.enableForWorkspaceTSVersions) {
             pluginPaths.push(plugin.path);
           }
         }
@@ -210,7 +195,7 @@ export class TypeScriptServerSpawner {
       args.push('--npmLocation', `"${configuration.npmLocation}"`);
     }
     if (apiVersion.gte(API.v260)) {
-      args.push('--locale', TypeScriptServerSpawner.getTsLocale(configuration));
+      args.push('--locale', TSServerSpawner.getTsLocale(configuration));
     }
     if (apiVersion.gte(API.v291)) {
       args.push('--noGetErrOnBackgroundUpdate');
@@ -218,14 +203,12 @@ export class TypeScriptServerSpawner {
     if (apiVersion.gte(API.v345)) {
       args.push('--validateDefaultNpmLocation');
     }
-    return { args, tsServerLogFile, tsServerTraceDirectory };
+    return { args, tsServerLogFile, tsServerTraceDir };
   }
-
-  private static isLoggingEnabled(configuration: TypeScriptServiceConfiguration) {
-    return configuration.tsServerLogLevel !== TsServerLogLevel.Off;
+  private static isLoggingEnabled(configuration: TSServiceConfig) {
+    return configuration.tsServerLogLevel !== TSServerLogLevel.Off;
   }
-
-  private static getTsLocale(configuration: TypeScriptServiceConfiguration): string {
+  private static getTsLocale(configuration: TSServiceConfig): string {
     return configuration.locale ? configuration.locale : qv.env.language;
   }
 }

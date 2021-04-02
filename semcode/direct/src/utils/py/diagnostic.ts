@@ -1,51 +1,51 @@
 import { Commands } from '../commands/commands';
-import { DiagnosticLevel } from './options';
+import { DiagLevel } from './options';
 import { convertOffsetsToRange } from './texts';
 import { Range, TextRange } from './texts';
 import { TextRangeCollection } from './texts';
 const defaultMaxDepth = 5;
 const defaultMaxLineCount = 8;
 const maxRecursionCount = 64;
-export const enum DiagnosticCategory {
+export const enum DiagCategory {
   Error,
   Warning,
   Information,
   UnusedCode,
 }
-export function convertLevelToCategory(level: DiagnosticLevel) {
+export function convertLevelToCategory(level: DiagLevel) {
   switch (level) {
     case 'error':
-      return DiagnosticCategory.Error;
+      return DiagCategory.Error;
     case 'warning':
-      return DiagnosticCategory.Warning;
+      return DiagCategory.Warning;
     case 'information':
-      return DiagnosticCategory.Information;
+      return DiagCategory.Information;
     default:
       throw new Error(`${level} is not expected`);
   }
 }
-export interface DiagnosticAction {
+export interface DiagAction {
   action: string;
 }
-export interface CreateTypeStubFileAction extends DiagnosticAction {
+export interface CreateTypeStubFileAction extends DiagAction {
   action: Commands.createTypeStub;
   moduleName: string;
 }
-export interface AddMissingOptionalToParamAction extends DiagnosticAction {
+export interface AddMissingOptionalToParamAction extends DiagAction {
   action: Commands.addMissingOptionalToParam;
   offsetOfTypeNode: number;
 }
-export interface DiagnosticRelatedInfo {
+export interface DiagRelatedInfo {
   message: string;
   filePath: string;
   range: Range;
 }
-export class Diagnostic {
-  private _actions: DiagnosticAction[] | undefined;
+export class Diag {
+  private _actions: DiagAction[] | undefined;
   private _rule: string | undefined;
-  private _relatedInfo: DiagnosticRelatedInfo[] = [];
-  constructor(readonly category: DiagnosticCategory, readonly message: string, readonly range: Range) {}
-  addAction(action: DiagnosticAction) {
+  private _relatedInfo: DiagRelatedInfo[] = [];
+  constructor(readonly category: DiagCategory, readonly message: string, readonly range: Range) {}
+  addAction(action: DiagAction) {
     if (this._actions === undefined) {
       this._actions = [action];
     } else {
@@ -68,14 +68,14 @@ export class Diagnostic {
     return this._relatedInfo;
   }
 }
-export class DiagnosticAddendum {
+export class DiagAddendum {
   private _messages: string[] = [];
-  private _childAddenda: DiagnosticAddendum[] = [];
+  private _childAddenda: DiagAddendum[] = [];
   addMessage(message: string) {
     this._messages.push(message);
   }
   createAddendum() {
-    const newAddendum = new DiagnosticAddendum();
+    const newAddendum = new DiagAddendum();
     this.addAddendum(newAddendum);
     return newAddendum;
   }
@@ -94,7 +94,7 @@ export class DiagnosticAddendum {
   isEmpty() {
     return this._getMessageCount() === 0;
   }
-  addAddendum(addendum: DiagnosticAddendum) {
+  addAddendum(addendum: DiagAddendum) {
     this._childAddenda.push(addendum);
   }
   getChildren() {
@@ -128,40 +128,40 @@ export class DiagnosticAddendum {
     return this._messages.concat(childLines).map((line) => extraSpace + line);
   }
 }
-export interface FileDiagnostics {
+export interface FileDiags {
   filePath: string;
-  diagnostics: Diagnostic[];
+  diagnostics: Diag[];
 }
-export class DiagnosticSink {
-  private _diagnosticList: Diagnostic[];
-  private _diagnosticMap: Map<string, Diagnostic>;
-  constructor(diagnostics?: Diagnostic[]) {
+export class DiagSink {
+  private _diagnosticList: Diag[];
+  private _diagnosticMap: Map<string, Diag>;
+  constructor(diagnostics?: Diag[]) {
     this._diagnosticList = diagnostics || [];
-    this._diagnosticMap = new Map<string, Diagnostic>();
+    this._diagnosticMap = new Map<string, Diag>();
   }
   fetchAndClear() {
-    const prevDiagnostics = this._diagnosticList;
+    const prevDiags = this._diagnosticList;
     this._diagnosticList = [];
     this._diagnosticMap.clear();
-    return prevDiagnostics;
+    return prevDiags;
   }
   addError(message: string, range: Range) {
-    return this.addDiagnostic(new Diagnostic(DiagnosticCategory.Error, message, range));
+    return this.addDiag(new Diag(DiagCategory.Error, message, range));
   }
   addWarning(message: string, range: Range) {
-    return this.addDiagnostic(new Diagnostic(DiagnosticCategory.Warning, message, range));
+    return this.addDiag(new Diag(DiagCategory.Warning, message, range));
   }
   addInformation(message: string, range: Range) {
-    return this.addDiagnostic(new Diagnostic(DiagnosticCategory.Information, message, range));
+    return this.addDiag(new Diag(DiagCategory.Information, message, range));
   }
-  addUnusedCode(message: string, range: Range, action?: DiagnosticAction) {
-    const diag = new Diagnostic(DiagnosticCategory.UnusedCode, message, range);
+  addUnusedCode(message: string, range: Range, action?: DiagAction) {
+    const diag = new Diag(DiagCategory.UnusedCode, message, range);
     if (action) {
       diag.addAction(action);
     }
-    return this.addDiagnostic(diag);
+    return this.addDiag(diag);
   }
-  addDiagnostic(diag: Diagnostic) {
+  addDiag(diag: Diag) {
     const key = `${diag.range.start.line},${diag.range.start.character}-` + `${diag.range.end.line}-${diag.range.end.character}:${diag.message.substr(0, 25)}}`;
     if (!this._diagnosticMap.has(key)) {
       this._diagnosticList.push(diag);
@@ -169,29 +169,29 @@ export class DiagnosticSink {
     }
     return diag;
   }
-  addDiagnostics(diagsToAdd: Diagnostic[]) {
+  addDiags(diagsToAdd: Diag[]) {
     this._diagnosticList.push(...diagsToAdd);
   }
   getErrors() {
-    return this._diagnosticList.filter((diag) => diag.category === DiagnosticCategory.Error);
+    return this._diagnosticList.filter((diag) => diag.category === DiagCategory.Error);
   }
   getWarnings() {
-    return this._diagnosticList.filter((diag) => diag.category === DiagnosticCategory.Warning);
+    return this._diagnosticList.filter((diag) => diag.category === DiagCategory.Warning);
   }
   getInformation() {
-    return this._diagnosticList.filter((diag) => diag.category === DiagnosticCategory.Information);
+    return this._diagnosticList.filter((diag) => diag.category === DiagCategory.Information);
   }
   getUnusedCode() {
-    return this._diagnosticList.filter((diag) => diag.category === DiagnosticCategory.UnusedCode);
+    return this._diagnosticList.filter((diag) => diag.category === DiagCategory.UnusedCode);
   }
 }
-export class TextRangeDiagnosticSink extends DiagnosticSink {
+export class TextRangeDiagSink extends DiagSink {
   private _lines: TextRangeCollection<TextRange>;
-  constructor(lines: TextRangeCollection<TextRange>, diagnostics?: Diagnostic[]) {
+  constructor(lines: TextRangeCollection<TextRange>, diagnostics?: Diag[]) {
     super(diagnostics);
     this._lines = lines;
   }
-  addDiagnosticWithTextRange(level: DiagnosticLevel, message: string, range: TextRange) {
+  addDiagWithTextRange(level: DiagLevel, message: string, range: TextRange) {
     const positionRange = convertOffsetsToRange(range.start, range.start + range.length, this._lines);
     switch (level) {
       case 'error':
@@ -204,7 +204,7 @@ export class TextRangeDiagnosticSink extends DiagnosticSink {
         throw new Error(`${level} is not expected value`);
     }
   }
-  addUnusedCodeWithTextRange(message: string, range: TextRange, action?: DiagnosticAction) {
+  addUnusedCodeWithTextRange(message: string, range: TextRange, action?: DiagAction) {
     return this.addUnusedCode(message, convertOffsetsToRange(range.start, range.start + range.length, this._lines), action);
   }
 }

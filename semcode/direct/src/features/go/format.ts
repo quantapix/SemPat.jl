@@ -5,7 +5,7 @@ import { getGoConfig } from '../../../../old/go/config';
 import { toolExecutionEnvironment } from '../../../../old/go/goEnv';
 import { promptForMissingTool, promptForUpdatingTool } from '../../../../old/go/goInstallTools';
 import { getBinPath } from '../../../../old/go/util';
-import { killProcessTree } from './utils/processUtils';
+import { killProcTree } from './utils/processUtils';
 
 export class GoDocumentFormattingEditProvider implements qv.DocumentFormattingEditProvider {
   public provideDocumentFormattingEdits(document: qv.TextDocument, options: qv.FormattingOptions, token: qv.CancellationToken): qv.ProviderResult<qv.TextEdit[]> {
@@ -59,7 +59,7 @@ export class GoDocumentFormattingEditProvider implements qv.DocumentFormattingEd
       let stdout = '';
       let stderr = '';
       const p = cp.spawn(formatCommandBinPath, formatFlags, { env, cwd });
-      token.onCancellationRequested(() => !p.killed && killProcessTree(p));
+      token.onCancellationRequested(() => !p.killed && killProcTree(p));
       p.stdout.setEncoding('utf8');
       p.stdout.on('data', (data) => (stdout += data));
       p.stderr.on('data', (data) => (stderr += data));

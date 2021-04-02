@@ -1,58 +1,43 @@
 import * as qv from 'vscode';
-import { Command, CommandManager } from '../commands/commandManager';
+import { Command, CommandMgr } from '../commands';
 import { ServiceClient } from '../service';
 import { ActiveJsTsEditorTracker } from '../utils/activeJsTsEditorTracker';
-import { coalesce } from '../utils/arrays';
-import { Disposable } from '../utils/dispose';
+import { coalesce } from '../utils';
+import { Disposable } from '../utils';
 import { isTypeScriptDocument } from '../utils/languageModeIds';
 import { isImplicitProjectConfigFile, openOrCreateConfig, openProjectConfigForFile, openProjectConfigOrPromptToCreate, ProjectType } from '../utils/tsconfig';
-import { TypeScriptVersion } from './version';
-
+import { TSVersion } from './version';
 namespace ProjectInfoState {
   export const enum Type {
     None,
     Pending,
     Resolved,
   }
-
   export const None = Object.freeze({ type: Type.None } as const);
-
   export class Pending {
     public readonly type = Type.Pending;
-
     public readonly cancellation = new qv.CancellationTokenSource();
-
     constructor(public readonly resource: qv.Uri) {}
   }
-
   export class Resolved {
     public readonly type = Type.Resolved;
-
     constructor(public readonly resource: qv.Uri, public readonly configFile: string) {}
   }
-
   export type State = typeof None | Pending | Resolved;
 }
-
 interface QuickPickItem extends qv.QuickPickItem {
   run(): void;
 }
-
 class ProjectStatusCommand implements Command {
   public readonly id = '_typescript.projectStatus';
-
   public constructor(private readonly _client: ServiceClient, private readonly _delegate: () => ProjectInfoState.State) {}
-
   public async execute(): Promise<void> {
     const info = this._delegate();
-
     const result = await qv.window.showQuickPick<QuickPickItem>(coalesce([this.getProjectItem(info), this.getVersionItem(), this.getHelpItem()]), {
       placeHolder: 'projectQuickPick.placeholder',
     });
-
     return result?.run();
   }
-
   private getVersionItem(): QuickPickItem {
     return {
       label: 'projectQuickPick.version.label',
@@ -62,7 +47,6 @@ class ProjectStatusCommand implements Command {
       },
     };
   }
-
   private getProjectItem(info: ProjectInfoState.State): QuickPickItem | undefined {
     const rootPath = info.type === ProjectInfoState.Type.Resolved ? this._client.getWorkspaceRootForResource(info.resource) : undefined;
     if (!rootPath) {
@@ -91,7 +75,6 @@ class ProjectStatusCommand implements Command {
       },
     };
   }
-
   private getHelpItem(): QuickPickItem {
     return {
       label: 'projectQuickPick.help',
@@ -101,16 +84,12 @@ class ProjectStatusCommand implements Command {
     };
   }
 }
-
 export default class VersionStatus extends Disposable {
   private readonly _statusBarEntry: qv.StatusBarItem;
-
   private _ready = false;
   private _state: ProjectInfoState.State = ProjectInfoState.None;
-
-  constructor(private readonly _client: ServiceClient, commandManager: CommandManager, private readonly _activeTextEditorManager: ActiveJsTsEditorTracker) {
+  constructor(private readonly _client: ServiceClient, commandMgr: CommandMgr, private readonly _activeTextEditorMgr: ActiveJsTsEditorTracker) {
     super();
-
     this._statusBarEntry = this._register(
       qv.window.createStatusBarItem({
         id: 'status.typescript',
@@ -119,34 +98,27 @@ export default class VersionStatus extends Disposable {
         priority: 99 /* to the right of editor status (100) */,
       })
     );
-
     const command = new ProjectStatusCommand(this._client, () => this._state);
-    commandManager.register(command);
+    commandMgr.register(command);
     this._statusBarEntry.command = command.id;
-
-    _activeTextEditorManager.onDidChangeActiveJsTsEditor(this.updateStatus, this, this._disposables);
-
+    _activeTextEditorMgr.onDidChangeActiveJsTsEditor(this.updateStatus, this, this._disposables);
     this._client.onReady(() => {
       this._ready = true;
       this.updateStatus();
     });
-
-    this._register(this._client.onTsServerStarted(({ version }) => this.onDidChangeTypeScriptVersion(version)));
+    this._register(this._client.onTSServerStarted(({ version }) => this.onDidChangeTSVersion(version)));
   }
-
-  private onDidChangeTypeScriptVersion(version: TypeScriptVersion) {
+  private onDidChangeTSVersion(version: TSVersion) {
     this._statusBarEntry.text = version.displayName;
     this._statusBarEntry.tooltip = version.path;
     this.updateStatus();
   }
-
   private async updateStatus() {
-    const editor = this._activeTextEditorManager.activeJsTsEditor;
+    const editor = this._activeTextEditorMgr.activeJsTsEditor;
     if (!editor) {
       this.hide();
       return;
     }
-
     const doc = editor.document;
     if (isTypeScriptDocument(doc)) {
       const file = this._client.toOpenedFilePath(doc, { suppressAlertOnFailure: true });
@@ -155,10 +127,8 @@ export default class VersionStatus extends Disposable {
         if (!this._ready) {
           return;
         }
-
         const pendingState = new ProjectInfoState.Pending(doc.uri);
         this.updateState(pendingState);
-
         const response = await this._client.execute('projectInfo', { file, needFileNameList: false }, pendingState.cancellation.token);
         if (response.type === 'response' && response.body) {
           if (this._state === pendingState) {
@@ -166,29 +136,23 @@ export default class VersionStatus extends Disposable {
             this._statusBarEntry.show();
           }
         }
-
         return;
       }
     }
-
     this.hide();
   }
-
   private hide(): void {
     this._statusBarEntry.hide();
     this.updateState(ProjectInfoState.None);
   }
-
   private updateState(newState: ProjectInfoState.State): void {
     if (this._state === newState) {
       return;
     }
-
     if (this._state.type === ProjectInfoState.Type.Pending) {
       this._state.cancellation.cancel();
       this._state.cancellation.dispose();
     }
-
     this._state = newState;
   }
 }

@@ -5,7 +5,7 @@ import { toolExecutionEnvironment } from '../../../../old/go/goEnv';
 import { promptForMissingTool, promptForUpdatingTool } from '../../../../old/go/goInstallTools';
 import { getBinPath, getWorkspaceFolderPath } from '../../../../old/go/util';
 import { getCurrentGoRoot } from './utils/pathUtils';
-import { killProcessTree } from './utils/processUtils';
+import { killProcTree } from './utils/processUtils';
 
 interface GoSymbolDeclaration {
   name: string;
@@ -57,13 +57,7 @@ export class GoWorkspaceSymbolProvider implements qv.WorkspaceSymbolProvider {
   }
 }
 
-export function getWorkspaceSymbols(
-  workspacePath: string,
-  query: string,
-  token: qv.CancellationToken,
-  goConfig?: qv.WorkspaceConfiguration,
-  ignoreFolderFeatureOn = true
-): Thenable<GoSymbolDeclaration[]> {
+export function getWorkspaceSymbols(workspacePath: string, query: string, token: qv.CancellationToken, goConfig?: qv.WorkspaceConfig, ignoreFolderFeatureOn = true): Thenable<GoSymbolDeclaration[]> {
   if (!goConfig) {
     goConfig = getGoConfig();
   }
@@ -97,10 +91,10 @@ export function getWorkspaceSymbols(
 function callGoSymbols(args: string[], token: qv.CancellationToken): Promise<GoSymbolDeclaration[]> {
   const gosyms = getBinPath('go-symbols');
   const env = toolExecutionEnvironment();
-  let p: cp.ChildProcess;
+  let p: cp.ChildProc;
 
   if (token) {
-    token.onCancellationRequested(() => killProcessTree(p));
+    token.onCancellationRequested(() => killProcTree(p));
   }
 
   return new Promise((resolve, reject) => {

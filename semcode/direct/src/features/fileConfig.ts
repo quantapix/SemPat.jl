@@ -2,23 +2,23 @@ import * as qv from 'vscode';
 import type * as qp from '../protocol';
 import { ServiceClient } from '../service';
 import API from '../utils/api';
-import { Disposable } from '../utils/dispose';
+import { Disposable } from '../utils';
 import * as fileSchemes from '../utils/fileSchemes';
 import { isTypeScriptDocument } from '../utils/languageModeIds';
 import { equals } from '../utils/objects';
 import { ResourceMap } from '../utils/resourceMap';
 
-interface FileConfiguration {
+interface FileConfig {
   readonly formatOptions: qp.FormatCodeSettings;
   readonly preferences: qp.UserPreferences;
 }
 
-function areFileConfigurationsEqual(a: FileConfiguration, b: FileConfiguration): boolean {
+function areFileConfigsEqual(a: FileConfig, b: FileConfig): boolean {
   return equals(a, b);
 }
 
-export default class FileConfigurationManager extends Disposable {
-  private readonly formatOptions: ResourceMap<Promise<FileConfiguration | undefined>>;
+export default class FileConfigMgr extends Disposable {
+  private readonly formatOptions: ResourceMap<Promise<FileConfig | undefined>>;
 
   public constructor(private readonly client: ServiceClient, onCaseInsenitiveFileSystem: boolean) {
     super();
@@ -32,10 +32,10 @@ export default class FileConfigurationManager extends Disposable {
     );
   }
 
-  public async ensureConfigurationForDocument(document: qv.TextDocument, token: qv.CancellationToken): Promise<void> {
+  public async ensureConfigForDocument(document: qv.TextDocument, token: qv.CancellationToken): Promise<void> {
     const formattingOptions = this.getFormattingOptions(document);
     if (formattingOptions) {
-      return this.ensureConfigurationOptions(document, formattingOptions, token);
+      return this.ensureConfigOptions(document, formattingOptions, token);
     }
   }
 
@@ -49,7 +49,7 @@ export default class FileConfigurationManager extends Disposable {
       : undefined;
   }
 
-  public async ensureConfigurationOptions(document: qv.TextDocument, options: qv.FormattingOptions, token: qv.CancellationToken): Promise<void> {
+  public async ensureConfigOptions(document: qv.TextDocument, options: qv.FormattingOptions, token: qv.CancellationToken): Promise<void> {
     const file = this.client.toOpenedFilePath(document);
     if (!file) {
       return;
@@ -59,13 +59,13 @@ export default class FileConfigurationManager extends Disposable {
     const cachedOptions = this.formatOptions.get(document.uri);
     if (cachedOptions) {
       const cachedOptionsValue = await cachedOptions;
-      if (cachedOptionsValue && areFileConfigurationsEqual(cachedOptionsValue, currentOptions)) {
+      if (cachedOptionsValue && areFileConfigsEqual(cachedOptionsValue, currentOptions)) {
         return;
       }
     }
 
-    let resolve: (x: FileConfiguration | undefined) => void;
-    this.formatOptions.set(document.uri, new Promise<FileConfiguration | undefined>((r) => (resolve = r)));
+    let resolve: (x: FileConfig | undefined) => void;
+    this.formatOptions.set(document.uri, new Promise<FileConfig | undefined>((r) => (resolve = r)));
 
     const args: qp.ConfigureRequestArguments = {
       file,
@@ -79,7 +79,7 @@ export default class FileConfigurationManager extends Disposable {
     }
   }
 
-  public async setGlobalConfigurationFromDocument(document: qv.TextDocument, token: qv.CancellationToken): Promise<void> {
+  public async setGlobalConfigFromDocument(document: qv.TextDocument, token: qv.CancellationToken): Promise<void> {
     const formattingOptions = this.getFormattingOptions(document);
     if (!formattingOptions) {
       return;
@@ -96,7 +96,7 @@ export default class FileConfigurationManager extends Disposable {
     this.formatOptions.clear();
   }
 
-  private getFileOptions(document: qv.TextDocument, options: qv.FormattingOptions): FileConfiguration {
+  private getFileOptions(document: qv.TextDocument, options: qv.FormattingOptions): FileConfig {
     return {
       formatOptions: this.getFormatOptions(document, options),
       preferences: this.getPreferences(document),
@@ -104,7 +104,7 @@ export default class FileConfigurationManager extends Disposable {
   }
 
   private getFormatOptions(document: qv.TextDocument, options: qv.FormattingOptions): qp.FormatCodeSettings {
-    const config = qv.workspace.getConfiguration(isTypeScriptDocument(document) ? 'typescript.format' : 'javascript.format', document.uri);
+    const config = qv.workspace.getConfig(isTypeScriptDocument(document) ? 'typescript.format' : 'javascript.format', document.uri);
 
     return {
       tabSize: options.tabSize,
@@ -137,9 +137,9 @@ export default class FileConfigurationManager extends Disposable {
       return {};
     }
 
-    const config = qv.workspace.getConfiguration(isTypeScriptDocument(document) ? 'typescript' : 'javascript', document.uri);
+    const config = qv.workspace.getConfig(isTypeScriptDocument(document) ? 'typescript' : 'javascript', document.uri);
 
-    const preferencesConfig = qv.workspace.getConfiguration(isTypeScriptDocument(document) ? 'typescript.preferences' : 'javascript.preferences', document.uri);
+    const preferencesConfig = qv.workspace.getConfig(isTypeScriptDocument(document) ? 'typescript.preferences' : 'javascript.preferences', document.uri);
 
     const preferences: qp.UserPreferences = {
       quotePreference: this.getQuoteStylePreference(preferencesConfig),
@@ -156,7 +156,7 @@ export default class FileConfigurationManager extends Disposable {
     return preferences;
   }
 
-  private getQuoteStylePreference(config: qv.WorkspaceConfiguration) {
+  private getQuoteStylePreference(config: qv.WorkspaceConfig) {
     switch (config.get<string>('quoteStyle')) {
       case 'single':
         return 'single';
@@ -168,7 +168,7 @@ export default class FileConfigurationManager extends Disposable {
   }
 }
 
-function getImportModuleSpecifierPreference(config: qv.WorkspaceConfiguration) {
+function getImportModuleSpecifierPreference(config: qv.WorkspaceConfig) {
   switch (config.get<string>('importModuleSpecifier')) {
     case 'project-relative':
       return 'project-relative';
@@ -181,7 +181,7 @@ function getImportModuleSpecifierPreference(config: qv.WorkspaceConfiguration) {
   }
 }
 
-function getImportModuleSpecifierEndingPreference(config: qv.WorkspaceConfiguration) {
+function getImportModuleSpecifierEndingPreference(config: qv.WorkspaceConfig) {
   switch (config.get<string>('importModuleSpecifierEnding')) {
     case 'minimal':
       return 'minimal';

@@ -1,7 +1,7 @@
-import * as ChildProcess from 'child_process';
+import * as ChildProc from 'child_process';
 export function execShellScript(body: string, cmd = 'bash'): Promise<string> {
   const args = ['-c', body];
-  const process = ChildProcess.spawn(cmd, args);
+  const process = ChildProc.spawn(cmd, args);
   return new Promise((resolve, reject) => {
     let output = '';
     const handleClose = (returnCode: number | Error) => {

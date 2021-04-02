@@ -1,8 +1,8 @@
 import * as qv from 'vscode';
-import { Command, CommandManager } from '../commands/commandManager';
+import { Command, CommandMgr } from '../commands/commandMgr';
 import type * as qp from '../protocol';
 import * as PConst from '../../../src/protocol.const';
-import { ClientCapability, ServiceClient, ServerResponse } from '../service';
+import { ClientCap, ServiceClient, ServerResponse } from '../service';
 import API from '../utils/api';
 import { nulToken } from '../utils/cancellation';
 import { applyCodeAction } from '../utils/codeAction';
@@ -14,7 +14,7 @@ import { snippetForFunctionCall } from '../utils/snippetForFunctionCall';
 import { TelemetryReporter } from '../utils/telemetry';
 import * as qu from '../utils/qu';
 import TypingsStatus from '../utils/typingsStatus';
-import FileConfigurationManager from './fileConfig';
+import FileConfigMgr from './fileConfig';
 
 interface DotAccessorContext {
   readonly range: qv.Range;
@@ -201,7 +201,7 @@ class MyCompletionItem extends qv.CompletionItem {
           const { snippet, parameterCount } = snippetForFunctionCall(this, detail.displayParts);
           this.insertText = snippet;
           if (parameterCount > 0) {
-            if (qv.workspace.getConfiguration('editor.parameterHints').get('enabled')) {
+            if (qv.workspace.getConfig('editor.parameterHints').get('enabled')) {
               commands.push({ title: 'triggerParameterHints', command: 'editor.action.triggerParameterHints' });
             }
           }
@@ -565,26 +565,26 @@ class ApplyCompletionCodeActionCommand implements Command {
   }
 }
 
-interface CompletionConfiguration {
+interface CompletionConfig {
   readonly useCodeSnippetsOnMethodSuggest: boolean;
   readonly nameSuggestions: boolean;
   readonly pathSuggestions: boolean;
   readonly autoImportSuggestions: boolean;
 }
 
-namespace CompletionConfiguration {
+namespace CompletionConfig {
   export const useCodeSnippetsOnMethodSuggest = 'suggest.completeFunctionCalls';
   export const nameSuggestions = 'suggest.names';
   export const pathSuggestions = 'suggest.paths';
   export const autoImportSuggestions = 'suggest.autoImports';
 
-  export function getConfigurationForResource(modeId: string, resource: qv.Uri): CompletionConfiguration {
-    const config = qv.workspace.getConfiguration(modeId, resource);
+  export function getConfigForResource(modeId: string, resource: qv.Uri): CompletionConfig {
+    const config = qv.workspace.getConfig(modeId, resource);
     return {
-      useCodeSnippetsOnMethodSuggest: config.get<boolean>(CompletionConfiguration.useCodeSnippetsOnMethodSuggest, false),
-      pathSuggestions: config.get<boolean>(CompletionConfiguration.pathSuggestions, true),
-      autoImportSuggestions: config.get<boolean>(CompletionConfiguration.autoImportSuggestions, true),
-      nameSuggestions: config.get<boolean>(CompletionConfiguration.nameSuggestions, true),
+      useCodeSnippetsOnMethodSuggest: config.get<boolean>(CompletionConfig.useCodeSnippetsOnMethodSuggest, false),
+      pathSuggestions: config.get<boolean>(CompletionConfig.pathSuggestions, true),
+      autoImportSuggestions: config.get<boolean>(CompletionConfig.autoImportSuggestions, true),
+      nameSuggestions: config.get<boolean>(CompletionConfig.nameSuggestions, true),
     };
   }
 }
@@ -596,15 +596,15 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
     private readonly client: ServiceClient,
     private readonly modeId: string,
     private readonly typingsStatus: TypingsStatus,
-    private readonly fileConfigurationManager: FileConfigurationManager,
-    commandManager: CommandManager,
+    private readonly fileConfigMgr: FileConfigMgr,
+    commandMgr: CommandMgr,
     private readonly telemetryReporter: TelemetryReporter,
     onCompletionAccepted: (item: qv.CompletionItem) => void
   ) {
-    commandManager.register(new ApplyCompletionCodeActionCommand(this.client));
-    commandManager.register(new CompositeCommand());
-    commandManager.register(new CompletionAcceptedCommand(onCompletionAccepted, this.telemetryReporter));
-    commandManager.register(new ApplyCompletionCommand(this.client));
+    commandMgr.register(new ApplyCompletionCodeActionCommand(this.client));
+    commandMgr.register(new CompositeCommand());
+    commandMgr.register(new CompletionAcceptedCommand(onCompletionAccepted, this.telemetryReporter));
+    commandMgr.register(new ApplyCompletionCommand(this.client));
   }
 
   public async provideCompletionItems(
@@ -626,7 +626,7 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
     }
 
     const line = document.lineAt(position.line);
-    const completionConfiguration = CompletionConfiguration.getConfigurationForResource(this.modeId, document.uri);
+    const completionConfig = CompletionConfig.getConfigForResource(this.modeId, document.uri);
 
     if (!this.shouldTrigger(context, line, position)) {
       return undefined;
@@ -634,11 +634,11 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
 
     const wordRange = document.getWordRangeAtPosition(position);
 
-    await this.client.interruptGetErr(() => this.fileConfigurationManager.ensureConfigurationForDocument(document, token));
+    await this.client.interruptGetErr(() => this.fileConfigMgr.ensureConfigForDocument(document, token));
 
     const args: qp.CompletionsRequestArgs = {
       ...qu.Position.toFileLocationRequestArgs(file, position),
-      includeExternalModuleExports: completionConfiguration.autoImportSuggestions,
+      includeExternalModuleExports: completionConfig.autoImportSuggestions,
       includeInsertTextCompletions: true,
       triggerCharacter: this.getTsTriggerCharacter(context),
     };
@@ -691,17 +691,17 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
       isMemberCompletion,
       dotAccessorContext,
       isInValidCommitCharacterContext: this.isInValidCommitCharacterContext(document, position),
-      enableCallCompletions: !completionConfiguration.useCodeSnippetsOnMethodSuggest,
+      enableCallCompletions: !completionConfig.useCodeSnippetsOnMethodSuggest,
       wordRange,
       line: line.text,
-      useCodeSnippetsOnMethodSuggest: completionConfiguration.useCodeSnippetsOnMethodSuggest,
+      useCodeSnippetsOnMethodSuggest: completionConfig.useCodeSnippetsOnMethodSuggest,
       useFuzzyWordRangeLogic: this.client.apiVersion.lt(API.v390),
     };
 
     let includesPackageJsonImport = false;
     const items: MyCompletionItem[] = [];
     for (const entry of entries) {
-      if (!shouldExcludeCompletionEntry(entry, completionConfiguration)) {
+      if (!shouldExcludeCompletionEntry(entry, completionConfig)) {
         const item = new MyCompletionItem(position, document, entry, completionContext, metadata);
         item.command = {
           command: ApplyCompletionCommand.ID,
@@ -810,11 +810,11 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
   }
 }
 
-function shouldExcludeCompletionEntry(element: qp.CompletionEntry, completionConfiguration: CompletionConfiguration) {
+function shouldExcludeCompletionEntry(element: qp.CompletionEntry, completionConfig: CompletionConfig) {
   return (
-    (!completionConfiguration.nameSuggestions && element.kind === PConst.Kind.warning) ||
-    (!completionConfiguration.pathSuggestions && (element.kind === PConst.Kind.directory || element.kind === PConst.Kind.script || element.kind === PConst.Kind.externalModuleName)) ||
-    (!completionConfiguration.autoImportSuggestions && element.hasAction)
+    (!completionConfig.nameSuggestions && element.kind === PConst.Kind.warning) ||
+    (!completionConfig.pathSuggestions && (element.kind === PConst.Kind.directory || element.kind === PConst.Kind.script || element.kind === PConst.Kind.externalModuleName)) ||
+    (!completionConfig.autoImportSuggestions && element.hasAction)
   );
 }
 
@@ -823,15 +823,15 @@ export function register(
   modeId: string,
   client: ServiceClient,
   typingsStatus: TypingsStatus,
-  fileConfigurationManager: FileConfigurationManager,
-  commandManager: CommandManager,
+  fileConfigMgr: FileConfigMgr,
+  commandMgr: CommandMgr,
   telemetryReporter: TelemetryReporter,
   onCompletionAccepted: (item: qv.CompletionItem) => void
 ) {
-  return conditionalRegistration([requireConfig(modeId, 'suggest.enabled'), requireSomeCap(client, ClientCapability.EnhancedSyntax, ClientCapability.Semantic)], () => {
+  return conditionalRegistration([requireConfig(modeId, 'suggest.enabled'), requireSomeCap(client, ClientCap.EnhancedSyntax, ClientCap.Semantic)], () => {
     return qv.languages.registerCompletionItemProvider(
       selector.syntax,
-      new TypeScriptCompletionItemProvider(client, modeId, typingsStatus, fileConfigurationManager, commandManager, telemetryReporter, onCompletionAccepted),
+      new TypeScriptCompletionItemProvider(client, modeId, typingsStatus, fileConfigMgr, commandMgr, telemetryReporter, onCompletionAccepted),
       ...TypeScriptCompletionItemProvider.triggerCharacters
     );
   });

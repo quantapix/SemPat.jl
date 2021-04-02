@@ -40,7 +40,7 @@ export default class BashServer {
       const { uri } = change.document;
       const diagnostics = this.analyzer.analyze(uri, change.document);
       if (config.getHighlightParsingError()) {
-        connection.sendDiagnostics({
+        connection.sendDiags({
           uri: change.document.uri,
           diagnostics,
         });

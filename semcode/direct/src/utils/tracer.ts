@@ -32,15 +32,15 @@ export default class Tracer {
   private trace?: Trace;
 
   constructor(private readonly logger: Logger) {
-    this.updateConfiguration();
+    this.updateConfig();
   }
 
-  public updateConfiguration() {
+  public updateConfig() {
     this.trace = Tracer.readTrace();
   }
 
   private static readTrace(): Trace {
-    let result: Trace = Trace.fromString(qv.workspace.getConfiguration().get<string>('typescript.tsserver.trace', 'off'));
+    let result: Trace = Trace.fromString(qv.workspace.getConfig().get<string>('typescript.tsserver.trace', 'off'));
     if (result === Trace.Off && !!process.env.TSS_TRACE) {
       result = Trace.Messages;
     }

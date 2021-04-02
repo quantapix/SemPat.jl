@@ -142,10 +142,10 @@ export function getNestedProperty(object: any, property: string) {
   }, object);
   return value;
 }
-export function getOrAdd<K, V>(map: Map<K, V>, key: K, newValueFactory: () => V): V {
+export function getOrAdd<K, V>(map: Map<K, V>, key: K, newValueFact: () => V): V {
   const value = map.get(key);
   if (value !== undefined) return value;
-  const newValue = newValueFactory();
+  const newValue = newValueFact();
   map.set(key, newValue);
   return newValue;
 }

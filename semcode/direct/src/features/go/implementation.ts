@@ -6,7 +6,7 @@ import { toolExecutionEnvironment } from '../../../../old/go/goEnv';
 import { promptForMissingTool } from '../../../../old/go/goInstallTools';
 import { byteOffsetAt, canonicalizeGOPATHPrefix, getBinPath, getWorkspaceFolderPath } from '../../../../old/go/util';
 import { envPath, getCurrentGoRoot } from './utils/pathUtils';
-import { killProcessTree } from './utils/processUtils';
+import { killProcTree } from './utils/processUtils';
 
 interface GoListOutput {
   Dir: string;
@@ -47,7 +47,7 @@ export class GoImplementationProvider implements qv.ImplementationProvider {
         return resolve(null);
       }
       const env = toolExecutionEnvironment();
-      const listProcess = cp.execFile(goRuntimePath, ['list', '-e', '-json'], { cwd: root, env }, (err, stdout) => {
+      const listProc = cp.execFile(goRuntimePath, ['list', '-e', '-json'], { cwd: root, env }, (err, stdout) => {
         if (err) {
           return reject(err);
         }
@@ -63,7 +63,7 @@ export class GoImplementationProvider implements qv.ImplementationProvider {
         }
         args.push('-json', 'implements', `${filename}:#${offset.toString()}`);
 
-        const guruProcess = cp.execFile(goGuru, args, { env }, (guruErr, guruStdOut) => {
+        const guruProc = cp.execFile(goGuru, args, { env }, (guruErr, guruStdOut) => {
           if (guruErr && (<any>guruErr).code === 'ENOENT') {
             promptForMissingTool('guru');
             return resolve(null);
@@ -100,9 +100,9 @@ export class GoImplementationProvider implements qv.ImplementationProvider {
 
           return resolve(results);
         });
-        token.onCancellationRequested(() => killProcessTree(guruProcess));
+        token.onCancellationRequested(() => killProcTree(guruProc));
       });
-      token.onCancellationRequested(() => killProcessTree(listProcess));
+      token.onCancellationRequested(() => killProcTree(listProc));
     });
   }
 }

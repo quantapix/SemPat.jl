@@ -2,10 +2,10 @@ import { CancellationToken, ExecuteCommandParams, ResponseError } from 'vscode-l
 import { convertUriToPath } from './common/pathUtils';
 import { convertTextEdits } from './common/textEditUtils';
 import { AnalyzerService } from './analyzer/service';
-import { OperationCanceledException } from './common/cancellationUtils';
+import { OpCanceledException } from './common/cancellationUtils';
 import { createDeferred } from './common/deferred';
 import { convertPathToUri } from './common/pathUtils';
-import { LanguageServerInterface, WorkspaceServiceInstance } from './languageServerBase';
+import { LangServerInterface, WorkspaceServiceInstance } from './languageServerBase';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
 
 export const enum Commands {
@@ -21,14 +21,14 @@ export interface ServerCommand {
 }
 
 export class RestartServerCommand implements ServerCommand {
-  constructor(private _ls: LanguageServerInterface) {}
+  constructor(private _ls: LangServerInterface) {}
   async execute(cmdParams: ExecuteCommandParams): Promise<any> {
     this._ls.restart();
   }
 }
 
 export class CreateTypeStubCommand implements ServerCommand {
-  constructor(private _ls: LanguageServerInterface) {}
+  constructor(private _ls: LangServerInterface) {}
 
   async execute(cmdParams: ExecuteCommandParams, token: CancellationToken): Promise<any> {
     if (cmdParams.arguments && cmdParams.arguments.length >= 2) {
@@ -43,7 +43,7 @@ export class CreateTypeStubCommand implements ServerCommand {
         rootPath: workspaceRoot,
         rootUri: convertPathToUri(this._ls.fs, workspaceRoot),
         serviceInstance: service,
-        disableLanguageServices: true,
+        disableLangServices: true,
         disableOrganizeImports: true,
         isInitialized: createDeferred<boolean>(),
       };
@@ -58,7 +58,7 @@ export class CreateTypeStubCommand implements ServerCommand {
         this._ls.window.showInformationMessage(infoMessage);
         this._handlePostCreateTypeStub();
       } catch (err) {
-        const isCancellation = OperationCanceledException.is(err);
+        const isCancellation = OpCanceledException.is(err);
         if (isCancellation) {
           const errMessage = `Type stub creation for '${importName}' was canceled`;
           this._ls.console.error(errMessage);
@@ -94,7 +94,7 @@ export class CommandController implements ServerCommand {
   private _restartServer: RestartServerCommand;
   private _quickAction: QuickActionCommand;
 
-  constructor(ls: LanguageServerInterface) {
+  constructor(ls: LangServerInterface) {
     this._createStub = new CreateTypeStubCommand(ls);
     this._restartServer = new RestartServerCommand(ls);
     this._quickAction = new QuickActionCommand(ls);
@@ -133,7 +133,7 @@ export class CommandController implements ServerCommand {
 }
 
 export class QuickActionCommand implements ServerCommand {
-  constructor(private _ls: LanguageServerInterface) {}
+  constructor(private _ls: LangServerInterface) {}
 
   async execute(params: ExecuteCommandParams, token: CancellationToken): Promise<any> {
     if (params.arguments && params.arguments.length >= 1) {

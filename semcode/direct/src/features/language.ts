@@ -1,30 +1,30 @@
 import { basename } from 'path';
 import { CachedResponse } from '../../old/ts/tsServer/cachedResponse';
-import { CommandManager } from '../../old/ts/commands/commandManager';
-import { DiagnosticKind } from '../../old/ts/languageFeatures/diagnostics';
-import { LanguageDescription } from '../../old/ts/utils/languageDescription';
+import { CommandMgr } from '../../old/ts/commands/commandMgr';
+import { DiagKind } from '../../old/ts/languageFeatures/diagnostics';
+import { LangDescription } from '../../old/ts/utils/languageDescription';
 import { TelemetryReporter } from '../../old/ts/utils/telemetry';
 import * as qu from '../utils';
 import * as qv from 'vscode';
-import FileConfigurationManager from '../../old/ts/languageFeatures/fileConfigurationManager';
+import FileConfigMgr from '../../old/ts/languageFeatures/fileConfigMgr';
 import TypeScriptServiceClient from '../client';
 import TypingsStatus from '../../old/ts/utils/typingsStatus';
 
 const validateSetting = 'validate.enable';
 const suggestionSetting = 'suggestionActions.enabled';
 
-export default class LanguageProvider extends qu.Disposable {
+export default class LangProvider extends qu.Disposable {
   constructor(
     private readonly client: TypeScriptServiceClient,
-    private readonly description: LanguageDescription,
-    private readonly commandManager: CommandManager,
+    private readonly description: LangDescription,
+    private readonly commandMgr: CommandMgr,
     private readonly telemetryReporter: TelemetryReporter,
     private readonly typingsStatus: TypingsStatus,
-    private readonly fileConfigurationManager: FileConfigurationManager,
+    private readonly fileConfigMgr: FileConfigMgr,
     private readonly onCompletionAccepted: (item: qv.CompletionItem) => void
   ) {
     super();
-    qv.workspace.onDidChangeConfiguration(this.configurationChanged, this, this._disposables);
+    qv.workspace.onDidChangeConfig(this.configurationChanged, this, this._disposables);
     this.configurationChanged();
     client.onReady(() => this.registerProviders());
   }
@@ -51,25 +51,21 @@ export default class LanguageProvider extends qu.Disposable {
       import('../../old/ts/languageFeatures/codeLens/implementationsCodeLens').then((provider) => this._register(provider.register(s, this.description.id, this.client, c))),
       import('../../old/ts/languageFeatures/codeLens/referencesCodeLens').then((provider) => this._register(provider.register(s, this.description.id, this.client, c))),
       import('../../old/ts/languageFeatures/completions').then((provider) =>
-        this._register(
-          provider.register(s, this.description.id, this.client, this.typingsStatus, this.fileConfigurationManager, this.commandManager, this.telemetryReporter, this.onCompletionAccepted)
-        )
+        this._register(provider.register(s, this.description.id, this.client, this.typingsStatus, this.fileConfigMgr, this.commandMgr, this.telemetryReporter, this.onCompletionAccepted))
       ),
       import('../../old/ts/languageFeatures/directiveCommentCompletions').then((provider) => this._register(provider.register(s, this.client))),
       import('./highlight').then((m) => this._register(m.register(s, this.client))),
       import('./symbol').then((m) => this._register(m.register(s, this.client, c))),
-      import('../../old/ts/languageFeatures/fileReferences').then((provider) => this._register(provider.register(this.client, this.commandManager))),
-      import('./fixAll').then((provider) => this._register(provider.register(s, this.client, this.fileConfigurationManager, this.client.diagnosticsManager))),
+      import('../../old/ts/languageFeatures/fileReferences').then((provider) => this._register(provider.register(this.client, this.commandMgr))),
+      import('./fixAll').then((provider) => this._register(provider.register(s, this.client, this.fileConfigMgr, this.client.diagnosticsMgr))),
       import('./folding').then((m) => this._register(m.register(s, this.client))),
-      import('./formatting').then((m) => this._register(m.register(s, this.description.id, this.client, this.fileConfigurationManager))),
-      import('../../old/ts/languageFeatures/jsDocCompletions').then((provider) => this._register(provider.register(s, this.description.id, this.client, this.fileConfigurationManager))),
-      import('./imports').then((provider) => this._register(provider.register(s, this.client, this.commandManager, this.fileConfigurationManager, this.telemetryReporter))),
-      import('./quickFix').then((provider) =>
-        this._register(provider.register(s, this.client, this.fileConfigurationManager, this.commandManager, this.client.diagnosticsManager, this.telemetryReporter))
-      ),
-      import('./refactor').then((provider) => this._register(provider.register(s, this.client, this.fileConfigurationManager, this.commandManager, this.telemetryReporter))),
+      import('./formatting').then((m) => this._register(m.register(s, this.description.id, this.client, this.fileConfigMgr))),
+      import('../../old/ts/languageFeatures/jsDocCompletions').then((provider) => this._register(provider.register(s, this.description.id, this.client, this.fileConfigMgr))),
+      import('./imports').then((provider) => this._register(provider.register(s, this.client, this.commandMgr, this.fileConfigMgr, this.telemetryReporter))),
+      import('./quickFix').then((provider) => this._register(provider.register(s, this.client, this.fileConfigMgr, this.commandMgr, this.client.diagnosticsMgr, this.telemetryReporter))),
+      import('./refactor').then((provider) => this._register(provider.register(s, this.client, this.fileConfigMgr, this.commandMgr, this.telemetryReporter))),
       import('./reference').then((m) => this._register(m.register(s, this.client))),
-      import('./rename').then((provider) => this._register(provider.register(s, this.client, this.fileConfigurationManager))),
+      import('./rename').then((provider) => this._register(provider.register(s, this.client, this.fileConfigMgr))),
       import('./token').then((provider) => this._register(provider.register(s, this.client))),
       import('./signature').then((provider) => this._register(provider.register(s, this.client))),
       import('./selection').then((provider) => this._register(provider.register(s, this.client))),
@@ -78,9 +74,9 @@ export default class LanguageProvider extends qu.Disposable {
   }
 
   private configurationChanged(): void {
-    const c = qv.workspace.getConfiguration(this.id, null);
+    const c = qv.workspace.getConfig(this.id, null);
     this.updateValidate(c.get(validateSetting, true));
-    this.updateSuggestionDiagnostics(c.get(suggestionSetting, true));
+    this.updateSuggestionDiags(c.get(suggestionSetting, true));
   }
 
   public handles(r: qv.Uri, d: qv.TextDocument): boolean {
@@ -98,46 +94,46 @@ export default class LanguageProvider extends qu.Disposable {
   }
 
   private updateValidate(v: boolean) {
-    this.client.diagnosticsManager.setValidate(this._diagnosticLanguage, v);
+    this.client.diagnosticsMgr.setValidate(this._diagnosticLang, v);
   }
 
-  private updateSuggestionDiagnostics(v: boolean) {
-    this.client.diagnosticsManager.setEnableSuggestions(this._diagnosticLanguage, v);
+  private updateSuggestionDiags(v: boolean) {
+    this.client.diagnosticsMgr.setEnableSuggestions(this._diagnosticLang, v);
   }
 
   public reInitialize(): void {
-    this.client.diagnosticsManager.reInitialize();
+    this.client.diagnosticsMgr.reInitialize();
   }
 
-  public triggerAllDiagnostics(): void {
-    this.client.bufferSyncSupport.requestAllDiagnostics();
+  public triggerAllDiags(): void {
+    this.client.bufferSyncSupport.requestAllDiags();
   }
 
-  public diagnosticsReceived(k: DiagnosticKind, r: qv.Uri, ds: (qv.Diagnostic & { reportUnnecessary: any; reportDeprecated: any })[]): void {
-    const c = qv.workspace.getConfiguration(this.id, r);
+  public diagnosticsReceived(k: DiagKind, r: qv.Uri, ds: (qv.Diag & { reportUnnecessary: any; reportDeprecated: any })[]): void {
+    const c = qv.workspace.getConfig(this.id, r);
     const unnecessary = c.get<boolean>('showUnused', true);
     const deprecated = c.get<boolean>('showDeprecated', true);
-    this.client.diagnosticsManager.updateDiagnostics(
+    this.client.diagnosticsMgr.updateDiags(
       r,
-      this._diagnosticLanguage,
+      this._diagnosticLang,
       k,
       ds.filter((d) => {
         if (!unnecessary) {
-          if (d.reportUnnecessary && d.severity === qv.DiagnosticSeverity.Hint) return false;
+          if (d.reportUnnecessary && d.severity === qv.DiagSeverity.Hint) return false;
         }
         if (!deprecated) {
-          if (d.reportDeprecated && d.severity === qv.DiagnosticSeverity.Hint) return false;
+          if (d.reportDeprecated && d.severity === qv.DiagSeverity.Hint) return false;
         }
         return true;
       })
     );
   }
 
-  public configFileDiagnosticsReceived(r: qv.Uri, ds: qv.Diagnostic[]): void {
-    this.client.diagnosticsManager.configFileDiagnosticsReceived(r, ds);
+  public configFileDiagsReceived(r: qv.Uri, ds: qv.Diag[]): void {
+    this.client.diagnosticsMgr.configFileDiagsReceived(r, ds);
   }
 
-  private get _diagnosticLanguage() {
-    return this.description.diagnosticLanguage;
+  private get _diagnosticLang() {
+    return this.description.diagnosticLang;
   }
 }

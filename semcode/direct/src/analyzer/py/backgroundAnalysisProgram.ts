@@ -4,9 +4,9 @@ import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocume
 import { BackgroundAnalysisBase } from '../backgroundAnalysisBase';
 import { ConfigOptions } from '../common/configOptions';
 import { Console } from '../common/console';
-import { Diagnostic } from '../common/diagnostic';
-import { FileDiagnostics } from '../common/diagnosticSink';
-import { LanguageServiceExtension } from '../common/extensibility';
+import { Diag } from '../common/diagnostic';
+import { FileDiags } from '../common/diagnosticSink';
+import { LangServiceExtension } from '../common/extensibility';
 import { Range } from '../common/textRange';
 import { IndexResults } from '../languageService/documentSymbolProvider';
 import { AnalysisCompleteCallback, analyzeProgram } from './analysis';
@@ -24,7 +24,7 @@ export class BackgroundAnalysisProgram {
     private _console: Console,
     private _configOptions: ConfigOptions,
     private _importResolver: ImportResolver,
-    extension?: LanguageServiceExtension,
+    extension?: LangServiceExtension,
     backgroundAnalysis?: BackgroundAnalysisBase,
     maxAnalysisTime?: MaxAnalysisTime
   ) {
@@ -63,7 +63,7 @@ export class BackgroundAnalysisProgram {
   setTrackedFiles(filePaths: string[]) {
     this._backgroundAnalysis?.setTrackedFiles(filePaths);
     const diagnostics = this._program.setTrackedFiles(filePaths);
-    this._reportDiagnosticsForRemovedFiles(diagnostics);
+    this._reportDiagsForRemovedFiles(diagnostics);
   }
 
   setAllowedThirdPartyImports(importNames: string[]) {
@@ -90,7 +90,7 @@ export class BackgroundAnalysisProgram {
   setFileClosed(filePath: string) {
     this._backgroundAnalysis?.setFileClosed(filePath);
     const diagnostics = this._program.setFileClosed(filePath);
-    this._reportDiagnosticsForRemovedFiles(diagnostics);
+    this._reportDiagsForRemovedFiles(diagnostics);
   }
 
   markAllFilesDirty(evenIfContentsAreSame: boolean) {
@@ -154,12 +154,12 @@ export class BackgroundAnalysisProgram {
     return this._indices?.getIndex(this._configOptions.findExecEnvironment(filePath).root);
   }
 
-  async getDiagnosticsForRange(filePath: string, range: Range, token: CancellationToken): Promise<Diagnostic[]> {
+  async getDiagsForRange(filePath: string, range: Range, token: CancellationToken): Promise<Diag[]> {
     if (this._backgroundAnalysis) {
-      return this._backgroundAnalysis.getDiagnosticsForRange(filePath, range, token);
+      return this._backgroundAnalysis.getDiagsForRange(filePath, range, token);
     }
 
-    return this._program.getDiagnosticsForRange(filePath, range);
+    return this._program.getDiagsForRange(filePath, range);
   }
 
   async writeTypeStub(targetImportPath: string, targetIsSingleFile: boolean, stubPath: string, token: CancellationToken): Promise<any> {
@@ -220,7 +220,7 @@ export class BackgroundAnalysisProgram {
     return this._indices!;
   }
 
-  private _reportDiagnosticsForRemovedFiles(fileDiags: FileDiagnostics[]) {
+  private _reportDiagsForRemovedFiles(fileDiags: FileDiags[]) {
     if (fileDiags.length > 0) {
       if (!this._backgroundAnalysis && this._onAnalysisCompletion) {
         this._onAnalysisCompletion({
@@ -237,11 +237,11 @@ export class BackgroundAnalysisProgram {
   }
 }
 
-export type BackgroundAnalysisProgramFactory = (
+export type BackgroundAnalysisProgramFact = (
   console: Console,
   configOptions: ConfigOptions,
   importResolver: ImportResolver,
-  extension?: LanguageServiceExtension,
+  extension?: LangServiceExtension,
   backgroundAnalysis?: BackgroundAnalysisBase,
   maxAnalysisTime?: MaxAnalysisTime
 ) => BackgroundAnalysisProgram;

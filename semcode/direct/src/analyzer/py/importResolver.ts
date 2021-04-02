@@ -9,18 +9,18 @@ import {
   combinePathComponents,
   combinePaths,
   containsPath,
-  ensureTrailingDirectorySeparator,
-  getDirectoryPath,
+  ensureTrailingDirSeparator,
+  getDirPath,
   getFileExtension,
   getFileName,
   getFileSystemEntriesFromDirEntries,
   getPathComponents,
-  getRelativePathComponentsFromDirectory,
-  isDirectory,
+  getRelativePathComponentsFromDir,
+  isDir,
   isFile,
   resolvePaths,
   stripFileExtension,
-  stripTrailingDirectorySeparator,
+  stripTrailingDirSeparator,
   tryStat,
 } from '../common/pathUtils';
 import { equateStringsCaseInsensitive } from '../common/stringUtils';
@@ -198,7 +198,7 @@ export class ImportResolver {
       const relativeStubPaths: string[] = [];
       for (const importRootPath of importRootPaths) {
         if (containsPath(importRootPath, stubFilePath, true)) {
-          const parts = getRelativePathComponentsFromDirectory(importRootPath, stubFilePath, true);
+          const parts = getRelativePathComponentsFromDir(importRootPath, stubFilePath, true);
 
           if (parts.length > 1) {
             if (parts[1].endsWith(stubsSuffix)) {
@@ -407,18 +407,18 @@ export class ImportResolver {
       if (!this.fileSystem.existsSync(path)) {
         return false;
       }
-      return tryStat(this.fileSystem, path)?.isDirectory() ?? false;
+      return tryStat(this.fileSystem, path)?.isDir() ?? false;
     }
 
     const entries = this.readdirEntriesCached(splitPath[0]);
     const entry = entries.find((entry) => entry.name === splitPath[1]);
-    if (entry?.isDirectory()) {
+    if (entry?.isDir()) {
       return true;
     }
 
     if (entry?.isSymbolicLink()) {
       const realPath = this.fileSystem.realpathSync(path);
-      if (this.fileSystem.existsSync(realPath) && isDirectory(this.fileSystem, realPath)) {
+      if (this.fileSystem.existsSync(realPath) && isDir(this.fileSystem, realPath)) {
         return true;
       }
     }
@@ -490,7 +490,7 @@ export class ImportResolver {
         /* lookForPyTyped */ true
       );
 
-      if (importResult.packageDirectory) {
+      if (importResult.packageDir) {
         return importResult;
       }
     }
@@ -535,7 +535,7 @@ export class ImportResolver {
     let isStubFile = false;
     let isNativeLib = false;
     let implicitImports: ImplicitImport[] = [];
-    let packageDirectory: string | undefined;
+    let packageDir: string | undefined;
     let pyTypedInfo: PyTypedInfo | undefined;
 
     if (moduleDescriptor.nameParts.length === 0) {
@@ -568,11 +568,11 @@ export class ImportResolver {
           isStubPackage = true;
         }
 
-        const foundDirectory = this.dirExistsCached(dirPath);
+        const foundDir = this.dirExistsCached(dirPath);
 
-        if (foundDirectory) {
+        if (foundDir) {
           if (isFirstPart) {
-            packageDirectory = dirPath;
+            packageDir = dirPath;
           }
 
           const fileNameWithoutExtension = '__init__';
@@ -614,11 +614,11 @@ export class ImportResolver {
           }
         }
 
-        let fileDirectory = stripTrailingDirectorySeparator(dirPath);
-        const fileNameWithoutExtension = getFileName(fileDirectory);
-        fileDirectory = getDirectoryPath(fileDirectory);
-        const pyFilePath = combinePaths(fileDirectory, fileNameWithoutExtension + '.py');
-        const pyiFilePath = combinePaths(fileDirectory, fileNameWithoutExtension + '.pyi');
+        let fileDir = stripTrailingDirSeparator(dirPath);
+        const fileNameWithoutExtension = getFileName(fileDir);
+        fileDir = getDirPath(fileDir);
+        const pyFilePath = combinePaths(fileDir, fileNameWithoutExtension + '.py');
+        const pyiFilePath = combinePaths(fileDir, fileNameWithoutExtension + '.pyi');
 
         if (allowPyi && this.fileExistsCached(pyiFilePath)) {
           importFailureInfo.push(`Resolved import with file '${pyiFilePath}'`);
@@ -630,17 +630,17 @@ export class ImportResolver {
           importFailureInfo.push(`Resolved import with file '${pyFilePath}'`);
           resolvedPaths.push(pyFilePath);
         } else {
-          if (allowNativeLib && this.dirExistsCached(fileDirectory)) {
-            const filesInDir = this._getFilesInDirectory(fileDirectory);
+          if (allowNativeLib && this.dirExistsCached(fileDir)) {
+            const filesInDir = this._getFilesInDir(fileDir);
             const nativeLibFileName = filesInDir.find((f) => this._isNativeModuleFileName(fileNameWithoutExtension, f));
             if (nativeLibFileName) {
-              const nativeLibPath = combinePaths(fileDirectory, nativeLibFileName);
+              const nativeLibPath = combinePaths(fileDir, nativeLibFileName);
 
               isNativeLib = this._resolveNativeModuleStub(nativeLibPath, execEnv, importName, moduleDescriptor, importFailureInfo, resolvedPaths);
             }
           }
 
-          if (!isNativeLib && foundDirectory) {
+          if (!isNativeLib && foundDir) {
             importFailureInfo.push(`Partially resolved import with directory '${dirPath}'`);
             resolvedPaths.push('');
             if (isLastPart) {
@@ -679,7 +679,7 @@ export class ImportResolver {
       implicitImports,
       pyTypedInfo,
       filteredImplicitImports: implicitImports,
-      packageDirectory,
+      packageDir,
     };
   }
 
@@ -741,7 +741,7 @@ export class ImportResolver {
   }
 
   private _getModuleNameFromPath(containerPath: string, filePath: string, stripTopContainerDir = false): string | undefined {
-    containerPath = ensureTrailingDirectorySeparator(containerPath);
+    containerPath = ensureTrailingDirSeparator(containerPath);
     let filePathWithoutExtension = stripFileExtension(filePath);
 
     if (this._isNativeModuleFileExtension(getFileExtension(filePath))) {
@@ -974,7 +974,7 @@ export class ImportResolver {
 
     if (thirdPartyDir) {
       this.readdirEntriesCached(thirdPartyDir).forEach((outerEntry) => {
-        if (outerEntry.isDirectory()) {
+        if (outerEntry.isDir()) {
           const innerDirPath = combinePaths(thirdPartyDir, outerEntry.name);
 
           this.readdirEntriesCached(innerDirPath).forEach((innerEntry) => {
@@ -982,7 +982,7 @@ export class ImportResolver {
               return;
             }
 
-            if (innerEntry.isDirectory()) {
+            if (innerEntry.isDir()) {
               this._cachedTypeshedThirdPartyPackagePaths!.set(innerEntry.name, innerDirPath);
             } else if (innerEntry.isFile()) {
               if (innerEntry.name.endsWith('.pyi')) {
@@ -1097,13 +1097,13 @@ export class ImportResolver {
   ): ImportResult | undefined {
     importFailureInfo.push('Attempting to resolve relative import');
 
-    let curDir = getDirectoryPath(sourceFilePath);
+    let curDir = getDirPath(sourceFilePath);
     for (let i = 1; i < moduleDescriptor.leadingDots; i++) {
       if (curDir === '') {
         importFailureInfo.push(`Invalid relative path '${importName}'`);
         return undefined;
       }
-      curDir = getDirectoryPath(curDir);
+      curDir = getDirPath(curDir);
     }
 
     const absImport = this.resolveAbsoluteImport(curDir, execEnv, moduleDescriptor, importName, importFailureInfo, /* allowPartial */ false, /* allowNativeLib */ true);
@@ -1111,18 +1111,18 @@ export class ImportResolver {
   }
 
   private _getCompletionSuggestionsRelative(sourceFilePath: string, moduleDescriptor: ImportedModuleDescriptor, suggestions: string[], similarityLimit: number) {
-    let curDir = getDirectoryPath(sourceFilePath);
+    let curDir = getDirPath(sourceFilePath);
     for (let i = 1; i < moduleDescriptor.leadingDots; i++) {
       if (curDir === '') {
         return;
       }
-      curDir = getDirectoryPath(curDir);
+      curDir = getDirPath(curDir);
     }
 
     this._getCompletionSuggestionsAbsolute(curDir, moduleDescriptor, suggestions, similarityLimit);
   }
 
-  private _getFilesInDirectory(dirPath: string): string[] {
+  private _getFilesInDir(dirPath: string): string[] {
     const entriesInDir = this.readdirEntriesCached(dirPath);
     const filesInDir = entriesInDir.filter((f) => f.isFile()).map((f) => f.name);
 
@@ -1346,4 +1346,4 @@ export class ImportResolver {
   }
 }
 
-export type ImportResolverFactory = (fs: FileSystem, options: ConfigOptions) => ImportResolver;
+export type ImportResolverFact = (fs: FileSystem, options: ConfigOptions) => ImportResolver;

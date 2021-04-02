@@ -6,7 +6,7 @@ import {
   AssignmentNode,
   AugmentedAssignmentNode,
   AwaitNode,
-  BinaryOperationNode,
+  BinaryOpNode,
   BreakNode,
   CallNode,
   CaseNode,
@@ -71,7 +71,7 @@ import {
   TryNode,
   TupleNode,
   TypeAnnotationNode,
-  UnaryOperationNode,
+  UnaryOpNode,
   UnpackNode,
   WhileNode,
   WithItemNode,
@@ -134,8 +134,8 @@ export class ParseTreeWalker {
         }
         break;
 
-      case ParseNodeType.BinaryOperation:
-        if (this.visitBinaryOperation(node)) {
+      case ParseNodeType.BinaryOp:
+        if (this.visitBinaryOp(node)) {
           return [node.leftExpression, node.rightExpression];
         }
         break;
@@ -506,8 +506,8 @@ export class ParseTreeWalker {
         }
         break;
 
-      case ParseNodeType.UnaryOperation:
-        if (this.visitUnaryOperation(node)) {
+      case ParseNodeType.UnaryOp:
+        if (this.visitUnaryOp(node)) {
           return [node.expression];
         }
         break;
@@ -580,7 +580,7 @@ export class ParseTreeWalker {
     return true;
   }
 
-  visitBinaryOperation(node: BinaryOperationNode) {
+  visitBinaryOp(node: BinaryOpNode) {
     return true;
   }
 
@@ -828,7 +828,7 @@ export class ParseTreeWalker {
     return true;
   }
 
-  visitUnaryOperation(node: UnaryOperationNode) {
+  visitUnaryOp(node: UnaryOpNode) {
     return true;
   }
 

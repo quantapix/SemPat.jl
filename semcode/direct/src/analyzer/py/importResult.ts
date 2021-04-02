@@ -50,5 +50,5 @@ export interface ImportResult {
 
   pyTypedInfo?: PyTypedInfo;
 
-  packageDirectory?: string;
+  packageDir?: string;
 }

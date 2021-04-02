@@ -1,10 +1,10 @@
 import * as child_process from 'child_process';
 import { isAbsolute } from 'path';
-import { DiagnosticSeverityOverridesMap } from './commandLineOptions';
+import { DiagSeverityOverridesMap } from './commandLineOptions';
 import { Console } from './console';
-import { DiagnosticRule } from './diagnosticRules';
+import { DiagRule } from './diagnosticRules';
 import { FileSystem } from './files';
-import { combinePaths, ensureTrailingDirectorySeparator, FileSpec, getFileSpec, normalizePath, resolvePaths } from './paths';
+import { combinePaths, ensureTrailingDirSeparator, FileSpec, getFileSpec, normalizePath, resolvePaths } from './paths';
 import { latestStablePythonVersion, PythonVersion, versionFromMajorMinor, versionFromString, versionToString } from './version';
 export const typeshedFallback = 'typeshed-fallback';
 export const lib = 'lib';
@@ -30,8 +30,8 @@ export class ExecutionEnvironment {
   pythonPlatform?: string;
   extraPaths: string[] = [];
 }
-export type DiagnosticLevel = 'none' | 'information' | 'warning' | 'error';
-export interface DiagnosticRuleSet {
+export type DiagLevel = 'none' | 'information' | 'warning' | 'error';
+export interface DiagRuleSet {
   printUnknownAsAny: boolean;
   omitTypeArgsIfAny: boolean;
   omitUnannotatedParamType: boolean;
@@ -40,118 +40,118 @@ export interface DiagnosticRuleSet {
   strictDictionaryInference: boolean;
   strictParameterNoneValue: boolean;
   enableTypeIgnoreComments: boolean;
-  reportGeneralTypeIssues: DiagnosticLevel;
-  reportPropertyTypeMismatch: DiagnosticLevel;
-  reportFunctionMemberAccess: DiagnosticLevel;
-  reportMissingImports: DiagnosticLevel;
-  reportMissingModuleSource: DiagnosticLevel;
-  reportMissingTypeStubs: DiagnosticLevel;
-  reportImportCycles: DiagnosticLevel;
-  reportUnusedImport: DiagnosticLevel;
-  reportUnusedClass: DiagnosticLevel;
-  reportUnusedFunction: DiagnosticLevel;
-  reportUnusedVariable: DiagnosticLevel;
-  reportDuplicateImport: DiagnosticLevel;
-  reportWildcardImportFromLibrary: DiagnosticLevel;
-  reportOptionalSubscript: DiagnosticLevel;
-  reportOptionalMemberAccess: DiagnosticLevel;
-  reportOptionalCall: DiagnosticLevel;
-  reportOptionalIterable: DiagnosticLevel;
-  reportOptionalContextManager: DiagnosticLevel;
-  reportOptionalOperand: DiagnosticLevel;
-  reportUntypedFunctionDecorator: DiagnosticLevel;
-  reportUntypedClassDecorator: DiagnosticLevel;
-  reportUntypedBaseClass: DiagnosticLevel;
-  reportUntypedNamedTuple: DiagnosticLevel;
-  reportPrivateUsage: DiagnosticLevel;
-  reportConstantRedefinition: DiagnosticLevel;
-  reportIncompatibleMethodOverride: DiagnosticLevel;
-  reportIncompatibleVariableOverride: DiagnosticLevel;
-  reportOverlappingOverload: DiagnosticLevel;
-  reportInvalidStringEscapeSequence: DiagnosticLevel;
-  reportUnknownParameterType: DiagnosticLevel;
-  reportUnknownArgumentType: DiagnosticLevel;
-  reportUnknownLambdaType: DiagnosticLevel;
-  reportUnknownVariableType: DiagnosticLevel;
-  reportUnknownMemberType: DiagnosticLevel;
-  reportMissingTypeArgument: DiagnosticLevel;
-  reportInvalidTypeVarUse: DiagnosticLevel;
-  reportCallInDefaultInitializer: DiagnosticLevel;
-  reportUnnecessaryIsInstance: DiagnosticLevel;
-  reportUnnecessaryCast: DiagnosticLevel;
-  reportAssertAlwaysTrue: DiagnosticLevel;
-  reportSelfClsParameterName: DiagnosticLevel;
-  reportImplicitStringConcatenation: DiagnosticLevel;
-  reportUndefinedVariable: DiagnosticLevel;
-  reportUnboundVariable: DiagnosticLevel;
-  reportInvalidStubStatement: DiagnosticLevel;
-  reportUnsupportedDunderAll: DiagnosticLevel;
-  reportUnusedCallResult: DiagnosticLevel;
-  reportUnusedCoroutine: DiagnosticLevel;
+  reportGeneralTypeIssues: DiagLevel;
+  reportPropertyTypeMismatch: DiagLevel;
+  reportFunctionMemberAccess: DiagLevel;
+  reportMissingImports: DiagLevel;
+  reportMissingModuleSource: DiagLevel;
+  reportMissingTypeStubs: DiagLevel;
+  reportImportCycles: DiagLevel;
+  reportUnusedImport: DiagLevel;
+  reportUnusedClass: DiagLevel;
+  reportUnusedFunction: DiagLevel;
+  reportUnusedVariable: DiagLevel;
+  reportDuplicateImport: DiagLevel;
+  reportWildcardImportFromLibrary: DiagLevel;
+  reportOptionalSubscript: DiagLevel;
+  reportOptionalMemberAccess: DiagLevel;
+  reportOptionalCall: DiagLevel;
+  reportOptionalIterable: DiagLevel;
+  reportOptionalContextMgr: DiagLevel;
+  reportOptionalOperand: DiagLevel;
+  reportUntypedFunctionDecorator: DiagLevel;
+  reportUntypedClassDecorator: DiagLevel;
+  reportUntypedBaseClass: DiagLevel;
+  reportUntypedNamedTuple: DiagLevel;
+  reportPrivateUsage: DiagLevel;
+  reportConstantRedefinition: DiagLevel;
+  reportIncompatibleMethodOverride: DiagLevel;
+  reportIncompatibleVariableOverride: DiagLevel;
+  reportOverlappingOverload: DiagLevel;
+  reportInvalidStringEscapeSequence: DiagLevel;
+  reportUnknownParameterType: DiagLevel;
+  reportUnknownArgumentType: DiagLevel;
+  reportUnknownLambdaType: DiagLevel;
+  reportUnknownVariableType: DiagLevel;
+  reportUnknownMemberType: DiagLevel;
+  reportMissingTypeArgument: DiagLevel;
+  reportInvalidTypeVarUse: DiagLevel;
+  reportCallInDefaultInitializer: DiagLevel;
+  reportUnnecessaryIsInstance: DiagLevel;
+  reportUnnecessaryCast: DiagLevel;
+  reportAssertAlwaysTrue: DiagLevel;
+  reportSelfClsParameterName: DiagLevel;
+  reportImplicitStringConcatenation: DiagLevel;
+  reportUndefinedVariable: DiagLevel;
+  reportUnboundVariable: DiagLevel;
+  reportInvalidStubStatement: DiagLevel;
+  reportUnsupportedDunderAll: DiagLevel;
+  reportUnusedCallResult: DiagLevel;
+  reportUnusedCoroutine: DiagLevel;
 }
-export function cloneDiagnosticRuleSet(diagSettings: DiagnosticRuleSet): DiagnosticRuleSet {
+export function cloneDiagRuleSet(diagSettings: DiagRuleSet): DiagRuleSet {
   return Object.assign({}, diagSettings);
 }
-export function getBooleanDiagnosticRules() {
-  return [DiagnosticRule.strictListInference, DiagnosticRule.strictDictionaryInference, DiagnosticRule.strictParameterNoneValue];
+export function getBooleanDiagRules() {
+  return [DiagRule.strictListInference, DiagRule.strictDictionaryInference, DiagRule.strictParameterNoneValue];
 }
-export function getDiagLevelDiagnosticRules() {
+export function getDiagLevelDiagRules() {
   return [
-    DiagnosticRule.reportGeneralTypeIssues,
-    DiagnosticRule.reportPropertyTypeMismatch,
-    DiagnosticRule.reportFunctionMemberAccess,
-    DiagnosticRule.reportMissingImports,
-    DiagnosticRule.reportMissingModuleSource,
-    DiagnosticRule.reportMissingTypeStubs,
-    DiagnosticRule.reportImportCycles,
-    DiagnosticRule.reportUnusedImport,
-    DiagnosticRule.reportUnusedClass,
-    DiagnosticRule.reportUnusedFunction,
-    DiagnosticRule.reportUnusedVariable,
-    DiagnosticRule.reportDuplicateImport,
-    DiagnosticRule.reportWildcardImportFromLibrary,
-    DiagnosticRule.reportOptionalSubscript,
-    DiagnosticRule.reportOptionalMemberAccess,
-    DiagnosticRule.reportOptionalCall,
-    DiagnosticRule.reportOptionalIterable,
-    DiagnosticRule.reportOptionalContextManager,
-    DiagnosticRule.reportOptionalOperand,
-    DiagnosticRule.reportUntypedFunctionDecorator,
-    DiagnosticRule.reportUntypedClassDecorator,
-    DiagnosticRule.reportUntypedBaseClass,
-    DiagnosticRule.reportUntypedNamedTuple,
-    DiagnosticRule.reportPrivateUsage,
-    DiagnosticRule.reportConstantRedefinition,
-    DiagnosticRule.reportIncompatibleMethodOverride,
-    DiagnosticRule.reportIncompatibleVariableOverride,
-    DiagnosticRule.reportOverlappingOverload,
-    DiagnosticRule.reportInvalidStringEscapeSequence,
-    DiagnosticRule.reportUnknownParameterType,
-    DiagnosticRule.reportUnknownArgumentType,
-    DiagnosticRule.reportUnknownLambdaType,
-    DiagnosticRule.reportUnknownVariableType,
-    DiagnosticRule.reportUnknownMemberType,
-    DiagnosticRule.reportMissingTypeArgument,
-    DiagnosticRule.reportInvalidTypeVarUse,
-    DiagnosticRule.reportCallInDefaultInitializer,
-    DiagnosticRule.reportUnnecessaryIsInstance,
-    DiagnosticRule.reportUnnecessaryCast,
-    DiagnosticRule.reportAssertAlwaysTrue,
-    DiagnosticRule.reportSelfClsParameterName,
-    DiagnosticRule.reportImplicitStringConcatenation,
-    DiagnosticRule.reportUndefinedVariable,
-    DiagnosticRule.reportUnboundVariable,
-    DiagnosticRule.reportInvalidStubStatement,
-    DiagnosticRule.reportUnsupportedDunderAll,
-    DiagnosticRule.reportUnusedCallResult,
-    DiagnosticRule.reportUnusedCoroutine,
+    DiagRule.reportGeneralTypeIssues,
+    DiagRule.reportPropertyTypeMismatch,
+    DiagRule.reportFunctionMemberAccess,
+    DiagRule.reportMissingImports,
+    DiagRule.reportMissingModuleSource,
+    DiagRule.reportMissingTypeStubs,
+    DiagRule.reportImportCycles,
+    DiagRule.reportUnusedImport,
+    DiagRule.reportUnusedClass,
+    DiagRule.reportUnusedFunction,
+    DiagRule.reportUnusedVariable,
+    DiagRule.reportDuplicateImport,
+    DiagRule.reportWildcardImportFromLibrary,
+    DiagRule.reportOptionalSubscript,
+    DiagRule.reportOptionalMemberAccess,
+    DiagRule.reportOptionalCall,
+    DiagRule.reportOptionalIterable,
+    DiagRule.reportOptionalContextMgr,
+    DiagRule.reportOptionalOperand,
+    DiagRule.reportUntypedFunctionDecorator,
+    DiagRule.reportUntypedClassDecorator,
+    DiagRule.reportUntypedBaseClass,
+    DiagRule.reportUntypedNamedTuple,
+    DiagRule.reportPrivateUsage,
+    DiagRule.reportConstantRedefinition,
+    DiagRule.reportIncompatibleMethodOverride,
+    DiagRule.reportIncompatibleVariableOverride,
+    DiagRule.reportOverlappingOverload,
+    DiagRule.reportInvalidStringEscapeSequence,
+    DiagRule.reportUnknownParameterType,
+    DiagRule.reportUnknownArgumentType,
+    DiagRule.reportUnknownLambdaType,
+    DiagRule.reportUnknownVariableType,
+    DiagRule.reportUnknownMemberType,
+    DiagRule.reportMissingTypeArgument,
+    DiagRule.reportInvalidTypeVarUse,
+    DiagRule.reportCallInDefaultInitializer,
+    DiagRule.reportUnnecessaryIsInstance,
+    DiagRule.reportUnnecessaryCast,
+    DiagRule.reportAssertAlwaysTrue,
+    DiagRule.reportSelfClsParameterName,
+    DiagRule.reportImplicitStringConcatenation,
+    DiagRule.reportUndefinedVariable,
+    DiagRule.reportUnboundVariable,
+    DiagRule.reportInvalidStubStatement,
+    DiagRule.reportUnsupportedDunderAll,
+    DiagRule.reportUnusedCallResult,
+    DiagRule.reportUnusedCoroutine,
   ];
 }
 export function getStrictModeNotOverriddenRules() {
-  return [DiagnosticRule.reportMissingModuleSource];
+  return [DiagRule.reportMissingModuleSource];
 }
-export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
-  const diagSettings: DiagnosticRuleSet = {
+export function getOffDiagRuleSet(): DiagRuleSet {
+  const diagSettings: DiagRuleSet = {
     printUnknownAsAny: true,
     omitTypeArgsIfAny: true,
     omitUnannotatedParamType: true,
@@ -177,7 +177,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
     reportOptionalMemberAccess: 'none',
     reportOptionalCall: 'none',
     reportOptionalIterable: 'none',
-    reportOptionalContextManager: 'none',
+    reportOptionalContextMgr: 'none',
     reportOptionalOperand: 'none',
     reportUntypedFunctionDecorator: 'none',
     reportUntypedClassDecorator: 'none',
@@ -211,8 +211,8 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
   };
   return diagSettings;
 }
-export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
-  const diagSettings: DiagnosticRuleSet = {
+export function getBasicDiagRuleSet(): DiagRuleSet {
+  const diagSettings: DiagRuleSet = {
     printUnknownAsAny: false,
     omitTypeArgsIfAny: false,
     omitUnannotatedParamType: true,
@@ -238,7 +238,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
     reportOptionalMemberAccess: 'none',
     reportOptionalCall: 'none',
     reportOptionalIterable: 'none',
-    reportOptionalContextManager: 'none',
+    reportOptionalContextMgr: 'none',
     reportOptionalOperand: 'none',
     reportUntypedFunctionDecorator: 'none',
     reportUntypedClassDecorator: 'none',
@@ -272,8 +272,8 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
   };
   return diagSettings;
 }
-export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
-  const diagSettings: DiagnosticRuleSet = {
+export function getStrictDiagRuleSet(): DiagRuleSet {
+  const diagSettings: DiagRuleSet = {
     printUnknownAsAny: false,
     omitTypeArgsIfAny: false,
     omitUnannotatedParamType: false,
@@ -299,7 +299,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
     reportOptionalMemberAccess: 'error',
     reportOptionalCall: 'error',
     reportOptionalIterable: 'error',
-    reportOptionalContextManager: 'error',
+    reportOptionalContextMgr: 'error',
     reportOptionalOperand: 'error',
     reportUntypedFunctionDecorator: 'error',
     reportUntypedClassDecorator: 'error',
@@ -336,7 +336,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
 export class ConfigOptions {
   constructor(projectRoot: string, typeCheckingMode?: string) {
     this.projectRoot = projectRoot;
-    this.diagnosticRuleSet = ConfigOptions.getDiagnosticRuleSet(typeCheckingMode);
+    this.diagnosticRuleSet = ConfigOptions.getDiagRuleSet(typeCheckingMode);
     if (typeCheckingMode === 'off') {
       this.disableInferenceForPyTypedSources = false;
     }
@@ -358,7 +358,7 @@ export class ConfigOptions {
   logTypeEvaluationTime = false;
   typeEvaluationTimeThreshold = 50;
   disableInferenceForPyTypedSources = true;
-  diagnosticRuleSet: DiagnosticRuleSet;
+  diagnosticRuleSet: DiagRuleSet;
   executionEnvironments: ExecutionEnvironment[] = [];
   venvPath?: string;
   venv?: string;
@@ -366,18 +366,18 @@ export class ConfigOptions {
   defaultPythonPlatform?: string;
   defaultExtraPaths?: string[];
   internalTestMode?: boolean;
-  static getDiagnosticRuleSet(typeCheckingMode?: string): DiagnosticRuleSet {
+  static getDiagRuleSet(typeCheckingMode?: string): DiagRuleSet {
     if (typeCheckingMode === 'strict') {
-      return getStrictDiagnosticRuleSet();
+      return getStrictDiagRuleSet();
     }
     if (typeCheckingMode === 'off') {
-      return getOffDiagnosticRuleSet();
+      return getOffDiagRuleSet();
     }
-    return getBasicDiagnosticRuleSet();
+    return getBasicDiagRuleSet();
   }
   findExecEnvironment(filePath: string): ExecutionEnvironment {
     let execEnv = this.executionEnvironments.find((env) => {
-      const envRoot = ensureTrailingDirectorySeparator(normalizePath(combinePaths(this.projectRoot, env.root)));
+      const envRoot = ensureTrailingDirSeparator(normalizePath(combinePaths(this.projectRoot, env.root)));
       return filePath.startsWith(envRoot);
     });
     if (!execEnv) {
@@ -388,7 +388,7 @@ export class ConfigOptions {
   getDefaultExecEnvironment(): ExecutionEnvironment {
     return new ExecutionEnvironment(this.projectRoot, this.defaultPythonVersion, this.defaultPythonPlatform, this.defaultExtraPaths);
   }
-  initializeFromJson(configObj: any, typeCheckingMode: string | undefined, console: Console, diagnosticOverrides?: DiagnosticSeverityOverridesMap, pythonPath?: string, skipIncludeSection = false) {
+  initializeFromJson(configObj: any, typeCheckingMode: string | undefined, console: Console, diagnosticOverrides?: DiagSeverityOverridesMap, pythonPath?: string, skipIncludeSection = false) {
     if (!skipIncludeSection) {
       this.include = [];
       if (configObj.include !== undefined) {
@@ -475,96 +475,80 @@ export class ConfigOptions {
       }
     }
     const effectiveTypeCheckingMode = configTypeCheckingMode || typeCheckingMode;
-    const defaultSettings = ConfigOptions.getDiagnosticRuleSet(effectiveTypeCheckingMode);
+    const defaultSettings = ConfigOptions.getDiagRuleSet(effectiveTypeCheckingMode);
     if (effectiveTypeCheckingMode === 'off') {
       this.disableInferenceForPyTypedSources = false;
     }
-    this.applyDiagnosticOverrides(diagnosticOverrides);
+    this.applyDiagOverrides(diagnosticOverrides);
     this.diagnosticRuleSet = {
       printUnknownAsAny: defaultSettings.printUnknownAsAny,
       omitTypeArgsIfAny: defaultSettings.omitTypeArgsIfAny,
       omitUnannotatedParamType: defaultSettings.omitUnannotatedParamType,
       pep604Printing: defaultSettings.pep604Printing,
-      strictListInference: this._convertBoolean(configObj.strictListInference, DiagnosticRule.strictListInference, defaultSettings.strictListInference),
-      strictDictionaryInference: this._convertBoolean(configObj.strictDictionaryInference, DiagnosticRule.strictDictionaryInference, defaultSettings.strictDictionaryInference),
-      strictParameterNoneValue: this._convertBoolean(configObj.strictParameterNoneValue, DiagnosticRule.strictParameterNoneValue, defaultSettings.strictParameterNoneValue),
-      enableTypeIgnoreComments: this._convertBoolean(configObj.enableTypeIgnoreComments, DiagnosticRule.enableTypeIgnoreComments, defaultSettings.enableTypeIgnoreComments),
-      reportGeneralTypeIssues: this._convertDiagnosticLevel(configObj.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues, defaultSettings.reportGeneralTypeIssues),
-      reportPropertyTypeMismatch: this._convertDiagnosticLevel(configObj.reportPropertyTypeMismatch, DiagnosticRule.reportPropertyTypeMismatch, defaultSettings.reportPropertyTypeMismatch),
-      reportFunctionMemberAccess: this._convertDiagnosticLevel(configObj.reportFunctionMemberAccess, DiagnosticRule.reportFunctionMemberAccess, defaultSettings.reportFunctionMemberAccess),
-      reportMissingImports: this._convertDiagnosticLevel(configObj.reportMissingImports, DiagnosticRule.reportMissingImports, defaultSettings.reportMissingImports),
-      reportUnusedImport: this._convertDiagnosticLevel(configObj.reportUnusedImport, DiagnosticRule.reportUnusedImport, defaultSettings.reportUnusedImport),
-      reportUnusedClass: this._convertDiagnosticLevel(configObj.reportUnusedClass, DiagnosticRule.reportUnusedClass, defaultSettings.reportUnusedClass),
-      reportUnusedFunction: this._convertDiagnosticLevel(configObj.reportUnusedFunction, DiagnosticRule.reportUnusedFunction, defaultSettings.reportUnusedFunction),
-      reportUnusedVariable: this._convertDiagnosticLevel(configObj.reportUnusedVariable, DiagnosticRule.reportUnusedVariable, defaultSettings.reportUnusedVariable),
-      reportDuplicateImport: this._convertDiagnosticLevel(configObj.reportDuplicateImport, DiagnosticRule.reportDuplicateImport, defaultSettings.reportDuplicateImport),
-      reportWildcardImportFromLibrary: this._convertDiagnosticLevel(
-        configObj.reportWildcardImportFromLibrary,
-        DiagnosticRule.reportWildcardImportFromLibrary,
-        defaultSettings.reportWildcardImportFromLibrary
-      ),
-      reportMissingModuleSource: this._convertDiagnosticLevel(configObj.reportMissingModuleSource, DiagnosticRule.reportMissingModuleSource, defaultSettings.reportMissingModuleSource),
-      reportMissingTypeStubs: this._convertDiagnosticLevel(configObj.reportMissingTypeStubs, DiagnosticRule.reportMissingTypeStubs, defaultSettings.reportMissingTypeStubs),
-      reportImportCycles: this._convertDiagnosticLevel(configObj.reportImportCycles, DiagnosticRule.reportImportCycles, defaultSettings.reportImportCycles),
-      reportOptionalSubscript: this._convertDiagnosticLevel(configObj.reportOptionalSubscript, DiagnosticRule.reportOptionalSubscript, defaultSettings.reportOptionalSubscript),
-      reportOptionalMemberAccess: this._convertDiagnosticLevel(configObj.reportOptionalMemberAccess, DiagnosticRule.reportOptionalMemberAccess, defaultSettings.reportOptionalMemberAccess),
-      reportOptionalCall: this._convertDiagnosticLevel(configObj.reportOptionalCall, DiagnosticRule.reportOptionalCall, defaultSettings.reportOptionalCall),
-      reportOptionalIterable: this._convertDiagnosticLevel(configObj.reportOptionalIterable, DiagnosticRule.reportOptionalIterable, defaultSettings.reportOptionalIterable),
-      reportOptionalContextManager: this._convertDiagnosticLevel(configObj.reportOptionalContextManager, DiagnosticRule.reportOptionalContextManager, defaultSettings.reportOptionalContextManager),
-      reportOptionalOperand: this._convertDiagnosticLevel(configObj.reportOptionalOperand, DiagnosticRule.reportOptionalOperand, defaultSettings.reportOptionalOperand),
-      reportUntypedFunctionDecorator: this._convertDiagnosticLevel(
-        configObj.reportUntypedFunctionDecorator,
-        DiagnosticRule.reportUntypedFunctionDecorator,
-        defaultSettings.reportUntypedFunctionDecorator
-      ),
-      reportUntypedClassDecorator: this._convertDiagnosticLevel(configObj.reportUntypedClassDecorator, DiagnosticRule.reportUntypedClassDecorator, defaultSettings.reportUntypedClassDecorator),
-      reportUntypedBaseClass: this._convertDiagnosticLevel(configObj.reportUntypedBaseClass, DiagnosticRule.reportUntypedBaseClass, defaultSettings.reportUntypedBaseClass),
-      reportUntypedNamedTuple: this._convertDiagnosticLevel(configObj.reportUntypedNamedTuple, DiagnosticRule.reportUntypedNamedTuple, defaultSettings.reportUntypedNamedTuple),
-      reportPrivateUsage: this._convertDiagnosticLevel(configObj.reportPrivateUsage, DiagnosticRule.reportPrivateUsage, defaultSettings.reportPrivateUsage),
-      reportConstantRedefinition: this._convertDiagnosticLevel(configObj.reportConstantRedefinition, DiagnosticRule.reportConstantRedefinition, defaultSettings.reportConstantRedefinition),
-      reportIncompatibleMethodOverride: this._convertDiagnosticLevel(
-        configObj.reportIncompatibleMethodOverride,
-        DiagnosticRule.reportIncompatibleMethodOverride,
-        defaultSettings.reportIncompatibleMethodOverride
-      ),
-      reportIncompatibleVariableOverride: this._convertDiagnosticLevel(
+      strictListInference: this._convertBoolean(configObj.strictListInference, DiagRule.strictListInference, defaultSettings.strictListInference),
+      strictDictionaryInference: this._convertBoolean(configObj.strictDictionaryInference, DiagRule.strictDictionaryInference, defaultSettings.strictDictionaryInference),
+      strictParameterNoneValue: this._convertBoolean(configObj.strictParameterNoneValue, DiagRule.strictParameterNoneValue, defaultSettings.strictParameterNoneValue),
+      enableTypeIgnoreComments: this._convertBoolean(configObj.enableTypeIgnoreComments, DiagRule.enableTypeIgnoreComments, defaultSettings.enableTypeIgnoreComments),
+      reportGeneralTypeIssues: this._convertDiagLevel(configObj.reportGeneralTypeIssues, DiagRule.reportGeneralTypeIssues, defaultSettings.reportGeneralTypeIssues),
+      reportPropertyTypeMismatch: this._convertDiagLevel(configObj.reportPropertyTypeMismatch, DiagRule.reportPropertyTypeMismatch, defaultSettings.reportPropertyTypeMismatch),
+      reportFunctionMemberAccess: this._convertDiagLevel(configObj.reportFunctionMemberAccess, DiagRule.reportFunctionMemberAccess, defaultSettings.reportFunctionMemberAccess),
+      reportMissingImports: this._convertDiagLevel(configObj.reportMissingImports, DiagRule.reportMissingImports, defaultSettings.reportMissingImports),
+      reportUnusedImport: this._convertDiagLevel(configObj.reportUnusedImport, DiagRule.reportUnusedImport, defaultSettings.reportUnusedImport),
+      reportUnusedClass: this._convertDiagLevel(configObj.reportUnusedClass, DiagRule.reportUnusedClass, defaultSettings.reportUnusedClass),
+      reportUnusedFunction: this._convertDiagLevel(configObj.reportUnusedFunction, DiagRule.reportUnusedFunction, defaultSettings.reportUnusedFunction),
+      reportUnusedVariable: this._convertDiagLevel(configObj.reportUnusedVariable, DiagRule.reportUnusedVariable, defaultSettings.reportUnusedVariable),
+      reportDuplicateImport: this._convertDiagLevel(configObj.reportDuplicateImport, DiagRule.reportDuplicateImport, defaultSettings.reportDuplicateImport),
+      reportWildcardImportFromLibrary: this._convertDiagLevel(configObj.reportWildcardImportFromLibrary, DiagRule.reportWildcardImportFromLibrary, defaultSettings.reportWildcardImportFromLibrary),
+      reportMissingModuleSource: this._convertDiagLevel(configObj.reportMissingModuleSource, DiagRule.reportMissingModuleSource, defaultSettings.reportMissingModuleSource),
+      reportMissingTypeStubs: this._convertDiagLevel(configObj.reportMissingTypeStubs, DiagRule.reportMissingTypeStubs, defaultSettings.reportMissingTypeStubs),
+      reportImportCycles: this._convertDiagLevel(configObj.reportImportCycles, DiagRule.reportImportCycles, defaultSettings.reportImportCycles),
+      reportOptionalSubscript: this._convertDiagLevel(configObj.reportOptionalSubscript, DiagRule.reportOptionalSubscript, defaultSettings.reportOptionalSubscript),
+      reportOptionalMemberAccess: this._convertDiagLevel(configObj.reportOptionalMemberAccess, DiagRule.reportOptionalMemberAccess, defaultSettings.reportOptionalMemberAccess),
+      reportOptionalCall: this._convertDiagLevel(configObj.reportOptionalCall, DiagRule.reportOptionalCall, defaultSettings.reportOptionalCall),
+      reportOptionalIterable: this._convertDiagLevel(configObj.reportOptionalIterable, DiagRule.reportOptionalIterable, defaultSettings.reportOptionalIterable),
+      reportOptionalContextMgr: this._convertDiagLevel(configObj.reportOptionalContextMgr, DiagRule.reportOptionalContextMgr, defaultSettings.reportOptionalContextMgr),
+      reportOptionalOperand: this._convertDiagLevel(configObj.reportOptionalOperand, DiagRule.reportOptionalOperand, defaultSettings.reportOptionalOperand),
+      reportUntypedFunctionDecorator: this._convertDiagLevel(configObj.reportUntypedFunctionDecorator, DiagRule.reportUntypedFunctionDecorator, defaultSettings.reportUntypedFunctionDecorator),
+      reportUntypedClassDecorator: this._convertDiagLevel(configObj.reportUntypedClassDecorator, DiagRule.reportUntypedClassDecorator, defaultSettings.reportUntypedClassDecorator),
+      reportUntypedBaseClass: this._convertDiagLevel(configObj.reportUntypedBaseClass, DiagRule.reportUntypedBaseClass, defaultSettings.reportUntypedBaseClass),
+      reportUntypedNamedTuple: this._convertDiagLevel(configObj.reportUntypedNamedTuple, DiagRule.reportUntypedNamedTuple, defaultSettings.reportUntypedNamedTuple),
+      reportPrivateUsage: this._convertDiagLevel(configObj.reportPrivateUsage, DiagRule.reportPrivateUsage, defaultSettings.reportPrivateUsage),
+      reportConstantRedefinition: this._convertDiagLevel(configObj.reportConstantRedefinition, DiagRule.reportConstantRedefinition, defaultSettings.reportConstantRedefinition),
+      reportIncompatibleMethodOverride: this._convertDiagLevel(configObj.reportIncompatibleMethodOverride, DiagRule.reportIncompatibleMethodOverride, defaultSettings.reportIncompatibleMethodOverride),
+      reportIncompatibleVariableOverride: this._convertDiagLevel(
         configObj.reportIncompatibleVariableOverride,
-        DiagnosticRule.reportIncompatibleVariableOverride,
+        DiagRule.reportIncompatibleVariableOverride,
         defaultSettings.reportIncompatibleVariableOverride
       ),
-      reportOverlappingOverload: this._convertDiagnosticLevel(configObj.reportOverlappingOverload, DiagnosticRule.reportOverlappingOverload, defaultSettings.reportOverlappingOverload),
-      reportInvalidStringEscapeSequence: this._convertDiagnosticLevel(
+      reportOverlappingOverload: this._convertDiagLevel(configObj.reportOverlappingOverload, DiagRule.reportOverlappingOverload, defaultSettings.reportOverlappingOverload),
+      reportInvalidStringEscapeSequence: this._convertDiagLevel(
         configObj.reportInvalidStringEscapeSequence,
-        DiagnosticRule.reportInvalidStringEscapeSequence,
+        DiagRule.reportInvalidStringEscapeSequence,
         defaultSettings.reportInvalidStringEscapeSequence
       ),
-      reportUnknownParameterType: this._convertDiagnosticLevel(configObj.reportUnknownParameterType, DiagnosticRule.reportUnknownParameterType, defaultSettings.reportUnknownParameterType),
-      reportUnknownArgumentType: this._convertDiagnosticLevel(configObj.reportUnknownArgumentType, DiagnosticRule.reportUnknownArgumentType, defaultSettings.reportUnknownArgumentType),
-      reportUnknownLambdaType: this._convertDiagnosticLevel(configObj.reportUnknownLambdaType, DiagnosticRule.reportUnknownLambdaType, defaultSettings.reportUnknownLambdaType),
-      reportUnknownVariableType: this._convertDiagnosticLevel(configObj.reportUnknownVariableType, DiagnosticRule.reportUnknownVariableType, defaultSettings.reportUnknownVariableType),
-      reportUnknownMemberType: this._convertDiagnosticLevel(configObj.reportUnknownMemberType, DiagnosticRule.reportUnknownMemberType, defaultSettings.reportUnknownMemberType),
-      reportMissingTypeArgument: this._convertDiagnosticLevel(configObj.reportMissingTypeArgument, DiagnosticRule.reportMissingTypeArgument, defaultSettings.reportMissingTypeArgument),
-      reportInvalidTypeVarUse: this._convertDiagnosticLevel(configObj.reportInvalidTypeVarUse, DiagnosticRule.reportInvalidTypeVarUse, defaultSettings.reportInvalidTypeVarUse),
-      reportCallInDefaultInitializer: this._convertDiagnosticLevel(
-        configObj.reportCallInDefaultInitializer,
-        DiagnosticRule.reportCallInDefaultInitializer,
-        defaultSettings.reportCallInDefaultInitializer
-      ),
-      reportUnnecessaryIsInstance: this._convertDiagnosticLevel(configObj.reportUnnecessaryIsInstance, DiagnosticRule.reportUnnecessaryIsInstance, defaultSettings.reportUnnecessaryIsInstance),
-      reportUnnecessaryCast: this._convertDiagnosticLevel(configObj.reportUnnecessaryCast, DiagnosticRule.reportUnnecessaryCast, defaultSettings.reportUnnecessaryCast),
-      reportAssertAlwaysTrue: this._convertDiagnosticLevel(configObj.reportAssertAlwaysTrue, DiagnosticRule.reportAssertAlwaysTrue, defaultSettings.reportAssertAlwaysTrue),
-      reportSelfClsParameterName: this._convertDiagnosticLevel(configObj.reportSelfClsParameterName, DiagnosticRule.reportSelfClsParameterName, defaultSettings.reportSelfClsParameterName),
-      reportImplicitStringConcatenation: this._convertDiagnosticLevel(
+      reportUnknownParameterType: this._convertDiagLevel(configObj.reportUnknownParameterType, DiagRule.reportUnknownParameterType, defaultSettings.reportUnknownParameterType),
+      reportUnknownArgumentType: this._convertDiagLevel(configObj.reportUnknownArgumentType, DiagRule.reportUnknownArgumentType, defaultSettings.reportUnknownArgumentType),
+      reportUnknownLambdaType: this._convertDiagLevel(configObj.reportUnknownLambdaType, DiagRule.reportUnknownLambdaType, defaultSettings.reportUnknownLambdaType),
+      reportUnknownVariableType: this._convertDiagLevel(configObj.reportUnknownVariableType, DiagRule.reportUnknownVariableType, defaultSettings.reportUnknownVariableType),
+      reportUnknownMemberType: this._convertDiagLevel(configObj.reportUnknownMemberType, DiagRule.reportUnknownMemberType, defaultSettings.reportUnknownMemberType),
+      reportMissingTypeArgument: this._convertDiagLevel(configObj.reportMissingTypeArgument, DiagRule.reportMissingTypeArgument, defaultSettings.reportMissingTypeArgument),
+      reportInvalidTypeVarUse: this._convertDiagLevel(configObj.reportInvalidTypeVarUse, DiagRule.reportInvalidTypeVarUse, defaultSettings.reportInvalidTypeVarUse),
+      reportCallInDefaultInitializer: this._convertDiagLevel(configObj.reportCallInDefaultInitializer, DiagRule.reportCallInDefaultInitializer, defaultSettings.reportCallInDefaultInitializer),
+      reportUnnecessaryIsInstance: this._convertDiagLevel(configObj.reportUnnecessaryIsInstance, DiagRule.reportUnnecessaryIsInstance, defaultSettings.reportUnnecessaryIsInstance),
+      reportUnnecessaryCast: this._convertDiagLevel(configObj.reportUnnecessaryCast, DiagRule.reportUnnecessaryCast, defaultSettings.reportUnnecessaryCast),
+      reportAssertAlwaysTrue: this._convertDiagLevel(configObj.reportAssertAlwaysTrue, DiagRule.reportAssertAlwaysTrue, defaultSettings.reportAssertAlwaysTrue),
+      reportSelfClsParameterName: this._convertDiagLevel(configObj.reportSelfClsParameterName, DiagRule.reportSelfClsParameterName, defaultSettings.reportSelfClsParameterName),
+      reportImplicitStringConcatenation: this._convertDiagLevel(
         configObj.reportImplicitStringConcatenation,
-        DiagnosticRule.reportImplicitStringConcatenation,
+        DiagRule.reportImplicitStringConcatenation,
         defaultSettings.reportImplicitStringConcatenation
       ),
-      reportUndefinedVariable: this._convertDiagnosticLevel(configObj.reportUndefinedVariable, DiagnosticRule.reportUndefinedVariable, defaultSettings.reportUndefinedVariable),
-      reportUnboundVariable: this._convertDiagnosticLevel(configObj.reportUnboundVariable, DiagnosticRule.reportUnboundVariable, defaultSettings.reportUnboundVariable),
-      reportInvalidStubStatement: this._convertDiagnosticLevel(configObj.reportInvalidStubStatement, DiagnosticRule.reportInvalidStubStatement, defaultSettings.reportInvalidStubStatement),
-      reportUnsupportedDunderAll: this._convertDiagnosticLevel(configObj.reportUnsupportedDunderAll, DiagnosticRule.reportUnsupportedDunderAll, defaultSettings.reportUnsupportedDunderAll),
-      reportUnusedCallResult: this._convertDiagnosticLevel(configObj.reportUnusedCallResult, DiagnosticRule.reportUnusedCallResult, defaultSettings.reportUnusedCallResult),
-      reportUnusedCoroutine: this._convertDiagnosticLevel(configObj.reportUnusedCoroutine, DiagnosticRule.reportUnusedCoroutine, defaultSettings.reportUnusedCoroutine),
+      reportUndefinedVariable: this._convertDiagLevel(configObj.reportUndefinedVariable, DiagRule.reportUndefinedVariable, defaultSettings.reportUndefinedVariable),
+      reportUnboundVariable: this._convertDiagLevel(configObj.reportUnboundVariable, DiagRule.reportUnboundVariable, defaultSettings.reportUnboundVariable),
+      reportInvalidStubStatement: this._convertDiagLevel(configObj.reportInvalidStubStatement, DiagRule.reportInvalidStubStatement, defaultSettings.reportInvalidStubStatement),
+      reportUnsupportedDunderAll: this._convertDiagLevel(configObj.reportUnsupportedDunderAll, DiagRule.reportUnsupportedDunderAll, defaultSettings.reportUnsupportedDunderAll),
+      reportUnusedCallResult: this._convertDiagLevel(configObj.reportUnusedCallResult, DiagRule.reportUnusedCallResult, defaultSettings.reportUnusedCallResult),
+      reportUnusedCoroutine: this._convertDiagLevel(configObj.reportUnusedCoroutine, DiagRule.reportUnusedCoroutine, defaultSettings.reportUnusedCoroutine),
     };
     this.venvPath = undefined;
     if (configObj.venvPath !== undefined) {
@@ -740,7 +724,7 @@ export class ConfigOptions {
       this.defaultExtraPaths = paths;
     }
   }
-  applyDiagnosticOverrides(diagnosticSeverityOverrides: DiagnosticSeverityOverridesMap | undefined) {
+  applyDiagOverrides(diagnosticSeverityOverrides: DiagSeverityOverridesMap | undefined) {
     if (!diagnosticSeverityOverrides) {
       return;
     }
@@ -757,7 +741,7 @@ export class ConfigOptions {
     console.log(`Config "${fieldName}" entry must be true or false.`);
     return defaultValue;
   }
-  private _convertDiagnosticLevel(value: any, fieldName: string, defaultValue: DiagnosticLevel): DiagnosticLevel {
+  private _convertDiagLevel(value: any, fieldName: string, defaultValue: DiagLevel): DiagLevel {
     if (value === undefined) {
       return defaultValue;
     } else if (typeof value === 'boolean') {
@@ -839,16 +823,16 @@ export class ConfigOptions {
     }
   }
 }
-export const enum DiagnosticSeverityOverrides {
+export const enum DiagSeverityOverrides {
   Error = 'error',
   Warning = 'warning',
   Information = 'information',
   None = 'none',
 }
-export function getDiagnosticSeverityOverrides() {
-  return [DiagnosticSeverityOverrides.Error, DiagnosticSeverityOverrides.Warning, DiagnosticSeverityOverrides.Information, DiagnosticSeverityOverrides.None];
+export function getDiagSeverityOverrides() {
+  return [DiagSeverityOverrides.Error, DiagSeverityOverrides.Warning, DiagSeverityOverrides.Information, DiagSeverityOverrides.None];
 }
-export type DiagnosticSeverityOverridesMap = { [ruleName: string]: DiagnosticSeverityOverrides };
+export type DiagSeverityOverridesMap = { [ruleName: string]: DiagSeverityOverrides };
 export class CommandLineOptions {
   constructor(executionRoot: string, fromVsCodeExtension: boolean) {
     this.executionRoot = executionRoot;
@@ -873,7 +857,7 @@ export class CommandLineOptions {
   extraPaths?: string[];
   typeCheckingMode?: string;
   fromVsCodeExtension: boolean;
-  diagnosticSeverityOverrides?: DiagnosticSeverityOverridesMap;
+  diagnosticSeverityOverrides?: DiagSeverityOverridesMap;
   autoImportCompletions?: boolean;
   indexing?: boolean;
   logTypeEvaluationTime = false;

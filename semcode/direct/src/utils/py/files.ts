@@ -12,7 +12,7 @@ export interface FileWatcher {
 export interface Stats {
   size: number;
   isFile(): boolean;
-  isDirectory(): boolean;
+  isDir(): boolean;
   isBlockDevice(): boolean;
   isCharacterDevice(): boolean;
   isSymbolicLink(): boolean;
@@ -107,7 +107,7 @@ class RealFileSystem implements FileSystem {
     return fs.realpathSync(path);
   }
   getModulePath(): string {
-    return (global as any).__rootDirectory;
+    return (global as any).__rootDir;
   }
   createFileSystemWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher {
     return this._fileWatcherProvider.createFileWatcher(paths, listener);

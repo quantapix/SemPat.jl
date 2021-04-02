@@ -11,21 +11,21 @@ import { LogLevel } from './common/console';
 import { isDebugMode, isString } from './common/core';
 import { convertUriToPath, resolvePaths } from './common/pathUtils';
 import { ProgressReporter } from './common/progressReporter';
-import { LanguageServerBase, ServerSettings, WorkspaceServiceInstance } from './languageServerBase';
+import { LangServerBase, ServerSettings, WorkspaceServiceInstance } from './languageServerBase';
 import { CodeActionProvider } from './languageService/codeActionProvider';
 
 const maxAnalysisTimeInForeground = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
 
-class PyrightServer extends LanguageServerBase {
+class PyrightServer extends LangServerBase {
   private _controller: CommandController;
 
   constructor() {
     const version = require('../package.json').version || '';
 
-    const rootDirectory = (global as any).__rootDirectory || __dirname;
+    const rootDir = (global as any).__rootDir || __dirname;
     super({
       productName: 'Pyright',
-      rootDirectory,
+      rootDir,
       version,
       maxAnalysisTimeInForeground,
       supportedCodeActions: [CodeActionKind.QuickFix, CodeActionKind.SourceOrganizeImports],
@@ -39,7 +39,7 @@ class PyrightServer extends LanguageServerBase {
       watchForLibraryChanges: true,
       openFilesOnly: true,
       useLibraryCodeForTypes: false,
-      disableLanguageServices: false,
+      disableLangServices: false,
       disableOrganizeImports: false,
       typeCheckingMode: 'basic',
       diagnosticSeverityOverrides: {},
@@ -48,7 +48,7 @@ class PyrightServer extends LanguageServerBase {
     };
 
     try {
-      const pythonSection = await this.getConfiguration(workspace.rootUri, 'python');
+      const pythonSection = await this.getConfig(workspace.rootUri, 'python');
       if (pythonSection) {
         const pythonPath = pythonSection.pythonPath;
         if (pythonPath && isString(pythonPath) && !isPythonBinary(pythonPath)) {
@@ -62,7 +62,7 @@ class PyrightServer extends LanguageServerBase {
         }
       }
 
-      const pythonAnalysisSection = await this.getConfiguration(workspace.rootUri, 'python.analysis');
+      const pythonAnalysisSection = await this.getConfig(workspace.rootUri, 'python.analysis');
       if (pythonAnalysisSection) {
         const typeshedPaths = pythonAnalysisSection.typeshedPaths;
         if (typeshedPaths && Array.isArray(typeshedPaths) && typeshedPaths.length > 0) {
@@ -80,7 +80,7 @@ class PyrightServer extends LanguageServerBase {
         const diagnosticSeverityOverrides = pythonAnalysisSection.diagnosticSeverityOverrides;
         if (diagnosticSeverityOverrides) {
           for (const [name, value] of Object.entries(diagnosticSeverityOverrides)) {
-            const ruleName = this.getDiagnosticRuleName(name);
+            const ruleName = this.getDiagRuleName(name);
             const severity = this.getSeverityOverrides(value as string);
             if (ruleName && severity) {
               serverSettings.diagnosticSeverityOverrides![ruleName] = severity!;
@@ -125,7 +125,7 @@ class PyrightServer extends LanguageServerBase {
         serverSettings.autoSearchPaths = true;
       }
 
-      const pyrightSection = await this.getConfiguration(workspace.rootUri, 'pyright');
+      const pyrightSection = await this.getConfig(workspace.rootUri, 'pyright');
       if (pyrightSection) {
         if (pyrightSection.openFilesOnly !== undefined) {
           serverSettings.openFilesOnly = !!pyrightSection.openFilesOnly;
@@ -135,7 +135,7 @@ class PyrightServer extends LanguageServerBase {
           serverSettings.useLibraryCodeForTypes = !!pyrightSection.useLibraryCodeForTypes;
         }
 
-        serverSettings.disableLanguageServices = !!pyrightSection.disableLanguageServices;
+        serverSettings.disableLangServices = !!pyrightSection.disableLangServices;
         serverSettings.disableOrganizeImports = !!pyrightSection.disableOrganizeImports;
 
         const typeCheckingMode = pyrightSection.typeCheckingMode;

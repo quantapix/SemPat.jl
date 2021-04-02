@@ -10,11 +10,11 @@ import {
   CancellationToken,
   CloseAction,
   CompletionItemKind,
-  ConfigurationParams,
-  ConfigurationRequest,
+  ConfigParams,
+  ConfigRequest,
   ErrorAction,
   ExecuteCommandSignature,
-  HandleDiagnosticsSignature,
+  HandleDiagsSignature,
   InitializeError,
   Message,
   ProvideCodeLensesSignature,
@@ -23,7 +23,7 @@ import {
   ResponseError,
   RevealOutputChannelOn,
 } from 'vscode-languageclient';
-import { LanguageClient } from 'vscode-languageclient/node';
+import { LangClient } from 'vscode-languageclient/node';
 import { getGoConfig, getGoplsConfig, IsInCloudIDE } from '../../../../old/go/config';
 import { extensionId } from '../../../../old/go/const';
 import { GoCodeActionProvider } from './go/codeAction';
@@ -34,26 +34,26 @@ import { GoDocumentFormattingEditProvider, usingCustomFormatTool } from './forma
 import { GoImplementationProvider } from './implementation';
 import { installTools, latestToolVersion, promptForMissingTool, promptForUpdatingTool } from '../../../../old/go/goInstallTools';
 import { parseLiveFile } from '../../../../old/go/goLiveErrors';
-import { buildDiagnosticCollection, lintDiagnosticCollection, restartLanguageServer, vetDiagnosticCollection } from '../../../../old/go/goMain';
+import { buildDiagCollection, lintDiagCollection, restartLangServer, vetDiagCollection } from '../../../../old/go/goMain';
 import { GO_MODE } from '../../../../old/go/goMode';
 import { GoDocumentSymbolProvider } from './go/symbol';
 import { GoReferenceProvider } from './reference';
 import { GoRenameProvider } from '../../../../old/go/rename';
 import { GoSignatureHelpProvider } from './signature';
-import { outputChannel, updateLanguageServerIconGoStatusBar } from '../../../../old/go/goStatus';
+import { outputChannel, updateLangServerIconGoStatusBar } from '../../../../old/go/goStatus';
 import { GoCompletionItemProvider } from './completion';
 import { GoWorkspaceSymbolProvider } from './workspace';
 import { getTool, Tool } from '../../../../old/go/goTools';
 import { GoTypeDefinitionProvider } from './typeDefinition';
 import { getFromGlobalState, getFromWorkspaceState, updateGlobalState, updateWorkspaceState } from '../../../../old/go/stateUtils';
-import { getBinPath, getCheckForToolsUpdatesConfig, getCurrentGoPath, getGoVersion, getWorkspaceFolderPath, removeDuplicateDiagnostics } from '../../../../old/go/util';
+import { getBinPath, getCheckForToolsUpdatesConfig, getCurrentGoPath, getGoVersion, getWorkspaceFolderPath, removeDuplicateDiags } from '../../../../old/go/util';
 import { Mutex } from './utils/mutex';
 import { getToolFromToolPath } from './utils/pathUtils';
 import WebRequest = require('web-request');
 import { FoldingContext } from 'vscode';
 import { ProvideFoldingRangeSignature } from 'vscode-languageclient/lib/common/foldingRange';
 
-export interface LanguageServerConfig {
+export interface LangServerConfig {
   serverName: string;
   path: string;
   version: string;
@@ -68,9 +68,9 @@ export interface LanguageServerConfig {
   checkForUpdates: string;
 }
 
-export let languageClient: LanguageClient;
+export let languageClient: LangClient;
 let languageServerDisposable: qv.Disposable;
-export let latestConfig: LanguageServerConfig;
+export let latestConfig: LangServerConfig;
 export let serverOutputChannel: qv.OutputChannel;
 export let languageServerIsRunning = false;
 
@@ -82,17 +82,17 @@ let crashCount = 0;
 let manualRestartCount = 0;
 let totalStartCount = 0;
 
-let defaultLanguageProviders: qv.Disposable[] = [];
+let defaultLangProviders: qv.Disposable[] = [];
 
 let restartCommand: qv.Disposable;
 
 let lastUserAction: Date = new Date();
 
-export async function startLanguageServerWithFallback(ctx: qv.ExtensionContext, activation: boolean) {
+export async function startLangServerWithFallback(ctx: qv.ExtensionContext, activation: boolean) {
   for (const folder of qv.workspace.workspaceFolders || []) {
     switch (folder.uri.scheme) {
       case 'vsls':
-        outputChannel.appendLine('Language service on the guest side is disabled. ' + 'The server-side language service will provide the language features.');
+        outputChannel.appendLine('Lang service on the guest side is disabled. ' + 'The server-side language service will provide the language features.');
         return;
       case 'ssh':
         outputChannel.appendLine('The language server is not supported for SSH. Disabling it.');
@@ -101,7 +101,7 @@ export async function startLanguageServerWithFallback(ctx: qv.ExtensionContext, 
   }
 
   const goConfig = getGoConfig();
-  const cfg = buildLanguageServerConfig(goConfig);
+  const cfg = buildLangServerConfig(goConfig);
 
   if (activation) {
     scheduleGoplsSuggestions();
@@ -117,13 +117,13 @@ export async function startLanguageServerWithFallback(ctx: qv.ExtensionContext, 
   }
   const unlock = await languageServerStartMutex.lock();
   try {
-    const started = await startLanguageServer(ctx, cfg);
+    const started = await startLangServer(ctx, cfg);
 
-    if (!started && defaultLanguageProviders.length === 0) {
+    if (!started && defaultLangProviders.length === 0) {
       registerDefaultProviders(ctx);
     }
     languageServerIsRunning = started;
-    updateLanguageServerIconGoStatusBar(started, goConfig['useLanguageServer'] === true);
+    updateLangServerIconGoStatusBar(started, goConfig['useLangServer'] === true);
   } finally {
     unlock();
   }
@@ -134,12 +134,12 @@ function scheduleGoplsSuggestions() {
     return;
   }
 
-  const usingGopls = (cfg: LanguageServerConfig): boolean => {
+  const usingGopls = (cfg: LangServerConfig): boolean => {
     return cfg.enabled && cfg.serverName === 'gopls';
   };
-  const installGopls = async (cfg: LanguageServerConfig) => {
+  const installGopls = async (cfg: LangServerConfig) => {
     const tool = getTool('gopls');
-    const versionToUpdate = await shouldUpdateLanguageServer(tool, cfg);
+    const versionToUpdate = await shouldUpdateLangServer(tool, cfg);
     if (!versionToUpdate) {
       return;
     }
@@ -156,7 +156,7 @@ function scheduleGoplsSuggestions() {
   const update = async () => {
     setTimeout(update, timeDay);
 
-    let cfg = buildLanguageServerConfig(getGoConfig());
+    let cfg = buildLangServerConfig(getGoConfig());
     if (!usingGopls(cfg)) {
       if (cfg.serverName !== '' && cfg.serverName !== 'gopls') {
         return;
@@ -164,7 +164,7 @@ function scheduleGoplsSuggestions() {
 
       await promptAboutGoplsOptOut(false);
 
-      cfg = buildLanguageServerConfig(getGoConfig());
+      cfg = buildLangServerConfig(getGoConfig());
       if (!cfg.enabled) {
         return;
       }
@@ -174,7 +174,7 @@ function scheduleGoplsSuggestions() {
   const survey = async () => {
     setTimeout(survey, timeDay);
 
-    const cfg = buildLanguageServerConfig(getGoConfig());
+    const cfg = buildLangServerConfig(getGoConfig());
     if (!usingGopls(cfg)) {
       return;
     }
@@ -185,8 +185,8 @@ function scheduleGoplsSuggestions() {
 }
 
 export async function promptAboutGoplsOptOut(surveyOnly: boolean) {
-  const useLanguageServer = getGoConfig().inspect('useLanguageServer');
-  const workspace = useLanguageServer.workspaceFolderValue === false || useLanguageServer.workspaceValue === false;
+  const useLangServer = getGoConfig().inspect('useLangServer');
+  const workspace = useLangServer.workspaceFolderValue === false || useLangServer.workspaceValue === false;
 
   let cfg = getGoplsOptOutConfig(workspace);
   const promptFn = async (): Promise<GoplsOptOutConfig> => {
@@ -221,12 +221,12 @@ Would you like to enable it now?`,
       case 'Enable':
         {
           const goConfig = getGoConfig();
-          await goConfig.update('useLanguageServer', undefined, qv.ConfigurationTarget.Global);
-          if (goConfig.inspect('useLanguageServer').workspaceValue === false) {
-            await goConfig.update('useLanguageServer', undefined, qv.ConfigurationTarget.Workspace);
+          await goConfig.update('useLangServer', undefined, qv.ConfigTarget.Global);
+          if (goConfig.inspect('useLangServer').workspaceValue === false) {
+            await goConfig.update('useLangServer', undefined, qv.ConfigTarget.Workspace);
           }
-          if (goConfig.inspect('useLanguageServer').workspaceFolderValue === false) {
-            await goConfig.update('useLanguageServer', undefined, qv.ConfigurationTarget.WorkspaceFolder);
+          if (goConfig.inspect('useLangServer').workspaceFolderValue === false) {
+            await goConfig.update('useLangServer', undefined, qv.ConfigTarget.WorkspaceFolder);
           }
           cfg.prompt = false;
         }
@@ -290,7 +290,7 @@ function flushGoplsOptOutConfig(cfg: GoplsOptOutConfig, workspace: boolean) {
   updateGlobalState(goplsOptOutConfigKey, JSON.stringify(cfg));
 }
 
-async function startLanguageServer(ctx: qv.ExtensionContext, config: LanguageServerConfig): Promise<boolean> {
+async function startLangServer(ctx: qv.ExtensionContext, config: LangServerConfig): Promise<boolean> {
   if (languageClient) {
     if (languageClient.diagnostics) {
       languageClient.diagnostics.clear();
@@ -303,7 +303,7 @@ async function startLanguageServer(ctx: qv.ExtensionContext, config: LanguageSer
 
   if (!deepEqual(latestConfig, config)) {
     latestConfig = config;
-    languageClient = await buildLanguageClient(buildLanguageClientOption(config));
+    languageClient = await buildLangClient(buildLangClientOption(config));
     crashCount = 0;
   }
 
@@ -316,7 +316,7 @@ async function startLanguageServer(ctx: qv.ExtensionContext, config: LanguageSer
       await suggestGoplsIssueReport("Looks like you're about to manually restart the language server.", errorKind.manualRestart);
 
       manualRestartCount++;
-      restartLanguageServer();
+      restartLangServer();
     });
     ctx.subscriptions.push(restartCommand);
   }
@@ -330,12 +330,12 @@ async function startLanguageServer(ctx: qv.ExtensionContext, config: LanguageSer
   return true;
 }
 
-export interface BuildLanguageClientOption extends LanguageServerConfig {
+export interface BuildLangClientOption extends LangServerConfig {
   outputChannel?: qv.OutputChannel;
   traceOutputChannel?: qv.OutputChannel;
 }
 
-function buildLanguageClientOption(cfg: LanguageServerConfig): BuildLanguageClientOption {
+function buildLangClientOption(cfg: LangServerConfig): BuildLangClientOption {
   if (cfg.enabled) {
     if (!serverOutputChannel) {
       serverOutputChannel = qv.window.createOutputChannel(cfg.serverName + ' (server)');
@@ -353,8 +353,8 @@ function buildLanguageClientOption(cfg: LanguageServerConfig): BuildLanguageClie
   );
 }
 
-export async function buildLanguageClient(cfg: BuildLanguageClientOption): Promise<LanguageClient> {
-  const goplsWorkspaceConfig = await adjustGoplsWorkspaceConfiguration(cfg, getGoplsConfig(), 'gopls', undefined);
+export async function buildLangClient(cfg: BuildLangClientOption): Promise<LangClient> {
+  const goplsWorkspaceConfig = await adjustGoplsWorkspaceConfig(cfg, getGoplsConfig(), 'gopls', undefined);
 
   const documentSelector = [
     { language: 'go', scheme: 'file' },
@@ -369,7 +369,7 @@ export async function buildLanguageClient(cfg: BuildLanguageClientOption): Promi
   if (isInPreviewMode()) {
     documentSelector.push({ language: 'tmpl', scheme: 'file' }, { language: 'tmpl', scheme: 'untitled' });
   }
-  const c = new LanguageClient(
+  const c = new LangClient(
     'go', // id
     cfg.serverName, // name e.g. gopls
     {
@@ -460,14 +460,14 @@ export async function buildLanguageClient(cfg: BuildLanguageClientOption): Promi
           }
           return next(document, options, token);
         },
-        handleDiagnostics: (uri: qv.Uri, diagnostics: qv.Diagnostic[], next: HandleDiagnosticsSignature) => {
+        handleDiags: (uri: qv.Uri, diagnostics: qv.Diag[], next: HandleDiagsSignature) => {
           if (!cfg.features.diagnostics) {
             return null;
           }
 
-          removeDuplicateDiagnostics(vetDiagnosticCollection, uri, diagnostics);
-          removeDuplicateDiagnostics(buildDiagnosticCollection, uri, diagnostics);
-          removeDuplicateDiagnostics(lintDiagnosticCollection, uri, diagnostics);
+          removeDuplicateDiags(vetDiagCollection, uri, diagnostics);
+          removeDuplicateDiags(buildDiagCollection, uri, diagnostics);
+          removeDuplicateDiags(lintDiagCollection, uri, diagnostics);
 
           return next(uri, diagnostics);
         },
@@ -488,8 +488,8 @@ export async function buildLanguageClient(cfg: BuildLanguageClientOption): Promi
             }
           }
 
-          const editorParamHintsEnabled = qv.workspace.getConfiguration('editor.parameterHints', document.uri)['enabled'];
-          const goParamHintsEnabled = qv.workspace.getConfiguration('[go]', document.uri)['editor.parameterHints.enabled'];
+          const editorParamHintsEnabled = qv.workspace.getConfig('editor.parameterHints', document.uri)['enabled'];
+          const goParamHintsEnabled = qv.workspace.getConfig('[go]', document.uri)['editor.parameterHints.enabled'];
           let paramHintsEnabled = false;
           if (typeof goParamHintsEnabled === 'undefined') {
             paramHintsEnabled = editorParamHintsEnabled;
@@ -527,7 +527,7 @@ export async function buildLanguageClient(cfg: BuildLanguageClientOption): Promi
           next(e);
         },
         workspace: {
-          configuration: async (params: ConfigurationParams, token: CancellationToken, next: ConfigurationRequest.HandlerSignature): Promise<any[] | ResponseError<void>> => {
+          configuration: async (params: ConfigParams, token: CancellationToken, next: ConfigRequest.HandlerSignature): Promise<any[] | ResponseError<void>> => {
             const configs = await next(params, token);
             if (!configs || !Array.isArray(configs)) {
               return configs;
@@ -539,7 +539,7 @@ export async function buildLanguageClient(cfg: BuildLanguageClientOption): Promi
                 const scopeUri = params.items[i].scopeUri;
                 const resource = scopeUri ? qv.Uri.parse(scopeUri) : undefined;
                 const section = params.items[i].section;
-                workspaceConfig = await adjustGoplsWorkspaceConfiguration(cfg, workspaceConfig, section, resource);
+                workspaceConfig = await adjustGoplsWorkspaceConfig(cfg, workspaceConfig, section, resource);
               }
               ret.push(workspaceConfig);
             }
@@ -567,11 +567,11 @@ export function filterGoplsDefaultConfigValues(workspaceConfig: any, resource: q
     if (
       !c ||
       !deepEqual(c.defaultValue, value) ||
-      c.globalLanguageValue !== undefined ||
+      c.globalLangValue !== undefined ||
       c.globalValue !== undefined ||
-      c.workspaceFolderLanguageValue !== undefined ||
+      c.workspaceFolderLangValue !== undefined ||
       c.workspaceFolderValue !== undefined ||
-      c.workspaceLanguageValue !== undefined ||
+      c.workspaceLangValue !== undefined ||
       c.workspaceValue !== undefined
     ) {
       filtered[key] = value;
@@ -599,7 +599,7 @@ export function passGoConfigToGoplsConfigValues(goplsWorkspaceConfig: any, goWor
   return goplsWorkspaceConfig;
 }
 
-async function adjustGoplsWorkspaceConfiguration(cfg: LanguageServerConfig, workspaceConfig: any, section: string, resource: qv.Uri): Promise<any> {
+async function adjustGoplsWorkspaceConfig(cfg: LangServerConfig, workspaceConfig: any, section: string, resource: qv.Uri): Promise<any> {
   if (section !== 'gopls') {
     return workspaceConfig;
   }
@@ -664,65 +664,65 @@ function createBenchmarkCodeLens(lens: qv.CodeLens): qv.CodeLens[] {
 
 function registerDefaultProviders(ctx: qv.ExtensionContext) {
   const completionProvider = new GoCompletionItemProvider(ctx.globalState);
-  defaultLanguageProviders.push(completionProvider);
-  defaultLanguageProviders.push(qv.languages.registerCompletionItemProvider(GO_MODE, completionProvider, '.', '"'));
-  defaultLanguageProviders.push(qv.languages.registerHoverProvider(GO_MODE, new GoHoverProvider()));
-  defaultLanguageProviders.push(qv.languages.registerDefinitionProvider(GO_MODE, new GoDefinitionProvider()));
-  defaultLanguageProviders.push(qv.languages.registerReferenceProvider(GO_MODE, new GoReferenceProvider()));
-  defaultLanguageProviders.push(qv.languages.registerDocumentSymbolProvider(GO_MODE, new GoDocumentSymbolProvider()));
-  defaultLanguageProviders.push(qv.languages.registerWorkspaceSymbolProvider(new GoWorkspaceSymbolProvider()));
-  defaultLanguageProviders.push(qv.languages.registerSignatureHelpProvider(GO_MODE, new GoSignatureHelpProvider(), '(', ','));
-  defaultLanguageProviders.push(qv.languages.registerImplementationProvider(GO_MODE, new GoImplementationProvider()));
-  defaultLanguageProviders.push(qv.languages.registerDocumentFormattingEditProvider(GO_MODE, new GoDocumentFormattingEditProvider()));
-  defaultLanguageProviders.push(qv.languages.registerTypeDefinitionProvider(GO_MODE, new GoTypeDefinitionProvider()));
-  defaultLanguageProviders.push(qv.languages.registerRenameProvider(GO_MODE, new GoRenameProvider()));
-  defaultLanguageProviders.push(qv.workspace.onDidChangeTextDocument(parseLiveFile, null, ctx.subscriptions));
-  defaultLanguageProviders.push(qv.languages.registerCodeActionsProvider(GO_MODE, new GoCodeActionProvider()));
+  defaultLangProviders.push(completionProvider);
+  defaultLangProviders.push(qv.languages.registerCompletionItemProvider(GO_MODE, completionProvider, '.', '"'));
+  defaultLangProviders.push(qv.languages.registerHoverProvider(GO_MODE, new GoHoverProvider()));
+  defaultLangProviders.push(qv.languages.registerDefinitionProvider(GO_MODE, new GoDefinitionProvider()));
+  defaultLangProviders.push(qv.languages.registerReferenceProvider(GO_MODE, new GoReferenceProvider()));
+  defaultLangProviders.push(qv.languages.registerDocumentSymbolProvider(GO_MODE, new GoDocumentSymbolProvider()));
+  defaultLangProviders.push(qv.languages.registerWorkspaceSymbolProvider(new GoWorkspaceSymbolProvider()));
+  defaultLangProviders.push(qv.languages.registerSignatureHelpProvider(GO_MODE, new GoSignatureHelpProvider(), '(', ','));
+  defaultLangProviders.push(qv.languages.registerImplementationProvider(GO_MODE, new GoImplementationProvider()));
+  defaultLangProviders.push(qv.languages.registerDocumentFormattingEditProvider(GO_MODE, new GoDocumentFormattingEditProvider()));
+  defaultLangProviders.push(qv.languages.registerTypeDefinitionProvider(GO_MODE, new GoTypeDefinitionProvider()));
+  defaultLangProviders.push(qv.languages.registerRenameProvider(GO_MODE, new GoRenameProvider()));
+  defaultLangProviders.push(qv.workspace.onDidChangeTextDocument(parseLiveFile, null, ctx.subscriptions));
+  defaultLangProviders.push(qv.languages.registerCodeActionsProvider(GO_MODE, new GoCodeActionProvider()));
 
-  for (const provider of defaultLanguageProviders) {
+  for (const provider of defaultLangProviders) {
     ctx.subscriptions.push(provider);
   }
 }
 
 function disposeDefaultProviders() {
-  for (const disposable of defaultLanguageProviders) {
+  for (const disposable of defaultLangProviders) {
     disposable.dispose();
   }
-  defaultLanguageProviders = [];
+  defaultLangProviders = [];
 }
 
-export async function watchLanguageServerConfiguration(e: qv.ConfigurationChangeEvent) {
-  if (!e.affectsConfiguration('go')) {
+export async function watchLangServerConfig(e: qv.ConfigChangeEvent) {
+  if (!e.affectsConfig('go')) {
     return;
   }
 
   if (
-    e.affectsConfiguration('go.useLanguageServer') ||
-    e.affectsConfiguration('go.languageServerFlags') ||
-    e.affectsConfiguration('go.languageServerExperimentalFeatures') ||
-    e.affectsConfiguration('go.alternateTools') ||
-    e.affectsConfiguration('go.toolsEnvVars') ||
-    e.affectsConfiguration('go.formatTool')
+    e.affectsConfig('go.useLangServer') ||
+    e.affectsConfig('go.languageServerFlags') ||
+    e.affectsConfig('go.languageServerExperimentalFeatures') ||
+    e.affectsConfig('go.alternateTools') ||
+    e.affectsConfig('go.toolsEnvVars') ||
+    e.affectsConfig('go.formatTool')
   ) {
-    restartLanguageServer();
+    restartLangServer();
   }
 
-  if (e.affectsConfiguration('go.useLanguageServer') && getGoConfig()['useLanguageServer'] === false) {
+  if (e.affectsConfig('go.useLangServer') && getGoConfig()['useLangServer'] === false) {
     promptAboutGoplsOptOut(true);
   }
 }
 
-export function buildLanguageServerConfig(goConfig: qv.WorkspaceConfiguration): LanguageServerConfig {
+export function buildLangServerConfig(goConfig: qv.WorkspaceConfig): LangServerConfig {
   let formatter: GoDocumentFormattingEditProvider;
   if (usingCustomFormatTool(goConfig)) {
     formatter = new GoDocumentFormattingEditProvider();
   }
-  const cfg: LanguageServerConfig = {
+  const cfg: LangServerConfig = {
     serverName: '',
     path: '',
     version: '', // compute version lazily
     modtime: null,
-    enabled: goConfig['useLanguageServer'] === true,
+    enabled: goConfig['useLangServer'] === true,
     flags: goConfig['languageServerFlags'] || [],
     features: {
       diagnostics: goConfig['languageServerExperimentalFeatures']['diagnostics'],
@@ -731,7 +731,7 @@ export function buildLanguageServerConfig(goConfig: qv.WorkspaceConfiguration): 
     env: toolExecutionEnvironment(),
     checkForUpdates: getCheckForToolsUpdatesConfig(goConfig),
   };
-  const languageServerPath = getLanguageServerToolPath();
+  const languageServerPath = getLangServerToolPath();
   if (!languageServerPath) {
     cfg.enabled = false;
     return cfg;
@@ -756,7 +756,7 @@ Please try reinstalling it.`);
   return cfg;
 }
 
-export function getLanguageServerToolPath(): string {
+export function getLangServerToolPath(): string {
   const goConfig = getGoConfig();
 
   if (!allFoldersHaveSameGopath()) {
@@ -791,7 +791,7 @@ function allFoldersHaveSameGopath(): boolean {
   return qv.workspace.workspaceFolders.find((x) => tempGopath !== getCurrentGoPath(x.uri)) ? false : true;
 }
 
-export async function shouldUpdateLanguageServer(tool: Tool, cfg: LanguageServerConfig, mustCheck?: boolean): Promise<semver.SemVer> {
+export async function shouldUpdateLangServer(tool: Tool, cfg: LangServerConfig, mustCheck?: boolean): Promise<semver.SemVer> {
   if (tool.name !== 'gopls' || (!mustCheck && (cfg.checkForUpdates === 'off' || IsInCloudIDE))) {
     return null;
   }
@@ -832,7 +832,7 @@ export async function shouldUpdateLanguageServer(tool: Tool, cfg: LanguageServer
   return semver.lt(usersVersionSemver, latestVersion) ? latestVersion : null;
 }
 
-async function suggestUpdateGopls(tool: Tool, cfg: LanguageServerConfig): Promise<boolean> {
+async function suggestUpdateGopls(tool: Tool, cfg: LangServerConfig): Promise<boolean> {
   const forceUpdatedGoplsKey = 'forceUpdateForGoplsOnDefault';
 
   const forceUpdated = getFromGlobalState(forceUpdatedGoplsKey, false);
@@ -843,7 +843,7 @@ async function suggestUpdateGopls(tool: Tool, cfg: LanguageServerConfig): Promis
 
   await updateGlobalState(forceUpdatedGoplsKey, tool.latestVersion);
 
-  const latestVersion = await shouldUpdateLanguageServer(tool, cfg);
+  const latestVersion = await shouldUpdateLangServer(tool, cfg);
 
   if (!latestVersion) {
     return;
@@ -899,7 +899,7 @@ export const getTimestampForVersion = async (tool: Tool, version: semver.SemVer)
   return time;
 };
 
-export const getLocalGoplsVersion = async (cfg: LanguageServerConfig) => {
+export const getLocalGoplsVersion = async (cfg: LangServerConfig) => {
   if (!cfg) {
     return null;
   }
@@ -1132,7 +1132,7 @@ function getStateConfig(globalStateKey: string, workspace?: boolean): any {
 }
 
 export async function showSurveyConfig() {
-  outputChannel.appendLine('Gopls Survey Configuration');
+  outputChannel.appendLine('Gopls Survey Config');
   outputChannel.appendLine(JSON.stringify(getSurveyConfig(), null, 2));
   outputChannel.show();
 
@@ -1162,7 +1162,7 @@ async function suggestGoplsIssueReport(msg: string, reason: errorKind, initializ
 
   const tool = getTool('gopls');
   if (tool) {
-    const versionToUpdate = await shouldUpdateLanguageServer(tool, latestConfig, true);
+    const versionToUpdate = await shouldUpdateLangServer(tool, latestConfig, true);
     if (versionToUpdate) {
       promptForUpdatingTool(tool.name, versionToUpdate, true);
       return;
@@ -1429,9 +1429,9 @@ export function sanitizeGoplsTrace(logs?: string): { sanitizedLog?: string; fail
   return { failureReason: GoplsFailureModes.UNRECOGNIZED_CRASH_PATTERN };
 }
 
-function languageServerUsingDefault(cfg: qv.WorkspaceConfiguration): boolean {
-  const useLanguageServer = cfg.inspect<boolean>('useLanguageServer');
-  return useLanguageServer.globalValue === undefined && useLanguageServer.workspaceValue === undefined;
+function languageServerUsingDefault(cfg: qv.WorkspaceConfig): boolean {
+  const useLangServer = cfg.inspect<boolean>('useLangServer');
+  return useLangServer.globalValue === undefined && useLangServer.workspaceValue === undefined;
 }
 
 interface ExtensionInfo {

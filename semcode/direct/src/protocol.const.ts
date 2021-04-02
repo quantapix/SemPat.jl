@@ -31,7 +31,7 @@ export class Kind {
   public static readonly typeParameter = 'type parameter';
 }
 
-export class DiagnosticCategory {
+export class DiagCategory {
   public static readonly error = 'error';
   public static readonly warning = 'warning';
   public static readonly suggestion = 'suggestion';
@@ -67,7 +67,7 @@ export enum EventName {
   suggestionDiag = 'suggestionDiag',
   configFileDiag = 'configFileDiag',
   telemetry = 'telemetry',
-  projectLanguageServiceState = 'projectLanguageServiceState',
+  projectLangServiceState = 'projectLangServiceState',
   projectsUpdatedInBackground = 'projectsUpdatedInBackground',
   beginInstallTypes = 'beginInstallTypes',
   endInstallTypes = 'endInstallTypes',

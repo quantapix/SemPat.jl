@@ -1,11 +1,11 @@
 import * as qv from 'vscode';
 import * as qp from './protocol';
 import BufferSyncSupport from '../old/ts/tsServer/bufferSyncSupport';
-import { ExecutionTarget } from '../old/ts/tsServer/server';
-import { TypeScriptVersion } from '../old/ts/tsServer/versionProvider';
+import { ExecTarget } from '../old/ts/tsServer/server';
+import { TSVersion } from '../old/ts/tsServer/versionProvider';
 import API from '../old/ts/utils/api';
-import { TypeScriptServiceConfiguration } from '../old/ts/utils/configuration';
-import { PluginManager } from '../old/ts/utils/plugins';
+import { TSServiceConfig } from '../old/ts/utils/configuration';
+import { PluginMgr } from '../old/ts/utils/plugins';
 import { TelemetryReporter } from '../old/ts/utils/telemetry';
 
 export enum ServerType {
@@ -74,13 +74,13 @@ interface AsyncRequests {
   geterrForProject: [qp.GeterrForProjectRequestArgs, qp.Response];
 }
 
-export type TypeScriptRequests = StdRequests & NoResponseRequests & AsyncRequests;
+export type TSRequests = StdRequests & NoResponseRequests & AsyncRequests;
 
 export type ExecConfig = {
   readonly lowPriority?: boolean;
   readonly nonRecoverable?: boolean;
   readonly cancelOnResourceChange?: qv.Uri;
-  readonly executionTarget?: ExecutionTarget;
+  readonly executionTarget?: ExecTarget;
 };
 
 export enum ClientCap {
@@ -106,8 +106,8 @@ export interface ServiceClient {
   toOpenedFilePath(d: qv.TextDocument, opts?: { suppressAlertOnFailure?: boolean }): string | undefined;
   hasCapabilityForResource(r: qv.Uri, c: ClientCap): boolean;
   getWorkspaceRootForResource(r: qv.Uri): string | undefined;
-  readonly onTsServerStarted: qv.Event<{ version: TypeScriptVersion; usedApiVersion: API }>;
-  readonly onProjectLanguageServiceStateChanged: qv.Event<qp.ProjectLanguageServiceStateEventBody>;
+  readonly onTSServerStarted: qv.Event<{ version: TSVersion; usedApiVersion: API }>;
+  readonly onProjectLangServiceStateChanged: qv.Event<qp.ProjectLangServiceStateEventBody>;
   readonly onDidBeginInstallTypings: qv.Event<qp.BeginInstallTypesEventBody>;
   readonly onDidEndInstallTypings: qv.Event<qp.EndInstallTypesEventBody>;
   readonly onTypesInstallerInitializationFailed: qv.Event<qp.TypesInstallerInitializationFailedEventBody>;
@@ -116,8 +116,8 @@ export interface ServiceClient {
   onReady(f: () => void): Promise<void>;
   showVersionPicker(): void;
   readonly apiVersion: API;
-  readonly pluginManager: PluginManager;
-  readonly configuration: TypeScriptServiceConfiguration;
+  readonly pluginMgr: PluginMgr;
+  readonly configuration: TSServiceConfig;
   readonly bufferSyncSupport: BufferSyncSupport;
   readonly telemetryReporter: TelemetryReporter;
   execute<K extends keyof StdRequests>(k: K, xs: StdRequests[K][0], t: qv.CancellationToken, c?: ExecConfig): Promise<ServerResponse.Response<StdRequests[K][1]>>;

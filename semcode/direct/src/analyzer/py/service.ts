@@ -8,23 +8,11 @@ import { createBackgroundThreadCancellationTokenSource } from '../common/cancell
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions } from '../common/configOptions';
 import { Console, log, LogLevel, StdConsole } from '../common/console';
-import { Diagnostic } from '../common/diagnostic';
+import { Diag } from '../common/diagnostic';
 import { FileEditAction, TextEditAction } from '../common/editAction';
-import { LanguageServiceExtension } from '../common/extensibility';
+import { LangServiceExtension } from '../common/extensibility';
 import { FileSystem, FileWatcher, ignoredWatchEventFunction } from '../common/fileSystem';
-import {
-  combinePaths,
-  FileSpec,
-  forEachAncestorDirectory,
-  getDirectoryPath,
-  getFileName,
-  getFileSpec,
-  getFileSystemEntries,
-  isDirectory,
-  normalizePath,
-  stripFileExtension,
-  tryStat,
-} from '../common/pathUtils';
+import { combinePaths, FileSpec, forEachAncestorDir, getDirPath, getFileName, getFileSpec, getFileSystemEntries, isDir, normalizePath, stripFileExtension, tryStat } from '../common/pathUtils';
 import { DocumentRange, Position, Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
 import { AbbreviationMap, CompletionOptions, CompletionResults } from '../languageService/completionProvider';
@@ -34,8 +22,8 @@ import { HoverResults } from '../languageService/hoverProvider';
 import { ReferenceCallback } from '../languageService/referencesProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { AnalysisCompleteCallback } from './analysis';
-import { BackgroundAnalysisProgram, BackgroundAnalysisProgramFactory } from './backgroundAnalysisProgram';
-import { ImportedModuleDescriptor, ImportResolver, ImportResolverFactory } from './importResolver';
+import { BackgroundAnalysisProgram, BackgroundAnalysisProgramFact } from './backgroundAnalysisProgram';
+import { ImportedModuleDescriptor, ImportResolver, ImportResolverFact } from './importResolver';
 import { MaxAnalysisTime } from './program';
 import { findPythonSearchPaths, getPythonPathFromPythonInterpreter } from './pythonPathUtils';
 import { TypeEvaluator } from './typeEvaluator';
@@ -46,7 +34,7 @@ const _userActivityBackoffTimeInMs = 250;
 
 export class AnalyzerService {
   private _instanceName: string;
-  private _importResolverFactory: ImportResolverFactory;
+  private _importResolverFact: ImportResolverFact;
   private _executionRootPath: string;
   private _typeStubTargetPath: string | undefined;
   private _typeStubTargetIsSingleFile = false;
@@ -62,38 +50,38 @@ export class AnalyzerService {
   private _analyzeTimer: any;
   private _requireTrackedFileUpdate = true;
   private _lastUserInteractionTime = Date.now();
-  private _extension: LanguageServiceExtension | undefined;
+  private _extension: LangServiceExtension | undefined;
   private _backgroundAnalysisProgram: BackgroundAnalysisProgram;
   private _backgroundAnalysisCancellationSource: AbstractCancellationTokenSource | undefined;
   private _maxAnalysisTimeInForeground?: MaxAnalysisTime;
-  private _backgroundAnalysisProgramFactory?: BackgroundAnalysisProgramFactory;
+  private _backgroundAnalysisProgramFact?: BackgroundAnalysisProgramFact;
   private _disposed = false;
 
   constructor(
     instanceName: string,
     fs: FileSystem,
     console?: Console,
-    importResolverFactory?: ImportResolverFactory,
+    importResolverFact?: ImportResolverFact,
     configOptions?: ConfigOptions,
-    extension?: LanguageServiceExtension,
+    extension?: LangServiceExtension,
     backgroundAnalysis?: BackgroundAnalysisBase,
     maxAnalysisTime?: MaxAnalysisTime,
-    backgroundAnalysisProgramFactory?: BackgroundAnalysisProgramFactory
+    backgroundAnalysisProgramFact?: BackgroundAnalysisProgramFact
   ) {
     this._instanceName = instanceName;
     this._console = console || new StdConsole();
     this._executionRootPath = '';
     this._extension = extension;
-    this._importResolverFactory = importResolverFactory || AnalyzerService.createImportResolver;
+    this._importResolverFact = importResolverFact || AnalyzerService.createImportResolver;
     this._maxAnalysisTimeInForeground = maxAnalysisTime;
-    this._backgroundAnalysisProgramFactory = backgroundAnalysisProgramFactory;
+    this._backgroundAnalysisProgramFact = backgroundAnalysisProgramFact;
 
     configOptions = configOptions ?? new ConfigOptions(process.cwd());
-    const importResolver = this._importResolverFactory(fs, configOptions);
+    const importResolver = this._importResolverFact(fs, configOptions);
 
     this._backgroundAnalysisProgram =
-      backgroundAnalysisProgramFactory !== undefined
-        ? backgroundAnalysisProgramFactory(this._console, configOptions, importResolver, this._extension, backgroundAnalysis, this._maxAnalysisTimeInForeground)
+      backgroundAnalysisProgramFact !== undefined
+        ? backgroundAnalysisProgramFact(this._console, configOptions, importResolver, this._extension, backgroundAnalysis, this._maxAnalysisTimeInForeground)
         : new BackgroundAnalysisProgram(this._console, configOptions, importResolver, this._extension, backgroundAnalysis, this._maxAnalysisTimeInForeground);
   }
 
@@ -102,12 +90,12 @@ export class AnalyzerService {
       instanceName,
       this._fs,
       this._console,
-      this._importResolverFactory,
+      this._importResolverFact,
       this._backgroundAnalysisProgram.configOptions,
       this._extension,
       backgroundAnalysis,
       this._maxAnalysisTimeInForeground,
-      this._backgroundAnalysisProgramFactory
+      this._backgroundAnalysisProgramFact
     );
   }
 
@@ -269,8 +257,8 @@ export class AnalyzerService {
     this._program.printDependencies(this._executionRootPath, verbose);
   }
 
-  getDiagnosticsForRange(filePath: string, range: Range, token: CancellationToken): Promise<Diagnostic[]> {
-    return this._backgroundAnalysisProgram.getDiagnosticsForRange(filePath, range, token);
+  getDiagsForRange(filePath: string, range: Range, token: CancellationToken): Promise<Diag[]> {
+    return this._backgroundAnalysisProgram.getDiagsForRange(filePath, range, token);
   }
 
   getConfigOptions() {
@@ -308,23 +296,23 @@ export class AnalyzerService {
     if (commandLineOptions.configFilePath) {
       configFilePath = combinePaths(commandLineOptions.executionRoot, normalizePath(commandLineOptions.configFilePath));
       if (!this._fs.existsSync(configFilePath)) {
-        this._console.info(`Configuration file not found at ${configFilePath}.`);
+        this._console.info(`Config file not found at ${configFilePath}.`);
         configFilePath = commandLineOptions.executionRoot;
       } else {
         if (configFilePath.toLowerCase().endsWith('.json')) {
-          projectRoot = getDirectoryPath(configFilePath);
+          projectRoot = getDirPath(configFilePath);
         } else {
           projectRoot = configFilePath;
           configFilePath = this._findConfigFile(configFilePath);
           if (!configFilePath) {
-            this._console.info(`Configuration file not found at ${projectRoot}.`);
+            this._console.info(`Config file not found at ${projectRoot}.`);
           }
         }
       }
     } else if (projectRoot) {
       configFilePath = this._findConfigFileHereOrUp(projectRoot);
       if (configFilePath) {
-        projectRoot = getDirectoryPath(configFilePath);
+        projectRoot = getDirPath(configFilePath);
       } else {
         this._console.info(`No configuration file found.`);
         configFilePath = undefined;
@@ -367,7 +355,7 @@ export class AnalyzerService {
           commandLineOptions.fileSpecs.length > 0
         );
 
-        const configFileDir = getDirectoryPath(configFilePath);
+        const configFileDir = getDirPath(configFilePath);
 
         if (configOptions.include.length === 0) {
           this._console.info(`No include entries specified; assuming ${configFileDir}`);
@@ -387,7 +375,7 @@ export class AnalyzerService {
       }
     } else {
       configOptions.autoExcludeVenv = true;
-      configOptions.applyDiagnosticOverrides(commandLineOptions.diagnosticSeverityOverrides);
+      configOptions.applyDiagOverrides(commandLineOptions.diagnosticSeverityOverrides);
     }
 
     const reportDuplicateSetting = (settingName: string, configValue: number | string | boolean) => {
@@ -442,7 +430,7 @@ export class AnalyzerService {
     }
 
     if (configOptions.venvPath) {
-      if (!this._fs.existsSync(configOptions.venvPath) || !isDirectory(this._fs, configOptions.venvPath)) {
+      if (!this._fs.existsSync(configOptions.venvPath) || !isDir(this._fs, configOptions.venvPath)) {
         this._console.error(`venvPath ${configOptions.venvPath} is not a valid directory.`);
       }
 
@@ -450,7 +438,7 @@ export class AnalyzerService {
       if (configOptions.venv) {
         const fullVenvPath = combinePaths(configOptions.venvPath, configOptions.venv);
 
-        if (!this._fs.existsSync(fullVenvPath) || !isDirectory(this._fs, fullVenvPath)) {
+        if (!this._fs.existsSync(fullVenvPath) || !isDir(this._fs, fullVenvPath)) {
           this._console.error(`venv ${configOptions.venv} subdirectory not found in venv path ${configOptions.venvPath}.`);
         } else {
           const importFailureInfo: string[] = [];
@@ -500,13 +488,13 @@ export class AnalyzerService {
     }
 
     if (configOptions.typeshedPath) {
-      if (!this._fs.existsSync(configOptions.typeshedPath) || !isDirectory(this._fs, configOptions.typeshedPath)) {
+      if (!this._fs.existsSync(configOptions.typeshedPath) || !isDir(this._fs, configOptions.typeshedPath)) {
         this._console.error(`typeshedPath ${configOptions.typeshedPath} is not a valid directory.`);
       }
     }
 
     if (configOptions.stubPath) {
-      if (!this._fs.existsSync(configOptions.stubPath) || !isDirectory(this._fs, configOptions.stubPath)) {
+      if (!this._fs.existsSync(configOptions.stubPath) || !isDir(this._fs, configOptions.stubPath)) {
         this._console.warn(`stubPath ${configOptions.stubPath} is not a valid directory.`);
       }
     }
@@ -610,7 +598,7 @@ export class AnalyzerService {
   }
 
   private _findConfigFileHereOrUp(searchPath: string): string | undefined {
-    return forEachAncestorDirectory(searchPath, (ancestor) => this._findConfigFile(ancestor));
+    return forEachAncestorDir(searchPath, (ancestor) => this._findConfigFile(ancestor));
   }
 
   private _findConfigFile(searchPath: string): string | undefined {
@@ -660,7 +648,7 @@ export class AnalyzerService {
   private _getFileNamesFromFileSpecs(): string[] {
     const fileMap = new Map<string, string>();
 
-    timingStats.findFilesTime.timeOperation(() => {
+    timingStats.findFilesTime.timeOp(() => {
       const matchedFiles = this._matchFiles(this._configOptions.include, this._configOptions.exclude);
 
       for (const file of matchedFiles) {
@@ -687,20 +675,20 @@ export class AnalyzerService {
 
         const resolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
 
-        let targetPath = getDirectoryPath(resolvedPath);
+        let targetPath = getDirPath(resolvedPath);
         let prevResolvedPath = resolvedPath;
         for (let i = importResult.resolvedPaths.length - 2; i >= 0; i--) {
           const resolvedPath = importResult.resolvedPaths[i];
           if (resolvedPath) {
-            targetPath = getDirectoryPath(resolvedPath);
+            targetPath = getDirPath(resolvedPath);
             prevResolvedPath = resolvedPath;
           } else {
-            targetPath = getDirectoryPath(prevResolvedPath);
+            targetPath = getDirPath(prevResolvedPath);
             prevResolvedPath = targetPath;
           }
         }
 
-        if (isDirectory(this._fs, targetPath)) {
+        if (isDir(this._fs, targetPath)) {
           this._typeStubTargetPath = targetPath;
         }
 
@@ -747,7 +735,7 @@ export class AnalyzerService {
     const envMarkers = [['bin', 'activate'], ['Scripts', 'activate'], ['pyvenv.cfg']];
     const results: string[] = [];
 
-    const visitDirectoryUnchecked = (absolutePath: string, includeRegExp: RegExp) => {
+    const visitDirUnchecked = (absolutePath: string, includeRegExp: RegExp) => {
       if (this._configOptions.autoExcludeVenv) {
         if (envMarkers.some((f) => this._fs.existsSync(combinePaths(absolutePath, ...f)))) {
           this._console.info(`Auto-excluding ${absolutePath}`);
@@ -771,14 +759,14 @@ export class AnalyzerService {
         const dirPath = combinePaths(absolutePath, directory);
         if (includeRegExp.test(dirPath)) {
           if (!this._isInExcludePath(dirPath, exclude)) {
-            visitDirectory(dirPath, includeRegExp);
+            visitDir(dirPath, includeRegExp);
           }
         }
       }
     };
 
     const seenDirs = new Set<string>();
-    const visitDirectory = (absolutePath: string, includeRegExp: RegExp) => {
+    const visitDir = (absolutePath: string, includeRegExp: RegExp) => {
       const realDirPath = this._fs.realpathSync(absolutePath);
       if (seenDirs.has(realDirPath)) {
         this._console.warn(`Skipping recursive symlink "${absolutePath}" -> "${realDirPath}"`);
@@ -787,7 +775,7 @@ export class AnalyzerService {
       seenDirs.add(realDirPath);
 
       try {
-        visitDirectoryUnchecked(absolutePath, includeRegExp);
+        visitDirUnchecked(absolutePath, includeRegExp);
       } finally {
         seenDirs.delete(realDirPath);
       }
@@ -803,8 +791,8 @@ export class AnalyzerService {
             results.push(includeSpec.wildcardRoot);
             foundFileSpec = true;
           }
-        } else if (stat?.isDirectory()) {
-          visitDirectory(includeSpec.wildcardRoot, includeSpec.regExp);
+        } else if (stat?.isDir()) {
+          visitDir(includeSpec.wildcardRoot, includeSpec.regExp);
           foundFileSpec = true;
         }
       }
@@ -1017,7 +1005,7 @@ export class AnalyzerService {
   }
 
   private _applyConfigOptions(reanalyze = true) {
-    const importResolver = this._importResolverFactory(this._fs, this._backgroundAnalysisProgram.configOptions);
+    const importResolver = this._importResolverFact(this._fs, this._backgroundAnalysisProgram.configOptions);
     this._backgroundAnalysisProgram.setImportResolver(importResolver);
 
     this._updateLibraryFileWatcher();

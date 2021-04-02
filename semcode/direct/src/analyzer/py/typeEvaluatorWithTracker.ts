@@ -16,12 +16,12 @@ export function createTypeEvaluatorWithTracker(importLookup: ImportLookup, evalu
           title,
           (s) => {
             s.add(printer?.print(value));
-            return timingStats.typeEvaluationTime.timeOperation(callback);
+            return timingStats.typeEvaluationTime.timeOp(callback);
           },
           evaluatorOptions.minimumLoggingThreshold,
           true
         )
-      : timingStats.typeEvaluationTime.timeOperation(callback);
+      : timingStats.typeEvaluationTime.timeOp(callback);
   }
 
   const lookup: ImportLookup = evaluatorOptions.logCalls
@@ -50,7 +50,7 @@ export function createTypeEvaluatorWithTracker(importLookup: ImportLookup, evalu
     verifyDeleteExpression: (n) => run('verifyDeleteExpression', () => typeEvaluator.verifyDeleteExpression(n), n),
     isAfterNodeReachable: (n) => run('isAfterNodeReachable', () => typeEvaluator.isAfterNodeReachable(n), n),
     isNodeReachable: (n) => run('isNodeReachable', () => typeEvaluator.isNodeReachable(n), n),
-    suppressDiagnostics: (node, callback) => run('suppressDiagnostics', () => typeEvaluator.suppressDiagnostics(node, callback)),
+    suppressDiags: (node, callback) => run('suppressDiags', () => typeEvaluator.suppressDiags(node, callback)),
     getDeclarationsForNameNode: (n) => run('getDeclarationsForNameNode', () => typeEvaluator.getDeclarationsForNameNode(n), n),
     getTypeForDeclaration: (n) => run('getTypeForDeclaration', () => typeEvaluator.getTypeForDeclaration(n), n),
     resolveAliasDeclaration: (d, l) => run('resolveAliasDeclaration', () => typeEvaluator.resolveAliasDeclaration(d, l), d),
@@ -76,8 +76,8 @@ export function createTypeEvaluatorWithTracker(importLookup: ImportLookup, evalu
     addWarning: (m, n) => run('addWarning', () => typeEvaluator.addWarning(m, n), n),
     addInformation: (m, n) => run('addInformation', () => typeEvaluator.addInformation(m, n), n),
     addUnusedCode: (n, t) => run('addUnusedCode', () => typeEvaluator.addUnusedCode(n, t), n),
-    addDiagnostic: (d, r, m, n) => run('addDiagnostic', () => typeEvaluator.addDiagnostic(d, r, m, n), n),
-    addDiagnosticForTextRange: (f, d, r, m, g) => run('addDiagnosticForTextRange', () => typeEvaluator.addDiagnosticForTextRange(f, d, r, m, g)),
+    addDiag: (d, r, m, n) => run('addDiag', () => typeEvaluator.addDiag(d, r, m, n), n),
+    addDiagForTextRange: (f, d, r, m, g) => run('addDiagForTextRange', () => typeEvaluator.addDiagForTextRange(f, d, r, m, g)),
     printType: (t, e) => run('printType', () => typeEvaluator.printType(t, e), t),
     printFunctionParts: (t) => run('printFunctionParts', () => typeEvaluator.printFunctionParts(t), t),
     getTypeCacheSize: typeEvaluator.getTypeCacheSize,

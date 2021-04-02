@@ -6,7 +6,7 @@ import { adjustWordPosition, definitionLocation, parseMissingError } from './go/
 import { toolExecutionEnvironment } from '../../../../old/go/goEnv';
 import { promptForMissingTool } from '../../../../old/go/goInstallTools';
 import { byteOffsetAt, canonicalizeGOPATHPrefix, getBinPath, getFileArchive, goBuiltinTypes } from '../../../../old/go/util';
-import { killProcessTree } from './utils/processUtils';
+import { killProcTree } from './utils/processUtils';
 
 interface GuruDescribeOutput {
   desc: string;
@@ -107,7 +107,7 @@ export class GoTypeDefinitionProvider implements qv.TypeDefinitionProvider {
       if (process.pid) {
         process.stdin.end(getFileArchive(document));
       }
-      token.onCancellationRequested(() => killProcessTree(process));
+      token.onCancellationRequested(() => killProcTree(process));
     });
   }
 }

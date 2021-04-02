@@ -3,12 +3,12 @@ import type * as qp from '../../protocol';
 import { escapeRegExp } from '../../utils/regexp';
 import * as PConst from '../protocol.const';
 import { CachedResponse } from '../../old/ts/tsServer/cachedResponse';
-import { ClientCapability, ServiceClient } from '../service';
+import { ClientCap, ServiceClient } from '../service';
 import { conditionalRegistration, requireSomeCap, requireConfig } from '../registration';
 import { DocumentSelector } from '../../utils/documentSelector';
 import * as qu from '../utils';
 import { getSymbolRange } from './codeLens';
-import { ExecutionTarget } from '../../old/ts/tsServer/server';
+import { ExecTarget } from '../../old/ts/tsServer/server';
 
 export class CodelensProvider implements qv.CodeLensProvider {
   private codeLenses: qv.CodeLens[] = [];
@@ -18,13 +18,13 @@ export class CodelensProvider implements qv.CodeLensProvider {
 
   constructor() {
     this.regex = /(.+)/g;
-    qv.workspace.onDidChangeConfiguration((_) => {
+    qv.workspace.onDidChangeConfig((_) => {
       this._onDidChangeCodeLenses.fire();
     });
   }
 
   public provideCodeLenses(document: qv.TextDocument, token: qv.CancellationToken): qv.CodeLens[] | Thenable<qv.CodeLens[]> {
-    if (qv.workspace.getConfiguration('codelens-sample').get('enableCodeLens', true)) {
+    if (qv.workspace.getConfig('codelens-sample').get('enableCodeLens', true)) {
       this.codeLenses = [];
       const regex = new RegExp(this.regex);
       const text = document.getText();
@@ -44,7 +44,7 @@ export class CodelensProvider implements qv.CodeLensProvider {
   }
 
   public resolveCodeLens(codeLens: qv.CodeLens, token: qv.CancellationToken) {
-    if (qv.workspace.getConfiguration('codelens-sample').get('enableCodeLens', true)) {
+    if (qv.workspace.getConfig('codelens-sample').get('enableCodeLens', true)) {
       codeLens.command = {
         title: 'Codelens provided by sample extension',
         tooltip: 'Tooltip provided by sample extension',
@@ -184,7 +184,7 @@ export default class TypeScriptImplementationsCodeLensProvider extends BaseCodeL
 }
 
 export function register(selector: DocumentSelector, modeId: string, client: ServiceClient, cachedResponse: CachedResponse<qp.NavTreeResponse>) {
-  return conditionalRegistration([requireConfig(modeId, 'implementationsCodeLens.enabled'), requireSomeCap(client, ClientCapability.Semantic)], () => {
+  return conditionalRegistration([requireConfig(modeId, 'implementationsCodeLens.enabled'), requireSomeCap(client, ClientCap.Semantic)], () => {
     return qv.languages.registerCodeLensProvider(selector.semantic, new TypeScriptImplementationsCodeLensProvider(client, cachedResponse));
   });
 }
@@ -198,7 +198,7 @@ export class TypeScriptReferencesCodeLensProvider extends BaseCodeLens {
     const args = qu.Position.toFileLocationRequestArgs(codeLens.file, codeLens.range.start);
     const response = await this.client.execute('references', args, token, {
       lowPriority: true,
-      executionTarget: ExecutionTarget.Semantic,
+      executionTarget: ExecTarget.Semantic,
       cancelOnResourceChange: codeLens.document,
     });
     if (response.type !== 'response' || !response.body) {
@@ -224,7 +224,7 @@ export class TypeScriptReferencesCodeLensProvider extends BaseCodeLens {
     }
     switch (item.kind) {
       case PConst.Kind.function:
-        const showOnAllFunctions = qv.workspace.getConfiguration(this.modeId).get<boolean>('referencesCodeLens.showOnAllFunctions');
+        const showOnAllFunctions = qv.workspace.getConfig(this.modeId).get<boolean>('referencesCodeLens.showOnAllFunctions');
         if (showOnAllFunctions) {
           return getSymbolRange(document, item);
         }
@@ -265,7 +265,7 @@ export class TypeScriptReferencesCodeLensProvider extends BaseCodeLens {
 }
 
 export function register(selector: DocumentSelector, modeId: string, client: ServiceClient, cachedResponse: CachedResponse<qp.NavTreeResponse>) {
-  return conditionalRegistration([requireConfig(modeId, 'referencesCodeLens.enabled'), requireSomeCap(client, ClientCapability.Semantic)], () => {
+  return conditionalRegistration([requireConfig(modeId, 'referencesCodeLens.enabled'), requireSomeCap(client, ClientCap.Semantic)], () => {
     return qv.languages.registerCodeLensProvider(selector.semantic, new TypeScriptReferencesCodeLensProvider(client, cachedResponse, modeId));
   });
 }

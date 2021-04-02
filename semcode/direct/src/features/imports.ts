@@ -1,11 +1,11 @@
 import { ClientCap, ServiceClient } from '../service';
-import { Command, CommandManager } from '../../old/ts/commands/commandManager';
+import { Command, CommandMgr } from '../../old/ts/commands/commandMgr';
 import { condRegistration, requireMinVer, requireSomeCap } from '../registration';
 import { TelemetryReporter } from '../../old/ts/utils/telemetry';
 import * as qu from '../utils';
 import * as qv from 'vscode';
 import API from '../../old/ts/utils/api';
-import FileConfigurationManager from '../../old/ts/languageFeatures/fileConfigurationManager';
+import FileConfigMgr from '../../old/ts/languageFeatures/fileConfigMgr';
 import type * as qp from '../protocol';
 
 class OrganizeImportsCommand implements Command {
@@ -46,8 +46,8 @@ class OrganizeImportsCommand implements Command {
 export class OrganizeImportsCodeActionProvider implements qv.CodeActionProvider {
   public static readonly minVersion = API.v280;
 
-  public constructor(private readonly client: ServiceClient, commandManager: CommandManager, private readonly fileConfigManager: FileConfigurationManager, telemetryReporter: TelemetryReporter) {
-    commandManager.register(new OrganizeImportsCommand(client, telemetryReporter));
+  public constructor(private readonly client: ServiceClient, commandMgr: CommandMgr, private readonly fileConfigMgr: FileConfigMgr, telemetryReporter: TelemetryReporter) {
+    commandMgr.register(new OrganizeImportsCommand(client, telemetryReporter));
   }
 
   public readonly metadata: qv.CodeActionProviderMetadata = {
@@ -64,7 +64,7 @@ export class OrganizeImportsCodeActionProvider implements qv.CodeActionProvider 
       return [];
     }
 
-    this.fileConfigManager.ensureConfigurationForDocument(document, token);
+    this.fileConfigMgr.ensureConfigForDocument(document, token);
 
     const action = new qv.CodeAction('organizeImportsAction.title', qv.CodeActionKind.SourceOrganizeImports);
     action.command = { title: '', command: OrganizeImportsCommand.Id, arguments: [file] };
@@ -72,15 +72,9 @@ export class OrganizeImportsCodeActionProvider implements qv.CodeActionProvider 
   }
 }
 
-export function register(
-  selector: qu.DocumentSelector,
-  client: ServiceClient,
-  commandManager: CommandManager,
-  fileConfigurationManager: FileConfigurationManager,
-  telemetryReporter: TelemetryReporter
-) {
+export function register(selector: qu.DocumentSelector, client: ServiceClient, commandMgr: CommandMgr, fileConfigMgr: FileConfigMgr, telemetryReporter: TelemetryReporter) {
   return condRegistration([requireMinVer(client, OrganizeImportsCodeActionProvider.minVersion), requireSomeCap(client, ClientCap.Semantic)], () => {
-    const organizeImportsProvider = new OrganizeImportsCodeActionProvider(client, commandManager, fileConfigurationManager, telemetryReporter);
+    const organizeImportsProvider = new OrganizeImportsCodeActionProvider(client, commandMgr, fileConfigMgr, telemetryReporter);
     return qv.languages.registerCodeActionsProvider(selector.semantic, organizeImportsProvider, organizeImportsProvider.metadata);
   });
 }

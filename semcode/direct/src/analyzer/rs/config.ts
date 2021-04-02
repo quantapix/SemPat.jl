@@ -32,7 +32,7 @@ export class Config {
 
   constructor(ctx: qv.ExtensionContext) {
     this.globalStoragePath = ctx.globalStoragePath;
-    qv.workspace.onDidChangeConfiguration(this.onDidChangeConfiguration, this, ctx.subscriptions);
+    qv.workspace.onDidChangeConfig(this.onDidChangeConfig, this, ctx.subscriptions);
     this.refreshLogging();
   }
 
@@ -44,10 +44,10 @@ export class Config {
     log.info('Using configuration', Object.fromEntries(cfg));
   }
 
-  private async onDidChangeConfiguration(event: qv.ConfigurationChangeEvent) {
+  private async onDidChangeConfig(event: qv.ConfigChangeEvent) {
     this.refreshLogging();
 
-    const requiresReloadOpt = this.requiresReloadOpts.find((opt) => event.affectsConfiguration(opt));
+    const requiresReloadOpt = this.requiresReloadOpts.find((opt) => event.affectsConfig(opt));
 
     if (!requiresReloadOpt) return;
 
@@ -58,8 +58,8 @@ export class Config {
     }
   }
 
-  private get cfg(): qv.WorkspaceConfiguration {
-    return qv.workspace.getConfiguration(this.rootSection);
+  private get cfg(): qv.WorkspaceConfig {
+    return qv.workspace.getConfig(this.rootSection);
   }
 
   private get<T>(path: string): T {

@@ -4,11 +4,11 @@ import * as path from 'path';
 import * as qu from '../utils';
 import * as qv from 'vscode';
 import API from '../../old/ts/utils/api';
-import FileConfigurationManager from '../../old/ts/languageFeatures/fileConfigurationManager';
+import FileConfigMgr from '../../old/ts/languageFeatures/fileConfigMgr';
 import type * as qp from '../protocol';
 
 class TypeScriptRenameProvider implements qv.RenameProvider {
-  public constructor(private readonly client: ServiceClient, private readonly fileConfigurationManager: FileConfigurationManager) {}
+  public constructor(private readonly client: ServiceClient, private readonly fileConfigMgr: FileConfigMgr) {}
 
   public async prepareRename(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): Promise<qv.Range | null> {
     if (this.client.apiVersion.lt(API.v310)) return null;
@@ -41,7 +41,7 @@ class TypeScriptRenameProvider implements qv.RenameProvider {
       findInComments: false,
     };
     return this.client.interruptGetErr(() => {
-      this.fileConfigurationManager.ensureConfigurationForDocument(document, token);
+      this.fileConfigMgr.ensureConfigForDocument(document, token);
       return this.client.execute('rename', args, token);
     });
   }
@@ -74,8 +74,8 @@ class TypeScriptRenameProvider implements qv.RenameProvider {
   }
 }
 
-export function register(s: qu.DocumentSelector, c: ServiceClient, fileConfigurationManager: FileConfigurationManager) {
+export function register(s: qu.DocumentSelector, c: ServiceClient, fileConfigMgr: FileConfigMgr) {
   return condRegistration([requireSomeCap(c, ClientCap.Semantic)], () => {
-    return qv.languages.registerRenameProvider(s.semantic, new TypeScriptRenameProvider(c, fileConfigurationManager));
+    return qv.languages.registerRenameProvider(s.semantic, new TypeScriptRenameProvider(c, fileConfigMgr));
   });
 }

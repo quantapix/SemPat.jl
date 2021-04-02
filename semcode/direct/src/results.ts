@@ -71,7 +71,7 @@ export class Result {
     }
   }
   createResultDecoration(): qv.DecorationRenderOptions {
-    const section = qv.workspace.getConfiguration('julia');
+    const section = qv.workspace.getConfig('julia');
     const colorConfig = section.get<object>('execution.inlineResults.colors');
     const colorFor = function (candidates: string[], defaultTo: string | qv.ThemeColor): string | qv.ThemeColor {
       if (candidates.length > 0) {

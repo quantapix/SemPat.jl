@@ -116,7 +116,7 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
     document: qv.TextDocument,
     position: qv.Position,
     token: qv.CancellationToken,
-    config: qv.WorkspaceConfiguration
+    config: qv.WorkspaceConfig
   ): Promise<qv.CompletionItem[] | qv.CompletionList> {
     const pkgStatementCompletions = await getPackageStatementCompletions(document);
     if (pkgStatementCompletions && pkgStatementCompletions.length) {
@@ -218,7 +218,7 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
     lineText: string,
     currentWord: string,
     includeUnimportedPkgs: boolean,
-    config: qv.WorkspaceConfiguration
+    config: qv.WorkspaceConfig
   ): Thenable<qv.CompletionItem[]> {
     return new Promise<qv.CompletionItem[]>((resolve, reject) => {
       const gocodeName = this.isGoMod ? 'gocode-gomod' : 'gocode';
@@ -371,7 +371,7 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
     });
   }
 
-  private ensureGoCodeConfigured(fileuri: qv.Uri, goConfig: qv.WorkspaceConfiguration): Thenable<void> {
+  private ensureGoCodeConfigured(fileuri: qv.Uri, goConfig: qv.WorkspaceConfig): Thenable<void> {
     const currentFile = fileuri.fsPath;
     let checkModSupport = Promise.resolve(this.isGoMod);
     if (this.previousFile !== currentFile && this.previousFileDir !== path.dirname(currentFile)) {

@@ -144,7 +144,7 @@ export class JuliaDebugSession extends LoggingDebugSession {
 
   protected async initializeRequest(r: DebugProtocol.InitializeResponse, _: DebugProtocol.InitializeRequestArguments): Promise<void> {
     r.body = r.body || {};
-    r.body.supportsConfigurationDoneRequest = true;
+    r.body.supportsConfigDoneRequest = true;
     r.body.supportsFunctionBreakpoints = true;
     r.body.supportsEvaluateForHovers = true;
     r.body.supportsStepBack = false;
@@ -168,7 +168,7 @@ export class JuliaDebugSession extends LoggingDebugSession {
     this.sendResponse(r);
   }
 
-  protected configurationDoneRequest(response: DebugProtocol.ConfigurationDoneResponse, args: DebugProtocol.ConfigurationDoneArguments): void {
+  protected configurationDoneRequest(response: DebugProtocol.ConfigDoneResponse, args: DebugProtocol.ConfigDoneArguments): void {
     super.configurationDoneRequest(response, args);
     this._configurationDone.notify();
   }
@@ -387,12 +387,12 @@ export class JuliaDebugSession extends LoggingDebugSession {
 
 export class JuliaDebugFeature {
   constructor(private context: qv.ExtensionContext) {
-    const provider = new JuliaDebugConfigurationProvider();
-    const factory = new InlineDebugAdapterFactory(this.context);
+    const provider = new JuliaDebugConfigProvider();
+    const factory = new InlineDebugAdapterFact(this.context);
 
     this.context.subscriptions.push(
-      qv.debug.registerDebugConfigurationProvider('julia', provider),
-      qv.debug.registerDebugAdapterDescriptorFactory('julia', factory),
+      qv.debug.registerDebugConfigProvider('julia', provider),
+      qv.debug.registerDebugAdapterDescriptorFact('julia', factory),
       registerCommand('language-julia.debug.getActiveJuliaEnvironment', async (config) => {
         return await packs.getAbsEnvPath();
       }),
@@ -449,8 +449,8 @@ function getActiveUri(uri: qv.Uri | undefined, editor: qv.TextEditor | undefined
   return uri || (editor ? editor.document.uri : undefined);
 }
 
-export class JuliaDebugConfigurationProvider implements qv.DebugConfigurationProvider {
-  public resolveDebugConfiguration(folder: qv.WorkspaceFolder | undefined, config: qv.DebugConfiguration, token?: qv.CancellationToken): qv.ProviderResult<qv.DebugConfiguration> {
+export class JuliaDebugConfigProvider implements qv.DebugConfigProvider {
+  public resolveDebugConfig(folder: qv.WorkspaceFolder | undefined, config: qv.DebugConfig, token?: qv.CancellationToken): qv.ProviderResult<qv.DebugConfig> {
     if (!config.request) {
       config.request = 'launch';
     }
@@ -489,7 +489,7 @@ export class JuliaDebugConfigurationProvider implements qv.DebugConfigurationPro
   }
 }
 
-class InlineDebugAdapterFactory implements qv.DebugAdapterDescriptorFactory {
+class InlineDebugAdapterFact implements qv.DebugAdapterDescriptorFact {
   constructor(private context: qv.ExtensionContext) {}
 
   createDebugAdapterDescriptor(_session: qv.DebugSession): qv.ProviderResult<qv.DebugAdapterDescriptor> {

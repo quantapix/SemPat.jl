@@ -4,7 +4,7 @@ import { ConfigOptions } from '../common/configOptions';
 import { compareComparableValues } from '../common/core';
 import { FileSystem } from '../common/fileSystem';
 import * as pathConsts from '../common/pathConsts';
-import { combinePaths, containsPath, ensureTrailingDirectorySeparator, getDirectoryPath, getFileSystemEntries, isDirectory, normalizePath, tryStat } from '../common/pathUtils';
+import { combinePaths, containsPath, ensureTrailingDirSeparator, getDirPath, getFileSystemEntries, isDir, normalizePath, tryStat } from '../common/pathUtils';
 
 interface PythonPathResult {
   paths: string[];
@@ -24,19 +24,19 @@ export const stdLibFolderName = 'stdlib';
 export const thirdPartyFolderName = 'stubs';
 
 export function getTypeShedFallbackPath(fs: FileSystem) {
-  let moduleDirectory = fs.getModulePath();
-  if (!moduleDirectory) {
+  let moduleDir = fs.getModulePath();
+  if (!moduleDir) {
     return undefined;
   }
 
-  moduleDirectory = getDirectoryPath(ensureTrailingDirectorySeparator(normalizePath(moduleDirectory)));
+  moduleDir = getDirPath(ensureTrailingDirSeparator(normalizePath(moduleDir)));
 
-  const typeshedPath = combinePaths(moduleDirectory, pathConsts.typeshedFallback);
+  const typeshedPath = combinePaths(moduleDir, pathConsts.typeshedFallback);
   if (fs.existsSync(typeshedPath)) {
     return typeshedPath;
   }
 
-  const debugTypeshedPath = combinePaths(getDirectoryPath(moduleDirectory), pathConsts.typeshedFallback);
+  const debugTypeshedPath = combinePaths(getDirPath(moduleDir), pathConsts.typeshedFallback);
   if (fs.existsSync(debugTypeshedPath)) {
     return debugTypeshedPath;
   }
@@ -185,7 +185,7 @@ function getPathResultFromInterpreter(fs: FileSystem, interpreter: string, impor
         if (execSplitEntry) {
           const normalizedPath = normalizePath(execSplitEntry);
 
-          if (fs.existsSync(normalizedPath) && isDirectory(fs, normalizedPath)) {
+          if (fs.existsSync(normalizedPath) && isDir(fs, normalizedPath)) {
             result.paths.push(normalizedPath);
           } else {
             importFailureInfo.push(`Skipping '${normalizedPath}' because it is not a valid directory`);
@@ -228,7 +228,7 @@ function getPathsFromPthFiles(fs: FileSystem, parentDir: string): string[] {
         const trimmedLine = line.trim();
         if (trimmedLine.length > 0 && !trimmedLine.startsWith('#') && !trimmedLine.match(/^import\s/)) {
           const pthPath = combinePaths(parentDir, trimmedLine);
-          if (fs.existsSync(pthPath) && isDirectory(fs, pthPath)) {
+          if (fs.existsSync(pthPath) && isDir(fs, pthPath)) {
             searchPaths.push(pthPath);
           }
         }

@@ -1,5 +1,5 @@
 import { FileSystem } from '../common/fileSystem';
-import { combinePaths, isDirectory, isFile } from '../common/pathUtils';
+import { combinePaths, isDir, isFile } from '../common/pathUtils';
 
 export interface PyTypedInfo {
   pyTypedPath: string;
@@ -9,7 +9,7 @@ export interface PyTypedInfo {
 const _pyTypedFileName = 'py.typed';
 
 export function getPyTypedInfo(fileSystem: FileSystem, dirPath: string): PyTypedInfo | undefined {
-  if (!fileSystem.existsSync(dirPath) || !isDirectory(fileSystem, dirPath)) {
+  if (!fileSystem.existsSync(dirPath) || !isDir(fileSystem, dirPath)) {
     return undefined;
   }
 

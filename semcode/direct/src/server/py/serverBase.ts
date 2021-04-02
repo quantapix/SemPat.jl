@@ -11,14 +11,14 @@ import {
   CompletionList,
   CompletionParams,
   CompletionTriggerKind,
-  ConfigurationItem,
+  ConfigItem,
   Connection,
   ConnectionOptions,
   createConnection,
-  Diagnostic,
-  DiagnosticRelatedInformation,
-  DiagnosticSeverity,
-  DiagnosticTag,
+  Diag,
+  DiagRelatedInformation,
+  DiagSeverity,
+  DiagTag,
   DidChangeWatchedFilesNotification,
   DocumentSymbol,
   ExecuteCommandParams,
@@ -47,13 +47,13 @@ import { AnalyzerService, configFileNames } from './analyzer/service';
 import { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CancelAfter, getCancellationStrategyFromArgv } from './common/cancellationUtils';
 import { getNestedProperty } from './common/collectionUtils';
-import { DiagnosticSeverityOverrides, DiagnosticSeverityOverridesMap, getDiagnosticSeverityOverrides } from './common/commandLineOptions';
-import { ConfigOptions, getDiagLevelDiagnosticRules } from './common/configOptions';
+import { DiagSeverityOverrides, DiagSeverityOverridesMap, getDiagSeverityOverrides } from './common/commandLineOptions';
+import { ConfigOptions, getDiagLevelDiagRules } from './common/configOptions';
 import { Console, ConsoleWithLog, LogLevel } from './common/console';
 import { createDeferred, Deferred } from './common/deferred';
-import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
-import { DiagnosticRule } from './common/diagnosticRules';
-import { LanguageServiceExtension } from './common/extensibility';
+import { Diag as AnalyzerDiag, DiagCategory } from './common/diagnostic';
+import { DiagRule } from './common/diagnosticRules';
+import { LangServiceExtension } from './common/extensibility';
 import { createFromRealFileSystem, FileSystem, FileWatcher, FileWatcherEventHandler, FileWatcherEventType } from './common/fileSystem';
 import { containsPath, convertPathToUri, convertUriToPath } from './common/pathUtils';
 import { ProgressReporter, ProgressReportTracker } from './common/progressReporter';
@@ -77,13 +77,13 @@ export interface ServerSettings {
   openFilesOnly?: boolean;
   typeCheckingMode?: string;
   useLibraryCodeForTypes?: boolean;
-  disableLanguageServices?: boolean;
+  disableLangServices?: boolean;
   disableOrganizeImports?: boolean;
   autoSearchPaths?: boolean;
   extraPaths?: string[];
   watchForSourceChanges?: boolean;
   watchForLibraryChanges?: boolean;
-  diagnosticSeverityOverrides?: DiagnosticSeverityOverridesMap;
+  diagnosticSeverityOverrides?: DiagSeverityOverridesMap;
   logLevel?: LogLevel;
   autoImportCompletions?: boolean;
   indexing?: boolean;
@@ -96,7 +96,7 @@ export interface WorkspaceServiceInstance {
   rootPath: string;
   rootUri: string;
   serviceInstance: AnalyzerService;
-  disableLanguageServices: boolean;
+  disableLangServices: boolean;
   disableOrganizeImports: boolean;
   isInitialized: Deferred<boolean>;
 }
@@ -107,7 +107,7 @@ export interface WindowInterface {
   showInformationMessage(message: string): void;
 }
 
-export interface LanguageServerInterface {
+export interface LangServerInterface {
   getWorkspaceForFile(filePath: string): Promise<WorkspaceServiceInstance>;
   getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings>;
   createBackgroundAnalysis(): BackgroundAnalysisBase | undefined;
@@ -122,9 +122,9 @@ export interface LanguageServerInterface {
 
 export interface ServerOptions {
   productName: string;
-  rootDirectory: string;
+  rootDir: string;
   version: string;
-  extension?: LanguageServiceExtension;
+  extension?: LangServiceExtension;
   maxAnalysisTimeInForeground?: MaxAnalysisTime;
   supportedCommands?: string[];
   supportedCodeActions?: string[];
@@ -136,8 +136,8 @@ interface InternalFileWatcher extends FileWatcher {
   eventHandler: FileWatcherEventHandler;
 }
 
-interface ClientCapabilities {
-  hasConfigurationCapability: boolean;
+interface ClientCaps {
+  hasConfigCapability: boolean;
   hasVisualStudioExtensionsCapability: boolean;
   hasWorkspaceFoldersCapability: boolean;
   hasWatchFileCapability: boolean;
@@ -150,17 +150,17 @@ interface ClientCapabilities {
   completionDocFormat: MarkupKind;
   completionSupportsSnippet: boolean;
   signatureDocFormat: MarkupKind;
-  supportsUnnecessaryDiagnosticTag: boolean;
+  supportsUnnecessaryDiagTag: boolean;
   completionItemResolveSupportsAdditionalTextEdits: boolean;
 }
 
-export abstract class LanguageServerBase implements LanguageServerInterface {
+export abstract class LangServerBase implements LangServerInterface {
   protected _connection: Connection = createConnection(this._GetConnectionOptions());
   protected _workspaceMap: WorkspaceMap;
   protected _defaultClientConfig: any;
 
-  protected client: ClientCapabilities = {
-    hasConfigurationCapability: false,
+  protected client: ClientCaps = {
+    hasConfigCapability: false,
     hasVisualStudioExtensionsCapability: false,
     hasWorkspaceFoldersCapability: false,
     hasWatchFileCapability: false,
@@ -173,7 +173,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     completionDocFormat: MarkupKind.PlainText,
     completionSupportsSnippet: false,
     signatureDocFormat: MarkupKind.PlainText,
-    supportsUnnecessaryDiagnosticTag: false,
+    supportsUnnecessaryDiagTag: false,
     completionItemResolveSupportsAdditionalTextEdits: false,
   };
 
@@ -194,19 +194,19 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
   readonly console: Console;
 
   constructor(private _serverOptions: ServerOptions) {
-    (global as any).__rootDirectory = _serverOptions.rootDirectory;
+    (global as any).__rootDir = _serverOptions.rootDir;
 
     this.console = new ConsoleWithLog(this._connection.console);
 
     this.console.info(`${_serverOptions.productName} language server ${_serverOptions.version && _serverOptions.version + ' '}starting`);
 
-    this.console.info(`Server root directory: ${_serverOptions.rootDirectory}`);
+    this.console.info(`Server root directory: ${_serverOptions.rootDir}`);
 
     this.fs = new PyrightFileSystem(createFromRealFileSystem(this.console, this));
 
-    const moduleDirectory = this.fs.getModulePath();
-    if (moduleDirectory) {
-      this.fs.chdir(moduleDirectory);
+    const moduleDir = this.fs.getModulePath();
+    if (moduleDir) {
+      this.fs.chdir(moduleDir);
     }
 
     this._workspaceMap = new WorkspaceMap(this);
@@ -230,13 +230,13 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
   abstract getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings>;
 
-  protected async getConfiguration(scopeUri: string | undefined, section: string) {
-    if (this.client.hasConfigurationCapability) {
-      const item: ConfigurationItem = {
+  protected async getConfig(scopeUri: string | undefined, section: string) {
+    if (this.client.hasConfigCapability) {
+      const item: ConfigItem = {
         scopeUri,
         section,
       };
-      return this._connection.workspace.getConfiguration(item);
+      return this._connection.workspace.getConfig(item);
     }
 
     if (this._defaultClientConfig) {
@@ -250,18 +250,18 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     return diagnosticMode !== 'workspace';
   }
 
-  protected getSeverityOverrides(value: string): DiagnosticSeverityOverrides | undefined {
-    const enumValue = value as DiagnosticSeverityOverrides;
-    if (getDiagnosticSeverityOverrides().includes(enumValue)) {
+  protected getSeverityOverrides(value: string): DiagSeverityOverrides | undefined {
+    const enumValue = value as DiagSeverityOverrides;
+    if (getDiagSeverityOverrides().includes(enumValue)) {
       return enumValue;
     }
 
     return undefined;
   }
 
-  protected getDiagnosticRuleName(value: string): DiagnosticRule | undefined {
-    const enumValue = value as DiagnosticRule;
-    if (getDiagLevelDiagnosticRules().includes(enumValue)) {
+  protected getDiagRuleName(value: string): DiagRule | undefined {
+    const enumValue = value as DiagRule;
+    if (getDiagLevelDiagRules().includes(enumValue)) {
       return enumValue;
     }
 
@@ -276,7 +276,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     console: Console,
     configOptions: ConfigOptions,
     importResolver: ImportResolver,
-    extension?: LanguageServiceExtension,
+    extension?: LangServiceExtension,
     backgroundAnalysis?: BackgroundAnalysisBase,
     maxAnalysisTime?: MaxAnalysisTime
   ): BackgroundAnalysisProgram {
@@ -374,7 +374,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
   protected setupConnection(supportedCommands: string[], supportedCodeActions: string[]): void {
     this._connection.onInitialize((params) => this.initialize(params, supportedCommands, supportedCodeActions));
 
-    this._connection.onDidChangeConfiguration((params) => {
+    this._connection.onDidChangeConfig((params) => {
       this.console.log(`Received updated settings`);
       if (params?.settings) {
         this._defaultClientConfig = params?.settings;
@@ -395,7 +395,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
       };
 
       const workspace = await this.getWorkspaceForFile(filePath);
-      if (workspace.disableLanguageServices) {
+      if (workspace.disableLangServices) {
         return undefined;
       }
 
@@ -429,7 +429,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         };
 
         const workspace = await this.getWorkspaceForFile(filePath);
-        if (workspace.disableLanguageServices) {
+        if (workspace.disableLangServices) {
           return;
         }
 
@@ -455,7 +455,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
       const filePath = convertUriToPath(this.fs, params.textDocument.uri);
 
       const workspace = await this.getWorkspaceForFile(filePath);
-      if (workspace.disableLanguageServices) {
+      if (workspace.disableLangServices) {
         return undefined;
       }
 
@@ -475,7 +475,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
       for (const workspace of this._workspaceMap.values()) {
         await workspace.isInitialized.promise;
-        if (!workspace.disableLanguageServices) {
+        if (!workspace.disableLangServices) {
           workspace.serviceInstance.reportSymbolsForWorkspace(params.query, reporter, token);
         }
       }
@@ -517,7 +517,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
       };
 
       const workspace = await this.getWorkspaceForFile(filePath);
-      if (workspace.disableLanguageServices) {
+      if (workspace.disableLangServices) {
         return;
       }
       const signatureHelpResults = workspace.serviceInstance.getSignatureHelpForPosition(filePath, position, this.client.signatureDocFormat, token);
@@ -586,7 +586,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
       };
 
       const workspace = await this.getWorkspaceForFile(filePath);
-      if (workspace.disableLanguageServices) {
+      if (workspace.disableLangServices) {
         return;
       }
 
@@ -608,7 +608,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
       };
 
       const workspace = await this.getWorkspaceForFile(filePath);
-      if (workspace.disableLanguageServices) {
+      if (workspace.disableLangServices) {
         return null;
       }
 
@@ -631,7 +631,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
       };
 
       const workspace = await this.getWorkspaceForFile(filePath);
-      if (workspace.disableLanguageServices) {
+      if (workspace.disableLangServices) {
         return null;
       }
 
@@ -656,7 +656,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
       };
 
       const workspace = await this.getWorkspaceForFile(filePath);
-      if (workspace.disableLanguageServices) {
+      if (workspace.disableLangServices) {
         return null;
       }
 
@@ -806,7 +806,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     this.rootPath = params.rootPath || '';
 
     const capabilities = params.capabilities;
-    this.client.hasConfigurationCapability = !!capabilities.workspace?.configuration;
+    this.client.hasConfigCapability = !!capabilities.workspace?.configuration;
     this.client.hasWatchFileCapability = !!capabilities.workspace?.didChangeWatchedFiles?.dynamicRegistration;
     this.client.hasWorkspaceFoldersCapability = !!capabilities.workspace?.workspaceFolders;
     this.client.hasVisualStudioExtensionsCapability = !!(capabilities as any).supportsVisualStudioExtensions;
@@ -817,8 +817,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     this.client.completionDocFormat = this._getCompatibleMarkupKind(capabilities.textDocument?.completion?.completionItem?.documentationFormat);
     this.client.completionSupportsSnippet = !!capabilities.textDocument?.completion?.completionItem?.snippetSupport;
     this.client.signatureDocFormat = this._getCompatibleMarkupKind(capabilities.textDocument?.signatureHelp?.signatureInformation?.documentationFormat);
-    const supportedDiagnosticTags = capabilities.textDocument?.publishDiagnostics?.tagSupport?.valueSet || [];
-    this.client.supportsUnnecessaryDiagnosticTag = supportedDiagnosticTags.some((tag) => tag === DiagnosticTag.Unnecessary);
+    const supportedDiagTags = capabilities.textDocument?.publishDiags?.tagSupport?.valueSet || [];
+    this.client.supportsUnnecessaryDiagTag = supportedDiagTags.some((tag) => tag === DiagTag.Unnecessary);
     this.client.hasWindowProgressCapability = !!capabilities.window?.workDoneProgress;
     this.client.hasGoToDeclarationCapability = !!capabilities.textDocument?.declaration;
     this.client.completionItemResolveSupportsAdditionalTextEdits = !!capabilities.textDocument?.completion?.completionItem?.resolveSupport?.properties.some((p) => p === 'additionalTextEdits');
@@ -873,7 +873,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
       rootPath,
       rootUri: workspace?.uri ?? '',
       serviceInstance: this.createAnalyzerService(workspace?.name ?? rootPath),
-      disableLanguageServices: false,
+      disableLangServices: false,
       disableOrganizeImports: false,
       isInitialized: createDeferred<boolean>(),
     };
@@ -881,9 +881,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
   protected onAnalysisCompletedHandler(results: AnalysisResults): void {
     results.diagnostics.forEach((fileDiag) => {
-      this._connection.sendDiagnostics({
+      this._connection.sendDiags({
         uri: convertPathToUri(this.fs, fileDiag.filePath),
-        diagnostics: this._convertDiagnostics(fileDiag.diagnostics),
+        diagnostics: this._convertDiags(fileDiag.diagnostics),
       });
     });
 
@@ -913,7 +913,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     (this.console as ConsoleWithLog).level = serverSettings.logLevel ?? LogLevel.Info;
 
     this.updateOptionsAndRestartService(workspace, serverSettings);
-    workspace.disableLanguageServices = !!serverSettings.disableLanguageServices;
+    workspace.disableLangServices = !!serverSettings.disableLangServices;
     workspace.disableOrganizeImports = !!serverSettings.disableOrganizeImports;
 
     workspace.isInitialized.resolve(true);
@@ -936,7 +936,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     };
 
     const workspace = await this.getWorkspaceForFile(filePath);
-    if (workspace.disableLanguageServices) {
+    if (workspace.disableLangServices) {
       return;
     }
 
@@ -1002,25 +1002,25 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     return { cancellationStrategy: getCancellationStrategyFromArgv(process.argv) };
   }
 
-  private _convertDiagnostics(diags: AnalyzerDiagnostic[]): Diagnostic[] {
-    const convertedDiags: Diagnostic[] = [];
+  private _convertDiags(diags: AnalyzerDiag[]): Diag[] {
+    const convertedDiags: Diag[] = [];
 
     diags.forEach((diag) => {
       const severity = convertCategoryToSeverity(diag.category);
       const rule = diag.getRule();
-      const vsDiag = Diagnostic.create(diag.range, diag.message, severity, rule, this._serverOptions.productName);
+      const vsDiag = Diag.create(diag.range, diag.message, severity, rule, this._serverOptions.productName);
 
-      if (diag.category === DiagnosticCategory.UnusedCode) {
-        vsDiag.tags = [DiagnosticTag.Unnecessary];
-        vsDiag.severity = DiagnosticSeverity.Hint;
+      if (diag.category === DiagCategory.UnusedCode) {
+        vsDiag.tags = [DiagTag.Unnecessary];
+        vsDiag.severity = DiagSeverity.Hint;
 
-        if (!this.client.supportsUnnecessaryDiagnosticTag) {
+        if (!this.client.supportsUnnecessaryDiagTag) {
           return;
         }
       }
 
       if (rule) {
-        const ruleDocUrl = this.getDocumentationUrlForDiagnosticRule(rule);
+        const ruleDocUrl = this.getDocumentationUrlForDiagRule(rule);
         if (ruleDocUrl) {
           vsDiag.codeDescription = {
             href: ruleDocUrl,
@@ -1031,23 +1031,23 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
       const relatedInfo = diag.getRelatedInfo();
       if (relatedInfo.length > 0) {
         vsDiag.relatedInformation = relatedInfo.map((info) => {
-          return DiagnosticRelatedInformation.create(Location.create(convertPathToUri(this.fs, info.filePath), info.range), info.message);
+          return DiagRelatedInformation.create(Location.create(convertPathToUri(this.fs, info.filePath), info.range), info.message);
         });
       }
 
       convertedDiags.push(vsDiag);
     });
 
-    function convertCategoryToSeverity(category: DiagnosticCategory) {
+    function convertCategoryToSeverity(category: DiagCategory) {
       switch (category) {
-        case DiagnosticCategory.Error:
-          return DiagnosticSeverity.Error;
-        case DiagnosticCategory.Warning:
-          return DiagnosticSeverity.Warning;
-        case DiagnosticCategory.Information:
-          return DiagnosticSeverity.Information;
-        case DiagnosticCategory.UnusedCode:
-          return DiagnosticSeverity.Hint;
+        case DiagCategory.Error:
+          return DiagSeverity.Error;
+        case DiagCategory.Warning:
+          return DiagSeverity.Warning;
+        case DiagCategory.Information:
+          return DiagSeverity.Information;
+        case DiagCategory.UnusedCode:
+          return DiagSeverity.Hint;
       }
     }
 
@@ -1060,7 +1060,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     });
   }
 
-  protected getDocumentationUrlForDiagnosticRule(rule: string): string | undefined {
+  protected getDocumentationUrlForDiagRule(rule: string): string | undefined {
     return 'https://github.com/microsoft/pyright/blob/master/docs/configuration.md';
   }
 

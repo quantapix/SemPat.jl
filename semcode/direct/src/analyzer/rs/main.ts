@@ -99,7 +99,7 @@ async function tryActivate(context: qv.ExtensionContext) {
 
   activateInlayHints(ctx);
 
-  qv.workspace.onDidChangeConfiguration((_) => ctx?.client?.sendNotification('workspace/didChangeConfiguration', { settings: '' }), null, ctx.subscriptions);
+  qv.workspace.onDidChangeConfig((_) => ctx?.client?.sendNotification('workspace/didChangeConfig', { settings: '' }), null, ctx.subscriptions);
 }
 
 export async function deactivate() {
@@ -169,7 +169,7 @@ async function bootstrapExtension(config: Config, state: PersistentState): Promi
 async function bootstrapServer(config: Config, state: PersistentState): Promise<string> {
   const path = await getServer(config, state);
   if (!path) {
-    throw new Error('Rust Analyzer Language Server is not available. ' + 'Please, ensure its [proper installation](https://rust-analyzer.github.io/manual.html#installation).');
+    throw new Error('Rust Analyzer Lang Server is not available. ' + 'Please, ensure its [proper installation](https://rust-analyzer.github.io/manual.html#installation).');
   }
 
   log.info('Using server binary at', path);
@@ -260,7 +260,7 @@ async function getServer(config: Config, state: PersistentState): Promise<string
   if (state.serverVersion === config.package.version) return dest;
 
   if (config.askBeforeDownload) {
-    const userResponse = await qv.window.showInformationMessage(`Language server version ${config.package.version} for rust-analyzer is not installed.`, 'Download now');
+    const userResponse = await qv.window.showInformationMessage(`Lang server version ${config.package.version} for rust-analyzer is not installed.`, 'Download now');
     if (userResponse !== 'Download now') return dest;
   }
 

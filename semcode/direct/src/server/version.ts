@@ -1,38 +1,31 @@
 import API from '../utils/api';
-import { TypeScriptServiceConfiguration } from '../utils/configuration';
+import { TSServiceConfig } from '../utils/configuration';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as qv from 'vscode';
-import { RelativeWorkspacePathResolver } from '../utils/relativePathResolver';
-
-export const enum TypeScriptVersionSource {
+import { RelativeWorkspacePathResolver } from '../utils';
+export const enum VersionSource {
   Bundled = 'bundled',
   TsNightlyExtension = 'ts-nightly-extension',
   NodeModules = 'node-modules',
   UserSetting = 'user-setting',
   WorkspaceSetting = 'workspace-setting',
 }
-
-export class TypeScriptVersion {
-  constructor(public readonly source: TypeScriptVersionSource, public readonly path: string, public readonly apiVersion: API | undefined, private readonly _pathLabel?: string) {}
-
+export class TSVersion {
+  constructor(public readonly source: VersionSource, public readonly path: string, public readonly apiVersion: API | undefined, private readonly _pathLabel?: string) {}
   public get tsServerPath(): string {
     return this.path;
   }
-
   public get pathLabel(): string {
     return this._pathLabel ?? this.path;
   }
-
   public get isValid(): boolean {
     return this.apiVersion !== undefined;
   }
-
-  public eq(other: TypeScriptVersion): boolean {
+  public eq(other: TSVersion): boolean {
     if (this.path !== other.path) {
       return false;
     }
-
     if (this.apiVersion === other.apiVersion) {
       return true;
     }
@@ -41,58 +34,48 @@ export class TypeScriptVersion {
     }
     return this.apiVersion.eq(other.apiVersion);
   }
-
   public get displayName(): string {
     const version = this.apiVersion;
     return version ? version.displayName : 'couldNotLoadTsVersion';
   }
 }
-
-export interface ITypeScriptVersionProvider {
-  updateConfiguration(configuration: TypeScriptServiceConfiguration): void;
-
-  readonly defaultVersion: TypeScriptVersion;
-  readonly globalVersion: TypeScriptVersion | undefined;
-  readonly localVersion: TypeScriptVersion | undefined;
-  readonly localVersions: readonly TypeScriptVersion[];
-  readonly bundledVersion: TypeScriptVersion;
+export interface TSVersionProvider {
+  updateConfig(configuration: TSServiceConfig): void;
+  readonly defaultVersion: TSVersion;
+  readonly globalVersion: TSVersion | undefined;
+  readonly localVersion: TSVersion | undefined;
+  readonly localVersions: readonly TSVersion[];
+  readonly bundledVersion: TSVersion;
 }
-
-export class DiskTypeScriptVersionProvider implements ITypeScriptVersionProvider {
-  public constructor(private configuration?: TypeScriptServiceConfiguration) {}
-
-  public updateConfiguration(configuration: TypeScriptServiceConfiguration): void {
+export class DiskTSVersionProvider implements TSVersionProvider {
+  public constructor(private configuration?: TSServiceConfig) {}
+  public updateConfig(configuration: TSServiceConfig): void {
     this.configuration = configuration;
   }
-
-  public get defaultVersion(): TypeScriptVersion {
+  public get defaultVersion(): TSVersion {
     return this.globalVersion || this.bundledVersion;
   }
-
-  public get globalVersion(): TypeScriptVersion | undefined {
+  public get globalVersion(): TSVersion | undefined {
     if (this.configuration?.globalTsdk) {
-      const globals = this.loadVersionsFromSetting(TypeScriptVersionSource.UserSetting, this.configuration.globalTsdk);
+      const globals = this.loadVersionsFromSetting(VersionSource.UserSetting, this.configuration.globalTsdk);
       if (globals && globals.length) {
         return globals[0];
       }
     }
     return this.contributedTsNextVersion;
   }
-
-  public get localVersion(): TypeScriptVersion | undefined {
+  public get localVersion(): TSVersion | undefined {
     const tsdkVersions = this.localTsdkVersions;
     if (tsdkVersions && tsdkVersions.length) {
       return tsdkVersions[0];
     }
-
     const nodeVersions = this.localNodeModulesVersions;
     if (nodeVersions && nodeVersions.length === 1) {
       return nodeVersions[0];
     }
     return undefined;
   }
-
-  public get localVersions(): TypeScriptVersion[] {
+  public get localVersions(): TSVersion[] {
     const allVersions = this.localTsdkVersions.concat(this.localNodeModulesVersions);
     const paths = new Set<string>();
     return allVersions.filter((x) => {
@@ -103,27 +86,23 @@ export class DiskTypeScriptVersionProvider implements ITypeScriptVersionProvider
       return true;
     });
   }
-
-  public get bundledVersion(): TypeScriptVersion {
-    const version = this.getContributedVersion(TypeScriptVersionSource.Bundled, 'qv.typescript-language-features', ['..', 'node_modules']);
+  public get bundledVersion(): TSVersion {
+    const version = this.getContributedVersion(VersionSource.Bundled, 'qv.typescript-language-features', ['..', 'node_modules']);
     if (version) {
       return version;
     }
-
     qv.window.showErrorMessage('noBundledServerFound');
     throw new Error('Could not find bundled tsserver.js');
   }
-
-  private get contributedTsNextVersion(): TypeScriptVersion | undefined {
-    return this.getContributedVersion(TypeScriptVersionSource.TsNightlyExtension, 'ms-qv.vscode-typescript-next', ['node_modules']);
+  private get contributedTsNextVersion(): TSVersion | undefined {
+    return this.getContributedVersion(VersionSource.TsNightlyExtension, 'ms-qv.vscode-typescript-next', ['node_modules']);
   }
-
-  private getContributedVersion(source: TypeScriptVersionSource, extensionId: string, pathToTs: readonly string[]): TypeScriptVersion | undefined {
+  private getContributedVersion(source: VersionSource, extensionId: string, pathToTs: readonly string[]): TSVersion | undefined {
     try {
       const extension = qv.extensions.getExtension(extensionId);
       if (extension) {
         const serverPath = path.join(extension.extensionPath, ...pathToTs, 'typescript', 'lib', 'tsserver.js');
-        const bundledVersion = new TypeScriptVersion(source, serverPath, DiskTypeScriptVersionProvider.getApiVersion(serverPath), '');
+        const bundledVersion = new TSVersion(source, serverPath, DiskTSVersionProvider.getApiVersion(serverPath), '');
         if (bundledVersion.isValid) {
           return bundledVersion;
         }
@@ -131,68 +110,55 @@ export class DiskTypeScriptVersionProvider implements ITypeScriptVersionProvider
     } catch {}
     return undefined;
   }
-
-  private get localTsdkVersions(): TypeScriptVersion[] {
+  private get localTsdkVersions(): TSVersion[] {
     const localTsdk = this.configuration?.localTsdk;
-    return localTsdk ? this.loadVersionsFromSetting(TypeScriptVersionSource.WorkspaceSetting, localTsdk) : [];
+    return localTsdk ? this.loadVersionsFromSetting(VersionSource.WorkspaceSetting, localTsdk) : [];
   }
-
-  private loadVersionsFromSetting(source: TypeScriptVersionSource, tsdkPathSetting: string): TypeScriptVersion[] {
+  private loadVersionsFromSetting(source: VersionSource, tsdkPathSetting: string): TSVersion[] {
     if (path.isAbsolute(tsdkPathSetting)) {
       const serverPath = path.join(tsdkPathSetting, 'tsserver.js');
-      return [new TypeScriptVersion(source, serverPath, DiskTypeScriptVersionProvider.getApiVersion(serverPath), tsdkPathSetting)];
+      return [new TSVersion(source, serverPath, DiskTSVersionProvider.getApiVersion(serverPath), tsdkPathSetting)];
     }
-
     const workspacePath = RelativeWorkspacePathResolver.asAbsoluteWorkspacePath(tsdkPathSetting);
     if (workspacePath !== undefined) {
       const serverPath = path.join(workspacePath, 'tsserver.js');
-      return [new TypeScriptVersion(source, serverPath, DiskTypeScriptVersionProvider.getApiVersion(serverPath), tsdkPathSetting)];
+      return [new TSVersion(source, serverPath, DiskTSVersionProvider.getApiVersion(serverPath), tsdkPathSetting)];
     }
-
-    return this.loadTypeScriptVersionsFromPath(source, tsdkPathSetting);
+    return this.loadTSVersionsFromPath(source, tsdkPathSetting);
   }
-
-  private get localNodeModulesVersions(): TypeScriptVersion[] {
-    return this.loadTypeScriptVersionsFromPath(TypeScriptVersionSource.NodeModules, path.join('node_modules', 'typescript', 'lib')).filter((x) => x.isValid);
+  private get localNodeModulesVersions(): TSVersion[] {
+    return this.loadTSVersionsFromPath(VersionSource.NodeModules, path.join('node_modules', 'typescript', 'lib')).filter((x) => x.isValid);
   }
-
-  private loadTypeScriptVersionsFromPath(source: TypeScriptVersionSource, relativePath: string): TypeScriptVersion[] {
+  private loadTSVersionsFromPath(source: VersionSource, relativePath: string): TSVersion[] {
     if (!qv.workspace.workspaceFolders) {
       return [];
     }
-
-    const versions: TypeScriptVersion[] = [];
+    const versions: TSVersion[] = [];
     for (const root of qv.workspace.workspaceFolders) {
       let label: string = relativePath;
       if (qv.workspace.workspaceFolders.length > 1) {
         label = path.join(root.name, relativePath);
       }
-
       const serverPath = path.join(root.uri.fsPath, relativePath, 'tsserver.js');
-      versions.push(new TypeScriptVersion(source, serverPath, DiskTypeScriptVersionProvider.getApiVersion(serverPath), label));
+      versions.push(new TSVersion(source, serverPath, DiskTSVersionProvider.getApiVersion(serverPath), label));
     }
     return versions;
   }
-
   private static getApiVersion(serverPath: string): API | undefined {
-    const version = DiskTypeScriptVersionProvider.getTypeScriptVersion(serverPath);
+    const version = DiskTSVersionProvider.getTSVersion(serverPath);
     if (version) {
       return version;
     }
-
-    const tsdkVersion = qv.workspace.getConfiguration().get<string | undefined>('typescript.tsdk_version', undefined);
+    const tsdkVersion = qv.workspace.getConfig().get<string | undefined>('typescript.tsdk_version', undefined);
     if (tsdkVersion) {
       return API.fromVersionString(tsdkVersion);
     }
-
     return undefined;
   }
-
-  private static getTypeScriptVersion(serverPath: string): API | undefined {
+  private static getTSVersion(serverPath: string): API | undefined {
     if (!fs.existsSync(serverPath)) {
       return undefined;
     }
-
     const p = serverPath.split(path.sep);
     if (p.length <= 2) {
       return undefined;
@@ -208,7 +174,6 @@ export class DiskTypeScriptVersionProvider implements ITypeScriptVersionProvider
     if (!fs.existsSync(fileName)) {
       return undefined;
     }
-
     const contents = fs.readFileSync(fileName).toString();
     let desc: any = null;
     try {

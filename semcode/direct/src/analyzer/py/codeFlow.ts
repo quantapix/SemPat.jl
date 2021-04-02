@@ -16,7 +16,7 @@ export enum FlowFlags {
   PostFinally = 1 << 12, // Injected edge that links post-finally flow with the rest of the graph
   AssignmentAlias = 1 << 13, // Assigned symbol is aliased to another symbol with the same name
   VariableAnnotation = 1 << 14, // Separates a variable annotation from its name node
-  PostContextManager = 1 << 15, // Label that's used for context managers that suppress exceptions
+  PostContextMgr = 1 << 15, // Label that's used for context managers that suppress exceptions
   TrueNeverCondition = 1 << 16, // Condition whose type evaluates to never when narrowed in positive test
   FalseNeverCondition = 1 << 17, // Condition whose type evaluates to never when narrowed in negative test
 }
@@ -82,7 +82,7 @@ export interface FlowPostFinally extends FlowNode {
   preFinallyGate: FlowPreFinallyGate;
 }
 
-export interface FlowPostContextManagerLabel extends FlowLabel {
+export interface FlowPostContextMgrLabel extends FlowLabel {
   expressions: ExpressionNode[];
   isAsync: boolean;
 }

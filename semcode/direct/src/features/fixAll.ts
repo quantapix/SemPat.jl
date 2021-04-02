@@ -1,10 +1,10 @@
 import { ClientCap, ServiceClient } from '../service';
 import { condRegistration, requireSomeCap, requireMinVer } from '../registration';
-import { DiagnosticsManager } from '../../old/ts/languageFeatures/diagnostics';
+import { DiagsMgr } from '../../old/ts/languageFeatures/diagnostics';
 import * as qu from '../utils';
 import * as qv from 'vscode';
 import API from '../../old/ts/utils/api';
-import FileConfigurationManager from '../../old/ts/languageFeatures/fileConfigurationManager';
+import FileConfigMgr from '../../old/ts/languageFeatures/fileConfigMgr';
 import type * as qp from '../protocol';
 
 interface AutoFix {
@@ -17,7 +17,7 @@ async function buildIndividualFixes(
   edit: qv.WorkspaceEdit,
   client: ServiceClient,
   file: string,
-  diagnostics: readonly qv.Diagnostic[],
+  diagnostics: readonly qv.Diag[],
   token: qv.CancellationToken
 ): Promise<void> {
   for (const diagnostic of diagnostics) {
@@ -49,14 +49,7 @@ async function buildIndividualFixes(
   }
 }
 
-async function buildCombinedFix(
-  fixes: readonly AutoFix[],
-  edit: qv.WorkspaceEdit,
-  client: ServiceClient,
-  file: string,
-  diagnostics: readonly qv.Diagnostic[],
-  token: qv.CancellationToken
-): Promise<void> {
+async function buildCombinedFix(fixes: readonly AutoFix[], edit: qv.WorkspaceEdit, client: ServiceClient, file: string, diagnostics: readonly qv.Diag[], token: qv.CancellationToken): Promise<void> {
   for (const diagnostic of diagnostics) {
     for (const { codes, fixName } of fixes) {
       if (token.isCancellationRequested) {
@@ -107,7 +100,7 @@ async function buildCombinedFix(
 }
 
 abstract class SourceAction extends qv.CodeAction {
-  abstract build(client: ServiceClient, file: string, diagnostics: readonly qv.Diagnostic[], token: qv.CancellationToken): Promise<void>;
+  abstract build(client: ServiceClient, file: string, diagnostics: readonly qv.Diag[], token: qv.CancellationToken): Promise<void>;
 }
 
 class SourceFixAll extends SourceAction {
@@ -117,7 +110,7 @@ class SourceFixAll extends SourceAction {
     super('autoFix.label', SourceFixAll.kind);
   }
 
-  async build(client: ServiceClient, file: string, diagnostics: readonly qv.Diagnostic[], token: qv.CancellationToken): Promise<void> {
+  async build(client: ServiceClient, file: string, diagnostics: readonly qv.Diag[], token: qv.CancellationToken): Promise<void> {
     this.edit = new qv.WorkspaceEdit();
 
     await buildIndividualFixes(
@@ -143,7 +136,7 @@ class SourceRemoveUnused extends SourceAction {
     super('autoFix.unused.label', SourceRemoveUnused.kind);
   }
 
-  async build(client: ServiceClient, file: string, diagnostics: readonly qv.Diagnostic[], token: qv.CancellationToken): Promise<void> {
+  async build(client: ServiceClient, file: string, diagnostics: readonly qv.Diag[], token: qv.CancellationToken): Promise<void> {
     this.edit = new qv.WorkspaceEdit();
     await buildCombinedFix([{ codes: qu.variableDeclaredButNeverUsed, fixName: qu.unusedIdentifier }], this.edit, client, file, diagnostics, token);
   }
@@ -156,7 +149,7 @@ class SourceAddMissingImports extends SourceAction {
     super('autoFix.missingImports.label', SourceAddMissingImports.kind);
   }
 
-  async build(client: ServiceClient, file: string, diagnostics: readonly qv.Diagnostic[], token: qv.CancellationToken): Promise<void> {
+  async build(client: ServiceClient, file: string, diagnostics: readonly qv.Diag[], token: qv.CancellationToken): Promise<void> {
     this.edit = new qv.WorkspaceEdit();
     await buildCombinedFix([{ codes: qu.cannotFindName, fixName: qu.fixImport }], this.edit, client, file, diagnostics, token);
   }
@@ -165,7 +158,7 @@ class SourceAddMissingImports extends SourceAction {
 class TypeScriptAutoFixProvider implements qv.CodeActionProvider {
   private static kindProviders = [SourceFixAll, SourceRemoveUnused, SourceAddMissingImports];
 
-  constructor(private readonly client: ServiceClient, private readonly fileConfigurationManager: FileConfigurationManager, private readonly diagnosticsManager: DiagnosticsManager) {}
+  constructor(private readonly client: ServiceClient, private readonly fileConfigMgr: FileConfigMgr, private readonly diagnosticsMgr: DiagsMgr) {}
 
   public get metadata(): qv.CodeActionProviderMetadata {
     return {
@@ -184,16 +177,16 @@ class TypeScriptAutoFixProvider implements qv.CodeActionProvider {
     }
 
     const actions = this.getFixAllActions(context.only);
-    if (this.client.bufferSyncSupport.hasPendingDiagnostics(document.uri)) {
+    if (this.client.bufferSyncSupport.hasPendingDiags(document.uri)) {
       return actions;
     }
 
-    const diagnostics = this.diagnosticsManager.getDiagnostics(document.uri);
+    const diagnostics = this.diagnosticsMgr.getDiags(document.uri);
     if (!diagnostics.length) {
       return actions;
     }
 
-    await this.fileConfigurationManager.ensureConfigurationForDocument(document, token);
+    await this.fileConfigMgr.ensureConfigForDocument(document, token);
 
     if (token.isCancellationRequested) {
       return undefined;
@@ -209,9 +202,9 @@ class TypeScriptAutoFixProvider implements qv.CodeActionProvider {
   }
 }
 
-export function register(selector: qu.DocumentSelector, client: ServiceClient, fileConfigurationManager: FileConfigurationManager, diagnosticsManager: DiagnosticsManager) {
+export function register(selector: qu.DocumentSelector, client: ServiceClient, fileConfigMgr: FileConfigMgr, diagnosticsMgr: DiagsMgr) {
   return condRegistration([requireMinVer(client, API.v300), requireSomeCap(client, ClientCap.Semantic)], () => {
-    const provider = new TypeScriptAutoFixProvider(client, fileConfigurationManager, diagnosticsManager);
+    const provider = new TypeScriptAutoFixProvider(client, fileConfigMgr, diagnosticsMgr);
     return qv.languages.registerCodeActionsProvider(selector.semantic, provider, provider.metadata);
   });
 }

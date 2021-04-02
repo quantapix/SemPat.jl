@@ -8,16 +8,16 @@ import { Ctx } from './ctx';
 import { prepareEnv } from './run';
 
 const debugOutput = qv.window.createOutputChannel('Debug');
-type DebugConfigProvider = (config: ra.Runnable, executable: string, env: Record<string, string>, sourceFileMap?: Record<string, string>) => qv.DebugConfiguration;
+type DebugConfigProvider = (config: ra.Runnable, executable: string, env: Record<string, string>, sourceFileMap?: Record<string, string>) => qv.DebugConfig;
 
 export async function makeDebugConfig(ctx: Ctx, runnable: ra.Runnable): Promise<void> {
   const scope = ctx.activeRustEditor?.document.uri;
   if (!scope) return;
 
-  const debugConfig = await getDebugConfiguration(ctx, runnable);
+  const debugConfig = await getDebugConfig(ctx, runnable);
   if (!debugConfig) return;
 
-  const wsLaunchSection = qv.workspace.getConfiguration('launch', scope);
+  const wsLaunchSection = qv.workspace.getConfig('launch', scope);
   const configurations = wsLaunchSection.get<any[]>('configurations') || [];
 
   const index = configurations.findIndex((c) => c.name === debugConfig.name);
@@ -34,10 +34,10 @@ export async function makeDebugConfig(ctx: Ctx, runnable: ra.Runnable): Promise<
 }
 
 export async function startDebugSession(ctx: Ctx, runnable: ra.Runnable): Promise<boolean> {
-  let debugConfig: qv.DebugConfiguration | undefined = undefined;
+  let debugConfig: qv.DebugConfig | undefined = undefined;
   let message = '';
 
-  const wsLaunchSection = qv.workspace.getConfiguration('launch');
+  const wsLaunchSection = qv.workspace.getConfig('launch');
   const configurations = wsLaunchSection.get<any[]>('configurations') || [];
 
   const index = configurations.findIndex((c) => c.name === runnable.label);
@@ -46,7 +46,7 @@ export async function startDebugSession(ctx: Ctx, runnable: ra.Runnable): Promis
     message = ' (from launch.json)';
     debugOutput.clear();
   } else {
-    debugConfig = await getDebugConfiguration(ctx, runnable);
+    debugConfig = await getDebugConfig(ctx, runnable);
   }
 
   if (!debugConfig) return false;
@@ -56,7 +56,7 @@ export async function startDebugSession(ctx: Ctx, runnable: ra.Runnable): Promis
   return qv.debug.startDebugging(undefined, debugConfig);
 }
 
-async function getDebugConfiguration(ctx: Ctx, runnable: ra.Runnable): Promise<qv.DebugConfiguration | undefined> {
+async function getDebugConfig(ctx: Ctx, runnable: ra.Runnable): Promise<qv.DebugConfig | undefined> {
   const editor = ctx.activeRustEditor;
   if (!editor) return;
 
@@ -122,7 +122,7 @@ async function getDebugExecutable(runnable: ra.Runnable): Promise<string> {
   return executable;
 }
 
-function getLldbDebugConfig(runnable: ra.Runnable, executable: string, env: Record<string, string>, sourceFileMap?: Record<string, string>): qv.DebugConfiguration {
+function getLldbDebugConfig(runnable: ra.Runnable, executable: string, env: Record<string, string>, sourceFileMap?: Record<string, string>): qv.DebugConfig {
   return {
     type: 'lldb',
     request: 'launch',
@@ -131,12 +131,12 @@ function getLldbDebugConfig(runnable: ra.Runnable, executable: string, env: Reco
     args: runnable.args.executableArgs,
     cwd: runnable.args.workspaceRoot,
     sourceMap: sourceFileMap,
-    sourceLanguages: ['rust'],
+    sourceLangs: ['rust'],
     env,
   };
 }
 
-function getCppvsDebugConfig(runnable: ra.Runnable, executable: string, env: Record<string, string>, sourceFileMap?: Record<string, string>): qv.DebugConfiguration {
+function getCppvsDebugConfig(runnable: ra.Runnable, executable: string, env: Record<string, string>, sourceFileMap?: Record<string, string>): qv.DebugConfig {
   return {
     type: os.platform() === 'win32' ? 'cppvsdbg' : 'cppdbg',
     request: 'launch',

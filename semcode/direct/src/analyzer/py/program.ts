@@ -2,17 +2,17 @@ import { CancellationToken, CompletionItem, DocumentSymbol } from 'vscode-langua
 import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import { CallHierarchyIncomingCall, CallHierarchyItem, CallHierarchyOutgoingCall, DocumentHighlight, MarkupKind } from 'vscode-languageserver-types';
 
-import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
+import { OpCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { Console, StdConsole } from '../common/console';
 import { isDebugMode } from '../common/core';
 import { assert } from '../common/debug';
-import { Diagnostic } from '../common/diagnostic';
-import { FileDiagnostics } from '../common/diagnosticSink';
+import { Diag } from '../common/diagnostic';
+import { FileDiags } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
-import { LanguageServiceExtension } from '../common/extensibility';
+import { LangServiceExtension } from '../common/extensibility';
 import { LogTracker } from '../common/logTracker';
-import { combinePaths, getDirectoryPath, getFileName, getRelativePath, makeDirectories, normalizePath, normalizePathCase, stripFileExtension } from '../common/pathUtils';
+import { combinePaths, getDirPath, getFileName, getRelativePath, makeDirectories, normalizePath, normalizePathCase, stripFileExtension } from '../common/pathUtils';
 import { convertPositionToOffset, convertRangeToTextRange } from '../common/positionUtils';
 import { computeCompletionSimilarity } from '../common/stringUtils';
 import { DocumentRange, doesRangeContain, doRangesIntersect, Position, Range } from '../common/textRange';
@@ -94,7 +94,7 @@ export class Program {
   private _logTracker: LogTracker;
   private _parsedFileCount = 0;
 
-  constructor(initialImportResolver: ImportResolver, initialConfigOptions: ConfigOptions, console?: Console, private _extension?: LanguageServiceExtension, logTracker?: LogTracker) {
+  constructor(initialImportResolver: ImportResolver, initialConfigOptions: ConfigOptions, console?: Console, private _extension?: LangServiceExtension, logTracker?: LogTracker) {
     this._console = console || new StdConsole();
     this._logTracker = logTracker ?? new LogTracker(console, 'FG');
     this._importResolver = initialImportResolver;
@@ -119,7 +119,7 @@ export class Program {
     this._createNewEvaluator();
   }
 
-  setTrackedFiles(filePaths: string[]): FileDiagnostics[] {
+  setTrackedFiles(filePaths: string[]): FileDiags[] {
     if (this._sourceFileList.length > 0) {
       const newFileMap = new Map<string, string>();
       filePaths.forEach((path) => {
@@ -203,7 +203,7 @@ export class Program {
     sourceFileInfo.sourceFile.setClientVersion(version, contents);
   }
 
-  setFileClosed(filePath: string): FileDiagnostics[] {
+  setFileClosed(filePath: string): FileDiags[] {
     const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
     if (sourceFileInfo) {
       sourceFileInfo.isOpenByClient = false;
@@ -420,12 +420,12 @@ export class Program {
         let typeStubPath = normalizePath(combinePaths(stubPath, relativePath));
 
         if (targetIsSingleFile) {
-          typeStubPath = combinePaths(getDirectoryPath(typeStubPath), '__init__.pyi');
+          typeStubPath = combinePaths(getDirPath(typeStubPath), '__init__.pyi');
         } else {
           typeStubPath = stripFileExtension(typeStubPath) + '.pyi';
         }
 
-        const typeStubDir = getDirectoryPath(typeStubPath);
+        const typeStubDir = getDirPath(typeStubPath);
 
         try {
           makeDirectories(this._fs, typeStubDir, stubPath);
@@ -657,7 +657,7 @@ export class Program {
           this._getImportsRecursive(fileToCheck, closureMap, 0);
 
           closureMap.forEach((file) => {
-            timingStats.cycleDetectionTime.timeOperation(() => {
+            timingStats.cycleDetectionTime.timeOp(() => {
               this._detectAndReportImportCycles(file);
             });
           });
@@ -824,22 +824,22 @@ export class Program {
     });
   }
 
-  getDiagnostics(options: ConfigOptions): FileDiagnostics[] {
-    const fileDiagnostics: FileDiagnostics[] = this._removeUnneededFiles();
+  getDiags(options: ConfigOptions): FileDiags[] {
+    const fileDiags: FileDiags[] = this._removeUnneededFiles();
 
     this._sourceFileList.forEach((sourceFileInfo) => {
       if (this._shouldCheckFile(sourceFileInfo)) {
-        const diagnostics = sourceFileInfo.sourceFile.getDiagnostics(options, sourceFileInfo.diagnosticsVersion);
+        const diagnostics = sourceFileInfo.sourceFile.getDiags(options, sourceFileInfo.diagnosticsVersion);
         if (diagnostics !== undefined) {
-          fileDiagnostics.push({
+          fileDiags.push({
             filePath: sourceFileInfo.sourceFile.getFilePath(),
             diagnostics,
           });
 
-          sourceFileInfo.diagnosticsVersion = sourceFileInfo.sourceFile.getDiagnosticVersion();
+          sourceFileInfo.diagnosticsVersion = sourceFileInfo.sourceFile.getDiagVersion();
         }
       } else if (!sourceFileInfo.isOpenByClient && options.checkOnlyOpenFiles && sourceFileInfo.diagnosticsVersion !== undefined) {
-        fileDiagnostics.push({
+        fileDiags.push({
           filePath: sourceFileInfo.sourceFile.getFilePath(),
           diagnostics: [],
         });
@@ -847,21 +847,21 @@ export class Program {
       }
     });
 
-    return fileDiagnostics;
+    return fileDiags;
   }
 
-  getDiagnosticsForRange(filePath: string, range: Range): Diagnostic[] {
+  getDiagsForRange(filePath: string, range: Range): Diag[] {
     const sourceFile = this.getSourceFile(filePath);
     if (!sourceFile) {
       return [];
     }
 
-    const unfilteredDiagnostics = sourceFile.getDiagnostics(this._configOptions);
-    if (!unfilteredDiagnostics) {
+    const unfilteredDiags = sourceFile.getDiags(this._configOptions);
+    if (!unfilteredDiags) {
       return [];
     }
 
-    return unfilteredDiagnostics.filter((diag) => {
+    return unfilteredDiags.filter((diag) => {
       return doRangesIntersect(diag.range, range);
     });
   }
@@ -1320,20 +1320,20 @@ export class Program {
         return callback();
       }
     } catch (e) {
-      if (!(e instanceof OperationCanceledException)) {
+      if (!(e instanceof OpCanceledException)) {
         this._createNewEvaluator();
       }
       throw e;
     }
   }
 
-  private _removeUnneededFiles(): FileDiagnostics[] {
-    const fileDiagnostics: FileDiagnostics[] = [];
+  private _removeUnneededFiles(): FileDiags[] {
+    const fileDiags: FileDiags[] = [];
 
     for (let i = 0; i < this._sourceFileList.length; ) {
       const fileInfo = this._sourceFileList[i];
       if (!this._isFileNeeded(fileInfo)) {
-        fileDiagnostics.push({
+        fileDiags.push({
           filePath: fileInfo.sourceFile.getFilePath(),
           diagnostics: [],
         });
@@ -1349,7 +1349,7 @@ export class Program {
           if (!this._isFileNeeded(importedFile)) {
             const indexToRemove = this._sourceFileList.findIndex((fi) => fi === importedFile);
             if (indexToRemove >= 0 && indexToRemove < i) {
-              fileDiagnostics.push({
+              fileDiags.push({
                 filePath: importedFile.sourceFile.getFilePath(),
                 diagnostics: [],
               });
@@ -1367,7 +1367,7 @@ export class Program {
         fileInfo.shadowedBy = [];
       } else {
         if (!this._shouldCheckFile(fileInfo) && fileInfo.diagnosticsVersion !== undefined) {
-          fileDiagnostics.push({
+          fileDiags.push({
             filePath: fileInfo.sourceFile.getFilePath(),
             diagnostics: [],
           });
@@ -1378,7 +1378,7 @@ export class Program {
       }
     }
 
-    return fileDiagnostics;
+    return fileDiags;
   }
 
   private _isFileNeeded(fileInfo: SourceFileInfo) {
