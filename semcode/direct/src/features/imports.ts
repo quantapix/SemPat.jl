@@ -2,14 +2,11 @@ import { ClientCap, ServiceClient } from '../service';
 import { Command, CommandManager } from '../../old/ts/commands/commandManager';
 import { condRegistration, requireMinVer, requireSomeCap } from '../registration';
 import { TelemetryReporter } from '../../old/ts/utils/telemetry';
-import * as nls from 'vscode-nls';
 import * as qu from '../utils';
 import * as qv from 'vscode';
 import API from '../../old/ts/utils/api';
 import FileConfigurationManager from '../../old/ts/languageFeatures/fileConfigurationManager';
 import type * as qp from '../protocol';
-
-const localize = nls.loadMessageBundle();
 
 class OrganizeImportsCommand implements Command {
   public static readonly Id = '_typescript.organizeImports';
@@ -69,7 +66,7 @@ export class OrganizeImportsCodeActionProvider implements qv.CodeActionProvider 
 
     this.fileConfigManager.ensureConfigurationForDocument(document, token);
 
-    const action = new qv.CodeAction(localize('organizeImportsAction.title', 'Organize Imports'), qv.CodeActionKind.SourceOrganizeImports);
+    const action = new qv.CodeAction('organizeImportsAction.title', qv.CodeActionKind.SourceOrganizeImports);
     action.command = { title: '', command: OrganizeImportsCommand.Id, arguments: [file] };
     return [action];
   }

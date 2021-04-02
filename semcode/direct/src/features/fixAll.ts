@@ -1,14 +1,11 @@
 import { ClientCap, ServiceClient } from '../service';
 import { condRegistration, requireSomeCap, requireMinVer } from '../registration';
 import { DiagnosticsManager } from '../../old/ts/languageFeatures/diagnostics';
-import * as nls from 'vscode-nls';
 import * as qu from '../utils';
 import * as qv from 'vscode';
 import API from '../../old/ts/utils/api';
 import FileConfigurationManager from '../../old/ts/languageFeatures/fileConfigurationManager';
 import type * as qp from '../protocol';
-
-const localize = nls.loadMessageBundle();
 
 interface AutoFix {
   readonly codes: Set<number>;
@@ -117,7 +114,7 @@ class SourceFixAll extends SourceAction {
   static readonly kind = qv.CodeActionKind.SourceFixAll.append('ts');
 
   constructor() {
-    super(localize('autoFix.label', 'Fix All'), SourceFixAll.kind);
+    super('autoFix.label', SourceFixAll.kind);
   }
 
   async build(client: ServiceClient, file: string, diagnostics: readonly qv.Diagnostic[], token: qv.CancellationToken): Promise<void> {
@@ -143,7 +140,7 @@ class SourceRemoveUnused extends SourceAction {
   static readonly kind = qv.CodeActionKind.Source.append('removeUnused').append('ts');
 
   constructor() {
-    super(localize('autoFix.unused.label', 'Remove all unused code'), SourceRemoveUnused.kind);
+    super('autoFix.unused.label', SourceRemoveUnused.kind);
   }
 
   async build(client: ServiceClient, file: string, diagnostics: readonly qv.Diagnostic[], token: qv.CancellationToken): Promise<void> {
@@ -156,7 +153,7 @@ class SourceAddMissingImports extends SourceAction {
   static readonly kind = qv.CodeActionKind.Source.append('addMissingImports').append('ts');
 
   constructor() {
-    super(localize('autoFix.missingImports.label', 'Add all missing imports'), SourceAddMissingImports.kind);
+    super('autoFix.missingImports.label', SourceAddMissingImports.kind);
   }
 
   async build(client: ServiceClient, file: string, diagnostics: readonly qv.Diagnostic[], token: qv.CancellationToken): Promise<void> {

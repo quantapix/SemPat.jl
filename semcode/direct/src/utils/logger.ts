@@ -1,15 +1,12 @@
 import * as qv from 'vscode';
-import * as nls from 'vscode-nls';
-import { memoize } from './memoize';
-
-const localize = nls.loadMessageBundle();
+import { memoize } from '../utils';
 
 type LogLevel = 'Trace' | 'Info' | 'Error';
 
 export class Logger {
   @memoize
   private get output(): qv.OutputChannel {
-    return qv.window.createOutputChannel(localize('channelName', 'TypeScript'));
+    return qv.window.createOutputChannel('channelName');
   }
 
   private data2String(data: any): string {

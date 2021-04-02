@@ -17,7 +17,7 @@ import * as plots from './plots';
 import { showProfileResult, showProfileResultFile } from './profiler';
 import * as results from './results';
 import { Frame } from './results';
-import * as workspace from './workspace';
+import * as workspace from './features/jl/workspace';
 
 let g_context: qv.ExtensionContext = null;
 let g_languageClient: vslc.LanguageClient = null;

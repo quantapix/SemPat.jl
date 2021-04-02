@@ -7,7 +7,7 @@ import * as os from 'os';
 import * as packs from './packs';
 import * as path from 'path';
 import * as repl from './repl';
-import * as tasks from './tasks';
+import * as tasks from './task';
 import * as qu from './utils';
 import * as qv from 'vscode';
 
@@ -15,7 +15,7 @@ import { RLSConfiguration } from './configuration';
 import * as rls from './rls';
 import * as rustAnalyzer from './rustAnalyzer';
 import { rustupUpdate } from './rustup';
-import { activateTaskProvider, Execution, runRlsCommand } from './tasks';
+import { activateTaskProvider, Execution, runRlsCommand } from './task';
 
 export interface Api {
   activeWorkspace: typeof activeWorkspace;

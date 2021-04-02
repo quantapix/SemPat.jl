@@ -1,12 +1,9 @@
 import * as path from 'path';
 import * as qv from 'vscode';
-import * as nls from 'vscode-nls';
 import type * as qp from '../protocol';
-import { ITypeScriptServiceClient, ServerResponse } from '../../../src/service';
-import { nulToken } from '../utils/cancellation';
+import { ServiceClient, ServerResponse } from '../service';
+import { nulToken } from '../utils';
 import { TypeScriptServiceConfiguration } from './configuration';
-
-const localize = nls.loadMessageBundle();
 
 export const enum ProjectType {
   TypeScript,
@@ -80,7 +77,7 @@ export async function openOrCreateConfig(projectType: ProjectType, rootPath: str
   }
 }
 
-export async function openProjectConfigOrPromptToCreate(projectType: ProjectType, client: ITypeScriptServiceClient, rootPath: string, configFileName: string): Promise<void> {
+export async function openProjectConfigOrPromptToCreate(projectType: ProjectType, client: ServiceClient, rootPath: string, configFileName: string): Promise<void> {
   if (!isImplicitProjectConfigFile(configFileName)) {
     const doc = await qv.workspace.openTextDocument(configFileName);
     qv.window.showTextDocument(doc, qv.window.activeTextEditor?.viewColumn);
@@ -88,18 +85,10 @@ export async function openProjectConfigOrPromptToCreate(projectType: ProjectType
   }
 
   const CreateConfigItem: qv.MessageItem = {
-    title:
-      projectType === ProjectType.TypeScript
-        ? localize('typescript.configureTsconfigQuickPick', 'Configure tsconfig.json')
-        : localize('typescript.configureJsconfigQuickPick', 'Configure jsconfig.json'),
+    title: projectType === ProjectType.TypeScript ? 'typescript.configureTsconfigQuickPick' : 'typescript.configureJsconfigQuickPick',
   };
 
-  const selected = await qv.window.showInformationMessage(
-    projectType === ProjectType.TypeScript
-      ? localize('typescript.noTypeScriptProjectConfig', 'File is not part of a TypeScript project. Click [here]({0}) to learn more.', 'https://go.microsoft.com/fwlink/?linkid=841896')
-      : localize('typescript.noJavaScriptProjectConfig', 'File is not part of a JavaScript project Click [here]({0}) to learn more.', 'https://go.microsoft.com/fwlink/?linkid=759670'),
-    CreateConfigItem
-  );
+  const selected = await qv.window.showInformationMessage(projectType === ProjectType.TypeScript ? 'typescript.noTypeScriptProjectConfig' : 'typescript.noJavaScriptProjectConfig', CreateConfigItem);
 
   switch (selected) {
     case CreateConfigItem:
@@ -108,17 +97,17 @@ export async function openProjectConfigOrPromptToCreate(projectType: ProjectType
   }
 }
 
-export async function openProjectConfigForFile(projectType: ProjectType, client: ITypeScriptServiceClient, resource: qv.Uri): Promise<void> {
+export async function openProjectConfigForFile(projectType: ProjectType, client: ServiceClient, resource: qv.Uri): Promise<void> {
   const rootPath = client.getWorkspaceRootForResource(resource);
   if (!rootPath) {
-    qv.window.showInformationMessage(localize('typescript.projectConfigNoWorkspace', 'Please open a folder in VS Code to use a TypeScript or JavaScript project'));
+    qv.window.showInformationMessage('typescript.projectConfigNoWorkspace');
     return;
   }
 
   const file = client.toPath(resource);
 
   if (!file || !(await client.toPath(resource))) {
-    qv.window.showWarningMessage(localize('typescript.projectConfigUnsupportedFile', 'Could not determine TypeScript or JavaScript project. Unsupported file type'));
+    qv.window.showWarningMessage('typescript.projectConfigUnsupportedFile');
     return;
   }
 
@@ -128,7 +117,7 @@ export async function openProjectConfigForFile(projectType: ProjectType, client:
   } catch {}
 
   if (res?.type !== 'response' || !res.body) {
-    qv.window.showWarningMessage(localize('typescript.projectConfigCouldNotGetInfo', 'Could not determine TypeScript or JavaScript project'));
+    qv.window.showWarningMessage('typescript.projectConfigCouldNotGetInfo');
     return;
   }
   return openProjectConfigOrPromptToCreate(projectType, client, rootPath, res.body.configFileName);

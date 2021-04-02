@@ -1,8 +1,7 @@
 import * as path from 'path';
 import * as qv from 'vscode';
-import * as nls from 'vscode-nls';
 import type * as qp from '../protocol';
-import { ClientCapability, ITypeScriptServiceClient } from '../../../src/service';
+import { ClientCapability, ServiceClient } from '../service';
 import API from '../utils/api';
 import { Delayer } from '../utils/async';
 import { nulToken } from '../utils/cancellation';
@@ -12,8 +11,6 @@ import * as fileSchemes from '../utils/fileSchemes';
 import { doesResourceLookLikeATypeScriptFile } from '../utils/languageDescription';
 import * as qu from '../utils/qu';
 import FileConfigurationManager from './fileConfigurationManager';
-
-const localize = nls.loadMessageBundle();
 
 const updateImportsOnFileMoveName = 'updateImportsOnFileMove.enabled';
 
@@ -45,11 +42,7 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
   private readonly _delayer = new Delayer(50);
   private readonly _pendingRenames = new Set<RenameAction>();
 
-  public constructor(
-    private readonly client: ITypeScriptServiceClient,
-    private readonly fileConfigurationManager: FileConfigurationManager,
-    private readonly _handles: (uri: qv.Uri) => Promise<boolean>
-  ) {
+  public constructor(private readonly client: ServiceClient, private readonly fileConfigurationManager: FileConfigurationManager, private readonly _handles: (uri: qv.Uri) => Promise<boolean>) {
     super();
 
     this._register(
@@ -81,7 +74,7 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
           qv.window.withProgress(
             {
               location: qv.ProgressLocation.Window,
-              title: localize('renameProgress.title', 'Checking for update of JS/TS imports'),
+              title: 'renameProgress.title',
             },
             () => this.flushRenames()
           );
@@ -156,27 +149,25 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
     }
 
     const response = await qv.window.showInformationMessage<Item>(
-      newResources.length === 1
-        ? localize('prompt', "Update imports for '{0}'?", path.basename(newResources[0].fsPath))
-        : this.getConfirmMessage(localize('promptMoreThanOne', 'Update imports for the following {0} files?', newResources.length), newResources),
+      newResources.length === 1 ? 'prompt' : this.getConfirmMessage('promptMoreThanOne', newResources),
       {
         modal: true,
       },
       {
-        title: localize('reject.title', 'No'),
+        title: 'reject.title',
         choice: Choice.Reject,
         isCloseAffordance: true,
       },
       {
-        title: localize('accept.title', 'Yes'),
+        title: 'accept.title',
         choice: Choice.Accept,
       },
       {
-        title: localize('always.title', 'Always automatically update imports'),
+        title: 'always.title',
         choice: Choice.Always,
       },
       {
-        title: localize('never.title', 'Never automatically update imports'),
+        title: 'never.title',
         choice: Choice.Never,
       }
     );
@@ -267,9 +258,9 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
 
     if (resourcesToConfirm.length > MAX_CONFIRM_FILES) {
       if (resourcesToConfirm.length - MAX_CONFIRM_FILES === 1) {
-        paths.push(localize('moreFile', '...1 additional file not shown'));
+        paths.push('moreFile');
       } else {
-        paths.push(localize('moreFiles', '...{0} additional files not shown', resourcesToConfirm.length - MAX_CONFIRM_FILES));
+        paths.push('moreFiles');
       }
     }
 
@@ -278,7 +269,7 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
   }
 }
 
-export function register(client: ITypeScriptServiceClient, fileConfigurationManager: FileConfigurationManager, handles: (uri: qv.Uri) => Promise<boolean>) {
+export function register(client: ServiceClient, fileConfigurationManager: FileConfigurationManager, handles: (uri: qv.Uri) => Promise<boolean>) {
   return conditionalRegistration([requireMinVersion(client, UpdateImportsOnFileRenameHandler.minVersion), requireSomeCap(client, ClientCapability.Semantic)], () => {
     return new UpdateImportsOnFileRenameHandler(client, fileConfigurationManager, handles);
   });

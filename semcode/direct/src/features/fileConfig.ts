@@ -1,6 +1,6 @@
 import * as qv from 'vscode';
 import type * as qp from '../protocol';
-import { ITypeScriptServiceClient } from '../../../src/service';
+import { ServiceClient } from '../service';
 import API from '../utils/api';
 import { Disposable } from '../utils/dispose';
 import * as fileSchemes from '../utils/fileSchemes';
@@ -20,7 +20,7 @@ function areFileConfigurationsEqual(a: FileConfiguration, b: FileConfiguration):
 export default class FileConfigurationManager extends Disposable {
   private readonly formatOptions: ResourceMap<Promise<FileConfiguration | undefined>>;
 
-  public constructor(private readonly client: ITypeScriptServiceClient, onCaseInsenitiveFileSystem: boolean) {
+  public constructor(private readonly client: ServiceClient, onCaseInsenitiveFileSystem: boolean) {
     super();
     this.formatOptions = new ResourceMap(undefined, { onCaseInsenitiveFileSystem });
     qv.workspace.onDidCloseTextDocument(

@@ -1,8 +1,8 @@
 import * as fs from 'async-file';
 import * as path from 'path';
 import * as qv from 'vscode';
-import * as packs from './packs';
-import { inferJuliaNumThreads } from './utils';
+import * as packs from '../../packs';
+import { inferJuliaNumThreads } from '../../utils';
 
 class JuliaTaskProvider {
   constructor(private context: qv.ExtensionContext) {}

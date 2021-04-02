@@ -1,6 +1,6 @@
 import * as qv from 'vscode';
 import type * as qp from '../protocol';
-import { ITypeScriptServiceClient } from '../../../src/service';
+import { ServiceClient } from '../service';
 import API from '../utils/api';
 import { conditionalRegistration, requireMinVersion, requireConfig, Condition } from '../../../src/registration';
 import { Disposable } from '../utils/dispose';
@@ -14,7 +14,7 @@ class TagClosing extends Disposable {
   private _timeout: NodeJS.Timer | undefined = undefined;
   private _cancel: qv.CancellationTokenSource | undefined = undefined;
 
-  constructor(private readonly client: ITypeScriptServiceClient) {
+  constructor(private readonly client: ServiceClient) {
     super();
     qv.workspace.onDidChangeTextDocument((event) => this.onDidChangeTextDocument(event.document, event.contentChanges), null, this._disposables);
   }
@@ -130,6 +130,6 @@ function requireActiveDocument(selector: qv.DocumentSelector) {
   );
 }
 
-export function register(selector: DocumentSelector, modeId: string, client: ITypeScriptServiceClient) {
+export function register(selector: DocumentSelector, modeId: string, client: ServiceClient) {
   return conditionalRegistration([requireMinVersion(client, TagClosing.minVersion), requireConfig(modeId, 'autoClosingTags'), requireActiveDocument(selector.syntax)], () => new TagClosing(client));
 }

@@ -3,15 +3,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { Readable } from 'stream';
 import * as qv from 'vscode';
-import * as nls from 'vscode-nls';
 import type * as qp from '../protocol';
 import { TypeScriptServiceConfiguration } from '../utils/configuration';
-import { Disposable } from '../utils/dispose';
+import { Disposable } from '../utils';
 import { TsServerProcess, TsServerProcessKind } from './server';
 import { TypeScriptVersionManager } from './manager';
-import { memoize } from '../utils/memoize';
-
-const localize = nls.loadMessageBundle();
+import { memoize } from '../utils';
 
 const defaultSize: number = 8192;
 const contentLength: string = 'Content-Length: ';
@@ -138,7 +135,7 @@ export class ChildServerProcess extends Disposable implements TsServerProcess {
     versionManager: TypeScriptVersionManager
   ): ChildServerProcess {
     if (!fs.existsSync(tsServerPath)) {
-      qv.window.showWarningMessage(localize('noServerFound', "The path {0} doesn't point to a valid tsserver install. Falling back to bundled TypeScript version.", tsServerPath));
+      qv.window.showWarningMessage('noServerFound');
       versionManager.reset();
       tsServerPath = versionManager.currentVersion.tsServerPath;
     }
@@ -230,8 +227,6 @@ export class ChildServerProcess extends Disposable implements TsServerProcess {
   }
 }
 
-const localize = nls.loadMessageBundle();
-
 declare const Worker: any;
 declare type Worker = any;
 
@@ -260,7 +255,7 @@ export class WorkerServerProcess implements TsServerProcess {
 
   @memoize
   private get output(): qv.OutputChannel {
-    return qv.window.createOutputChannel(localize('channelName', 'TypeScript Server Log'));
+    return qv.window.createOutputChannel('channelName');
   }
 
   write(serverRequest: qp.Request): void {

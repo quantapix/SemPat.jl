@@ -1,10 +1,7 @@
 import * as qv from 'vscode';
-import { loadMessageBundle } from 'vscode-nls';
-import { ITypeScriptServiceClient } from '../../../src/service';
+import { ServiceClient } from '../service';
 import { TelemetryReporter } from './telemetry';
 import { isImplicitProjectConfigFile, openOrCreateConfig, ProjectType } from './tsconfig';
-
-const localize = loadMessageBundle();
 
 interface Hint {
   message: string;
@@ -18,7 +15,7 @@ class ExcludeHintItem {
   constructor(private readonly telemetryReporter: TelemetryReporter) {
     this._item = qv.window.createStatusBarItem({
       id: 'status.typescript.exclude',
-      name: localize('statusExclude', 'TypeScript: Configure Excludes'),
+      name: 'statusExclude',
       alignment: qv.StatusBarAlignment.Right,
       priority: 98 /* to the right of typescript version status (99) */,
     });
@@ -35,13 +32,11 @@ class ExcludeHintItem {
 
   public show(largeRoots?: string) {
     this._currentHint = {
-      message: largeRoots
-        ? localize('hintExclude', 'To enable project-wide JavaScript/TypeScript language features, exclude folders with many files, like: {0}', largeRoots)
-        : localize('hintExclude.generic', 'To enable project-wide JavaScript/TypeScript language features, exclude large folders with source files that you do not work on.'),
+      message: largeRoots ? 'hintExclude' : 'hintExclude.generic',
     };
     this._item.tooltip = this._currentHint.message;
-    this._item.text = localize('large.label', 'Configure Excludes');
-    this._item.tooltip = localize('hintExclude.tooltip', 'To enable project-wide JavaScript/TypeScript language features, exclude large folders with source files that you do not work on.');
+    this._item.text = 'large.label';
+    this._item.tooltip = 'hintExclude.tooltip';
     this._item.color = '#A5DF3B';
     this._item.show();
     /* __GDPR__
@@ -55,7 +50,7 @@ class ExcludeHintItem {
   }
 }
 
-function createLargeProjectMonitorFromTypeScript(item: ExcludeHintItem, client: ITypeScriptServiceClient): qv.Disposable {
+function createLargeProjectMonitorFromTypeScript(item: ExcludeHintItem, client: ServiceClient): qv.Disposable {
   interface LargeProjectMessageItem extends qv.MessageItem {
     index: number;
   }
@@ -70,7 +65,7 @@ function createLargeProjectMonitorFromTypeScript(item: ExcludeHintItem, client: 
         item.configFileName = configFileName;
         qv.window
           .showWarningMessage<LargeProjectMessageItem>(item.getCurrentHint().message, {
-            title: localize('large.label', 'Configure Excludes'),
+            title: 'large.label',
             index: 0,
           })
           .then((selected) => {
@@ -83,7 +78,7 @@ function createLargeProjectMonitorFromTypeScript(item: ExcludeHintItem, client: 
   });
 }
 
-function onConfigureExcludesSelected(client: ITypeScriptServiceClient, configFileName: string) {
+function onConfigureExcludesSelected(client: ServiceClient, configFileName: string) {
   if (!isImplicitProjectConfigFile(configFileName)) {
     qv.workspace.openTextDocument(configFileName).then(qv.window.showTextDocument);
   } else {
@@ -94,7 +89,7 @@ function onConfigureExcludesSelected(client: ITypeScriptServiceClient, configFil
   }
 }
 
-export function create(client: ITypeScriptServiceClient): qv.Disposable {
+export function create(client: ServiceClient): qv.Disposable {
   const toDispose: qv.Disposable[] = [];
 
   const item = new ExcludeHintItem(client.telemetryReporter);

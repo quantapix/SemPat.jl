@@ -1,7 +1,7 @@
 import * as qv from 'vscode';
 import * as rpc from 'vscode-jsonrpc';
 import { registerCommand } from '../utils';
-import { notifyTypeReplShowInGrid, onExit, onFinishEval, onInit } from './repl';
+import { notifyTypeReplShowInGrid, onExit, onFinishEval, onInit } from '../../repl';
 
 let g_connection: rpc.MessageConnection = null;
 

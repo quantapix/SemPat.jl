@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as qv from 'vscode';
 import { OngoingRequestCancellerFactory } from '../tsServer/cancellation';
-import { ClientCapabilities, ClientCapability, ServerType } from '../../../src/service';
+import { ClientCapabilities, ClientCapability, ServerType } from '../service';
 import API from '../utils/api';
 import { SeparateSyntaxServerConfiguration, TsServerLogLevel, TypeScriptServiceConfiguration } from '../utils/configuration';
 import { Logger } from '../utils/logger';

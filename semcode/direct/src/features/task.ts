@@ -1,9 +1,8 @@
 import * as jsonc from 'jsonc-parser';
 import * as path from 'path';
 import * as qv from 'vscode';
-import * as nls from 'vscode-nls';
 import { wait } from '../test/testUtils';
-import { ITypeScriptServiceClient, ServerResponse } from '../service';
+import { ServiceClient, ServerResponse } from '../service';
 import { coalesce, flatten } from '../utils/arrays';
 import { Disposable } from '../utils/dispose';
 import { exists } from '../utils/fs';
@@ -11,8 +10,6 @@ import { isTsConfigFileName } from '../../old/ts/utils/languageDescription';
 import { Lazy } from '../utils/lazy';
 import { isImplicitProjectConfigFile } from '../../old/ts/utils/tsconfig';
 import { TSConfig, TsConfigProvider } from './tsconfig';
-
-const localize = nls.loadMessageBundle();
 
 enum AutoDetect {
   on = 'on',
@@ -33,7 +30,7 @@ class TscTaskProvider extends Disposable implements qv.TaskProvider {
   private autoDetect = AutoDetect.on;
   private readonly tsconfigProvider: TsConfigProvider;
 
-  public constructor(private readonly client: Lazy<ITypeScriptServiceClient>) {
+  public constructor(private readonly client: Lazy<ServiceClient>) {
     super();
     this.tsconfigProvider = new TsConfigProvider();
 
@@ -61,7 +58,7 @@ class TscTaskProvider extends Disposable implements qv.TaskProvider {
   public async resolveTask(task: qv.Task): Promise<qv.Task | undefined> {
     const definition = <TypeScriptTaskDefinition>task.definition;
     if (/\\tsconfig.*\.json/.test(definition.tsconfig)) {
-      qv.window.showWarningMessage(localize('badTsConfig', 'TypeScript Task in tasks.json contains "\\\\". TypeScript tasks tsconfig must use "/"'));
+      qv.window.showWarningMessage('badTsConfig');
       return undefined;
     }
 
@@ -188,21 +185,14 @@ class TscTaskProvider extends Disposable implements qv.TaskProvider {
   }
 
   private getBuildTask(workspaceFolder: qv.WorkspaceFolder | undefined, label: string, command: string, args: string[], buildTaskidentifier: TypeScriptTaskDefinition): qv.Task {
-    const buildTask = new qv.Task(buildTaskidentifier, workspaceFolder || qv.TaskScope.Workspace, localize('buildTscLabel', 'build - {0}', label), 'tsc', new qv.ShellExecution(command, args), '$tsc');
+    const buildTask = new qv.Task(buildTaskidentifier, workspaceFolder || qv.TaskScope.Workspace, 'buildTscLabel', 'tsc', new qv.ShellExecution(command, args), '$tsc');
     buildTask.group = qv.TaskGroup.Build;
     buildTask.isBackground = false;
     return buildTask;
   }
 
   private getWatchTask(workspaceFolder: qv.WorkspaceFolder | undefined, label: string, command: string, args: string[], watchTaskidentifier: TypeScriptTaskDefinition) {
-    const watchTask = new qv.Task(
-      watchTaskidentifier,
-      workspaceFolder || qv.TaskScope.Workspace,
-      localize('buildAndWatchTscLabel', 'watch - {0}', label),
-      'tsc',
-      new qv.ShellExecution(command, [...args, '--watch']),
-      '$tsc-watch'
-    );
+    const watchTask = new qv.Task(watchTaskidentifier, workspaceFolder || qv.TaskScope.Workspace, 'buildAndWatchTscLabel', 'tsc', new qv.ShellExecution(command, [...args, '--watch']), '$tsc-watch');
     watchTask.group = qv.TaskGroup.Build;
     watchTask.isBackground = true;
     return watchTask;
@@ -270,6 +260,6 @@ class TscTaskProvider extends Disposable implements qv.TaskProvider {
   }
 }
 
-export function register(lazyClient: Lazy<ITypeScriptServiceClient>) {
+export function register(lazyClient: Lazy<ServiceClient>) {
   return qv.tasks.registerTaskProvider('typescript', new TscTaskProvider(lazyClient));
 }

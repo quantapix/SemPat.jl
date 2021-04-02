@@ -6,10 +6,10 @@ import { TsServerProcessFactory } from '../old/ts/tsServer/server';
 import { ITypeScriptVersionProvider } from '../old/ts/tsServer/versionProvider';
 import TypeScriptServiceClientHost from './clientHost';
 import { ActiveJsTsEditorTracker } from '../old/ts/utils/activeJsTsEditorTracker';
-import { flatten } from './utils/arrays';
-import * as fileSchemes from '../old/ts/utils/fileSchemes';
+import { flatten } from './utils';
+import * as fileSchemes from './utils';
 import { standardLanguageDescriptions } from '../old/ts/utils/languageDescription';
-import { lazy, Lazy } from './utils/lazy';
+import { lazy, Lazy } from './utils';
 import ManagedFileContextManager from '../old/ts/utils/managedFileContext';
 import { PluginManager } from '../old/ts/utils/plugins';
 

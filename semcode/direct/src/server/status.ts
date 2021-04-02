@@ -1,15 +1,12 @@
 import * as qv from 'vscode';
-import * as nls from 'vscode-nls';
 import { Command, CommandManager } from '../commands/commandManager';
-import { ITypeScriptServiceClient } from '../../../src/service';
+import { ServiceClient } from '../service';
 import { ActiveJsTsEditorTracker } from '../utils/activeJsTsEditorTracker';
 import { coalesce } from '../utils/arrays';
 import { Disposable } from '../utils/dispose';
 import { isTypeScriptDocument } from '../utils/languageModeIds';
 import { isImplicitProjectConfigFile, openOrCreateConfig, openProjectConfigForFile, openProjectConfigOrPromptToCreate, ProjectType } from '../utils/tsconfig';
 import { TypeScriptVersion } from './version';
-
-const localize = nls.loadMessageBundle();
 
 namespace ProjectInfoState {
   export const enum Type {
@@ -44,13 +41,13 @@ interface QuickPickItem extends qv.QuickPickItem {
 class ProjectStatusCommand implements Command {
   public readonly id = '_typescript.projectStatus';
 
-  public constructor(private readonly _client: ITypeScriptServiceClient, private readonly _delegate: () => ProjectInfoState.State) {}
+  public constructor(private readonly _client: ServiceClient, private readonly _delegate: () => ProjectInfoState.State) {}
 
   public async execute(): Promise<void> {
     const info = this._delegate();
 
     const result = await qv.window.showQuickPick<QuickPickItem>(coalesce([this.getProjectItem(info), this.getVersionItem(), this.getHelpItem()]), {
-      placeHolder: localize('projectQuickPick.placeholder', 'TypeScript Project Info'),
+      placeHolder: 'projectQuickPick.placeholder',
     });
 
     return result?.run();
@@ -58,8 +55,8 @@ class ProjectStatusCommand implements Command {
 
   private getVersionItem(): QuickPickItem {
     return {
-      label: localize('projectQuickPick.version.label', 'Select TypeScript Version...'),
-      description: localize('projectQuickPick.version.description', '[current = {0}]', this._client.apiVersion.displayName),
+      label: 'projectQuickPick.version.label',
+      description: 'projectQuickPick.version.description',
       run: () => {
         this._client.showVersionPicker();
       },
@@ -74,8 +71,8 @@ class ProjectStatusCommand implements Command {
     if (info.type === ProjectInfoState.Type.Resolved) {
       if (isImplicitProjectConfigFile(info.configFile)) {
         return {
-          label: localize('projectQuickPick.project.create', 'Create tsconfig'),
-          detail: localize('projectQuickPick.project.create.description', 'This file is currently not part of a tsconfig/jsconfig project'),
+          label: 'projectQuickPick.project.create',
+          detail: 'projectQuickPick.project.create.description',
           run: () => {
             openOrCreateConfig(ProjectType.TypeScript, rootPath, this._client.configuration);
           },
@@ -83,7 +80,7 @@ class ProjectStatusCommand implements Command {
       }
     }
     return {
-      label: localize('projectQuickPick.version.goProjectConfig', 'Open tsconfig'),
+      label: 'projectQuickPick.version.goProjectConfig',
       description: info.type === ProjectInfoState.Type.Resolved ? qv.workspace.asRelativePath(info.configFile) : undefined,
       run: () => {
         if (info.type === ProjectInfoState.Type.Resolved) {
@@ -97,7 +94,7 @@ class ProjectStatusCommand implements Command {
 
   private getHelpItem(): QuickPickItem {
     return {
-      label: localize('projectQuickPick.help', 'TypeScript help'),
+      label: 'projectQuickPick.help',
       run: () => {
         qv.env.openExternal(qv.Uri.parse('https://go.microsoft.com/fwlink/?linkid=839919')); // TODO:
       },
@@ -111,13 +108,13 @@ export default class VersionStatus extends Disposable {
   private _ready = false;
   private _state: ProjectInfoState.State = ProjectInfoState.None;
 
-  constructor(private readonly _client: ITypeScriptServiceClient, commandManager: CommandManager, private readonly _activeTextEditorManager: ActiveJsTsEditorTracker) {
+  constructor(private readonly _client: ServiceClient, commandManager: CommandManager, private readonly _activeTextEditorManager: ActiveJsTsEditorTracker) {
     super();
 
     this._statusBarEntry = this._register(
       qv.window.createStatusBarItem({
         id: 'status.typescript',
-        name: localize('projectInfo.name', 'TypeScript: Project Info'),
+        name: 'projectInfo.name',
         alignment: qv.StatusBarAlignment.Right,
         priority: 99 /* to the right of editor status (100) */,
       })

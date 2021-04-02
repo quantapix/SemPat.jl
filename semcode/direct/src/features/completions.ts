@@ -1,9 +1,8 @@
 import * as qv from 'vscode';
-import * as nls from 'vscode-nls';
 import { Command, CommandManager } from '../commands/commandManager';
 import type * as qp from '../protocol';
 import * as PConst from '../../../src/protocol.const';
-import { ClientCapability, ITypeScriptServiceClient, ServerResponse } from '../../../src/service';
+import { ClientCapability, ServiceClient, ServerResponse } from '../service';
 import API from '../utils/api';
 import { nulToken } from '../utils/cancellation';
 import { applyCodeAction } from '../utils/codeAction';
@@ -16,8 +15,6 @@ import { TelemetryReporter } from '../utils/telemetry';
 import * as qu from '../utils/qu';
 import TypingsStatus from '../utils/typingsStatus';
 import FileConfigurationManager from './fileConfig';
-
-const localize = nls.loadMessageBundle();
 
 interface DotAccessorContext {
   readonly range: qv.Range;
@@ -136,7 +133,7 @@ class MyCompletionItem extends qv.CompletionItem {
     waiting: number;
   };
 
-  public async resolveCompletionItem(client: ITypeScriptServiceClient, token: qv.CancellationToken): Promise<ResolvedCompletionItem | undefined> {
+  public async resolveCompletionItem(client: ServiceClient, token: qv.CancellationToken): Promise<ResolvedCompletionItem | undefined> {
     token.onCancellationRequested(() => {
       if (this._resolvedPromise && --this._resolvedPromise.waiting <= 0) {
         setTimeout(() => {
@@ -227,7 +224,7 @@ class MyCompletionItem extends qv.CompletionItem {
     const documentation = new qv.MarkdownString();
     if (detail.source) {
       const importPath = `'${Previewer.plain(detail.source)}'`;
-      const autoImportLabel = localize('autoImportLabel', 'Auto import from {0}', importPath);
+      const autoImportLabel = 'autoImportLabel';
       item.detail = `${autoImportLabel}\n${item.detail}`;
     }
     Previewer.addMarkdownDocumentation(documentation, detail.documentation, detail.tags);
@@ -235,7 +232,7 @@ class MyCompletionItem extends qv.CompletionItem {
     return documentation.value.length ? documentation : undefined;
   }
 
-  private async isValidFunctionCompletionContext(client: ITypeScriptServiceClient, filepath: string, position: qv.Position, document: qv.TextDocument, token: qv.CancellationToken): Promise<boolean> {
+  private async isValidFunctionCompletionContext(client: ServiceClient, filepath: string, position: qv.Position, document: qv.TextDocument, token: qv.CancellationToken): Promise<boolean> {
     try {
       const args: qp.FileLocationRequestArgs = qu.Position.toFileLocationRequestArgs(filepath, position);
       const response = await client.execute('quickinfo', args, token);
@@ -511,7 +508,7 @@ class ApplyCompletionCommand implements Command {
   public static readonly ID = '_typescript.applyCompletionCommand';
   public readonly id = ApplyCompletionCommand.ID;
 
-  public constructor(private readonly client: ITypeScriptServiceClient) {}
+  public constructor(private readonly client: ServiceClient) {}
 
   public async execute(item: MyCompletionItem) {
     const resolved = await item.resolveCompletionItem(this.client, nulToken);
@@ -539,7 +536,7 @@ class ApplyCompletionCodeActionCommand implements Command {
   public static readonly ID = '_typescript.applyCompletionCodeAction';
   public readonly id = ApplyCompletionCodeActionCommand.ID;
 
-  public constructor(private readonly client: ITypeScriptServiceClient) {}
+  public constructor(private readonly client: ServiceClient) {}
 
   public async execute(_file: string, codeActions: qp.CodeAction[]): Promise<boolean> {
     if (codeActions.length === 0) {
@@ -557,7 +554,7 @@ class ApplyCompletionCodeActionCommand implements Command {
         action,
       })),
       {
-        placeHolder: localize('selectCodeAction', 'Select code action to apply'),
+        placeHolder: 'selectCodeAction',
       }
     );
 
@@ -596,7 +593,7 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
   public static readonly triggerCharacters = ['.', '"', "'", '`', '/', '@', '<', '#'];
 
   constructor(
-    private readonly client: ITypeScriptServiceClient,
+    private readonly client: ServiceClient,
     private readonly modeId: string,
     private readonly typingsStatus: TypingsStatus,
     private readonly fileConfigurationManager: FileConfigurationManager,
@@ -618,11 +615,8 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
   ): Promise<qv.CompletionList<MyCompletionItem> | undefined> {
     if (this.typingsStatus.isAcquiringTypings) {
       return Promise.reject<qv.CompletionList<MyCompletionItem>>({
-        label: localize({ key: 'acquiringTypingsLabel', comment: ['Typings refers to the *.d.ts typings files that power our IntelliSense. It should not be localized'] }, 'Acquiring typings...'),
-        detail: localize(
-          { key: 'acquiringTypingsDetail', comment: ['Typings refers to the *.d.ts typings files that power our IntelliSense. It should not be localized'] },
-          'Acquiring typings definitions for IntelliSense.'
-        ),
+        label: 'acquiringTypingsLabel',
+        detail: 'acquiringTypingsDetail',
       });
     }
 
@@ -827,7 +821,7 @@ function shouldExcludeCompletionEntry(element: qp.CompletionEntry, completionCon
 export function register(
   selector: DocumentSelector,
   modeId: string,
-  client: ITypeScriptServiceClient,
+  client: ServiceClient,
   typingsStatus: TypingsStatus,
   fileConfigurationManager: FileConfigurationManager,
   commandManager: CommandManager,

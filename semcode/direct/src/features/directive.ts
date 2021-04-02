@@ -1,10 +1,7 @@
 import * as qv from 'vscode';
-import * as nls from 'vscode-nls';
-import { ITypeScriptServiceClient } from '../../../src/service';
+import { ServiceClient } from '../service';
 import API from '../utils/api';
 import { DocumentSelector } from '../utils/documentSelector';
-
-const localize = nls.loadMessageBundle();
 
 interface Directive {
   readonly value: string;
@@ -14,15 +11,15 @@ interface Directive {
 const tsDirectives: Directive[] = [
   {
     value: '@ts-check',
-    description: localize('ts-check', 'Enables semantic checking in a JavaScript file. Must be at the top of a file.'),
+    description: 'ts-check',
   },
   {
     value: '@ts-nocheck',
-    description: localize('ts-nocheck', 'Disables semantic checking in a JavaScript file. Must be at the top of a file.'),
+    description: 'ts-nocheck',
   },
   {
     value: '@ts-ignore',
-    description: localize('ts-ignore', 'Suppresses @ts-check errors on the next line of a file.'),
+    description: 'ts-ignore',
   },
 ];
 
@@ -30,12 +27,12 @@ const tsDirectives390: Directive[] = [
   ...tsDirectives,
   {
     value: '@ts-expect-error',
-    description: localize('ts-expect-error', 'Suppresses @ts-check errors on the next line of a file, expecting at least one to exist.'),
+    description: 'ts-expect-error',
   },
 ];
 
 class DirectiveCommentCompletionProvider implements qv.CompletionItemProvider {
-  constructor(private readonly client: ITypeScriptServiceClient) {}
+  constructor(private readonly client: ServiceClient) {}
 
   public provideCompletionItems(document: qv.TextDocument, position: qv.Position, _token: qv.CancellationToken): qv.CompletionItem[] {
     const file = this.client.toOpenedFilePath(document);
@@ -60,6 +57,6 @@ class DirectiveCommentCompletionProvider implements qv.CompletionItemProvider {
   }
 }
 
-export function register(selector: DocumentSelector, client: ITypeScriptServiceClient) {
+export function register(selector: DocumentSelector, client: ServiceClient) {
   return qv.languages.registerCompletionItemProvider(selector.syntax, new DirectiveCommentCompletionProvider(client), '@');
 }

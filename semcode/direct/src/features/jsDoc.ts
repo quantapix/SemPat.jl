@@ -1,19 +1,16 @@
 import * as qv from 'vscode';
-import * as nls from 'vscode-nls';
-import { ITypeScriptServiceClient } from '../../../src/service';
+import { ServiceClient } from '../service';
 import { conditionalRegistration, requireConfig } from '../../../src/registration';
 import { DocumentSelector } from '../utils/documentSelector';
 import * as qu from '../utils/qu';
 import FileConfigurationManager from './fileConfigurationManager';
-
-const localize = nls.loadMessageBundle();
 
 const defaultJsDoc = new qv.SnippetString(`/**\n * $0\n */`);
 
 class JsDocCompletionItem extends qv.CompletionItem {
   constructor(public readonly document: qv.TextDocument, public readonly position: qv.Position) {
     super('/** */', qv.CompletionItemKind.Text);
-    this.detail = localize('typescript.jsDocCompletionItem.documentation', 'JSDoc comment');
+    this.detail = 'typescript.jsDocCompletionItem.documentation';
     this.sortText = '\0';
 
     const line = document.lineAt(position.line).text;
@@ -26,7 +23,7 @@ class JsDocCompletionItem extends qv.CompletionItem {
 }
 
 class JsDocCompletionProvider implements qv.CompletionItemProvider {
-  constructor(private readonly client: ITypeScriptServiceClient, private readonly fileConfigurationManager: FileConfigurationManager) {}
+  constructor(private readonly client: ServiceClient, private readonly fileConfigurationManager: FileConfigurationManager) {}
 
   public async provideCompletionItems(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): Promise<qv.CompletionItem[] | undefined> {
     const file = this.client.toOpenedFilePath(document);
@@ -92,7 +89,7 @@ export function templateToSnippet(template: string): qv.SnippetString {
   return new qv.SnippetString(template);
 }
 
-export function register(selector: DocumentSelector, modeId: string, client: ITypeScriptServiceClient, fileConfigurationManager: FileConfigurationManager): qv.Disposable {
+export function register(selector: DocumentSelector, modeId: string, client: ServiceClient, fileConfigurationManager: FileConfigurationManager): qv.Disposable {
   return conditionalRegistration([requireConfig(modeId, 'suggest.completeJSDocs')], () => {
     return qv.languages.registerCompletionItemProvider(selector.syntax, new JsDocCompletionProvider(client, fileConfigurationManager), '*');
   });

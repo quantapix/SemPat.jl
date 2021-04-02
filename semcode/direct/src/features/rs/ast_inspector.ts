@@ -1,5 +1,5 @@
 import * as qv from 'vscode';
-import * as qu from '../utils';
+import * as qu from '../../utils';
 import { Ctx, Disposable } from '../../old/rs/analyzer/ctx';
 import { RustEditor, isRustEditor } from '../../old/rs/analyzer/util';
 

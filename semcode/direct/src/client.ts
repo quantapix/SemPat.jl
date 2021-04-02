@@ -1,6 +1,5 @@
 import * as path from 'path';
 import * as qv from 'vscode';
-import * as nls from 'vscode-nls';
 import { DiagnosticKind, DiagnosticsManager } from '../old/ts/languageFeatures/diagnostics';
 import * as qp from './protocol';
 import { EventName } from './protocol.const';
@@ -23,8 +22,6 @@ import { PluginManager } from '../old/ts/utils/plugins';
 import { TelemetryProperties, TelemetryReporter, VSCodeTelemetryReporter } from '../old/ts/utils/telemetry';
 import Tracer from '../old/ts/utils/tracer';
 import { inferredProjectCompilerOptions, ProjectType } from '../old/ts/utils/tsconfig';
-
-const localize = nls.loadMessageBundle();
 
 export interface TsDiagnostics {
   readonly kind: DiagnosticKind;
@@ -356,7 +353,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
 
     let version = this._versionManager.currentVersion;
     if (!version.isValid) {
-      qv.window.showWarningMessage(localize('noServerFound', "The path {0} doesn't point to a valid tsserver install. Falling back to bundled TypeScript version.", version.path));
+      qv.window.showWarningMessage('noServerFound');
 
       this._versionManager.reset();
       version = this._versionManager.currentVersion;
@@ -392,7 +389,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
       }
 
       if (err) {
-        qv.window.showErrorMessage(localize('serverExitedWithError', 'TypeScript language server exited with error. Error message is: {0}', err.message || err.name));
+        qv.window.showErrorMessage('serverExitedWithError');
       }
 
       this.serverState = new ServerState.Errored(err, handle.tsServerLogFile);
@@ -460,12 +457,9 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
   public async openTsServerLogFile(): Promise<boolean> {
     if (this._configuration.tsServerLogLevel === TsServerLogLevel.Off) {
       qv.window
-        .showErrorMessage<qv.MessageItem>(
-          localize('typescript.openTsServerLog.loggingNotEnabled', 'TS Server logging is off. Please set `typescript.tsserver.log` and restart the TS server to enable logging'),
-          {
-            title: localize('typescript.openTsServerLog.enableAndReloadOption', 'Enable logging and restart TS server'),
-          }
-        )
+        .showErrorMessage<qv.MessageItem>('typescript.openTsServerLog.loggingNotEnabled', {
+          title: 'typescript.openTsServerLog.enableAndReloadOption',
+        })
         .then((selection) => {
           if (selection) {
             return qv.workspace
@@ -481,7 +475,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
     }
 
     if (this.serverState.type !== ServerState.Type.Running || !this.serverState.server.tsServerLogFile) {
-      qv.window.showWarningMessage(localize('typescript.openTsServerLog.noLogFile', 'TS Server has not started logging.'));
+      qv.window.showWarningMessage('typescript.openTsServerLog.noLogFile');
       return false;
     }
 
@@ -495,7 +489,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
       await qv.commands.executeCommand('revealFileInOS', qv.Uri.file(this.serverState.server.tsServerLogFile));
       return true;
     } catch {
-      qv.window.showWarningMessage(localize('openTsServerLog.openFileFailedFailed', 'Could not open TS Server log file'));
+      qv.window.showWarningMessage('openTsServerLog.openFileFailedFailed');
       return false;
     }
   }
@@ -556,7 +550,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
       let startService = true;
 
       const reportIssueItem: qv.MessageItem = {
-        title: localize('serverDiedReportIssue', 'Report Issue'),
+        title: 'serverDiedReportIssue',
       };
       let prompt: Thenable<undefined | qv.MessageItem> | undefined = undefined;
 
@@ -566,10 +560,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
           this.lastStart = Date.now();
           startService = false;
           this.hasServerFatallyCrashedTooManyTimes = true;
-          prompt = qv.window.showErrorMessage(
-            localize('serverDiedAfterStart', 'The TypeScript language service died 5 times right after it got started. The service will not be restarted.'),
-            reportIssueItem
-          );
+          prompt = qv.window.showErrorMessage('serverDiedAfterStart', reportIssueItem);
 
           /* __GDPR__
 						"serviceExited" : {
@@ -581,13 +572,13 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
           this.logTelemetry('serviceExited');
         } else if (diff < 60 * 1000 * 5 /* 5 Minutes */) {
           this.lastStart = Date.now();
-          prompt = qv.window.showWarningMessage(localize('serverDied', 'The TypeScript language service died unexpectedly 5 times in the last 5 Minutes.'), reportIssueItem);
+          prompt = qv.window.showWarningMessage('serverDied', reportIssueItem);
         }
       } else if (['vscode-insiders', 'code-oss'].includes(qv.env.uriScheme)) {
         if (!this._isPromptingAfterCrash && previousState.type === ServerState.Type.Errored && previousState.error instanceof TypeScriptServerError) {
           this.numberRestarts = 0;
           this._isPromptingAfterCrash = true;
-          prompt = qv.window.showWarningMessage(localize('serverDiedOnce', 'The TypeScript language service died unexpectedly.'), reportIssueItem);
+          prompt = qv.window.showWarningMessage('serverDiedOnce', reportIssueItem);
         }
       }
 
@@ -993,7 +984,7 @@ class ServerInitializingIndicator extends qu.Disposable {
     qv.window.withProgress(
       {
         location: qv.ProgressLocation.Window,
-        title: localize('serverLoading.progress', 'Initializing JS/TS language features'),
+        title: 'serverLoading.progress',
       },
       () =>
         new Promise<void>((resolve, reject) => {

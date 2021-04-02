@@ -1,17 +1,14 @@
 import * as qv from 'vscode';
-import * as nls from 'vscode-nls';
 import type * as qp from '../../protocol';
 import { escapeRegExp } from '../../utils/regexp';
 import * as PConst from '../protocol.const';
 import { CachedResponse } from '../../old/ts/tsServer/cachedResponse';
-import { ClientCapability, ITypeScriptServiceClient } from '../service';
+import { ClientCapability, ServiceClient } from '../service';
 import { conditionalRegistration, requireSomeCap, requireConfig } from '../registration';
 import { DocumentSelector } from '../../utils/documentSelector';
 import * as qu from '../utils';
 import { getSymbolRange } from './codeLens';
 import { ExecutionTarget } from '../../old/ts/tsServer/server';
-
-const localize = nls.loadMessageBundle();
 
 export class CodelensProvider implements qv.CodeLensProvider {
   private codeLenses: qv.CodeLens[] = [];
@@ -72,13 +69,13 @@ export abstract class BaseCodeLens implements qv.CodeLensProvider<ReferencesCode
     command: '',
   };
   public static readonly errorCommand: qv.Command = {
-    title: localize('referenceErrorLabel', 'Could not determine references'),
+    title: 'referenceErrorLabel',
     command: '',
   };
 
   private onDidChangeCodeLensesEmitter = new qv.EventEmitter<void>();
 
-  public constructor(protected client: ITypeScriptServiceClient, private cachedResponse: CachedResponse<qp.NavTreeResponse>) {}
+  public constructor(protected client: ServiceClient, private cachedResponse: CachedResponse<qp.NavTreeResponse>) {}
 
   public get onDidChangeCodeLenses(): qv.Event<void> {
     return this.onDidChangeCodeLensesEmitter.event;
@@ -165,7 +162,7 @@ export default class TypeScriptImplementationsCodeLensProvider extends BaseCodeL
   }
 
   private getTitle(locations: qv.Location[]): string {
-    return locations.length === 1 ? localize('oneImplementationLabel', '1 implementation') : localize('manyImplementationLabel', '{0} implementations', locations.length);
+    return locations.length === 1 ? 'oneImplementationLabel' : 'manyImplementationLabel';
   }
 
   protected extractSymbol(document: qv.TextDocument, item: qp.NavigationTree, _parent: qp.NavigationTree | null): qv.Range | null {
@@ -186,14 +183,14 @@ export default class TypeScriptImplementationsCodeLensProvider extends BaseCodeL
   }
 }
 
-export function register(selector: DocumentSelector, modeId: string, client: ITypeScriptServiceClient, cachedResponse: CachedResponse<qp.NavTreeResponse>) {
+export function register(selector: DocumentSelector, modeId: string, client: ServiceClient, cachedResponse: CachedResponse<qp.NavTreeResponse>) {
   return conditionalRegistration([requireConfig(modeId, 'implementationsCodeLens.enabled'), requireSomeCap(client, ClientCapability.Semantic)], () => {
     return qv.languages.registerCodeLensProvider(selector.semantic, new TypeScriptImplementationsCodeLensProvider(client, cachedResponse));
   });
 }
 
 export class TypeScriptReferencesCodeLensProvider extends BaseCodeLens {
-  public constructor(protected client: ITypeScriptServiceClient, protected _cachedResponse: CachedResponse<qp.NavTreeResponse>, private modeId: string) {
+  public constructor(protected client: ServiceClient, protected _cachedResponse: CachedResponse<qp.NavTreeResponse>, private modeId: string) {
     super(client, _cachedResponse);
   }
 
@@ -218,7 +215,7 @@ export class TypeScriptReferencesCodeLensProvider extends BaseCodeLens {
   }
 
   private getCodeLensLabel(locations: ReadonlyArray<qv.Location>): string {
-    return locations.length === 1 ? localize('oneReferenceLabel', '1 reference') : localize('manyReferenceLabel', '{0} references', locations.length);
+    return locations.length === 1 ? 'oneReferenceLabel' : 'manyReferenceLabel';
   }
 
   protected extractSymbol(document: qv.TextDocument, item: qp.NavigationTree, parent: qp.NavigationTree | null): qv.Range | null {
@@ -267,7 +264,7 @@ export class TypeScriptReferencesCodeLensProvider extends BaseCodeLens {
   }
 }
 
-export function register(selector: DocumentSelector, modeId: string, client: ITypeScriptServiceClient, cachedResponse: CachedResponse<qp.NavTreeResponse>) {
+export function register(selector: DocumentSelector, modeId: string, client: ServiceClient, cachedResponse: CachedResponse<qp.NavTreeResponse>) {
   return conditionalRegistration([requireConfig(modeId, 'referencesCodeLens.enabled'), requireSomeCap(client, ClientCapability.Semantic)], () => {
     return qv.languages.registerCodeLensProvider(selector.semantic, new TypeScriptReferencesCodeLensProvider(client, cachedResponse, modeId));
   });
