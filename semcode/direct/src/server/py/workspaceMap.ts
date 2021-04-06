@@ -1,13 +1,10 @@
 import { createDeferred } from './common/deferred';
 import { LangServerBase, WorkspaceServiceInstance } from './serverBase';
-
 export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
   private _defaultWorkspacePath = '<default>';
-
   constructor(private _ls: LangServerBase) {
     super();
   }
-
   getNonDefaultWorkspaces(): WorkspaceServiceInstance[] {
     const workspaces: WorkspaceServiceInstance[] = [];
     this.forEach((workspace) => {
@@ -15,14 +12,11 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
         workspaces.push(workspace);
       }
     });
-
     return workspaces;
   }
-
   getWorkspaceForFile(filePath: string): WorkspaceServiceInstance {
     let bestRootPath: string | undefined;
     let bestInstance: WorkspaceServiceInstance | undefined;
-
     this.forEach((workspace) => {
       if (workspace.rootPath) {
         if (filePath.startsWith(workspace.rootPath)) {
@@ -33,7 +27,6 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
         }
       }
     });
-
     if (bestInstance === undefined) {
       let defaultWorkspace = this.get(this._defaultWorkspacePath);
       if (!defaultWorkspace) {
@@ -41,7 +34,6 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
         if (workspaceNames.length === 1) {
           return this.get(workspaceNames[0])!;
         }
-
         defaultWorkspace = {
           workspaceName: '',
           rootPath: '',
@@ -54,10 +46,8 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
         this.set(this._defaultWorkspacePath, defaultWorkspace);
         this._ls.updateSettingsForWorkspace(defaultWorkspace).ignoreErrors();
       }
-
       return defaultWorkspace;
     }
-
     return bestInstance;
   }
 }

@@ -6,15 +6,12 @@ import { GoDocumentSymbolProvider } from './go/symbol';
 import { GoReferenceProvider } from './reference';
 import { getBinPath } from './util';
 import * as qv from 'vscode';
-
 const methodRegex = /^func\s+\(\s*\w+\s+\*?\w+\s*\)\s+/;
-
 class ReferencesCodeLens extends CodeLens {
   constructor(public document: TextDocument, range: Range) {
     super(range);
   }
 }
-
 export class GoReferencesCodeLensProvider extends GoBaseCodeLensProvider {
   public provideCodeLenses(document: TextDocument, token: CancellationToken): CodeLens[] | Thenable<CodeLens[]> {
     if (!this.enabled) {
@@ -25,16 +22,13 @@ export class GoReferencesCodeLensProvider extends GoBaseCodeLensProvider {
     if (!codelensEnabled) {
       return Promise.resolve([]);
     }
-
     const goGuru = getBinPath('guru');
     if (!isAbsolute(goGuru)) {
       return Promise.resolve([]);
     }
-
     return this.provideDocumentSymbols(document, token).then((symbols) => {
       return symbols.map((symbol) => {
         let position = symbol.range.start;
-
         if (symbol.kind === qv.SymbolKind.Function) {
           const funcDecl = document.lineAt(position.line).text.substr(position.character);
           const match = methodRegex.exec(funcDecl);
@@ -44,14 +38,11 @@ export class GoReferencesCodeLensProvider extends GoBaseCodeLensProvider {
       });
     });
   }
-
   public resolveCodeLens?(inputCodeLens: CodeLens, token: CancellationToken): CodeLens | Thenable<CodeLens> {
     const codeLens = inputCodeLens as ReferencesCodeLens;
-
     if (token.isCancellationRequested) {
       return Promise.resolve(codeLens);
     }
-
     const options = {
       includeDeclaration: false,
     };
@@ -75,7 +66,6 @@ export class GoReferencesCodeLensProvider extends GoBaseCodeLensProvider {
       }
     );
   }
-
   private async provideDocumentSymbols(document: TextDocument, token: CancellationToken): Promise<qv.DocumentSymbol[]> {
     const symbolProvider = new GoDocumentSymbolProvider();
     const isTestFile = document.fileName.endsWith('_test.go');

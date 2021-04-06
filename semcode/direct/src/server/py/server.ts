@@ -1,6 +1,5 @@
 import { CancellationToken, CodeAction, CodeActionKind, CodeActionParams, Command, ExecuteCommandParams, WorkDoneProgressServerReporter } from 'vscode-languageserver/node';
 import { isMainThread } from 'worker_threads';
-
 import { AnalysisResults } from './analyzer/analysis';
 import { isPythonBinary } from './analyzer/pythonPathUtils';
 import { BackgroundAnalysis, BackgroundAnalysisRunner } from './backgroundAnalysis';
@@ -13,15 +12,11 @@ import { convertUriToPath, resolvePaths } from './common/pathUtils';
 import { ProgressReporter } from './common/progressReporter';
 import { LangServerBase, ServerSettings, WorkspaceServiceInstance } from './languageServerBase';
 import { CodeActionProvider } from './languageService/codeActionProvider';
-
 const maxAnalysisTimeInForeground = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
-
 class PyrightServer extends LangServerBase {
   private _controller: CommandController;
-
   constructor() {
     const version = require('../package.json').version || '';
-
     const rootDir = (global as any).__rootDir || __dirname;
     super({
       productName: 'Pyright',
@@ -30,7 +25,6 @@ class PyrightServer extends LangServerBase {
       maxAnalysisTimeInForeground,
       supportedCodeActions: [CodeActionKind.QuickFix, CodeActionKind.SourceOrganizeImports],
     });
-
     this._controller = new CommandController(this);
   }
   async getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings> {
@@ -46,7 +40,6 @@ class PyrightServer extends LangServerBase {
       logLevel: LogLevel.Info,
       autoImportCompletions: true,
     };
-
     try {
       const pythonSection = await this.getConfig(workspace.rootUri, 'python');
       if (pythonSection) {
@@ -54,14 +47,11 @@ class PyrightServer extends LangServerBase {
         if (pythonPath && isString(pythonPath) && !isPythonBinary(pythonPath)) {
           serverSettings.pythonPath = resolvePaths(workspace.rootPath, this.expandPathVariables(workspace.rootPath, pythonPath));
         }
-
         const venvPath = pythonSection.venvPath;
-
         if (venvPath && isString(venvPath)) {
           serverSettings.venvPath = resolvePaths(workspace.rootPath, this.expandPathVariables(workspace.rootPath, venvPath));
         }
       }
-
       const pythonAnalysisSection = await this.getConfig(workspace.rootUri, 'python.analysis');
       if (pythonAnalysisSection) {
         const typeshedPaths = pythonAnalysisSection.typeshedPaths;
@@ -71,12 +61,10 @@ class PyrightServer extends LangServerBase {
             serverSettings.typeshedPath = resolvePaths(workspace.rootPath, this.expandPathVariables(workspace.rootPath, typeshedPath));
           }
         }
-
         const stubPath = pythonAnalysisSection.stubPath;
         if (stubPath && isString(stubPath)) {
           serverSettings.stubPath = resolvePaths(workspace.rootPath, this.expandPathVariables(workspace.rootPath, stubPath));
         }
-
         const diagnosticSeverityOverrides = pythonAnalysisSection.diagnosticSeverityOverrides;
         if (diagnosticSeverityOverrides) {
           for (const [name, value] of Object.entries(diagnosticSeverityOverrides)) {
@@ -87,57 +75,45 @@ class PyrightServer extends LangServerBase {
             }
           }
         }
-
         if (pythonAnalysisSection.diagnosticMode !== undefined) {
           serverSettings.openFilesOnly = this.isOpenFilesOnly(pythonAnalysisSection.diagnosticMode);
         } else if (pythonAnalysisSection.openFilesOnly !== undefined) {
           serverSettings.openFilesOnly = !!pythonAnalysisSection.openFilesOnly;
         }
-
         if (pythonAnalysisSection.useLibraryCodeForTypes !== undefined) {
           serverSettings.useLibraryCodeForTypes = !!pythonAnalysisSection.useLibraryCodeForTypes;
         }
-
         serverSettings.logLevel = this.convertLogLevel(pythonAnalysisSection.logLevel);
         serverSettings.autoSearchPaths = !!pythonAnalysisSection.autoSearchPaths;
-
         const extraPaths = pythonAnalysisSection.extraPaths;
         if (extraPaths && Array.isArray(extraPaths) && extraPaths.length > 0) {
           serverSettings.extraPaths = extraPaths.filter((p) => p && isString(p)).map((p) => resolvePaths(workspace.rootPath, this.expandPathVariables(workspace.rootPath, p)));
         }
-
         if (pythonAnalysisSection.typeCheckingMode !== undefined) {
           serverSettings.typeCheckingMode = pythonAnalysisSection.typeCheckingMode;
         }
-
         if (pythonAnalysisSection.autoImportCompletions !== undefined) {
           serverSettings.autoImportCompletions = pythonAnalysisSection.autoImportCompletions;
         }
-
         if (serverSettings.logLevel === LogLevel.Log && pythonAnalysisSection.logTypeEvaluationTime !== undefined) {
           serverSettings.logTypeEvaluationTime = pythonAnalysisSection.logTypeEvaluationTime;
         }
-
         if (pythonAnalysisSection.typeEvaluationTimeThreshold !== undefined) {
           serverSettings.typeEvaluationTimeThreshold = pythonAnalysisSection.typeEvaluationTimeThreshold;
         }
       } else {
         serverSettings.autoSearchPaths = true;
       }
-
       const pyrightSection = await this.getConfig(workspace.rootUri, 'pyright');
       if (pyrightSection) {
         if (pyrightSection.openFilesOnly !== undefined) {
           serverSettings.openFilesOnly = !!pyrightSection.openFilesOnly;
         }
-
         if (pyrightSection.useLibraryCodeForTypes !== undefined) {
           serverSettings.useLibraryCodeForTypes = !!pyrightSection.useLibraryCodeForTypes;
         }
-
         serverSettings.disableLangServices = !!pyrightSection.disableLangServices;
         serverSettings.disableOrganizeImports = !!pyrightSection.disableOrganizeImports;
-
         const typeCheckingMode = pyrightSection.typeCheckingMode;
         if (typeCheckingMode && isString(typeCheckingMode)) {
           serverSettings.typeCheckingMode = typeCheckingMode;
@@ -148,31 +124,24 @@ class PyrightServer extends LangServerBase {
     }
     return serverSettings;
   }
-
   createBackgroundAnalysis(): BackgroundAnalysisBase | undefined {
     if (isDebugMode() || !getCancellationFolderName()) {
       return undefined;
     }
-
     return new BackgroundAnalysis(this.console);
   }
-
   protected executeCommand(params: ExecuteCommandParams, token: CancellationToken): Promise<any> {
     return this._controller.execute(params, token);
   }
-
   protected isLongRunningCommand(command: string): boolean {
     return this._controller.isLongRunningCommand(command);
   }
-
   protected async executeCodeAction(params: CodeActionParams, token: CancellationToken): Promise<(Command | CodeAction)[] | undefined | null> {
     this.recordUserInteractionTime();
-
     const filePath = convertUriToPath(this.fs, params.textDocument.uri);
     const workspace = await this.getWorkspaceForFile(filePath);
     return CodeActionProvider.getCodeActionsForPosition(workspace, filePath, params.range, token);
   }
-
   protected createProgressReporter(): ProgressReporter {
     let workDoneProgress: Promise<WorkDoneProgressServerReporter> | undefined;
     return {
@@ -215,12 +184,10 @@ class PyrightServer extends LangServerBase {
     };
   }
 }
-
 function main() {
   if (process.env.NODE_ENV === 'production') {
     require('source-map-support').install();
   }
-
   if (isMainThread) {
     new PyrightServer();
   } else {
@@ -228,5 +195,4 @@ function main() {
     runner.start();
   }
 }
-
 main();

@@ -4,10 +4,8 @@ import { getGoConfig } from './config';
 import { GoBaseCodeLensProvider } from './go/codelens';
 import { GoDocumentSymbolProvider } from './go/symbol';
 import { getBenchmarkFunctions, getTestFunctions } from './testUtils';
-
 export class GoRunTestCodeLensProvider extends GoBaseCodeLensProvider {
   private readonly benchmarkRegex = /^Benchmark.+/;
-
   public async provideCodeLenses(document: TextDocument, token: CancellationToken): Promise<CodeLens[]> {
     if (!this.enabled) {
       return [];
@@ -18,11 +16,9 @@ export class GoRunTestCodeLensProvider extends GoBaseCodeLensProvider {
     if (!codelensEnabled || !document.fileName.endsWith('_test.go')) {
       return [];
     }
-
     const codelenses = await Promise.all([this.getCodeLensForPackage(document, token), this.getCodeLensForFunctions(document, token)]);
     return ([] as CodeLens[]).concat(...codelenses);
   }
-
   private async getCodeLensForPackage(document: TextDocument, token: CancellationToken): Promise<CodeLens[]> {
     const documentSymbolProvider = new GoDocumentSymbolProvider();
     const symbols = await documentSymbolProvider.provideDocumentSymbols(document, token);
@@ -58,7 +54,6 @@ export class GoRunTestCodeLensProvider extends GoBaseCodeLensProvider {
     }
     return packageCodeLens;
   }
-
   private async getCodeLensForFunctions(document: TextDocument, token: CancellationToken): Promise<CodeLens[]> {
     const testPromise = async (): Promise<CodeLens[]> => {
       const testFunctions = await getTestFunctions(document, token);
@@ -84,7 +79,6 @@ export class GoRunTestCodeLensProvider extends GoBaseCodeLensProvider {
       }
       return codelens;
     };
-
     const benchmarkPromise = async (): Promise<CodeLens[]> => {
       const benchmarkFunctions = await getBenchmarkFunctions(document, token);
       if (!benchmarkFunctions) {
@@ -109,7 +103,6 @@ export class GoRunTestCodeLensProvider extends GoBaseCodeLensProvider {
       }
       return codelens;
     };
-
     const codelenses = await Promise.all([testPromise(), benchmarkPromise()]);
     return ([] as CodeLens[]).concat(...codelenses);
   }

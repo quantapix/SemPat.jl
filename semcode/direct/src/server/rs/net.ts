@@ -4,11 +4,8 @@ import fetch from 'node-fetch';
 import * as stream from 'stream';
 import * as util from 'util';
 import * as qv from 'vscode';
-
 const pipeline = util.promisify(stream.pipeline);
-
 const GITHUB_API_ENDPOINT_URL = 'https://api.github.com';
-
 export async function fetchRelease(owner: string, repository: string, releaseTag: string): Promise<GithubRelease> {
   const apiEndpointPath = `/repos/${owner}/${repository}/releases/tags/${releaseTag}`;
   const requestUrl = GITHUB_API_ENDPOINT_URL + apiEndpointPath;
@@ -31,7 +28,6 @@ export async function fetchRelease(owner: string, repository: string, releaseTag
   const release: GithubRelease = await response.json();
   return release;
 }
-
 export interface GithubRelease {
   name: string;
   id: number;
@@ -41,7 +37,6 @@ export interface GithubRelease {
     browser_download_url: string;
   }>;
 }
-
 export async function download(downloadUrl: string, destinationPath: string, progressTitle: string, { mode }: { mode?: number } = {}) {
   await qv.window.withProgress(
     {
@@ -57,13 +52,11 @@ export async function download(downloadUrl: string, destinationPath: string, pro
           message: newPercentage.toFixed(0) + '%',
           increment: newPercentage - lastPercentage,
         });
-
         lastPercentage = newPercentage;
       });
     }
   );
 }
-
 async function downloadFile(url: string, destFilePath: fs.PathLike, mode: number | undefined, onProgress: (readBytes: number, totalBytes: number) => void): Promise<void> {
   const res = await fetch(url);
   if (!res.ok) {
@@ -79,9 +72,7 @@ async function downloadFile(url: string, destFilePath: fs.PathLike, mode: number
     readBytes += chunk.length;
     onProgress(readBytes, totalBytes);
   });
-
   const destFileStream = fs.createWriteStream(destFilePath, { mode });
-
   await pipeline(res.body, destFileStream);
   return new Promise<void>((resolve) => {
     destFileStream.on('close', resolve);

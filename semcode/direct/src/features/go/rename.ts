@@ -7,14 +7,12 @@ import { promptForMissingTool } from './goInstallTools';
 import { outputChannel } from './goStatus';
 import { byteOffsetAt, canonicalizeGOPATHPrefix, getBinPath } from './util';
 import { killProcTree } from './utils/processUtils';
-
 export class GoRenameProvider implements qv.RenameProvider {
   public provideRenameEdits(document: qv.TextDocument, position: qv.Position, newName: string, token: qv.CancellationToken): Thenable<qv.WorkspaceEdit> {
     return qv.workspace.saveAll(false).then(() => {
       return this.doRename(document, position, newName, token);
     });
   }
-
   private doRename(document: qv.TextDocument, position: qv.Position, newName: string, token: qv.CancellationToken): Thenable<qv.WorkspaceEdit> {
     return new Promise<qv.WorkspaceEdit>((resolve, reject) => {
       const filename = canonicalizeGOPATHPrefix(document.fileName);
@@ -32,12 +30,10 @@ export class GoRenameProvider implements qv.RenameProvider {
       if (canRenameToolUseDiff) {
         gorenameArgs.push('-d');
       }
-
       let p: cp.ChildProc;
       if (token) {
         token.onCancellationRequested(() => killProcTree(p));
       }
-
       p = cp.execFile(gorename, gorenameArgs, { env }, (err, stdout, stderr) => {
         try {
           if (err && (<any>err).code === 'ENOENT') {
@@ -51,9 +47,7 @@ export class GoRenameProvider implements qv.RenameProvider {
             outputChannel.show();
             return reject();
           }
-
           const result = new qv.WorkspaceEdit();
-
           if (canRenameToolUseDiff) {
             const filePatches = getEditsFromUnifiedDiffStr(stdout);
             filePatches.forEach((filePatch: FilePatch) => {
@@ -63,7 +57,6 @@ export class GoRenameProvider implements qv.RenameProvider {
               });
             });
           }
-
           return resolve(result);
         } catch (e) {
           reject(e);

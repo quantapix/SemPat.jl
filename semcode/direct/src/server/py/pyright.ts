@@ -1,10 +1,8 @@
 import { timingStats } from './common/timing';
-
 import chalk from 'chalk';
 import commandLineArgs from 'command-line-args';
 import { CommandLineOptions, OptionDefinition } from 'command-line-args';
 import * as process from 'process';
-
 import { PackageTypeVerifier, PackageTypeReport } from './analyzer/packageTypeVerifier';
 import { AnalyzerService } from './analyzer/service';
 import { CommandLineOptions as PyrightCommandLineOptions } from './common/commandLineOptions';
@@ -16,9 +14,7 @@ import { createFromRealFileSystem } from './common/fileSystem';
 import { isEmptyRange, Range } from './common/textRange';
 import { versionFromString } from './common/pythonVersion';
 import { PyrightFileSystem } from './pyrightFileSystem';
-
 const toolName = 'pyright';
-
 enum ExitStatus {
   NoErrors = 0,
   ErrorsReported = 1,
@@ -26,7 +22,6 @@ enum ExitStatus {
   ConfigFileParseError = 3,
   ParameterError = 4,
 }
-
 interface PyrightJsonResults {
   version: string;
   time: string;
@@ -34,7 +29,6 @@ interface PyrightJsonResults {
   summary: PyrightJsonSummary;
   typeCompleteness?: PyrightTypeCompletenessReport;
 }
-
 interface PyrightTypeCompletenessReport {
   packageName: string;
   ignoreUnknownTypesFromImports: boolean;
@@ -48,19 +42,16 @@ interface PyrightTypeCompletenessReport {
   completenessScore: number;
   modules: PyrightPublicModuleReport[];
 }
-
 interface PyrightPublicModuleReport {
   name: string;
   symbols: PyrightPublicSymbolReport[];
 }
-
 interface PyrightPublicSymbolReport {
   name: string;
   fullName: string;
   alternateNames?: string[];
   symbolType: string;
 }
-
 interface PyrightJsonDiag {
   file: string;
   severity: 'error' | 'warning' | 'information';
@@ -68,7 +59,6 @@ interface PyrightJsonDiag {
   range?: Range;
   rule?: string;
 }
-
 interface PyrightJsonSummary {
   filesAnalyzed: number;
   errorCount: number;
@@ -76,14 +66,12 @@ interface PyrightJsonSummary {
   informationCount: number;
   timeInSec: number;
 }
-
 interface DiagResult {
   errorCount: number;
   warningCount: number;
   informationCount: number;
   diagnosticCount: number;
 }
-
 const cancellationNone = Object.freeze({
   isCancellationRequested: false,
   onCancellationRequested: function () {
@@ -94,7 +82,6 @@ const cancellationNone = Object.freeze({
     };
   },
 });
-
 function processArgs() {
   const optionDefinitions: OptionDefinition[] = [
     { name: 'createstub', type: String },
@@ -115,9 +102,7 @@ function processArgs() {
     { name: 'version', type: Boolean },
     { name: 'watch', alias: 'w', type: Boolean },
   ];
-
   let args: CommandLineOptions;
-
   try {
     args = commandLineArgs(optionDefinitions);
   } catch (err) {
@@ -126,21 +111,17 @@ function processArgs() {
       console.error(`Unexpected option ${argErr.optionName}.\n${toolName} --help for usage`);
       process.exit(ExitStatus.ParameterError);
     }
-
     console.error(`Unexpected error\n${toolName} --help for usage`);
     process.exit(ExitStatus.ParameterError);
   }
-
   if (args.help !== undefined) {
     printUsage();
     process.exit(ExitStatus.NoErrors);
   }
-
   if (args.version !== undefined) {
     printVersion();
     process.exit(ExitStatus.NoErrors);
   }
-
   if (args.outputjson) {
     const incompatibleArgs = ['watch', 'stats', 'verbose', 'createstub', 'dependencies'];
     for (const arg of incompatibleArgs) {
@@ -150,7 +131,6 @@ function processArgs() {
       }
     }
   }
-
   if (args['verifytypes'] !== undefined) {
     const incompatibleArgs = ['watch', 'stats', 'createstub', 'dependencies'];
     for (const arg of incompatibleArgs) {
@@ -160,7 +140,6 @@ function processArgs() {
       }
     }
   }
-
   if (args.createstub) {
     const incompatibleArgs = ['watch', 'stats', 'verifytypes', 'dependencies'];
     for (const arg of incompatibleArgs) {
@@ -170,20 +149,16 @@ function processArgs() {
       }
     }
   }
-
   const options = new PyrightCommandLineOptions(process.cwd(), false);
-
   if (args.files && Array.isArray(args.files)) {
     options.fileSpecs = args.files;
     options.fileSpecs = options.fileSpecs.map((f) => combinePaths(process.cwd(), f));
   } else {
     options.fileSpecs = [];
   }
-
   if (args.project) {
     options.configFilePath = combinePaths(process.cwd(), normalizePath(args.project));
   }
-
   if (args.pythonplatform) {
     if (args.pythonplatform === 'Darwin' || args.pythonplatform === 'Linux' || args.pythonplatform === 'Windows') {
       options.pythonPlatform = args.pythonplatform;
@@ -192,7 +167,6 @@ function processArgs() {
       process.exit(ExitStatus.ParameterError);
     }
   }
-
   if (args.pythonversion) {
     const version = versionFromString(args.pythonversion);
     if (version) {
@@ -202,19 +176,15 @@ function processArgs() {
       process.exit(ExitStatus.ParameterError);
     }
   }
-
   if (args['venv-path']) {
     options.venvPath = combinePaths(process.cwd(), normalizePath(args['venv-path']));
   }
-
   if (args['typeshed-path']) {
     options.typeshedPath = combinePaths(process.cwd(), normalizePath(args['typeshed-path']));
   }
-
   if (args.createstub) {
     options.typeStubTargetImportName = args.createstub;
   }
-
   if (args.verbose) {
     options.verboseOutput = true;
   }
@@ -222,30 +192,23 @@ function processArgs() {
     options.useLibraryCodeForTypes = true;
   }
   options.checkOnlyOpenFiles = false;
-
   const output = args.outputjson ? new NullConsole() : undefined;
   const fileSystem = new PyrightFileSystem(createFromRealFileSystem(output));
-
   if (args['verifytypes'] !== undefined) {
     verifyPackageTypes(fileSystem, args['verifytypes'] || '', !!args.verbose, !!args.outputjson, args['ignoreexternal']);
   } else if (args['ignoreexternal'] !== undefined) {
     console.error(`'--ignoreexternal' is valid only when used with '--verifytypes'`);
   }
-
   const watch = args.watch !== undefined;
   options.watchForSourceChanges = watch;
-
   const service = new AnalyzerService('<default>', fileSystem, output);
-
   service.setCompletionCallback((results) => {
     if (results.fatalErrorOccurred) {
       process.exit(ExitStatus.FatalError);
     }
-
     if (results.configParseErrorOccurred) {
       process.exit(ExitStatus.ConfigFileParseError);
     }
-
     let errorCount = 0;
     if (results.diagnostics.length > 0 && !args.createstub && !args['verifytypes']) {
       if (args.outputjson) {
@@ -256,7 +219,6 @@ function processArgs() {
         errorCount += report.errorCount;
       }
     }
-
     if (args.createstub && results.filesRequiringAnalysis === 0) {
       try {
         service.writeTypeStub(cancellationNone);
@@ -267,66 +229,53 @@ function processArgs() {
         if (err instanceof Error) {
           errMessage = ': ' + err.message;
         }
-
         console.error(`Error occurred when creating type stub: ` + errMessage);
         process.exit(ExitStatus.FatalError);
       }
       process.exit(ExitStatus.NoErrors);
     }
-
     if (!args.outputjson) {
       if (!watch) {
         timingStats.printSummary(console);
       }
-
       if (args.stats !== undefined) {
         service.printStats();
         timingStats.printDetails(console);
       }
-
       if (args.dependencies) {
         service.printDependencies(!!args.verbose);
       }
     }
-
     if (!watch) {
       process.exit(errorCount > 0 ? ExitStatus.ErrorsReported : ExitStatus.NoErrors);
     } else if (!args.outputjson) {
       console.log('Watching for file changes...');
     }
   });
-
   service.setOptions(options);
-
   const brokenPromise = new Promise(() => {});
   brokenPromise.then().catch();
 }
-
 function verifyPackageTypes(fileSystem: PyrightFileSystem, packageName: string, verboseOutput: boolean, outputJson: boolean, ignoreUnknownTypesFromImports: boolean): never {
   try {
     const verifier = new PackageTypeVerifier(fileSystem);
-
     const report = verifier.verify(packageName, ignoreUnknownTypesFromImports);
     const jsonReport = buildTypeCompletenessReport(packageName, report);
-
     if (outputJson) {
       console.log(JSON.stringify(jsonReport, undefined, 4));
     } else {
       printTypeCompletenessReportText(jsonReport, verboseOutput);
     }
-
     process.exit(jsonReport.typeCompleteness!.completenessScore < 1 ? ExitStatus.ErrorsReported : ExitStatus.NoErrors);
   } catch (err) {
     let errMessage = '';
     if (err instanceof Error) {
       errMessage = ': ' + err.message;
     }
-
     console.error(`Error occurred when verifying types: ` + errMessage);
     process.exit(ExitStatus.FatalError);
   }
 }
-
 function buildTypeCompletenessReport(packageName: string, completenessReport: PackageTypeReport): PyrightJsonResults {
   const report: PyrightJsonResults = {
     version: getVersionString(),
@@ -340,12 +289,10 @@ function buildTypeCompletenessReport(packageName: string, completenessReport: Pa
       timeInSec: timingStats.getTotalDuration(),
     },
   };
-
   completenessReport.fileDiags.forEach((fileDiags) => {
     fileDiags.diagnostics.forEach((diag) => {
       const jsonDiag = convertDiagToJson(fileDiags.filePath, diag);
       report.diagnostics.push(jsonDiag);
-
       if (jsonDiag.severity === 'error') {
         report.summary.errorCount++;
       } else if (jsonDiag.severity === 'warning') {
@@ -355,7 +302,6 @@ function buildTypeCompletenessReport(packageName: string, completenessReport: Pa
       }
     });
   });
-
   report.typeCompleteness = {
     packageName,
     ignoreUnknownTypesFromImports: completenessReport.ignoreUnknownTypesFromImports,
@@ -369,68 +315,54 @@ function buildTypeCompletenessReport(packageName: string, completenessReport: Pa
     completenessScore: 0,
     modules: [],
   };
-
   completenessReport.modules.forEach((module) => {
     const jsonModule: PyrightPublicModuleReport = {
       name: module.name,
       symbols: [],
     };
-
     module.symbols.forEach((symbol) => {
       const jsonSymbol: PyrightPublicSymbolReport = {
         name: symbol.name,
         fullName: symbol.fullName,
         symbolType: PackageTypeVerifier.getSymbolTypeString(symbol.symbolType),
       };
-
       const alternateNames = completenessReport.alternateSymbolNames.get(symbol.fullName);
       if (alternateNames) {
         jsonSymbol.alternateNames = alternateNames;
       }
-
       jsonModule.symbols.push(jsonSymbol);
     });
-
     report.typeCompleteness!.modules.push(jsonModule);
   });
-
   if (completenessReport.symbolCount > 0) {
     report.typeCompleteness!.completenessScore = (completenessReport.symbolCount - completenessReport.unknownTypeCount) / completenessReport.symbolCount;
   }
-
   return report;
 }
-
 function printTypeCompletenessReportText(results: PyrightJsonResults, verboseOutput: boolean) {
   const completenessReport = results.typeCompleteness!;
-
   console.log(`Package name: "${completenessReport.packageName}"`);
   if (completenessReport.packageRootDir !== undefined) {
     console.log(`Package directory: "${completenessReport.packageRootDir}"`);
   }
-
   if (completenessReport.pyTypedPath !== undefined) {
     console.log(`Path of py.typed file: "${completenessReport.pyTypedPath}"`);
   }
-
   results.diagnostics.forEach((diag) => {
     if (diag.severity === 'error') {
       logDiagToConsole(diag);
     }
   });
-
   results.diagnostics.forEach((diag) => {
     if (diag.severity !== 'error') {
       logDiagToConsole(diag);
     }
   });
-
   if (completenessReport.modules.length > 0) {
     console.log('');
     console.log(`Public modules: ${completenessReport.modules.length}`);
     completenessReport.modules.forEach((module) => {
       console.log(`   ${module.name} (${module.symbols.length} ${module.symbols.length === 1 ? 'symbol' : 'symbols'})`);
-
       if (verboseOutput) {
         for (const symbol of module.symbols) {
           console.log(`      ${symbol.fullName} (${symbol.symbolType})`);
@@ -438,7 +370,6 @@ function printTypeCompletenessReportText(results: PyrightJsonResults, verboseOut
       }
     });
   }
-
   console.log('');
   console.log(`Public symbols: ${completenessReport.symbolCount}`);
   console.log(`  Symbols with unknown type: ${completenessReport.unknownTypeCount}`);
@@ -452,7 +383,6 @@ function printTypeCompletenessReportText(results: PyrightJsonResults, verboseOut
   console.log('');
   console.info(`Completed in ${results.summary.timeInSec}sec`);
 }
-
 function printUsage() {
   console.log(
     'Usage: ' +
@@ -477,16 +407,13 @@ function printUsage() {
       '  -w,--watch                       Continue to run and watch for changes\n'
   );
 }
-
 function getVersionString() {
   const version = require('package.json').version;
   return version.toString();
 }
-
 function printVersion() {
   console.log(`${toolName} ${getVersionString()}`);
 }
-
 function reportDiagsAsJson(fileDiags: FileDiags[], filesInProgram: number, timeInSec: number): DiagResult {
   const report: PyrightJsonResults = {
     version: getVersionString(),
@@ -500,16 +427,13 @@ function reportDiagsAsJson(fileDiags: FileDiags[], filesInProgram: number, timeI
       timeInSec,
     },
   };
-
   let errorCount = 0;
   let warningCount = 0;
   let informationCount = 0;
-
   fileDiags.forEach((fileDiag) => {
     fileDiag.diagnostics.forEach((diag) => {
       if (diag.category === DiagCategory.Error || diag.category === DiagCategory.Warning || diag.category === DiagCategory.Information) {
         report.diagnostics.push(convertDiagToJson(fileDiag.filePath, diag));
-
         if (diag.category === DiagCategory.Error) {
           errorCount++;
         } else if (diag.category === DiagCategory.Warning) {
@@ -520,13 +444,10 @@ function reportDiagsAsJson(fileDiags: FileDiags[], filesInProgram: number, timeI
       }
     });
   });
-
   report.summary.errorCount = errorCount;
   report.summary.warningCount = warningCount;
   report.summary.informationCount = informationCount;
-
   console.log(JSON.stringify(report, undefined, 4));
-
   return {
     errorCount,
     warningCount,
@@ -534,7 +455,6 @@ function reportDiagsAsJson(fileDiags: FileDiags[], filesInProgram: number, timeI
     diagnosticCount: errorCount + warningCount + informationCount,
   };
 }
-
 function convertDiagToJson(filePath: string, diag: Diag): PyrightJsonDiag {
   return {
     file: filePath,
@@ -544,20 +464,16 @@ function convertDiagToJson(filePath: string, diag: Diag): PyrightJsonDiag {
     rule: diag.getRule(),
   };
 }
-
 function reportDiagsAsText(fileDiags: FileDiags[]): DiagResult {
   let errorCount = 0;
   let warningCount = 0;
   let informationCount = 0;
-
   fileDiags.forEach((fileDiags) => {
     const fileErrorsAndWarnings = fileDiags.diagnostics.filter((diag) => diag.category !== DiagCategory.UnusedCode);
-
     if (fileErrorsAndWarnings.length > 0) {
       console.log(`${fileDiags.filePath}`);
       fileErrorsAndWarnings.forEach((diag) => {
         logDiagToConsole(convertDiagToJson(fileDiags.filePath, diag));
-
         if (diag.category === DiagCategory.Error) {
           errorCount++;
         } else if (diag.category === DiagCategory.Warning) {
@@ -568,13 +484,11 @@ function reportDiagsAsText(fileDiags: FileDiags[]): DiagResult {
       });
     }
   });
-
   console.log(
     `${errorCount.toString()} ${errorCount === 1 ? 'error' : 'errors'}, ` +
       `${warningCount.toString()} ${warningCount === 1 ? 'warning' : 'warnings'}, ` +
       `${informationCount.toString()} ${informationCount === 1 ? 'info' : 'infos'} `
   );
-
   return {
     errorCount,
     warningCount,
@@ -582,7 +496,6 @@ function reportDiagsAsText(fileDiags: FileDiags[]): DiagResult {
     diagnosticCount: errorCount + warningCount + informationCount,
   };
 }
-
 function logDiagToConsole(diag: PyrightJsonDiag, prefix = '  ') {
   let message = prefix;
   if (diag.file) {
@@ -591,26 +504,20 @@ function logDiagToConsole(diag: PyrightJsonDiag, prefix = '  ') {
   if (diag.range && !isEmptyRange(diag.range)) {
     message += chalk.yellow(`${diag.range.start.line + 1}`) + ':' + chalk.yellow(`${diag.range.start.character + 1}`) + ' - ';
   }
-
   const [firstLine, ...remainingLines] = diag.message.split('\n');
-
   message += diag.severity === 'error' ? chalk.red('error') : diag.severity === 'warning' ? chalk.cyan('warning') : chalk.blue('info');
   message += `: ${firstLine}`;
   if (remainingLines.length > 0) {
     message += '\n' + prefix + remainingLines.join('\n' + prefix);
   }
-
   if (diag.rule) {
     message += chalk.gray(` (${diag.rule})`);
   }
-
   console.log(message);
 }
-
 export function main() {
   if (process.env.NODE_ENV === 'production') {
     require('source-map-support').install();
   }
-
   processArgs();
 }

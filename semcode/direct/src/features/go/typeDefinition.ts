@@ -7,26 +7,22 @@ import { toolExecutionEnvironment } from '../../../../old/go/goEnv';
 import { promptForMissingTool } from '../../../../old/go/goInstallTools';
 import { byteOffsetAt, canonicalizeGOPATHPrefix, getBinPath, getFileArchive, goBuiltinTypes } from '../../../../old/go/util';
 import { killProcTree } from './utils/processUtils';
-
 interface GuruDescribeOutput {
   desc: string;
   pos: string;
   detail: string;
   value: GuruDescribeValueOutput;
 }
-
 interface GuruDescribeValueOutput {
   type: string;
   value: string;
   objpos: string;
   typespos: GuruDefinitionOutput[];
 }
-
 interface GuruDefinitionOutput {
   objpos: string;
   desc: string;
 }
-
 export class GoTypeDefinitionProvider implements qv.TypeDefinitionProvider {
   public provideTypeDefinition(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): qv.ProviderResult<qv.Definition> {
     const adjustedPos = adjustWordPosition(document, position);
@@ -34,38 +30,32 @@ export class GoTypeDefinitionProvider implements qv.TypeDefinitionProvider {
       return Promise.resolve(null);
     }
     position = adjustedPos[2];
-
     return new Promise<qv.Definition>((resolve, reject) => {
       const goGuru = getBinPath('guru');
       if (!path.isAbsolute(goGuru)) {
         promptForMissingTool('guru');
         return reject('Cannot find tool "guru" to find type definitions.');
       }
-
       const filename = canonicalizeGOPATHPrefix(document.fileName);
       const offset = byteOffsetAt(document, position);
       const env = toolExecutionEnvironment();
       const buildTags = getGoConfig(document.uri)['buildTags'];
       const args = buildTags ? ['-tags', buildTags] : [];
       args.push('-json', '-modified', 'describe', `${filename}:#${offset.toString()}`);
-
       const process = cp.execFile(goGuru, args, { env }, (guruErr, stdout) => {
         try {
           if (guruErr && (<any>guruErr).code === 'ENOENT') {
             promptForMissingTool('guru');
             return resolve(null);
           }
-
           if (guruErr) {
             return reject(guruErr);
           }
-
           const guruOutput = <GuruDescribeOutput>JSON.parse(stdout.toString());
           if (!guruOutput.value || !guruOutput.value.typespos) {
             if (guruOutput.value && guruOutput.value.type && !goBuiltinTypes.has(guruOutput.value.type) && guruOutput.value.type !== 'invalid type') {
               console.log("no typespos from guru's output - try to update guru tool");
             }
-
             return definitionLocation(document, position, null, false, token).then(
               (definitionInfo) => {
                 if (definitionInfo === null || definitionInfo.file === null) {
@@ -86,7 +76,6 @@ export class GoTypeDefinitionProvider implements qv.TypeDefinitionProvider {
               }
             );
           }
-
           const results: qv.Location[] = [];
           guruOutput.value.typespos.forEach((ref) => {
             const match = /^(.*):(\d+):(\d+)/.exec(ref.objpos);
@@ -98,7 +87,6 @@ export class GoTypeDefinitionProvider implements qv.TypeDefinitionProvider {
             const pos = new qv.Position(parseInt(line, 10) - 1, parseInt(col, 10) - 1);
             results.push(new qv.Location(referenceResource, pos));
           });
-
           resolve(results);
         } catch (e) {
           reject(e);

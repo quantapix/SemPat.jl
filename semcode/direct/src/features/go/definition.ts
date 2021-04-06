@@ -8,9 +8,7 @@ import { getModFolderPath, promptToUpdateToolForModules } from '../goModules';
 import { byteOffsetAt, getBinPath, getFileArchive, getModuleCache, getWorkspaceFolderPath, goKeywords, isPositionInString, runGodoc } from '../util';
 import { getCurrentGoRoot } from './utils/pathUtils';
 import { killProcTree } from './utils/processUtils';
-
 const missingToolMsg = 'Missing tool: ';
-
 export interface GoDefinitionInformation {
   file: string;
   line: number;
@@ -20,7 +18,6 @@ export interface GoDefinitionInformation {
   name: string;
   toolUsed: string;
 }
-
 interface GoDefinitionInput {
   document: qv.TextDocument;
   position: qv.Position;
@@ -29,7 +26,6 @@ interface GoDefinitionInput {
   isMod: boolean;
   cwd: string;
 }
-
 interface GoGetDocOuput {
   name: string;
   import: string;
@@ -37,12 +33,10 @@ interface GoGetDocOuput {
   doc: string;
   pos: string;
 }
-
 interface GuruDefinitionOuput {
   objpos: string;
   desc: string;
 }
-
 export function definitionLocation(
   document: qv.TextDocument,
   position: qv.Position,
@@ -56,7 +50,6 @@ export function definitionLocation(
   }
   const word = adjustedPos[1];
   position = adjustedPos[2];
-
   if (!goConfig) {
     goConfig = getGoConfig(document.uri);
   }
@@ -78,7 +71,6 @@ export function definitionLocation(
     return definitionLocation_gogetdoc(input, token, true);
   });
 }
-
 export function adjustWordPosition(document: qv.TextDocument, position: qv.Position): [boolean, string, qv.Position] {
   const wordRange = document.getWordRangeAtPosition(position);
   const lineText = document.lineAt(position.line).text;
@@ -89,17 +81,10 @@ export function adjustWordPosition(document: qv.TextDocument, position: qv.Posit
   if (position.isEqual(wordRange.end) && position.isAfter(wordRange.start)) {
     position = position.translate(0, -1);
   }
-
   return [true, word, position];
 }
-
 const godefImportDefinitionRegex = /^import \(.* ".*"\)$/;
-function definitionLocation_godef(
-  input: GoDefinitionInput,
-  token: qv.CancellationToken,
-
-  useReceivers = true
-): Promise<GoDefinitionInformation> {
+function definitionLocation_godef(input: GoDefinitionInput, token: qv.CancellationToken, useReceivers = true): Promise<GoDefinitionInformation> {
   const godefTool = 'godef';
   const godefPath = getBinPath(godefTool);
   if (!path.isAbsolute(godefPath)) {
@@ -112,10 +97,8 @@ function definitionLocation_godef(
   if (token) {
     token.onCancellationRequested(() => killProcTree(p));
   }
-
   return new Promise<GoDefinitionInformation>((resolve, reject) => {
     const args = ['-t', '-i', '-f', input.document.fileName, '-o', offset.toString()];
-
     p = cp.execFile(godefPath, args, { env, cwd: input.cwd }, (err, stdout, stderr) => {
       try {
         if (err && (<any>err).code === 'ENOENT') {
@@ -174,7 +157,6 @@ function definitionLocation_godef(
     }
   });
 }
-
 function definitionLocation_gogetdoc(input: GoDefinitionInput, token: qv.CancellationToken, useTags: boolean): Promise<GoDefinitionInformation> {
   const gogetdoc = getBinPath('gogetdoc');
   if (!path.isAbsolute(gogetdoc)) {
@@ -186,7 +168,6 @@ function definitionLocation_gogetdoc(input: GoDefinitionInput, token: qv.Cancell
   if (token) {
     token.onCancellationRequested(() => killProcTree(p));
   }
-
   return new Promise<GoDefinitionInformation>((resolve, reject) => {
     const gogetdocFlagsWithoutTags = ['-u', '-json', '-modified', '-pos', input.document.fileName + ':#' + offset.toString()];
     const buildTags = getGoConfig(input.document.uri)['buildTags'];
@@ -234,7 +215,6 @@ function definitionLocation_gogetdoc(input: GoDefinitionInput, token: qv.Cancell
     }
   });
 }
-
 function definitionLocation_guru(input: GoDefinitionInput, token: qv.CancellationToken): Promise<GoDefinitionInformation> {
   const guru = getBinPath('guru');
   if (!path.isAbsolute(guru)) {
@@ -269,7 +249,6 @@ function definitionLocation_guru(input: GoDefinitionInput, token: qv.Cancellatio
         if (!match) {
           return resolve(definitionInfo);
         }
-
         definitionInfo.file = match[1];
         definitionInfo.line = +match[2] - 1;
         definitionInfo.column = +match[3] - 1;
@@ -283,7 +262,6 @@ function definitionLocation_guru(input: GoDefinitionInput, token: qv.Cancellatio
     }
   });
 }
-
 export function parseMissingError(err: any): [boolean, string] {
   if (err) {
     if (typeof err === 'string' && err.startsWith(missingToolMsg)) {
@@ -292,14 +270,11 @@ export function parseMissingError(err: any): [boolean, string] {
   }
   return [false, null];
 }
-
 export class GoDefinitionProvider implements qv.DefinitionProvider {
   private goConfig: qv.WorkspaceConfig = null;
-
   constructor(goConfig?: qv.WorkspaceConfig) {
     this.goConfig = goConfig;
   }
-
   public provideDefinition(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): Thenable<qv.Location> {
     return definitionLocation(document, position, this.goConfig, false, token).then(
       (definitionInfo) => {

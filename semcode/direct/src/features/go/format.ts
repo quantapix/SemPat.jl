@@ -6,30 +6,24 @@ import { toolExecutionEnvironment } from '../../../../old/go/goEnv';
 import { promptForMissingTool, promptForUpdatingTool } from '../../../../old/go/goInstallTools';
 import { getBinPath } from '../../../../old/go/util';
 import { killProcTree } from './utils/processUtils';
-
 export class GoDocumentFormattingEditProvider implements qv.DocumentFormattingEditProvider {
   public provideDocumentFormattingEdits(document: qv.TextDocument, options: qv.FormattingOptions, token: qv.CancellationToken): qv.ProviderResult<qv.TextEdit[]> {
     if (qv.window.visibleTextEditors.every((e) => e.document.fileName !== document.fileName)) {
       return [];
     }
-
     const filename = document.fileName;
     const goConfig = getGoConfig(document.uri);
     const formatFlags = goConfig['formatFlags'].slice() || [];
-
     if (formatFlags.indexOf('-w') > -1) {
       formatFlags.splice(formatFlags.indexOf('-w'), 1);
     }
-
     const formatTool = getFormatTool(goConfig);
-
     if (formatTool === 'goimports' || formatTool === 'goreturns' || formatTool === 'gofumports') {
       formatFlags.push('-srcdir', filename);
     }
     if (formatTool === 'goformat' && formatFlags.length === 0 && options.insertSpaces) {
       formatFlags.push('-style=indent=' + options.tabSize);
     }
-
     return this.runFormatter(formatTool, formatFlags, document, token).then(
       (edits) => edits,
       (err) => {
@@ -44,16 +38,13 @@ export class GoDocumentFormattingEditProvider implements qv.DocumentFormattingEd
       }
     );
   }
-
   private runFormatter(formatTool: string, formatFlags: string[], document: qv.TextDocument, token: qv.CancellationToken): Thenable<qv.TextEdit[]> {
     const formatCommandBinPath = getBinPath(formatTool);
-
     return new Promise<qv.TextEdit[]>((resolve, reject) => {
       if (!path.isAbsolute(formatCommandBinPath)) {
         promptForMissingTool(formatTool);
         return reject();
       }
-
       const env = toolExecutionEnvironment();
       const cwd = path.dirname(document.fileName);
       let stdout = '';
@@ -84,7 +75,6 @@ export class GoDocumentFormattingEditProvider implements qv.DocumentFormattingEd
     });
   }
 }
-
 export function usingCustomFormatTool(goConfig: { [key: string]: any }): boolean {
   const formatTool = getFormatTool(goConfig);
   switch (formatTool) {
@@ -102,7 +92,6 @@ export function usingCustomFormatTool(goConfig: { [key: string]: any }): boolean
       return true;
   }
 }
-
 export function getFormatTool(goConfig: { [key: string]: any }): string {
   if (goConfig['formatTool'] === 'default') {
     return 'goimports';

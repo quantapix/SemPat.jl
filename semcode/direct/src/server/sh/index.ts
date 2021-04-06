@@ -1,9 +1,6 @@
 import * as LSP from 'vscode-languageserver';
-
 import BashServer from './server';
-
 const pkg = require('../package');
-
 export function listen() {
   const connection: LSP.IConnection = LSP.createConnection(new LSP.StreamMessageReader(process.stdin), new LSP.StreamMessageWriter(process.stdout));
   connection.onInitialize(

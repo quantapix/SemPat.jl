@@ -1,14 +1,7 @@
 import * as qv from 'vscode';
 import { listPackages } from '../goImport';
-
 export class GoCodeActionProvider implements qv.CodeActionProvider {
-  public provideCodeActions(
-    document: qv.TextDocument,
-    range: qv.Range,
-    context: qv.CodeActionContext,
-
-    token: qv.CancellationToken
-  ): Thenable<qv.Command[]> {
+  public provideCodeActions(document: qv.TextDocument, range: qv.Range, context: qv.CodeActionContext, token: qv.CancellationToken): Thenable<qv.Command[]> {
     const promises = context.diagnostics.map((diag) => {
       if (diag.message.indexOf('undefined: ') === 0) {
         const [, name] = /^undefined: (\S*)/.exec(diag.message);
@@ -27,7 +20,6 @@ export class GoCodeActionProvider implements qv.CodeActionProvider {
       }
       return [];
     });
-
     return Promise.all(promises).then((arrs) => {
       const results: { [key: string]: any } = {};
       for (const segment of arrs) {

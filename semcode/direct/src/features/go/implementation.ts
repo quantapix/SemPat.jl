@@ -7,19 +7,16 @@ import { promptForMissingTool } from '../../../../old/go/goInstallTools';
 import { byteOffsetAt, canonicalizeGOPATHPrefix, getBinPath, getWorkspaceFolderPath } from '../../../../old/go/util';
 import { envPath, getCurrentGoRoot } from './utils/pathUtils';
 import { killProcTree } from './utils/processUtils';
-
 interface GoListOutput {
   Dir: string;
   ImportPath: string;
   Root: string;
 }
-
 interface GuruImplementsRef {
   name: string;
   pos: string;
   kind: string;
 }
-
 interface GuruImplementsOutput {
   type: GuruImplementsRef;
   to: GuruImplementsRef[];
@@ -27,7 +24,6 @@ interface GuruImplementsOutput {
   from: GuruImplementsRef[];
   fromptr: GuruImplementsRef[];
 }
-
 export class GoImplementationProvider implements qv.ImplementationProvider {
   public provideImplementation(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): Thenable<qv.Definition> {
     const root = getWorkspaceFolderPath(document.uri);
@@ -35,13 +31,11 @@ export class GoImplementationProvider implements qv.ImplementationProvider {
       qv.window.showInformationMessage('Cannot find implementations when there is no workspace open.');
       return;
     }
-
     const goRuntimePath = getBinPath('go');
     if (!goRuntimePath) {
       qv.window.showErrorMessage(`Failed to run "go list" to get the scope to find implementations as the "go" binary cannot be found in either GOROOT(${getCurrentGoRoot()}) or PATH(${envPath})`);
       return;
     }
-
     return new Promise<qv.Definition>((resolve, reject) => {
       if (token.isCancellationRequested) {
         return resolve(null);
@@ -62,17 +56,14 @@ export class GoImplementationProvider implements qv.ImplementationProvider {
           args.push('-scope', `${listOutput.ImportPath}/...`);
         }
         args.push('-json', 'implements', `${filename}:#${offset.toString()}`);
-
         const guruProc = cp.execFile(goGuru, args, { env }, (guruErr, guruStdOut) => {
           if (guruErr && (<any>guruErr).code === 'ENOENT') {
             promptForMissingTool('guru');
             return resolve(null);
           }
-
           if (guruErr) {
             return reject(guruErr);
           }
-
           const guruOutput = <GuruImplementsOutput>JSON.parse(guruStdOut.toString());
           const results: qv.Location[] = [];
           const addResults = (list: GuruImplementsRef[]) => {
@@ -87,7 +78,6 @@ export class GoImplementationProvider implements qv.ImplementationProvider {
               results.push(new qv.Location(referenceResource, range));
             });
           };
-
           if (guruOutput.to_method) {
             addResults(guruOutput.to_method);
           } else if (guruOutput.to) {
@@ -97,7 +87,6 @@ export class GoImplementationProvider implements qv.ImplementationProvider {
           } else if (guruOutput.fromptr) {
             addResults(guruOutput.fromptr);
           }
-
           return resolve(results);
         });
         token.onCancellationRequested(() => killProcTree(guruProc));

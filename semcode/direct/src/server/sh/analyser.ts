@@ -30,7 +30,6 @@ export default class Analyzer {
       } catch (error) {
         connection.window.showWarningMessage(`Failed to analyze bash files using the glob "${globPattern}". The experience will be degraded. Error: ${error.message}`);
       }
-      // TODO: we could load all files without extensions: globPattern: '**/[^.]'
       connection.console.log(`Glob resolved with ${filePaths.length} files after ${getTimePassed()}`);
       for (const filePath of filePaths) {
         const uri = `file://${filePath}`;

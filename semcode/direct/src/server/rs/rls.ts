@@ -2,19 +2,14 @@ import * as child_process from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { promisify } from 'util';
-
 import * as vs from 'vscode';
 import * as lc from 'vscode-languageclient';
-
 import { WorkspaceProgress } from './extension';
 import { SignatureHelpProvider } from './providers/signatureHelpProvider';
 import { ensureComponents, ensureToolchain, rustupUpdate } from './rustup';
 import { Observable } from './utils/observable';
-
 const exec = promisify(child_process.exec);
-
 const REQUIRED_COMPONENTS = ['rust-analysis', 'rust-src', 'rls'];
-
 const OBSERVED_SETTINGS = [
   'rust.sysroot',
   'rust.target',
@@ -41,7 +36,6 @@ const OBSERVED_SETTINGS = [
   'rust.full_docs',
   'rust.show_hover_context',
 ];
-
 interface ProgressParams {
   id: string;
   title?: string;
@@ -49,7 +43,6 @@ interface ProgressParams {
   percentage?: number;
   done?: boolean;
 }
-
 export function createLangClient(
   folder: vs.WorkspaceFolder,
   config: {
@@ -73,12 +66,10 @@ export function createLangClient(
       { logToFile: config.logToFile }
     );
   };
-
   const clientOptions: lc.LangClientOptions = {
     documentSelector: [{ language: 'rust', scheme: 'untitled' }, documentFilter(folder)],
     diagnosticCollectionName: `rust-${folder.uri}`,
     synchronize: { configurationSection: OBSERVED_SETTINGS },
-
     revealOutputChannelOn: config.revealOutputChannelOn,
     initializationOptions: {
       omitInitBuild: true,
@@ -86,14 +77,11 @@ export function createLangClient(
     },
     workspaceFolder: folder,
   };
-
   return new lc.LangClient('rust-client', 'Rust Lang Server', serverOptions, clientOptions);
 }
-
 export function setupClient(client: lc.LangClient, folder: vs.WorkspaceFolder): vs.Disposable[] {
   return [vs.languages.registerSignatureHelpProvider(documentFilter(folder), new SignatureHelpProvider(client), '(', ',')];
 }
-
 export function setupProgress(client: lc.LangClient, observableProgress: Observable<WorkspaceProgress>) {
   const runningProgress: Set<string> = new Set();
   client.onReady().then(() =>
@@ -119,18 +107,15 @@ export function setupProgress(client: lc.LangClient, observableProgress: Observa
     })
   );
 }
-
 function documentFilter(folder: vs.WorkspaceFolder): lc.DocumentFilter {
   const pattern = `${folder.uri.fsPath.replace(path.sep, '/')}/**`;
   return { language: 'rust', scheme: 'file', pattern };
 }
-
 async function getSysroot(rustup: { disabled: boolean; path: string; channel: string }, env: typeof process.env): Promise<string> {
   const printSysrootCmd = rustup.disabled ? 'rustc --print sysroot' : `${rustup.path} run ${rustup.channel} rustc --print sysroot`;
   const { stdout } = await exec(printSysrootCmd, { env });
   return stdout.toString().trim();
 }
-
 async function makeRlsEnv(
   rustup: { disabled: boolean; path: string; channel: string },
   opts = {
@@ -165,7 +150,6 @@ async function makeRlsEnv(
   }
   return env;
 }
-
 async function makeRlsProc(rustup: { disabled: boolean; path: string; channel: string }, rls: { path?: string; cwd: string }, options: { logToFile?: boolean } = {}): Promise<child_process.ChildProc> {
   const rlsPath = rls.path || 'rls';
   const cwd = rls.cwd;

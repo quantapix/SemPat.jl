@@ -2,19 +2,15 @@ import { CancellationToken, ParameterInformation, Position, SignatureHelp, Signa
 import { getGoConfig } from './config';
 import { definitionLocation } from './go/definition';
 import { getParametersAndReturnType, isPositionInComment, isPositionInString } from './util';
-
 export class GoSignatureHelpProvider implements SignatureHelpProvider {
   constructor(private goConfig?: WorkspaceConfig) {}
-
   public async provideSignatureHelp(document: TextDocument, position: Position, token: CancellationToken): Promise<SignatureHelp> {
     let goConfig = this.goConfig || getGoConfig(document.uri);
-
     const theCall = this.walkBackwardsToBeginningOfCall(document, position);
     if (theCall == null) {
       return Promise.resolve(null);
     }
     const callerPos = this.previousTokenPosition(document, theCall.openParen);
-
     if (goConfig['docsTool'] === 'guru') {
       goConfig = Object.assign({}, goConfig, { docsTool: 'godoc' });
     }
@@ -57,7 +53,6 @@ export class GoSignatureHelpProvider implements SignatureHelpProvider {
       return null;
     }
   }
-
   private previousTokenPosition(document: TextDocument, position: Position): Position {
     while (position.character > 0) {
       const word = document.getWordRangeAtPosition(position);
@@ -68,21 +63,16 @@ export class GoSignatureHelpProvider implements SignatureHelpProvider {
     }
     return null;
   }
-
   private walkBackwardsToBeginningOfCall(document: TextDocument, position: Position): { openParen: Position; commas: Position[] } | null {
     let parenBalance = 0;
     let maxLookupLines = 30;
     const commas = [];
-
     for (let lineNr = position.line; lineNr >= 0 && maxLookupLines >= 0; lineNr--, maxLookupLines--) {
       const line = document.lineAt(lineNr);
-
       if (isPositionInComment(document, position)) {
         return null;
       }
-
       const [currentLine, characterPosition] = lineNr === position.line ? [line.text.substring(0, position.character), position.character] : [line.text, line.text.length - 1];
-
       for (let char = characterPosition; char >= 0; char--) {
         switch (currentLine[char]) {
           case '(':

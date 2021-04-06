@@ -6,7 +6,6 @@ import { promptForMissingTool, promptForUpdatingTool } from '../../../../old/go/
 import { getBinPath, getWorkspaceFolderPath } from '../../../../old/go/util';
 import { getCurrentGoRoot } from './utils/pathUtils';
 import { killProcTree } from './utils/processUtils';
-
 interface GoSymbolDeclaration {
   name: string;
   kind: string;
@@ -15,7 +14,6 @@ interface GoSymbolDeclaration {
   line: number;
   character: number;
 }
-
 export class GoWorkspaceSymbolProvider implements qv.WorkspaceSymbolProvider {
   private goKindToCodeKind: { [key: string]: qv.SymbolKind } = {
     package: qv.SymbolKind.Package,
@@ -25,7 +23,6 @@ export class GoWorkspaceSymbolProvider implements qv.WorkspaceSymbolProvider {
     func: qv.SymbolKind.Function,
     const: qv.SymbolKind.Constant,
   };
-
   public provideWorkspaceSymbols(query: string, token: qv.CancellationToken): Thenable<qv.SymbolInformation[]> {
     const convertToCodeSymbols = (decls: GoSymbolDeclaration[], symbols: qv.SymbolInformation[]): void => {
       if (!decls) {
@@ -43,12 +40,10 @@ export class GoWorkspaceSymbolProvider implements qv.WorkspaceSymbolProvider {
     };
     const root = getWorkspaceFolderPath(qv.window.activeTextEditor && qv.window.activeTextEditor.document.uri);
     const goConfig = getGoConfig();
-
     if (!root && !goConfig.gotoSymbol.includeGoroot) {
       qv.window.showInformationMessage('No workspace is open to find symbols.');
       return;
     }
-
     return getWorkspaceSymbols(root, query, token, goConfig).then((results) => {
       const symbols: qv.SymbolInformation[] = [];
       convertToCodeSymbols(results, symbols);
@@ -56,25 +51,20 @@ export class GoWorkspaceSymbolProvider implements qv.WorkspaceSymbolProvider {
     });
   }
 }
-
 export function getWorkspaceSymbols(workspacePath: string, query: string, token: qv.CancellationToken, goConfig?: qv.WorkspaceConfig, ignoreFolderFeatureOn = true): Thenable<GoSymbolDeclaration[]> {
   if (!goConfig) {
     goConfig = getGoConfig();
   }
   const gotoSymbolConfig = goConfig['gotoSymbol'];
   const calls: Promise<GoSymbolDeclaration[]>[] = [];
-
   const ignoreFolders: string[] = gotoSymbolConfig ? gotoSymbolConfig['ignoreFolders'] : [];
   const baseArgs = ignoreFolderFeatureOn && ignoreFolders && ignoreFolders.length > 0 ? ['-ignore', ignoreFolders.join(',')] : [];
-
   calls.push(callGoSymbols([...baseArgs, workspacePath, query], token));
-
   if (gotoSymbolConfig.includeGoroot) {
     const goRoot = getCurrentGoRoot();
     const gorootCall = callGoSymbols([...baseArgs, goRoot, query], token);
     calls.push(gorootCall);
   }
-
   return Promise.all(calls)
     .then(([...results]) => <GoSymbolDeclaration[]>[].concat(...results))
     .catch((err: Error) => {
@@ -87,16 +77,13 @@ export function getWorkspaceSymbols(workspacePath: string, query: string, token:
       }
     });
 }
-
 function callGoSymbols(args: string[], token: qv.CancellationToken): Promise<GoSymbolDeclaration[]> {
   const gosyms = getBinPath('go-symbols');
   const env = toolExecutionEnvironment();
   let p: cp.ChildProc;
-
   if (token) {
     token.onCancellationRequested(() => killProcTree(p));
   }
-
   return new Promise((resolve, reject) => {
     p = cp.execFile(gosyms, args, { maxBuffer: 1024 * 1024, env }, (err, stdout, stderr) => {
       if (err && stderr && stderr.startsWith('flag provided but not defined: -ignore')) {

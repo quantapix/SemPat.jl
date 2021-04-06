@@ -21,7 +21,6 @@ import {
   runGodoc,
 } from '../../../../old/go/util';
 import { getCurrentGoWorkspaceFromGOPATH } from './utils/pathUtils';
-
 function vscodeKindFromGoCodeClass(kind: string, type: string): qv.CompletionItemKind {
   switch (kind) {
     case 'const':
@@ -45,7 +44,6 @@ function vscodeKindFromGoCodeClass(kind: string, type: string): qv.CompletionIte
   }
   return qv.CompletionItemKind.Property; // TODO@EG additional mappings needed?
 }
-
 interface GoCodeSuggestion {
   class: string;
   package?: string;
@@ -53,17 +51,14 @@ interface GoCodeSuggestion {
   type: string;
   receiver?: string;
 }
-
 class ExtendedCompletionItem extends qv.CompletionItem {
   public package?: string;
   public receiver?: string;
   public fileName: string;
 }
-
 const lineCommentFirstWordRegex = /^\s*\/\/\s+[\S]*$/;
 const exportedMemberRegex = /(const|func|type|var)(\s+\(.*\))?\s+([A-Z]\w*)/;
 const gocodeNoSupportForgbMsgKey = 'dontshowNoSupportForgb';
-
 export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.Disposable {
   private pkgsList = new Map<string, PackageInfo>();
   private killMsgShown = false;
@@ -74,11 +69,9 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
   private previousFileDir: string;
   private gocodeFlags: string[];
   private excludeDocs = false;
-
   constructor(globalState?: qv.Memento) {
     this.globalState = globalState;
   }
-
   public provideCompletionItems(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): Thenable<qv.CompletionList> {
     return this.provideCompletionItemsInternal(document, position, token, getGoConfig(document.uri)).then((result) => {
       if (!result) {
@@ -90,17 +83,14 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
       return result;
     });
   }
-
   public resolveCompletionItem(item: qv.CompletionItem, token: qv.CancellationToken): qv.ProviderResult<qv.CompletionItem> {
     if (!(item instanceof ExtendedCompletionItem) || item.kind === qv.CompletionItemKind.Module || this.excludeDocs) {
       return;
     }
-
     if (typeof item.package === 'undefined') {
       promptForUpdatingTool('gocode');
       return;
     }
-
     return runGodoc(path.dirname(item.fileName), item.package || path.dirname(item.fileName), item.receiver, item.label, token)
       .then((doc) => {
         item.documentation = new qv.MarkdownString(doc);
@@ -111,7 +101,6 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
         return item;
       });
   }
-
   public async provideCompletionItemsInternal(
     document: qv.TextDocument,
     position: qv.Position,
@@ -122,46 +111,37 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
     if (pkgStatementCompletions && pkgStatementCompletions.length) {
       return pkgStatementCompletions;
     }
-
     this.excludeDocs = false;
     this.gocodeFlags = ['-f=json'];
     if (Array.isArray(config['gocodeFlags'])) {
       this.gocodeFlags.push(...config['gocodeFlags']);
     }
-
     return this.ensureGoCodeConfigured(document.uri, config).then(() => {
       return new Promise<qv.CompletionItem[] | qv.CompletionList>((resolve, reject) => {
         const filename = document.fileName;
         const lineText = document.lineAt(position.line).text;
         const lineTillCurrentPosition = lineText.substr(0, position.character);
         const autocompleteUnimportedPackages = config['autocompleteUnimportedPackages'] === true && !lineText.match(/^(\s)*(import|package)(\s)+/);
-
         const commentCompletion = getCommentCompletion(document, position);
         if (commentCompletion) {
           return resolve([commentCompletion]);
         }
-
         if (isPositionInComment(document, position)) {
           return resolve([]);
         }
-
         const inString = isPositionInString(document, position);
         if (!inString && lineTillCurrentPosition.endsWith('"')) {
           return resolve([]);
         }
-
         const currentWord = getCurrentWord(document, position);
         if (currentWord.match(/^\d+$/)) {
           return resolve([]);
         }
-
         let offset = byteOffsetAt(document, position);
         let inputText = document.getText();
         const includeUnimportedPkgs = autocompleteUnimportedPackages && !inString && currentWord.length > 0;
-
         return this.runGoCode(document, filename, inputText, offset, inString, position, lineText, currentWord, includeUnimportedPkgs, config).then((suggestions) => {
           suggestions.push(...getKeywordCompletions(currentWord));
-
           if ((!suggestions || suggestions.length === 0) && lineTillCurrentPosition.endsWith('.')) {
             const pkgPath = this.getPackagePathFromLine(lineTillCurrentPosition);
             if (pkgPath.length === 1) {
@@ -171,7 +151,6 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
               const textToAdd = `import "${pkgPath[0]}"\n`;
               inputText = inputText.substr(0, posToAddImport) + textToAdd + inputText.substr(posToAddImport);
               offset += textToAdd.length;
-
               return this.runGoCode(document, filename, inputText, offset, inString, position, lineText, currentWord, false, config).then((newsuggestions) => {
                 newsuggestions.forEach((item) => {
                   item.additionalTextEdits = getTextEditForAddImport(pkgPath[0]);
@@ -199,7 +178,6 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
       });
     });
   }
-
   public dispose() {
     const gocodeName = this.isGoMod ? 'gocode-gomod' : 'gocode';
     const gocode = getBinPath(gocodeName);
@@ -207,7 +185,6 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
       cp.spawn(gocode, ['close'], { env: toolExecutionEnvironment() });
     }
   }
-
   private runGoCode(
     document: qv.TextDocument,
     filename: string,
@@ -227,24 +204,20 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
         promptForMissingTool(gocodeName);
         return reject();
       }
-
       const env = toolExecutionEnvironment();
       let stdout = '';
       let stderr = '';
-
       if (this.isGoMod) {
         const unimportedPkgIndex = this.gocodeFlags.indexOf('-unimported-packages');
         if (unimportedPkgIndex >= 0) {
           this.gocodeFlags.splice(unimportedPkgIndex, 1);
         }
       }
-
       const excludeDocsIndex = this.gocodeFlags.indexOf('-exclude-docs');
       if (excludeDocsIndex >= 0) {
         this.gocodeFlags.splice(excludeDocsIndex, 1);
         this.excludeDocs = true;
       }
-
       const p = cp.spawn(gocode, [...this.gocodeFlags, 'autocomplete', filename, '' + offset], { env });
       p.stdout.on('data', (data) => (stdout += data));
       p.stderr.on('data', (data) => (stderr += data));
@@ -270,7 +243,6 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
           const results = <[number, GoCodeSuggestion[]]>JSON.parse(stdout.toString());
           let suggestions: qv.CompletionItem[] = [];
           const packageSuggestions: string[] = [];
-
           const wordAtPosition = document.getWordRangeAtPosition(position);
           let areCompletionsForPackageSymbols = false;
           if (results && results[1]) {
@@ -338,7 +310,6 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
                 }
                 item.insertText = new qv.SnippetString(suggest.name + '(func(' + paramSnippets.join(', ') + ') {\n	$' + (params.length + 1) + '\n})' + returnType);
               }
-
               if (wordAtPosition && wordAtPosition.start.character === 0 && suggest.class === 'type' && !goBuiltinTypes.has(suggest.name)) {
                 const auxItem = new qv.CompletionItem(suggest.name + ' method', qv.CompletionItemKind.Snippet);
                 auxItem.label = 'func (*' + suggest.name + ')';
@@ -350,16 +321,13 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
                 auxItem.insertText = new qv.SnippetString(snippet);
                 suggestions.push(auxItem);
               }
-
               item.sortText = 'a';
               suggestions.push(item);
             }
           }
-
           if (includeUnimportedPkgs && !this.isGoMod && !areCompletionsForPackageSymbols) {
             suggestions = suggestions.concat(getPackageCompletions(document, currentWord, this.pkgsList, packageSuggestions));
           }
-
           resolve(suggestions);
         } catch (e) {
           reject(e);
@@ -370,7 +338,6 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
       }
     });
   }
-
   private ensureGoCodeConfigured(fileuri: qv.Uri, goConfig: qv.WorkspaceConfig): Thenable<void> {
     const currentFile = fileuri.fsPath;
     let checkModSupport = Promise.resolve(this.isGoMod);
@@ -382,17 +349,14 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
     const setPkgsList = getImportablePackages(currentFile, true).then((pkgMap) => {
       this.pkgsList = pkgMap;
     });
-
     if (!this.setGocodeOptions) {
       return Promise.all([checkModSupport, setPkgsList]).then(() => {
         return;
       });
     }
-
     const setGocodeProps = new Promise<void>((resolve) => {
       const gocode = getBinPath('gocode');
       const env = toolExecutionEnvironment();
-
       cp.execFile(gocode, ['set'], { env }, (err, stdout) => {
         if (err && stdout.startsWith('gocode: unknown subcommand:')) {
           if (goConfig['gocodePackageLookupMode'] === 'gb' && this.globalState && !this.globalState.get(gocodeNoSupportForgbMsgKey)) {
@@ -407,7 +371,6 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
           this.setGocodeOptions = false;
           return resolve();
         }
-
         const existingOptions = stdout.split(/\r\n|\n/);
         const optionsToSet: string[][] = [];
         const setOption = () => {
@@ -420,7 +383,6 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
             }
           });
         };
-
         if (existingOptions.indexOf('propose-builtins true') === -1) {
           optionsToSet.push(['propose-builtins', 'true']);
         }
@@ -433,28 +395,22 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
         if (!optionsToSet.length) {
           return resolve();
         }
-
         setOption();
       });
     });
-
     return Promise.all([setPkgsList, setGocodeProps, checkModSupport]).then(() => {
       return;
     });
   }
-
   private getPackagePathFromLine(line: string): string[] {
     const pattern = /(\w+)\.$/g;
     const wordmatches = pattern.exec(line);
     if (!wordmatches) {
       return [];
     }
-
     const [, pkgNameFromWord] = wordmatches;
-
     return this.getPackageImportPath(pkgNameFromWord);
   }
-
   private getPackageImportPath(input: string): string[] {
     const matchingPackages: any[] = [];
     this.pkgsList.forEach((info: PackageInfo, pkgPath: string) => {
@@ -465,11 +421,9 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
     return matchingPackages;
   }
 }
-
 function getCommentCompletion(document: qv.TextDocument, position: qv.Position): qv.CompletionItem {
   const lineText = document.lineAt(position.line).text;
   const lineTillCurrentPosition = lineText.substr(0, position.character);
-
   if (lineCommentFirstWordRegex.test(lineTillCurrentPosition) && position.line + 1 < document.lineCount) {
     const nextLine = document.lineAt(position.line + 1).text.trim();
     const memberType = nextLine.match(exportedMemberRegex);
@@ -480,7 +434,6 @@ function getCommentCompletion(document: qv.TextDocument, position: qv.Position):
     return suggestionItem;
   }
 }
-
 function getCurrentWord(document: qv.TextDocument, position: qv.Position): string {
   const wordAtPosition = document.getWordRangeAtPosition(position);
   let currentWord = '';
@@ -488,10 +441,8 @@ function getCurrentWord(document: qv.TextDocument, position: qv.Position): strin
     const word = document.getText(wordAtPosition);
     currentWord = word.substr(0, position.character - wordAtPosition.start.character);
   }
-
   return currentWord;
 }
-
 function getKeywordCompletions(currentWord: string): qv.CompletionItem[] {
   if (!currentWord.length) {
     return [];
@@ -504,15 +455,12 @@ function getKeywordCompletions(currentWord: string): qv.CompletionItem[] {
   });
   return completionItems;
 }
-
 function getPackageCompletions(document: qv.TextDocument, currentWord: string, allPkgMap: Map<string, PackageInfo>, importedPackages: string[] = []): qv.CompletionItem[] {
   const cwd = path.dirname(document.fileName);
   const goWorkSpace = getCurrentGoWorkspaceFromGOPATH(getCurrentGoPath(), cwd);
   const workSpaceFolder = qv.workspace.getWorkspaceFolder(document.uri);
   const currentPkgRootPath = (workSpaceFolder ? workSpaceFolder.uri.path : cwd).slice(goWorkSpace.length + 1);
-
   const completionItems: any[] = [];
-
   allPkgMap.forEach((info: PackageInfo, pkgPath: string) => {
     const pkgName = info.name;
     if (pkgName.startsWith(currentWord) && importedPackages.indexOf(pkgName) === -1) {
@@ -526,7 +474,6 @@ function getPackageCompletions(document: qv.TextDocument, currentWord: string, a
         arguments: [{ importPath: pkgPath, from: 'completion' }],
       };
       item.kind = qv.CompletionItemKind.Module;
-
       const isStandardPackage = !item.detail.includes('.');
       item.sortText = isStandardPackage ? 'za' : pkgPath.startsWith(currentPkgRootPath) ? 'zb' : 'zc';
       completionItems.push(item);
@@ -534,13 +481,11 @@ function getPackageCompletions(document: qv.TextDocument, currentWord: string, a
   });
   return completionItems;
 }
-
 async function getPackageStatementCompletions(document: qv.TextDocument): Promise<qv.CompletionItem[]> {
   const inputText = document.getText();
   if (inputText.match(/package\s+(\w+)/)) {
     return [];
   }
-
   const pkgNames = await guessPackageNameFromFile(document.fileName);
   const suggestions = pkgNames.map((pkgName) => {
     const packageItem = new qv.CompletionItem('package ' + pkgName);
