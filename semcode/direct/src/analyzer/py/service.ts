@@ -2,7 +2,6 @@ import * as JSONC from 'jsonc-parser';
 import { AbstractCancellationTokenSource, CancellationToken, CompletionItem, DocumentSymbol } from 'vscode-languageserver';
 import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import { CallHierarchyIncomingCall, CallHierarchyItem, CallHierarchyOutgoingCall, DocumentHighlight, MarkupKind } from 'vscode-languageserver-types';
-
 import { BackgroundAnalysisBase } from '../backgroundAnalysisBase';
 import { createBackgroundThreadCancellationTokenSource } from '../common/cancellationUtils';
 import { CommandLineOptions } from '../common/commandLineOptions';
@@ -27,11 +26,8 @@ import { ImportedModuleDescriptor, ImportResolver, ImportResolverFact } from './
 import { MaxAnalysisTime } from './program';
 import { findPythonSearchPaths, getPythonPathFromPythonInterpreter } from './pythonPathUtils';
 import { TypeEvaluator } from './typeEvaluator';
-
 export const configFileNames = ['pyrightconfig.json', 'mspythonconfig.json'];
-
 const _userActivityBackoffTimeInMs = 250;
-
 export class AnalyzerService {
   private _instanceName: string;
   private _importResolverFact: ImportResolverFact;
@@ -56,7 +52,6 @@ export class AnalyzerService {
   private _maxAnalysisTimeInForeground?: MaxAnalysisTime;
   private _backgroundAnalysisProgramFact?: BackgroundAnalysisProgramFact;
   private _disposed = false;
-
   constructor(
     instanceName: string,
     fs: FileSystem,
@@ -75,16 +70,13 @@ export class AnalyzerService {
     this._importResolverFact = importResolverFact || AnalyzerService.createImportResolver;
     this._maxAnalysisTimeInForeground = maxAnalysisTime;
     this._backgroundAnalysisProgramFact = backgroundAnalysisProgramFact;
-
     configOptions = configOptions ?? new ConfigOptions(process.cwd());
     const importResolver = this._importResolverFact(fs, configOptions);
-
     this._backgroundAnalysisProgram =
       backgroundAnalysisProgramFact !== undefined
         ? backgroundAnalysisProgramFact(this._console, configOptions, importResolver, this._extension, backgroundAnalysis, this._maxAnalysisTimeInForeground)
         : new BackgroundAnalysisProgram(this._console, configOptions, importResolver, this._extension, backgroundAnalysis, this._maxAnalysisTimeInForeground);
   }
-
   clone(instanceName: string, backgroundAnalysis?: BackgroundAnalysisBase): AnalyzerService {
     return new AnalyzerService(
       instanceName,
@@ -98,7 +90,6 @@ export class AnalyzerService {
       this._backgroundAnalysisProgramFact
     );
   }
-
   dispose() {
     this._disposed = true;
     this._removeSourceFileWatchers();
@@ -108,104 +99,78 @@ export class AnalyzerService {
     this._clearReanalysisTimer();
     this._clearLibraryReanalysisTimer();
   }
-
   get backgroundAnalysisProgram(): BackgroundAnalysisProgram {
     return this._backgroundAnalysisProgram;
   }
-
   static createImportResolver(fs: FileSystem, options: ConfigOptions): ImportResolver {
     return new ImportResolver(fs, options);
   }
-
   setCompletionCallback(callback: AnalysisCompleteCallback | undefined): void {
     this._onCompletionCallback = callback;
     this._backgroundAnalysisProgram.setCompletionCallback(callback);
   }
-
   setOptions(commandLineOptions: CommandLineOptions, reanalyze = true): void {
     this._commandLineOptions = commandLineOptions;
-
     const configOptions = this._getConfigOptions(commandLineOptions);
-
     if (configOptions.pythonPath) {
       configOptions.ensureDefaultPythonVersion(configOptions.pythonPath, this._console);
     }
-
     configOptions.ensureDefaultPythonPlatform(this._console);
-
     this._backgroundAnalysisProgram.setConfigOptions(configOptions);
-
     this._executionRootPath = normalizePath(combinePaths(commandLineOptions.executionRoot, configOptions.projectRoot));
     this._applyConfigOptions(reanalyze);
   }
-
   ensurePartialStubPackages(path: string) {
     return this._backgroundAnalysisProgram.ensurePartialStubPackages(path);
   }
-
   setFileOpened(path: string, version: number | null, contents: string) {
     this._backgroundAnalysisProgram.setFileOpened(path, version, contents);
     this._scheduleReanalysis(false);
   }
-
   updateOpenFileContents(path: string, version: number | null, contents: TextDocumentContentChangeEvent[]) {
     this._backgroundAnalysisProgram.updateOpenFileContents(path, version, contents);
     this._scheduleReanalysis(false);
   }
-
   test_setIndexing(workspaceIndices: Map<string, IndexResults>, libraryIndices: Map<string, Map<string, IndexResults>>) {
     this._backgroundAnalysisProgram.test_setIndexing(workspaceIndices, libraryIndices);
   }
-
   startIndexing() {
     this._backgroundAnalysisProgram.startIndexing();
   }
-
   setFileClosed(path: string) {
     this._backgroundAnalysisProgram.setFileClosed(path);
     this._scheduleReanalysis(false);
   }
-
   getParseResult(path: string) {
     return this._program.getBoundSourceFile(path)?.getParseResults();
   }
-
   getTextOnRange(filePath: string, range: Range, token: CancellationToken) {
     return this._program.getTextOnRange(filePath, range, token);
   }
-
   getAutoImports(filePath: string, range: Range, similarityLimit: number, nameMap: AbbreviationMap | undefined, lazyEdit: boolean, allowVariableInAll: boolean, token: CancellationToken) {
     return this._program.getAutoImports(filePath, range, similarityLimit, nameMap, this._backgroundAnalysisProgram.getIndexing(filePath), lazyEdit, allowVariableInAll, token);
   }
-
   getDefinitionForPosition(filePath: string, position: Position, filter: DefinitionFilter, token: CancellationToken): DocumentRange[] | undefined {
     return this._program.getDefinitionsForPosition(filePath, position, filter, token);
   }
-
   reportReferencesForPosition(filePath: string, position: Position, includeDeclaration: boolean, reporter: ReferenceCallback, token: CancellationToken) {
     this._program.reportReferencesForPosition(filePath, position, includeDeclaration, reporter, token);
   }
-
   addSymbolsForDocument(filePath: string, symbolList: DocumentSymbol[], token: CancellationToken) {
     this._program.addSymbolsForDocument(filePath, symbolList, token);
   }
-
   reportSymbolsForWorkspace(query: string, reporter: WorkspaceSymbolCallback, token: CancellationToken) {
     this._program.reportSymbolsForWorkspace(query, reporter, token);
   }
-
   getHoverForPosition(filePath: string, position: Position, format: MarkupKind, token: CancellationToken): HoverResults | undefined {
     return this._program.getHoverForPosition(filePath, position, format, token);
   }
-
   getDocumentHighlight(filePath: string, position: Position, token: CancellationToken): DocumentHighlight[] | undefined {
     return this._program.getDocumentHighlight(filePath, position, token);
   }
-
   getSignatureHelpForPosition(filePath: string, position: Position, format: MarkupKind, token: CancellationToken): SignatureHelpResults | undefined {
     return this._program.getSignatureHelpForPosition(filePath, position, format, token);
   }
-
   getCompletionsForPosition(
     filePath: string,
     position: Position,
@@ -216,83 +181,63 @@ export class AnalyzerService {
   ): Promise<CompletionResults | undefined> {
     return this._program.getCompletionsForPosition(filePath, position, workspacePath, options, nameMap, this._backgroundAnalysisProgram.getIndexing(filePath), token);
   }
-
   getEvaluator(): TypeEvaluator | undefined {
     return this._program.evaluator;
   }
-
   resolveCompletionItem(filePath: string, completionItem: CompletionItem, options: CompletionOptions, nameMap: AbbreviationMap | undefined, token: CancellationToken) {
     this._program.resolveCompletionItem(filePath, completionItem, options, nameMap, this._backgroundAnalysisProgram.getIndexing(filePath), token);
   }
-
   performQuickAction(filePath: string, command: string, args: any[], token: CancellationToken): TextEditAction[] | undefined {
     return this._program.performQuickAction(filePath, command, args, token);
   }
-
   renameSymbolAtPosition(filePath: string, position: Position, newName: string, token: CancellationToken): FileEditAction[] | undefined {
     return this._program.renameSymbolAtPosition(filePath, position, newName, token);
   }
-
   getCallForPosition(filePath: string, position: Position, token: CancellationToken): CallHierarchyItem | undefined {
     return this._program.getCallForPosition(filePath, position, token);
   }
-
   getIncomingCallsForPosition(filePath: string, position: Position, token: CancellationToken): CallHierarchyIncomingCall[] | undefined {
     return this._program.getIncomingCallsForPosition(filePath, position, token);
   }
-
   getOutgoingCallsForPosition(filePath: string, position: Position, token: CancellationToken): CallHierarchyOutgoingCall[] | undefined {
     return this._program.getOutgoingCallsForPosition(filePath, position, token);
   }
-
   printStats() {
     this._console.info('');
     this._console.info('Analysis stats');
-
     const fileCount = this._program.getFileCount();
     this._console.info('Total files analyzed: ' + fileCount.toString());
   }
-
   printDependencies(verbose: boolean) {
     this._program.printDependencies(this._executionRootPath, verbose);
   }
-
   getDiagsForRange(filePath: string, range: Range, token: CancellationToken): Promise<Diag[]> {
     return this._backgroundAnalysisProgram.getDiagsForRange(filePath, range, token);
   }
-
   getConfigOptions() {
     return this._configOptions;
   }
-
   getImportResolver(): ImportResolver {
     return this._backgroundAnalysisProgram.importResolver;
   }
-
   recordUserInteractionTime() {
     this._lastUserInteractionTime = Date.now();
-
     if (this._analyzeTimer) {
       this._scheduleReanalysis(false);
     }
   }
-
   get test_program() {
     return this._program;
   }
-
   test_getConfigOptions(commandLineOptions: CommandLineOptions): ConfigOptions {
     return this._getConfigOptions(commandLineOptions);
   }
-
   test_getFileNamesFromFileSpecs(): string[] {
     return this._getFileNamesFromFileSpecs();
   }
-
   private _getConfigOptions(commandLineOptions: CommandLineOptions): ConfigOptions {
     let projectRoot = commandLineOptions.executionRoot;
     let configFilePath: string | undefined;
-
     if (commandLineOptions.configFilePath) {
       configFilePath = combinePaths(commandLineOptions.executionRoot, normalizePath(commandLineOptions.configFilePath));
       if (!this._fs.existsSync(configFilePath)) {
@@ -318,14 +263,11 @@ export class AnalyzerService {
         configFilePath = undefined;
       }
     }
-
     const configOptions = new ConfigOptions(projectRoot, this._typeCheckingMode);
     const defaultExcludes = ['**/node_modules', '**/__pycache__', '.git'];
-
     configOptions.defaultPythonPlatform = commandLineOptions.pythonPlatform;
     configOptions.defaultPythonVersion = commandLineOptions.pythonVersion;
     configOptions.ensureDefaultExtraPaths(this._fs, commandLineOptions.autoSearchPaths || false, commandLineOptions.extraPaths);
-
     if (commandLineOptions.fileSpecs.length > 0) {
       commandLineOptions.fileSpecs.forEach((fileSpec) => {
         configOptions.include.push(getFileSpec(projectRoot, fileSpec));
@@ -333,15 +275,12 @@ export class AnalyzerService {
     } else if (!configFilePath) {
       if (commandLineOptions.executionRoot) {
         configOptions.include.push(getFileSpec(commandLineOptions.executionRoot, '.'));
-
         defaultExcludes.forEach((exclude) => {
           configOptions.exclude.push(getFileSpec(commandLineOptions.executionRoot, exclude));
         });
       }
     }
-
     this._configFilePath = configFilePath;
-
     if (configFilePath) {
       this._console.info(`Loading configuration file at ${configFilePath}`);
       const configJsonObj = this._parseConfigFile(configFilePath);
@@ -354,20 +293,16 @@ export class AnalyzerService {
           commandLineOptions.pythonPath,
           commandLineOptions.fileSpecs.length > 0
         );
-
         const configFileDir = getDirPath(configFilePath);
-
         if (configOptions.include.length === 0) {
           this._console.info(`No include entries specified; assuming ${configFileDir}`);
           configOptions.include.push(getFileSpec(configFileDir, '.'));
         }
-
         if (configOptions.exclude.length === 0) {
           defaultExcludes.forEach((exclude) => {
             this._console.info(`Auto-excluding ${exclude}`);
             configOptions.exclude.push(getFileSpec(configFileDir, exclude));
           });
-
           if (configOptions.autoExcludeVenv === undefined) {
             configOptions.autoExcludeVenv = true;
           }
@@ -377,12 +312,10 @@ export class AnalyzerService {
       configOptions.autoExcludeVenv = true;
       configOptions.applyDiagOverrides(commandLineOptions.diagnosticSeverityOverrides);
     }
-
     const reportDuplicateSetting = (settingName: string, configValue: number | string | boolean) => {
       const settingSource = commandLineOptions.fromVsCodeExtension ? 'the client settings' : 'a command-line option';
       this._console.warn(`The ${settingName} has been specified in both the config file and ` + `${settingSource}. The value in the config file (${configValue}) ` + `will take precedence`);
     };
-
     if (commandLineOptions.venvPath) {
       if (!configOptions.venvPath) {
         configOptions.venvPath = commandLineOptions.venvPath;
@@ -390,12 +323,10 @@ export class AnalyzerService {
         reportDuplicateSetting('venvPath', configOptions.venvPath);
       }
     }
-
     if (commandLineOptions.pythonPath) {
       this._console.info(`Setting pythonPath for service "${this._instanceName}": ` + `"${commandLineOptions.pythonPath}"`);
       configOptions.pythonPath = commandLineOptions.pythonPath;
     }
-
     if (commandLineOptions.typeshedPath) {
       if (!configOptions.typeshedPath) {
         configOptions.typeshedPath = commandLineOptions.typeshedPath;
@@ -403,20 +334,17 @@ export class AnalyzerService {
         reportDuplicateSetting('typeshedPath', configOptions.typeshedPath);
       }
     }
-
     configOptions.verboseOutput = commandLineOptions.verboseOutput ?? configOptions.verboseOutput;
     configOptions.checkOnlyOpenFiles = !!commandLineOptions.checkOnlyOpenFiles;
     configOptions.autoImportCompletions = !!commandLineOptions.autoImportCompletions;
     configOptions.indexing = !!commandLineOptions.indexing;
     configOptions.logTypeEvaluationTime = !!commandLineOptions.logTypeEvaluationTime;
     configOptions.typeEvaluationTimeThreshold = commandLineOptions.typeEvaluationTimeThreshold;
-
     if (configOptions.useLibraryCodeForTypes === undefined) {
       configOptions.useLibraryCodeForTypes = !!commandLineOptions.useLibraryCodeForTypes;
     } else if (commandLineOptions.useLibraryCodeForTypes !== undefined) {
       reportDuplicateSetting('useLibraryCodeForTypes', configOptions.useLibraryCodeForTypes);
     }
-
     if (commandLineOptions.stubPath) {
       if (!configOptions.stubPath) {
         configOptions.stubPath = commandLineOptions.stubPath;
@@ -428,23 +356,19 @@ export class AnalyzerService {
         configOptions.stubPath = normalizePath(combinePaths(configOptions.projectRoot, 'typings'));
       }
     }
-
     if (configOptions.venvPath) {
       if (!this._fs.existsSync(configOptions.venvPath) || !isDir(this._fs, configOptions.venvPath)) {
         this._console.error(`venvPath ${configOptions.venvPath} is not a valid directory.`);
       }
-
       configOptions.venv = configOptions.venv ?? this._configOptions.venv;
       if (configOptions.venv) {
         const fullVenvPath = combinePaths(configOptions.venvPath, configOptions.venv);
-
         if (!this._fs.existsSync(fullVenvPath) || !isDir(this._fs, fullVenvPath)) {
           this._console.error(`venv ${configOptions.venv} subdirectory not found in venv path ${configOptions.venvPath}.`);
         } else {
           const importFailureInfo: string[] = [];
           if (findPythonSearchPaths(this._fs, configOptions, importFailureInfo) === undefined) {
             this._console.error(`site-packages directory cannot be located for venvPath ` + `${configOptions.venvPath} and venv ${configOptions.venv}.`);
-
             if (configOptions.verboseOutput) {
               importFailureInfo.forEach((diag) => {
                 this._console.error(`  ${diag}`);
@@ -470,7 +394,6 @@ export class AnalyzerService {
           });
         }
       }
-
       if (configOptions.verboseOutput) {
         if (importFailureInfo.length > 0) {
           this._console.info(`When attempting to get search paths from python interpreter:`);
@@ -480,82 +403,62 @@ export class AnalyzerService {
         }
       }
     }
-
     if (configOptions.venv) {
       if (!configOptions.venvPath) {
         this._console.warn(`venvPath not specified, so venv settings will be ignored.`);
       }
     }
-
     if (configOptions.typeshedPath) {
       if (!this._fs.existsSync(configOptions.typeshedPath) || !isDir(this._fs, configOptions.typeshedPath)) {
         this._console.error(`typeshedPath ${configOptions.typeshedPath} is not a valid directory.`);
       }
     }
-
     if (configOptions.stubPath) {
       if (!this._fs.existsSync(configOptions.stubPath) || !isDir(this._fs, configOptions.stubPath)) {
         this._console.warn(`stubPath ${configOptions.stubPath} is not a valid directory.`);
       }
     }
-
     return configOptions;
   }
-
   writeTypeStub(token: CancellationToken): void {
     const typingsSubdirPath = this._getTypeStubFolder();
-
     this._program.writeTypeStub(this._typeStubTargetPath!, this._typeStubTargetIsSingleFile, typingsSubdirPath, token);
   }
-
   writeTypeStubInBackground(token: CancellationToken): Promise<any> {
     const typingsSubdirPath = this._getTypeStubFolder();
-
     return this._backgroundAnalysisProgram.writeTypeStub(this._typeStubTargetPath!, this._typeStubTargetIsSingleFile, typingsSubdirPath, token);
   }
-
   invalidateAndForceReanalysis(rebuildLibraryIndexing = true) {
     this._backgroundAnalysisProgram.invalidateAndForceReanalysis(rebuildLibraryIndexing);
   }
-
   restart() {
     this._applyConfigOptions();
-
     this._backgroundAnalysisProgram.restart();
   }
-
   private get _fs() {
     return this._backgroundAnalysisProgram.importResolver.fileSystem;
   }
-
   private get _program() {
     return this._backgroundAnalysisProgram.program;
   }
-
   private get _configOptions() {
     return this._backgroundAnalysisProgram.configOptions;
   }
-
   private get _watchForSourceChanges() {
     return !!this._commandLineOptions?.watchForSourceChanges;
   }
-
   private get _watchForLibraryChanges() {
     return !!this._commandLineOptions?.watchForLibraryChanges;
   }
-
   private get _typeCheckingMode() {
     return this._commandLineOptions?.typeCheckingMode;
   }
-
   private get _verboseOutput(): boolean {
     return !!this._configOptions.verboseOutput;
   }
-
   private get _typeStubTargetImportName() {
     return this._commandLineOptions?.typeStubTargetImportName;
   }
-
   private _getTypeStubFolder() {
     const stubPath = this._configOptions.stubPath;
     if (!this._typeStubTargetPath || !this._typeStubTargetImportName) {
@@ -583,7 +486,6 @@ export class AnalyzerService {
       this._console.error(errMsg);
       throw new Error(errMsg);
     }
-
     const typingsSubdirPath = combinePaths(stubPath, typeStubInputTargetParts[0]);
     try {
       if (!this._fs.existsSync(typingsSubdirPath)) {
@@ -596,11 +498,9 @@ export class AnalyzerService {
     }
     return typingsSubdirPath;
   }
-
   private _findConfigFileHereOrUp(searchPath: string): string | undefined {
     return forEachAncestorDir(searchPath, (ancestor) => this._findConfigFile(ancestor));
   }
-
   private _findConfigFile(searchPath: string): string | undefined {
     for (const name of configFileNames) {
       const fileName = combinePaths(searchPath, name);
@@ -610,11 +510,9 @@ export class AnalyzerService {
     }
     return undefined;
   }
-
   private _parseConfigFile(configPath: string): any | undefined {
     let configContents = '';
     let parseAttemptCount = 0;
-
     while (true) {
       try {
         configContents = this._fs.readFileSync(configPath, 'utf8');
@@ -623,7 +521,6 @@ export class AnalyzerService {
         this._reportConfigParseError();
         return undefined;
       }
-
       let configObj: any;
       let parseFailed = false;
       try {
@@ -632,11 +529,9 @@ export class AnalyzerService {
       } catch {
         parseFailed = true;
       }
-
       if (!parseFailed) {
         break;
       }
-
       if (parseAttemptCount++ >= 5) {
         this._console.error(`Config file "${configPath}" could not be parsed. Verify that JSON is correct.`);
         this._reportConfigParseError();
@@ -644,21 +539,16 @@ export class AnalyzerService {
       }
     }
   }
-
   private _getFileNamesFromFileSpecs(): string[] {
     const fileMap = new Map<string, string>();
-
     timingStats.findFilesTime.timeOp(() => {
       const matchedFiles = this._matchFiles(this._configOptions.include, this._configOptions.exclude);
-
       for (const file of matchedFiles) {
         fileMap.set(file, file);
       }
     });
-
     return [...fileMap.values()];
   }
-
   private _updateTrackedFileList(markFilesDirtyUnconditionally: boolean) {
     if (this._typeStubTargetImportName) {
       const execEnv = this._configOptions.findExecEnvironment(this._executionRootPath);
@@ -667,14 +557,10 @@ export class AnalyzerService {
         nameParts: this._typeStubTargetImportName.split('.'),
         importedSymbols: [],
       };
-
       const importResult = this._backgroundAnalysisProgram.importResolver.resolveImport('', execEnv, moduleDescriptor);
-
       if (importResult.isImportFound) {
         const filesToImport: string[] = [];
-
         const resolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
-
         let targetPath = getDirPath(resolvedPath);
         let prevResolvedPath = resolvedPath;
         for (let i = importResult.resolvedPaths.length - 2; i >= 0; i--) {
@@ -687,22 +573,18 @@ export class AnalyzerService {
             prevResolvedPath = targetPath;
           }
         }
-
         if (isDir(this._fs, targetPath)) {
           this._typeStubTargetPath = targetPath;
         }
-
         if (!resolvedPath) {
           this._typeStubTargetIsSingleFile = false;
         } else {
           filesToImport.push(resolvedPath);
           this._typeStubTargetIsSingleFile = importResult.resolvedPaths.length === 1 && stripFileExtension(getFileName(importResult.resolvedPaths[0])) !== '__init__';
         }
-
         importResult.filteredImplicitImports.forEach((implicitImport) => {
           filesToImport.push(implicitImport.path);
         });
-
         this._backgroundAnalysisProgram.setAllowedThirdPartyImports([this._typeStubTargetImportName]);
         this._backgroundAnalysisProgram.setTrackedFiles(filesToImport);
       } else {
@@ -712,29 +594,23 @@ export class AnalyzerService {
       let fileList: string[] = [];
       this._console.info(`Searching for source files`);
       fileList = this._getFileNamesFromFileSpecs();
-
       this._backgroundAnalysisProgram.setTrackedFiles(fileList);
       this._backgroundAnalysisProgram.markAllFilesDirty(markFilesDirtyUnconditionally);
-
       if (fileList.length === 0) {
         this._console.info(`No source files found.`);
       } else {
         this._console.info(`Found ${fileList.length} ` + `source ${fileList.length === 1 ? 'file' : 'files'}`);
       }
     }
-
     this._requireTrackedFileUpdate = false;
   }
-
   private _isInExcludePath(path: string, excludePaths: FileSpec[]) {
     return !!excludePaths.find((excl) => excl.regExp.test(path));
   }
-
   private _matchFiles(include: FileSpec[], exclude: FileSpec[]): string[] {
     const includeFileRegex = /\.pyi?$/;
     const envMarkers = [['bin', 'activate'], ['Scripts', 'activate'], ['pyvenv.cfg']];
     const results: string[] = [];
-
     const visitDirUnchecked = (absolutePath: string, includeRegExp: RegExp) => {
       if (this._configOptions.autoExcludeVenv) {
         if (envMarkers.some((f) => this._fs.existsSync(combinePaths(absolutePath, ...f)))) {
@@ -742,19 +618,15 @@ export class AnalyzerService {
           return;
         }
       }
-
       const { files, directories } = getFileSystemEntries(this._fs, absolutePath);
-
       for (const file of files) {
         const filePath = combinePaths(absolutePath, file);
-
         if (includeRegExp.test(filePath)) {
           if (!this._isInExcludePath(filePath, exclude) && includeFileRegex.test(filePath)) {
             results.push(filePath);
           }
         }
       }
-
       for (const directory of directories) {
         const dirPath = combinePaths(absolutePath, directory);
         if (includeRegExp.test(dirPath)) {
@@ -764,7 +636,6 @@ export class AnalyzerService {
         }
       }
     };
-
     const seenDirs = new Set<string>();
     const visitDir = (absolutePath: string, includeRegExp: RegExp) => {
       const realDirPath = this._fs.realpathSync(absolutePath);
@@ -773,17 +644,14 @@ export class AnalyzerService {
         return;
       }
       seenDirs.add(realDirPath);
-
       try {
         visitDirUnchecked(absolutePath, includeRegExp);
       } finally {
         seenDirs.delete(realDirPath);
       }
     };
-
     include.forEach((includeSpec) => {
       let foundFileSpec = false;
-
       if (!this._isInExcludePath(includeSpec.wildcardRoot, exclude)) {
         const stat = tryStat(this._fs, includeSpec.wildcardRoot);
         if (stat?.isFile()) {
@@ -796,61 +664,47 @@ export class AnalyzerService {
           foundFileSpec = true;
         }
       }
-
       if (!foundFileSpec) {
         this._console.error(`File or directory "${includeSpec.wildcardRoot}" does not exist.`);
       }
     });
-
     return results;
   }
-
   private _removeSourceFileWatchers() {
     if (this._sourceFileWatcher) {
       this._sourceFileWatcher.close();
       this._sourceFileWatcher = undefined;
     }
   }
-
   private _updateSourceFileWatchers() {
     this._removeSourceFileWatchers();
-
     this._backgroundAnalysisProgram.invalidateCache();
-
     if (!this._watchForSourceChanges) {
       return;
     }
-
     if (this._configOptions.include.length > 0) {
       const fileList = this._configOptions.include.map((spec) => {
         return combinePaths(this._executionRootPath, spec.wildcardRoot);
       });
-
       try {
         if (this._verboseOutput) {
           this._console.info(`Adding fs watcher for directories:\n ${fileList.join('\n')}`);
         }
-
         const isIgnored = ignoredWatchEventFunction(fileList);
         this._sourceFileWatcher = this._fs.createFileSystemWatcher(fileList, (event, path) => {
           if (this._verboseOutput) {
             this._console.info(`SourceFile: Received fs event '${event}' for path '${path}'`);
           }
-
           if (isIgnored(path)) {
             return;
           }
-
           if (path.endsWith('.tmp') || path.endsWith('.git')) {
             return;
           }
-
           const stats = tryStat(this._fs, path);
-
           if (stats && stats.isFile() && !path.endsWith('.py') && !path.endsWith('.pyi')) {
             return;
           }
-
           if (event === 'change' && stats) {
             this._backgroundAnalysisProgram.markFilesDirty([path], /* evenIfContentsAreSame */ false);
             this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
@@ -863,7 +717,6 @@ export class AnalyzerService {
                 isTemporaryFile = true;
               }
             }
-
             if (!isTemporaryFile) {
               this.invalidateAndForceReanalysis(/* rebuildLibraryIndexing */ false);
               this._scheduleReanalysis(/* requireTrackedFileUpdate */ true);
@@ -875,26 +728,20 @@ export class AnalyzerService {
       }
     }
   }
-
   private _removeLibraryFileWatcher() {
     if (this._libraryFileWatcher) {
       this._libraryFileWatcher.close();
       this._libraryFileWatcher = undefined;
     }
   }
-
   private _updateLibraryFileWatcher() {
     this._removeLibraryFileWatcher();
-
     this._backgroundAnalysisProgram.invalidateCache();
-
     if (!this._watchForLibraryChanges) {
       return;
     }
-
     const importFailureInfo: string[] = [];
     const watchList = findPythonSearchPaths(this._fs, this._backgroundAnalysisProgram.configOptions, importFailureInfo, true, this._executionRootPath);
-
     if (watchList && watchList.length > 0) {
       try {
         if (this._verboseOutput) {
@@ -905,11 +752,9 @@ export class AnalyzerService {
           if (this._verboseOutput) {
             this._console.info(`LibraryFile: Received fs event '${event}' for path '${path}'}'`);
           }
-
           if (isIgnored(path)) {
             return;
           }
-
           this._scheduleLibraryAnalysis();
         });
       } catch {
@@ -917,7 +762,6 @@ export class AnalyzerService {
       }
     }
   }
-
   private _clearLibraryReanalysisTimer() {
     if (this._libraryReanalysisTimer) {
       clearTimeout(this._libraryReanalysisTimer);
@@ -925,32 +769,25 @@ export class AnalyzerService {
       this._backgroundAnalysisProgram?.cancelIndexing();
     }
   }
-
   private _scheduleLibraryAnalysis() {
     if (this._disposed) {
       return;
     }
-
     this._clearLibraryReanalysisTimer();
-
     this._libraryReanalysisTimer = setTimeout(() => {
       this._clearLibraryReanalysisTimer();
-
       this.invalidateAndForceReanalysis();
       this._scheduleReanalysis(false);
     }, 1000);
   }
-
   private _removeConfigFileWatcher() {
     if (this._configFileWatcher) {
       this._configFileWatcher.close();
       this._configFileWatcher = undefined;
     }
   }
-
   private _updateConfigFileWatcher() {
     this._removeConfigFileWatcher();
-
     if (this._configFilePath) {
       this._configFileWatcher = this._fs.createFileSystemWatcher([this._configFilePath], (event) => {
         if (this._verboseOutput) {
@@ -974,84 +811,63 @@ export class AnalyzerService {
       });
     }
   }
-
   private _clearReloadConfigTimer() {
     if (this._reloadConfigTimer) {
       clearTimeout(this._reloadConfigTimer);
       this._reloadConfigTimer = undefined;
     }
   }
-
   private _scheduleReloadConfigFile() {
     this._clearReloadConfigTimer();
-
     this._reloadConfigTimer = setTimeout(() => {
       this._clearReloadConfigTimer();
       this._reloadConfigFile();
     }, 100);
   }
-
   private _reloadConfigFile() {
     this._updateConfigFileWatcher();
-
     if (this._configFilePath) {
       this._console.info(`Reloading configuration file at ${this._configFilePath}`);
-
       const configOptions = this._getConfigOptions(this._commandLineOptions!);
       this._backgroundAnalysisProgram.setConfigOptions(configOptions);
-
       this._applyConfigOptions();
     }
   }
-
   private _applyConfigOptions(reanalyze = true) {
     const importResolver = this._importResolverFact(this._fs, this._backgroundAnalysisProgram.configOptions);
     this._backgroundAnalysisProgram.setImportResolver(importResolver);
-
     this._updateLibraryFileWatcher();
     this._updateConfigFileWatcher();
     this._updateSourceFileWatchers();
     this._updateTrackedFileList(true);
-
     if (reanalyze) {
       this._scheduleReanalysis(false);
     }
   }
-
   private _clearReanalysisTimer() {
     if (this._analyzeTimer) {
       clearTimeout(this._analyzeTimer);
       this._analyzeTimer = undefined;
     }
   }
-
   private _scheduleReanalysis(requireTrackedFileUpdate: boolean) {
     if (this._disposed) {
       return;
     }
-
     if (requireTrackedFileUpdate) {
       this._requireTrackedFileUpdate = true;
     }
-
     this._backgroundAnalysisCancellationSource?.cancel();
-
     this._clearReanalysisTimer();
-
     const timeSinceLastUserInteractionInMs = Date.now() - this._lastUserInteractionTime;
     const minBackoffTimeInMs = _userActivityBackoffTimeInMs;
-
     const minTimeBetweenAnalysisPassesInMs = 20;
-
     const timeUntilNextAnalysisInMs = Math.max(minBackoffTimeInMs - timeSinceLastUserInteractionInMs, minTimeBetweenAnalysisPassesInMs);
-
     this._analyzeTimer = setTimeout(() => {
       this._analyzeTimer = undefined;
-
       if (this._requireTrackedFileUpdate) {
         this._updateTrackedFileList(false);
       }
-
       this._backgroundAnalysisCancellationSource = createBackgroundThreadCancellationTokenSource();
       const moreToAnalyze = this._backgroundAnalysisProgram.startAnalysis(this._backgroundAnalysisCancellationSource.token);
       if (moreToAnalyze) {
@@ -1059,7 +875,6 @@ export class AnalyzerService {
       }
     }, timeUntilNextAnalysisInMs);
   }
-
   private _reportConfigParseError() {
     if (this._onCompletionCallback) {
       this._onCompletionCallback({

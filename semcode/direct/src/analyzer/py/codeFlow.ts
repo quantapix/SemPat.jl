@@ -1,6 +1,5 @@
 import { assert } from '../common/debug';
 import { ArgumentCategory, CallNode, ExpressionNode, ImportFromNode, IndexNode, MemberAccessNode, NameNode, NumberNode, ParseNodeType, SuiteNode } from '../parser/parseNodes';
-
 export enum FlowFlags {
   Unreachable = 1 << 0, // Unreachable code
   Start = 1 << 1, // Entry point
@@ -20,98 +19,77 @@ export enum FlowFlags {
   TrueNeverCondition = 1 << 16, // Condition whose type evaluates to never when narrowed in positive test
   FalseNeverCondition = 1 << 17, // Condition whose type evaluates to never when narrowed in negative test
 }
-
 let _nextFlowNodeId = 1;
-
 export type CodeFlowReferenceExpressionNode = NameNode | MemberAccessNode | IndexNode;
-
 export function getUniqueFlowNodeId() {
   return _nextFlowNodeId++;
 }
-
 export interface FlowNode {
   flags: FlowFlags;
   id: number;
 }
-
 export interface FlowLabel extends FlowNode {
   antecedents: FlowNode[];
 }
-
 export interface FlowAssignment extends FlowNode {
   node: CodeFlowReferenceExpressionNode;
   antecedent: FlowNode;
   targetSymbolId: number;
 }
-
 export interface FlowAssignmentAlias extends FlowNode {
   antecedent: FlowNode;
   targetSymbolId: number;
   aliasSymbolId: number;
 }
-
 export interface FlowVariableAnnotation extends FlowNode {
   antecedent: FlowNode;
 }
-
 export interface FlowWildcardImport extends FlowNode {
   node: ImportFromNode;
   names: string[];
   antecedent: FlowNode;
 }
-
 export interface FlowCondition extends FlowNode {
   expression: ExpressionNode;
   reference?: NameNode;
   antecedent: FlowNode;
 }
-
 export interface FlowCall extends FlowNode {
   node: CallNode;
   antecedent: FlowNode;
 }
-
 export interface FlowPreFinallyGate extends FlowNode {
   antecedent: FlowNode;
   isGateClosed: boolean;
 }
-
 export interface FlowPostFinally extends FlowNode {
   antecedent: FlowNode;
   finallyNode: SuiteNode;
   preFinallyGate: FlowPreFinallyGate;
 }
-
 export interface FlowPostContextMgrLabel extends FlowLabel {
   expressions: ExpressionNode[];
   isAsync: boolean;
 }
-
 export function isCodeFlowSupportedForReference(reference: ExpressionNode): boolean {
   if (reference.nodeType === ParseNodeType.Name) {
     return true;
   }
-
   if (reference.nodeType === ParseNodeType.MemberAccess) {
     return isCodeFlowSupportedForReference(reference.leftExpression);
   }
-
   if (reference.nodeType === ParseNodeType.Index) {
     if (reference.items.length !== 1 || reference.trailingComma || reference.items[0].name !== undefined || reference.items[0].argumentCategory !== ArgumentCategory.Simple) {
       return false;
     }
-
     const subscriptNode = reference.items[0].valueExpression;
     if (subscriptNode.nodeType !== ParseNodeType.Number || subscriptNode.isImaginary || !subscriptNode.isInteger) {
       return false;
     }
-
     return isCodeFlowSupportedForReference(reference.baseExpression);
   }
-
   return false;
 }
-
 export function createKeyForReference(reference: CodeFlowReferenceExpressionNode): string {
   let key;
   if (reference.nodeType === ParseNodeType.Name) {
@@ -124,6 +102,5 @@ export function createKeyForReference(reference: CodeFlowReferenceExpressionNode
     assert(reference.items.length === 1 && reference.items[0].valueExpression.nodeType === ParseNodeType.Number);
     key = `${leftKey}[${(reference.items[0].valueExpression as NumberNode).value.toString()}]`;
   }
-
   return key;
 }

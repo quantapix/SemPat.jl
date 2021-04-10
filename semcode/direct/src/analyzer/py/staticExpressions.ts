@@ -1,7 +1,6 @@
 import { ExecutionEnvironment, PythonPlatform } from '../common/configOptions';
 import { ArgumentCategory, ExpressionNode, NameNode, NumberNode, ParseNodeType, TupleNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
-
 export function evaluateStaticBoolExpression(node: ExpressionNode, execEnv: ExecutionEnvironment, typingImportAliases?: string[], sysImportAliases?: string[]): boolean | undefined {
   if (node.nodeType === ParseNodeType.UnaryOp) {
     if (node.operator === OperatorType.Or || node.operator === OperatorType.And) {
@@ -14,18 +13,15 @@ export function evaluateStaticBoolExpression(node: ExpressionNode, execEnv: Exec
     if (node.operator === OperatorType.Or || node.operator === OperatorType.And) {
       const leftValue = evaluateStaticBoolExpression(node.leftExpression, execEnv, typingImportAliases, sysImportAliases);
       const rightValue = evaluateStaticBoolExpression(node.rightExpression, execEnv, typingImportAliases, sysImportAliases);
-
       if (leftValue === undefined || rightValue === undefined) {
         return undefined;
       }
-
       if (node.operator === OperatorType.Or) {
         return leftValue || rightValue;
       } else {
         return leftValue && rightValue;
       }
     }
-
     if (_isSysVersionInfoExpression(node.leftExpression, sysImportAliases) && node.rightExpression.nodeType === ParseNodeType.Tuple) {
       const comparisonVersion = _convertTupleToVersion(node.rightExpression);
       return _evaluateNumericBinaryOp(node.operator, execEnv.pythonVersion, comparisonVersion);
@@ -72,23 +68,18 @@ export function evaluateStaticBoolExpression(node: ExpressionNode, execEnv: Exec
   ) {
     return true;
   }
-
   return undefined;
 }
-
 export function evaluateStaticBoolLikeExpression(node: ExpressionNode, execEnv: ExecutionEnvironment, typingImportAliases?: string[], sysImportAliases?: string[]): boolean | undefined {
   if (node.nodeType === ParseNodeType.Constant) {
     if (node.constType === KeywordType.None) {
       return false;
     }
   }
-
   return evaluateStaticBoolExpression(node, execEnv, typingImportAliases, sysImportAliases);
 }
-
 function _convertTupleToVersion(node: TupleNode): number | undefined {
   let comparisonVersion: number | undefined;
-
   if (node.expressions.length >= 2) {
     if (node.expressions[0].nodeType === ParseNodeType.Number && !node.expressions[0].isImaginary && node.expressions[1].nodeType === ParseNodeType.Number && !node.expressions[1].isImaginary) {
       const majorVersion = node.expressions[0];
@@ -99,10 +90,8 @@ function _convertTupleToVersion(node: TupleNode): number | undefined {
     const majorVersion = node.expressions[0] as NumberNode;
     comparisonVersion = majorVersion.value * 256;
   }
-
   return comparisonVersion;
 }
-
 function _evaluateNumericBinaryOp(operatorType: OperatorType, leftValue: number | undefined, rightValue: number | undefined): any | undefined {
   if (leftValue !== undefined && rightValue !== undefined) {
     if (operatorType === OperatorType.LessThan) {
@@ -119,10 +108,8 @@ function _evaluateNumericBinaryOp(operatorType: OperatorType, leftValue: number 
       return leftValue !== rightValue;
     }
   }
-
   return undefined;
 }
-
 function _evaluateStringBinaryOp(operatorType: OperatorType, leftValue: string | undefined, rightValue: string | undefined): any | undefined {
   if (leftValue !== undefined && rightValue !== undefined) {
     if (operatorType === OperatorType.Equals) {
@@ -131,10 +118,8 @@ function _evaluateStringBinaryOp(operatorType: OperatorType, leftValue: string |
       return leftValue !== rightValue;
     }
   }
-
   return undefined;
 }
-
 function _isSysVersionInfoExpression(node: ExpressionNode, sysImportAliases: string[] = ['sys']): boolean {
   if (node.nodeType === ParseNodeType.MemberAccess) {
     if (node.leftExpression.nodeType === ParseNodeType.Name && node.memberName.value === 'version_info') {
@@ -143,10 +128,8 @@ function _isSysVersionInfoExpression(node: ExpressionNode, sysImportAliases: str
       }
     }
   }
-
   return false;
 }
-
 function _isSysPlatformInfoExpression(node: ExpressionNode, sysImportAliases: string[] = ['sys']): boolean {
   if (node.nodeType === ParseNodeType.MemberAccess) {
     if (node.leftExpression.nodeType === ParseNodeType.Name && node.memberName.value === 'platform') {
@@ -155,20 +138,16 @@ function _isSysPlatformInfoExpression(node: ExpressionNode, sysImportAliases: st
       }
     }
   }
-
   return false;
 }
-
 function _isOsNameInfoExpression(node: ExpressionNode): boolean {
   if (node.nodeType === ParseNodeType.MemberAccess) {
     if (node.leftExpression.nodeType === ParseNodeType.Name && node.leftExpression.value === 'os' && node.memberName.value === 'name') {
       return true;
     }
   }
-
   return false;
 }
-
 function _getExpectedPlatformNameFromPlatform(execEnv: ExecutionEnvironment): string | undefined {
   if (execEnv.pythonPlatform === PythonPlatform.Darwin) {
     return 'darwin';
@@ -177,10 +156,8 @@ function _getExpectedPlatformNameFromPlatform(execEnv: ExecutionEnvironment): st
   } else if (execEnv.pythonPlatform === PythonPlatform.Linux) {
     return 'linux';
   }
-
   return undefined;
 }
-
 function _getExpectedOsNameFromPlatform(execEnv: ExecutionEnvironment): string | undefined {
   if (execEnv.pythonPlatform === PythonPlatform.Darwin) {
     return 'posix';
@@ -189,6 +166,5 @@ function _getExpectedOsNameFromPlatform(execEnv: ExecutionEnvironment): string |
   } else if (execEnv.pythonPlatform === PythonPlatform.Linux) {
     return 'posix';
   }
-
   return undefined;
 }

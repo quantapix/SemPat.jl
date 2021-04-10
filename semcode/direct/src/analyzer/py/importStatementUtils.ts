@@ -1,5 +1,4 @@
 import { CancellationToken } from 'vscode-languageserver';
-
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
@@ -10,7 +9,6 @@ import { ParseResults } from '../parser/parser';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { ImportResult, ImportType } from './importResult';
 import * as SymbolNameUtils from './symbolNameUtils';
-
 export interface ImportStatement {
   node: ImportNode | ImportFromNode;
   subnode?: ImportAsNode;
@@ -19,20 +17,17 @@ export interface ImportStatement {
   moduleName: string;
   followsNonImportStatement: boolean;
 }
-
 export interface ImportStatements {
   orderedImports: ImportStatement[];
   mapByFilePath: Map<string, ImportStatement>;
   implicitImports?: Map<string, ImportFromAsNode>;
 }
-
 export const enum ImportGroup {
   BuiltIn = 0,
   ThirdParty = 1,
   Local = 2,
   LocalRelative = 3,
 }
-
 export function getImportGroup(statement: ImportStatement): ImportGroup {
   if (statement.importResult) {
     if (statement.importResult.importType === ImportType.BuiltIn) {
@@ -40,39 +35,31 @@ export function getImportGroup(statement: ImportStatement): ImportGroup {
     } else if (statement.importResult.importType === ImportType.ThirdParty || statement.importResult.isLocalTypingsFile) {
       return ImportGroup.ThirdParty;
     }
-
     if (statement.importResult.isRelative) {
       return ImportGroup.LocalRelative;
     }
-
     return ImportGroup.Local;
   } else {
     return ImportGroup.Local;
   }
 }
-
 export function compareImportStatements(a: ImportStatement, b: ImportStatement) {
   const aImportGroup = getImportGroup(a);
   const bImportGroup = getImportGroup(b);
-
   if (aImportGroup < bImportGroup) {
     return -1;
   } else if (aImportGroup > bImportGroup) {
     return 1;
   }
-
   return a.moduleName < b.moduleName ? -1 : 1;
 }
-
 export function getTopLevelImports(parseTree: ModuleNode, includeImplicitImports = false): ImportStatements {
   const localImports: ImportStatements = {
     orderedImports: [],
     mapByFilePath: new Map<string, ImportStatement>(),
   };
-
   let followsNonImportStatement = false;
   let foundFirstImportStatement = false;
-
   parseTree.statements.forEach((statement) => {
     if (statement.nodeType === ParseNodeType.StatementList) {
       statement.statements.forEach((subStatement) => {
@@ -92,44 +79,34 @@ export function getTopLevelImports(parseTree: ModuleNode, includeImplicitImports
       followsNonImportStatement = foundFirstImportStatement;
     }
   });
-
   return localImports;
 }
-
 export function getTextEditsForAutoImportSymbolAddition(symbolName: string, importStatement: ImportStatement, parseResults: ParseResults, aliasName?: string) {
   const textEditList: TextEditAction[] = [];
-
   let priorImport: ImportFromAsNode | undefined;
-
   if (importStatement.node && importStatement.node.nodeType === ParseNodeType.ImportFrom) {
     if (!importStatement.node.imports.some((importAs) => importAs.name.value === symbolName)) {
       for (const curImport of importStatement.node.imports) {
         if (curImport.name.value > symbolName) {
           break;
         }
-
         priorImport = curImport;
       }
-
       const insertionOffset = priorImport
         ? TextRange.getEnd(priorImport)
         : importStatement.node.imports.length > 0
         ? importStatement.node.imports[0].start
         : importStatement.node.start + importStatement.node.length;
       const insertionPosition = convertOffsetToPosition(insertionOffset, parseResults.tokenizerOutput.lines);
-
       const insertText = aliasName ? `${symbolName} as ${aliasName}` : symbolName;
-
       textEditList.push({
         range: { start: insertionPosition, end: insertionPosition },
         replacementText: priorImport ? ', ' + insertText : insertText + ', ',
       });
     }
   }
-
   return textEditList;
 }
-
 export function getTextEditsForAutoImportInsertion(
   symbolName: string | undefined,
   importStatements: ImportStatements,
@@ -140,62 +117,51 @@ export function getTextEditsForAutoImportInsertion(
   aliasName?: string
 ): TextEditAction[] {
   const textEditList: TextEditAction[] = [];
-
   const importText = symbolName ? symbolName : moduleName;
   const importTextWithAlias = aliasName ? `${importText} as ${aliasName}` : importText;
   let newImportStatement = symbolName ? `from ${moduleName} import ${importTextWithAlias}` : `import ${importTextWithAlias}`;
-
   let insertionPosition: Position;
   const invocation = convertPositionToOffset(invocationPosition, parseResults.tokenizerOutput.lines)!;
   if (importStatements.orderedImports.length > 0 && invocation >= importStatements.orderedImports[0].node.start) {
     let insertBefore = true;
     let insertionImport = importStatements.orderedImports[0];
-
     let prevImportGroup = ImportGroup.BuiltIn;
     for (const curImport of importStatements.orderedImports) {
       const curImportGroup: ImportGroup = curImport.importResult ? getImportGroup(curImport) : prevImportGroup;
-
       if (importGroup < curImportGroup) {
         if (!insertBefore && prevImportGroup < importGroup) {
           newImportStatement = parseResults.tokenizerOutput.predominantEndOfLineSequence + newImportStatement;
         }
         break;
       }
-
       if (importGroup === curImportGroup && curImport.moduleName > moduleName) {
         break;
       }
-
       if (curImport.followsNonImportStatement) {
         if (importGroup > prevImportGroup) {
           newImportStatement = parseResults.tokenizerOutput.predominantEndOfLineSequence + newImportStatement;
         }
         break;
       }
-
       if (curImport === importStatements.orderedImports[importStatements.orderedImports.length - 1]) {
         if (importGroup > curImportGroup) {
           newImportStatement = parseResults.tokenizerOutput.predominantEndOfLineSequence + newImportStatement;
         }
       }
-
       if (!insertBefore && importGroup < prevImportGroup && importGroup === curImportGroup) {
         insertBefore = true;
       } else {
         insertBefore = false;
       }
-
       prevImportGroup = curImportGroup;
       insertionImport = curImport;
     }
-
     if (insertionImport) {
       if (insertBefore) {
         newImportStatement = newImportStatement + parseResults.tokenizerOutput.predominantEndOfLineSequence;
       } else {
         newImportStatement = parseResults.tokenizerOutput.predominantEndOfLineSequence + newImportStatement;
       }
-
       insertionPosition = convertOffsetToPosition(insertBefore ? insertionImport.node.start : TextRange.getEnd(insertionImport.node), parseResults.tokenizerOutput.lines);
     } else {
       insertionPosition = { line: 0, character: 0 };
@@ -203,12 +169,10 @@ export function getTextEditsForAutoImportInsertion(
   } else {
     insertionPosition = { line: 0, character: 0 };
     let addNewLineBefore = false;
-
     for (const statement of parseResults.parseTree.statements) {
       let stopHere = true;
       if (statement.nodeType === ParseNodeType.StatementList && statement.statements.length === 1) {
         const simpleStatement = statement.statements[0];
-
         if (simpleStatement.nodeType === ParseNodeType.StringList) {
           stopHere = false;
         } else if (simpleStatement.nodeType === ParseNodeType.Assignment) {
@@ -219,7 +183,6 @@ export function getTextEditsForAutoImportInsertion(
           }
         }
       }
-
       if (stopHere) {
         insertionPosition = convertOffsetToPosition(statement.start, parseResults.tokenizerOutput.lines);
         addNewLineBefore = false;
@@ -229,33 +192,26 @@ export function getTextEditsForAutoImportInsertion(
         addNewLineBefore = true;
       }
     }
-
     newImportStatement += parseResults.tokenizerOutput.predominantEndOfLineSequence + parseResults.tokenizerOutput.predominantEndOfLineSequence;
-
     if (addNewLineBefore) {
       newImportStatement = parseResults.tokenizerOutput.predominantEndOfLineSequence + newImportStatement;
     } else {
       newImportStatement += parseResults.tokenizerOutput.predominantEndOfLineSequence;
     }
   }
-
   textEditList.push({
     range: { start: insertionPosition, end: insertionPosition },
     replacementText: newImportStatement,
   });
-
   return textEditList;
 }
-
 function _processImportNode(node: ImportNode, localImports: ImportStatements, followsNonImportStatement: boolean) {
   node.list.forEach((importAsNode) => {
     const importResult = AnalyzerNodeInfo.getImportInfo(importAsNode.module);
     let resolvedPath: string | undefined;
-
     if (importResult && importResult.isImportFound) {
       resolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
     }
-
     const localImport: ImportStatement = {
       node,
       subnode: importAsNode,
@@ -264,9 +220,7 @@ function _processImportNode(node: ImportNode, localImports: ImportStatements, fo
       moduleName: _formatModuleName(importAsNode.module),
       followsNonImportStatement,
     };
-
     localImports.orderedImports.push(localImport);
-
     if (resolvedPath) {
       if (!localImports.mapByFilePath.has(resolvedPath)) {
         localImports.mapByFilePath.set(resolvedPath, localImport);
@@ -274,18 +228,14 @@ function _processImportNode(node: ImportNode, localImports: ImportStatements, fo
     }
   });
 }
-
 function _processImportFromNode(node: ImportFromNode, localImports: ImportStatements, followsNonImportStatement: boolean, includeImplicitImports: boolean) {
   const importResult = AnalyzerNodeInfo.getImportInfo(node.module);
   let resolvedPath: string | undefined;
-
   if (importResult && importResult.isImportFound) {
     resolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
   }
-
   if (includeImplicitImports && importResult) {
     localImports.implicitImports = localImports.implicitImports ?? new Map<string, ImportFromAsNode>();
-
     for (const implicitImport of importResult.implicitImports) {
       const importFromAs = node.imports.find((i) => i.name.value === implicitImport.name);
       if (importFromAs) {
@@ -293,7 +243,6 @@ function _processImportFromNode(node: ImportFromNode, localImports: ImportStatem
       }
     }
   }
-
   const localImport: ImportStatement = {
     node,
     importResult,
@@ -301,49 +250,37 @@ function _processImportFromNode(node: ImportFromNode, localImports: ImportStatem
     moduleName: _formatModuleName(node.module),
     followsNonImportStatement,
   };
-
   localImports.orderedImports.push(localImport);
-
   if (resolvedPath) {
     const prevEntry = localImports.mapByFilePath.get(resolvedPath);
-
     if (!prevEntry || prevEntry.node.nodeType === ParseNodeType.Import || prevEntry.moduleName.length > localImport.moduleName.length) {
       localImports.mapByFilePath.set(resolvedPath, localImport);
     }
   }
 }
-
 function _formatModuleName(node: ModuleNameNode): string {
   let moduleName = '';
   for (let i = 0; i < node.leadingDots; i++) {
     moduleName = moduleName + '.';
   }
-
   moduleName += node.nameParts.map((part) => part.value).join('.');
-
   return moduleName;
 }
-
 export function getContainingImportStatement(node: ParseNode | undefined, token: CancellationToken) {
   while (node) {
     throwIfCancellationRequested(token);
-
     if (node.nodeType === ParseNodeType.Import || node.nodeType === ParseNodeType.ImportFrom) {
       break;
     }
-
     node = node.parent;
   }
-
   return node;
 }
-
 export function getAllImportNames(node: ImportNode | ImportFromNode) {
   if (node.nodeType === ParseNodeType.Import) {
     const importNode = node as ImportNode;
     return importNode.list;
   }
-
   const importFromNode = node as ImportFromNode;
   return importFromNode.imports;
 }

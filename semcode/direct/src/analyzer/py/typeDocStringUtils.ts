@@ -5,31 +5,24 @@ import { ClassType, FunctionType, isClass, isFunction, isOverloadedFunction, Mod
 import { ModuleNode, ParseNodeType } from '../parser/parseNodes';
 import { TypeEvaluator } from './typeEvaluator';
 import { ClassIteratorFlags, ClassMemberLookupFlags, getClassIterator, getClassMemberIterator, isProperty } from './typeUtils';
-
 export function getPropertyDocStringInherited(resolvedDecl: Declaration | undefined, sourceMapper: SourceMapper, evaluator: TypeEvaluator, classType: ClassType) {
   if (!resolvedDecl || !isFunctionDeclaration(resolvedDecl)) {
     return;
   }
-
   const declaredType = evaluator.getTypeForDeclaration(resolvedDecl);
   if (!declaredType || !isProperty(declaredType)) {
     return;
   }
-
   const fieldName = resolvedDecl.node.nodeType === ParseNodeType.Function ? resolvedDecl.node.name.value : undefined;
   if (!fieldName) {
     return;
   }
-
   const classItr = getClassIterator(classType, ClassIteratorFlags.Default);
-
   for (const [mroClass] of classItr) {
     if (!isClass(mroClass)) {
       continue;
     }
-
     const symbol = mroClass.details.fields.get(fieldName);
-
     const decls = symbol?.getDeclarations();
     if (decls) {
       for (const decl of decls) {
@@ -45,23 +38,17 @@ export function getPropertyDocStringInherited(resolvedDecl: Declaration | undefi
       }
     }
   }
-
   return;
 }
-
 const DefaultClassIteratorFlagsForFunctions = ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipOriginalClass | ClassMemberLookupFlags.DeclaredTypesOnly;
-
 export function getFunctionDocStringInherited(type: FunctionType, resolvedDecl: Declaration | undefined, sourceMapper: SourceMapper, classType?: ClassType) {
   let docString: string | undefined;
-
   if (resolvedDecl && isFunctionDeclaration(resolvedDecl)) {
     docString = getFunctionDocString(type, resolvedDecl, sourceMapper);
   }
-
   if (!docString && classType) {
     const funcName = type.details.name;
     const memberIterator = getClassMemberIterator(classType, funcName, DefaultClassIteratorFlagsForFunctions);
-
     for (const classMember of memberIterator) {
       const decls = classMember.symbol.getDeclarations();
       if (decls.length > 0) {
@@ -75,10 +62,8 @@ export function getFunctionDocStringInherited(type: FunctionType, resolvedDecl: 
       }
     }
   }
-
   return docString;
 }
-
 export function getOverloadedFunctionDocStringsInherited(
   type: OverloadedFunctionType,
   resolvedDecl: Declaration | undefined,
@@ -90,11 +75,9 @@ export function getOverloadedFunctionDocStringsInherited(
   if (docStrings && docStrings.length > 0) {
     return docStrings;
   }
-
   if (classType && type.overloads.length > 0) {
     const funcName = type.overloads[0].details.name;
     const memberIterator = getClassMemberIterator(classType, funcName, DefaultClassIteratorFlagsForFunctions);
-
     for (const classMember of memberIterator) {
       const inheritedDecl = classMember.symbol.getDeclarations().slice(-1)[0];
       const declType = evaluator.getTypeForDeclaration(inheritedDecl);
@@ -106,15 +89,12 @@ export function getOverloadedFunctionDocStringsInherited(
       }
     }
   }
-
   return docStrings ?? [];
 }
-
 function getOverloadedFunctionDocStrings(type: Type, resolvedDecl: Declaration | undefined, sourceMapper: SourceMapper) {
   if (!isOverloadedFunction(type)) {
     return undefined;
   }
-
   const docStrings: string[] = [];
   if (type.overloads.some((o) => o.details.docString)) {
     type.overloads.forEach((overload) => {
@@ -129,10 +109,8 @@ function getOverloadedFunctionDocStrings(type: Type, resolvedDecl: Declaration |
       docStrings.push(docString);
     }
   }
-
   return docStrings;
 }
-
 export function getModuleDocString(type: ModuleType, resolvedDecl: DeclarationBase | undefined, sourceMapper: SourceMapper) {
   let docString = type.docString;
   if (!docString) {
@@ -141,10 +119,8 @@ export function getModuleDocString(type: ModuleType, resolvedDecl: DeclarationBa
       docString = _getModuleNodeDocString(modules);
     }
   }
-
   return docString;
 }
-
 export function getClassDocString(classType: ClassType, resolvedDecl: Declaration | undefined, sourceMapper: SourceMapper) {
   let docString = classType.details.docString;
   if (!docString && resolvedDecl && isClassDeclaration(resolvedDecl)) {
@@ -154,7 +130,6 @@ export function getClassDocString(classType: ClassType, resolvedDecl: Declaratio
       docString = _getFunctionOrClassDeclDocString(implDecls);
     }
   }
-
   if (!docString && resolvedDecl) {
     const implDecls = sourceMapper.findClassDeclarationsByType(resolvedDecl.path, classType);
     if (implDecls) {
@@ -162,37 +137,29 @@ export function getClassDocString(classType: ClassType, resolvedDecl: Declaratio
       docString = _getFunctionOrClassDeclDocString(classDecls);
     }
   }
-
   return docString;
 }
-
 function getFunctionDocString(type: Type, resolvedDecl: FunctionDeclaration | undefined, sourceMapper: SourceMapper) {
   if (!isFunction(type)) {
     return undefined;
   }
-
   let docString = type.details.docString;
   if (!docString && resolvedDecl) {
     docString = getFunctionDocStringFromDeclaration(resolvedDecl, sourceMapper);
   }
-
   if (!docString && type.details.declaration) {
     docString = getFunctionDocStringFromDeclaration(type.details.declaration, sourceMapper);
   }
-
   return docString;
 }
-
 function getFunctionDocStringFromDeclaration(resolvedDecl: FunctionDeclaration, sourceMapper: SourceMapper) {
   let docString = _getFunctionOrClassDeclDocString([resolvedDecl]);
   if (!docString && isStubFile(resolvedDecl.path)) {
     const implDecls = sourceMapper.findFunctionDeclarations(resolvedDecl);
     docString = _getFunctionOrClassDeclDocString(implDecls);
   }
-
   return docString;
 }
-
 function _getFunctionOrClassDeclDocString(decls: FunctionDeclaration[] | ClassDeclaration[]): string | undefined {
   for (const decl of decls) {
     const docString = ParseTreeUtils.getDocString(decl.node?.suite?.statements ?? []);
@@ -200,10 +167,8 @@ function _getFunctionOrClassDeclDocString(decls: FunctionDeclaration[] | ClassDe
       return docString;
     }
   }
-
   return undefined;
 }
-
 function _getModuleNodeDocString(modules: ModuleNode[]): string | undefined {
   for (const module of modules) {
     if (module.statements) {
@@ -213,6 +178,5 @@ function _getModuleNodeDocString(modules: ModuleNode[]): string | undefined {
       }
     }
   }
-
   return undefined;
 }

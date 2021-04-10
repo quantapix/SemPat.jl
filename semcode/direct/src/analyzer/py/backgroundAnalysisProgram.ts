@@ -1,6 +1,5 @@
 import { CancellationToken } from 'vscode-languageserver';
 import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
-
 import { BackgroundAnalysisBase } from '../backgroundAnalysisBase';
 import { ConfigOptions } from '../common/configOptions';
 import { Console } from '../common/console';
@@ -12,14 +11,12 @@ import { IndexResults } from '../languageService/documentSymbolProvider';
 import { AnalysisCompleteCallback, analyzeProgram } from './analysis';
 import { ImportResolver } from './importResolver';
 import { Indices, MaxAnalysisTime, Program } from './program';
-
 export class BackgroundAnalysisProgram {
   private _program: Program;
   private _backgroundAnalysis?: BackgroundAnalysisBase;
   private _onAnalysisCompletion?: AnalysisCompleteCallback;
   private _maxAnalysisTime?: MaxAnalysisTime;
   private _indices: Indices | undefined;
-
   constructor(
     private _console: Console,
     private _configOptions: ConfigOptions,
@@ -32,165 +29,129 @@ export class BackgroundAnalysisProgram {
     this._backgroundAnalysis = backgroundAnalysis;
     this._maxAnalysisTime = maxAnalysisTime;
   }
-
   get configOptions() {
     return this._configOptions;
   }
-
   get importResolver() {
     return this._importResolver;
   }
-
   get program() {
     return this._program;
   }
-
   get backgroundAnalysis() {
     return this._backgroundAnalysis;
   }
-
   setConfigOptions(configOptions: ConfigOptions) {
     this._configOptions = configOptions;
     this._backgroundAnalysis?.setConfigOptions(configOptions);
     this._program.setConfigOptions(configOptions);
   }
-
   setImportResolver(importResolver: ImportResolver) {
     this._importResolver = importResolver;
     this._program.setImportResolver(importResolver);
   }
-
   setTrackedFiles(filePaths: string[]) {
     this._backgroundAnalysis?.setTrackedFiles(filePaths);
     const diagnostics = this._program.setTrackedFiles(filePaths);
     this._reportDiagsForRemovedFiles(diagnostics);
   }
-
   setAllowedThirdPartyImports(importNames: string[]) {
     this._backgroundAnalysis?.setAllowedThirdPartyImports(importNames);
     this._program.setAllowedThirdPartyImports(importNames);
   }
-
   ensurePartialStubPackages(path: string) {
     this._backgroundAnalysis?.ensurePartialStubPackages(path);
     return this._importResolver.ensurePartialStubPackages(this._configOptions.findExecEnvironment(path));
   }
-
   setFileOpened(filePath: string, version: number | null, contents: string) {
     this._backgroundAnalysis?.setFileOpened(filePath, version, [{ text: contents }]);
     this._program.setFileOpened(filePath, version, [{ text: contents }]);
   }
-
   updateOpenFileContents(path: string, version: number | null, contents: TextDocumentContentChangeEvent[]) {
     this._backgroundAnalysis?.setFileOpened(path, version, contents);
     this._program.setFileOpened(path, version, contents);
     this.markFilesDirty([path], true);
   }
-
   setFileClosed(filePath: string) {
     this._backgroundAnalysis?.setFileClosed(filePath);
     const diagnostics = this._program.setFileClosed(filePath);
     this._reportDiagsForRemovedFiles(diagnostics);
   }
-
   markAllFilesDirty(evenIfContentsAreSame: boolean) {
     this._backgroundAnalysis?.markAllFilesDirty(evenIfContentsAreSame);
     this._program.markAllFilesDirty(evenIfContentsAreSame);
   }
-
   markFilesDirty(filePaths: string[], evenIfContentsAreSame: boolean) {
     this._backgroundAnalysis?.markFilesDirty(filePaths, evenIfContentsAreSame);
     this._program.markFilesDirty(filePaths, evenIfContentsAreSame);
   }
-
   setCompletionCallback(callback?: AnalysisCompleteCallback) {
     this._onAnalysisCompletion = callback;
     this._backgroundAnalysis?.setCompletionCallback(callback);
   }
-
   startAnalysis(token: CancellationToken): boolean {
     if (this._backgroundAnalysis) {
       this._backgroundAnalysis.startAnalysis(this._indices, token);
       return false;
     }
-
     return analyzeProgram(this._program, this._maxAnalysisTime, this._configOptions, this._onAnalysisCompletion, this._console, token);
   }
-
   test_setIndexing(workspaceIndices: Map<string, IndexResults>, libraryIndices: Map<string, Map<string, IndexResults>>) {
     const indices = this._getIndices();
     for (const [filePath, indexResults] of workspaceIndices) {
       indices.setWorkspaceIndex(filePath, indexResults);
     }
-
     for (const [execEnvRoot, map] of libraryIndices) {
       for (const [libraryPath, indexResults] of map) {
         indices.setIndex(execEnvRoot, libraryPath, indexResults);
       }
     }
   }
-
   startIndexing() {
     if (!this._configOptions.indexing) {
       return;
     }
-
     this._backgroundAnalysis?.startIndexing(this._configOptions, this._getIndices());
   }
-
   refreshIndexing() {
     if (!this._configOptions.indexing) {
       return;
     }
-
     this._backgroundAnalysis?.refreshIndexing(this._configOptions, this._indices);
   }
-
   cancelIndexing() {
     this._backgroundAnalysis?.cancelIndexing(this._configOptions);
   }
-
   getIndexing(filePath: string) {
     return this._indices?.getIndex(this._configOptions.findExecEnvironment(filePath).root);
   }
-
   async getDiagsForRange(filePath: string, range: Range, token: CancellationToken): Promise<Diag[]> {
     if (this._backgroundAnalysis) {
       return this._backgroundAnalysis.getDiagsForRange(filePath, range, token);
     }
-
     return this._program.getDiagsForRange(filePath, range);
   }
-
   async writeTypeStub(targetImportPath: string, targetIsSingleFile: boolean, stubPath: string, token: CancellationToken): Promise<any> {
     if (this._backgroundAnalysis) {
       return this._backgroundAnalysis.writeTypeStub(targetImportPath, targetIsSingleFile, stubPath, token);
     }
-
     analyzeProgram(this._program, undefined, this._configOptions, this._onAnalysisCompletion, this._console, token);
     return this._program.writeTypeStub(targetImportPath, targetIsSingleFile, stubPath, token);
   }
-
   invalidateAndForceReanalysis(rebuildLibraryIndexing: boolean) {
     if (rebuildLibraryIndexing) {
       this.refreshIndexing();
     }
-
     this._backgroundAnalysis?.invalidateAndForceReanalysis();
-
     this._importResolver.invalidateCache();
-
     this._program.markAllFilesDirty(true);
   }
-
   invalidateCache() {
     this._importResolver.invalidateCache();
   }
-
   restart() {
     this._backgroundAnalysis?.restart();
   }
-
   private _getIndices(): Indices {
     if (!this._indices) {
       const program = this._program;
@@ -208,7 +169,6 @@ export class BackgroundAnalysisProgram {
             indicesMap = new Map<string, IndexResults>();
             map.set(execEnv, indicesMap);
           }
-
           indicesMap.set(path, indexResults);
         },
         reset(): void {
@@ -216,10 +176,8 @@ export class BackgroundAnalysisProgram {
         },
       };
     }
-
     return this._indices!;
   }
-
   private _reportDiagsForRemovedFiles(fileDiags: FileDiags[]) {
     if (fileDiags.length > 0) {
       if (!this._backgroundAnalysis && this._onAnalysisCompletion) {
@@ -236,7 +194,6 @@ export class BackgroundAnalysisProgram {
     }
   }
 }
-
 export type BackgroundAnalysisProgramFact = (
   console: Console,
   configOptions: ConfigOptions,

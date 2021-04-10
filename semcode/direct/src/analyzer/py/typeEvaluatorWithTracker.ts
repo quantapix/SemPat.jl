@@ -4,12 +4,10 @@ import { timingStats } from '../common/timing';
 import { ImportLookup } from './analyzerFileInfo';
 import { PrintableType, TracePrinter } from './tracePrinter';
 import { createTypeEvaluator, EvaluatorOptions, TypeEvaluator } from './typeEvaluator';
-
 export function createTypeEvaluatorWithTracker(importLookup: ImportLookup, evaluatorOptions: EvaluatorOptions, logger: LogTracker, printer?: TracePrinter) {
   if (!evaluatorOptions.logCalls && isDebugMode()) {
     return createTypeEvaluator(importLookup, evaluatorOptions, logger, undefined);
   }
-
   function run<T>(title: string, callback: () => T, value?: PrintableType): T {
     return evaluatorOptions.logCalls
       ? logger.log(
@@ -23,7 +21,6 @@ export function createTypeEvaluatorWithTracker(importLookup: ImportLookup, evalu
         )
       : timingStats.typeEvaluationTime.timeOp(callback);
   }
-
   const lookup: ImportLookup = evaluatorOptions.logCalls
     ? (filePath) =>
         logger.log(
@@ -36,9 +33,7 @@ export function createTypeEvaluatorWithTracker(importLookup: ImportLookup, evalu
           true
         )
     : importLookup;
-
   const typeEvaluator = createTypeEvaluator(lookup, evaluatorOptions, logger, printer);
-
   const withTracker: TypeEvaluator = {
     runWithCancellationToken: typeEvaluator.runWithCancellationToken,
     getType: (n) => run('getType', () => typeEvaluator.getType(n), n),
@@ -82,6 +77,5 @@ export function createTypeEvaluatorWithTracker(importLookup: ImportLookup, evalu
     printFunctionParts: (t) => run('printFunctionParts', () => typeEvaluator.printFunctionParts(t), t),
     getTypeCacheSize: typeEvaluator.getTypeCacheSize,
   };
-
   return withTracker;
 }

@@ -14,7 +14,6 @@ import { Symbol, SymbolTable } from './symbol';
 import { isDunderName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { ClassType, isClass, isFunction, isOverloadedFunction, isTypeVar, isUnknown, ModuleType, Type, TypeCategory } from './types';
 import { convertToInstance, doForEachSubtype, getFullNameOfType, isEllipsisType, transformTypeObjectToClass } from './typeUtils';
-
 export enum PackageSymbolType {
   Indeterminate,
   Module,
@@ -26,20 +25,16 @@ export enum PackageSymbolType {
   TypeVar,
   TypeAlias,
 }
-
 export interface PackageSymbol {
   name: string;
   fullName: string;
   symbolType: PackageSymbolType;
 }
-
 export interface PackageModule {
   name: string;
   symbols: PackageSymbol[];
 }
-
 export type AlternateSymbolNameMap = Map<string, string[]>;
-
 export interface PackageTypeReport {
   packageName: string;
   ignoreUnknownTypesFromImports: boolean;
@@ -54,38 +49,30 @@ export interface PackageTypeReport {
   alternateSymbolNames: AlternateSymbolNameMap;
   fileDiags: FileDiags[];
 }
-
 interface TypeVerificationInfo {
   isFullyKnown: boolean;
   diag: DiagAddendum;
-
   classFields: Map<string, TypeVerificationInfo> | undefined;
 }
-
 type PublicSymbolMap = Map<string, string>;
-
 const maxTypeRecursionCount = 16;
 const diagnosticMaxDepth = 16;
 const diagnosticMaxLineCount = 32;
-
 export class PackageTypeVerifier {
   private _configOptions: ConfigOptions;
   private _execEnv: ExecutionEnvironment;
   private _importResolver: ImportResolver;
   private _program: Program;
   private _typeCache = new Map<string, TypeVerificationInfo>();
-
   constructor(private _fileSystem: FileSystem) {
     this._configOptions = new ConfigOptions('');
     this._execEnv = this._configOptions.findExecEnvironment('.');
     this._importResolver = new ImportResolver(this._fileSystem, this._configOptions);
     this._program = new Program(this._importResolver, this._configOptions);
   }
-
   verify(packageName: string, ignoreUnknownTypesFromImports = false): PackageTypeReport {
     const trimmedPackageName = packageName.trim();
     const packageNameParts = trimmedPackageName.split('.');
-
     const report: PackageTypeReport = {
       packageName: packageNameParts[0],
       ignoreUnknownTypesFromImports,
@@ -100,9 +87,7 @@ export class PackageTypeVerifier {
       modules: [],
       fileDiags: [{ filePath: '', diagnostics: [] }],
     };
-
     const commonDiags = report.fileDiags[0].diagnostics;
-
     try {
       if (!trimmedPackageName) {
         commonDiags.push(new Diag(DiagCategory.Error, `Package name "${trimmedPackageName}" is invalid`, getEmptyRange()));
@@ -114,18 +99,14 @@ export class PackageTypeVerifier {
           commonDiags.push(new Diag(DiagCategory.Error, 'No py.typed file found', getEmptyRange()));
         } else {
           report.pyTypedPath = pyTypedInfo.pyTypedPath;
-
           const publicModules = this._getListOfPublicModules(report.rootDir, packageNameParts[0], trimmedPackageName);
-
           if (publicModules.length === 0) {
             commonDiags.push(new Diag(DiagCategory.Error, `Module "${trimmedPackageName}" cannot be resolved`, getEmptyRange()));
           }
-
           const publicSymbolMap = new Map<string, string>();
           publicModules.forEach((moduleName) => {
             this._getPublicSymbolsForModule(moduleName, publicSymbolMap, report.alternateSymbolNames);
           });
-
           publicModules.forEach((moduleName) => {
             this._verifyTypesForModule(moduleName, publicSymbolMap, report);
           });
@@ -135,41 +116,30 @@ export class PackageTypeVerifier {
       const message: string = (e.stack ? e.stack.toString() : undefined) || (typeof e.message === 'string' ? e.message : undefined) || JSON.stringify(e);
       commonDiags.push(new Diag(DiagCategory.Error, `An internal error occurred while verifying types: "${message}"`, getEmptyRange()));
     }
-
     return report;
   }
-
   static getSymbolTypeString(symbolType: PackageSymbolType): string {
     switch (symbolType) {
       case PackageSymbolType.Class:
         return 'class';
-
       case PackageSymbolType.Function:
         return 'function';
-
       case PackageSymbolType.Method:
         return 'method';
-
       case PackageSymbolType.Constant:
         return 'constant';
-
       case PackageSymbolType.Variable:
         return 'variable';
-
       case PackageSymbolType.Module:
         return 'module';
-
       case PackageSymbolType.TypeAlias:
         return 'type alias';
-
       case PackageSymbolType.TypeVar:
         return 'type variable';
-
       case PackageSymbolType.Indeterminate:
         return 'symbol';
     }
   }
-
   private _resolveImport(moduleName: string) {
     const moduleDescriptor: ImportedModuleDescriptor = {
       leadingDots: 0,
@@ -178,30 +148,23 @@ export class PackageTypeVerifier {
     };
     return this._importResolver.resolveImport('', this._execEnv, moduleDescriptor);
   }
-
   private _getPublicSymbolsForModule(moduleName: string, symbolMap: PublicSymbolMap, alternateSymbolNames: AlternateSymbolNameMap) {
     const importResult = this._resolveImport(moduleName);
-
     if (importResult.isImportFound) {
       const modulePath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
       this._program.addTrackedFiles([modulePath], /* isThirdPartyImport */ true, /* isInPyTypedPackage */ true);
-
       const sourceFile = this._program.getBoundSourceFile(modulePath);
-
       if (sourceFile) {
         const module: PackageModule = {
           name: moduleName,
           symbols: [],
         };
-
         const parseTree = sourceFile.getParseResults()!.parseTree;
         const moduleScope = getScopeForNode(parseTree)!;
-
         this._getPublicSymbolsInSymbolTable(symbolMap, alternateSymbolNames, module, module.name, moduleScope.symbolTable, ScopeType.Module);
       }
     }
   }
-
   private _getPublicSymbolsInSymbolTable(
     symbolMap: PublicSymbolMap,
     alternateSymbolNames: AlternateSymbolNameMap,
@@ -213,13 +176,10 @@ export class PackageTypeVerifier {
     symbolTable.forEach((symbol, name) => {
       if (!isPrivateOrProtectedName(name) && !symbol.isIgnoredForProtocolMatch() && !this._isSymbolTypeImplied(scopeType, name)) {
         const fullName = `${scopeName}.${name}`;
-
         if (!symbol.isExternallyHidden()) {
           const symbolType = this._program.getTypeForSymbol(symbol);
           symbolMap.set(fullName, fullName);
-
           const typedDecls = symbol.getTypedDeclarations();
-
           if (typedDecls.length > 0) {
             const classDecl = typedDecls.find((decl) => decl.type === DeclarationType.Class);
             if (classDecl) {
@@ -228,7 +188,6 @@ export class PackageTypeVerifier {
               }
             }
           }
-
           const importDecl = symbol.getDeclarations().find((decl) => decl.type === DeclarationType.Alias);
           if (importDecl && importDecl.type === DeclarationType.Alias) {
             const typeName = getFullNameOfType(this._program.getTypeForSymbol(symbol));
@@ -240,29 +199,24 @@ export class PackageTypeVerifier {
       }
     });
   }
-
   private _addAlternateSymbolName(map: AlternateSymbolNameMap, name: string, altName: string) {
     if (name !== altName) {
       let altNameList = map.get(name);
-
       if (!altNameList) {
         altNameList = [];
         map.set(name, altNameList);
       }
-
       if (!altNameList.some((name) => name === altName)) {
         altNameList.push(altName);
       }
     }
   }
-
   private _verifyTypesForModule(moduleName: string, publicSymbolMap: PublicSymbolMap, report: PackageTypeReport) {
     const module: PackageModule = {
       name: moduleName,
       symbols: [],
     };
     report.modules.push(module);
-
     const importResult = this._resolveImport(moduleName);
     if (!importResult.isImportFound) {
       report.fileDiags[0].diagnostics.push(new Diag(DiagCategory.Error, `Could not resolve module "${moduleName}"`, getEmptyRange()));
@@ -272,42 +226,32 @@ export class PackageTypeVerifier {
       const modulePath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
       report.fileDiags.push({ filePath: modulePath, diagnostics: [] });
       this._program.addTrackedFiles([modulePath], /* isThirdPartyImport */ true, /* isInPyTypedPackage */ true);
-
       const sourceFile = this._program.getBoundSourceFile(modulePath);
-
       if (sourceFile) {
         const parseTree = sourceFile.getParseResults()!.parseTree;
         const moduleScope = getScopeForNode(parseTree)!;
-
         this._verifySymbolsInSymbolTable(report, module, module.name, moduleScope.symbolTable, ScopeType.Module, publicSymbolMap, '');
       } else {
         report.fileDiags[0].diagnostics.push(new Diag(DiagCategory.Error, `Could not bind file "${modulePath}"`, getEmptyRange()));
       }
     }
   }
-
   private _getListOfPublicModules(rootPath: string, packageName: string, moduleFilter: string): string[] {
     let publicModules: string[] = [];
     this._addPublicModulesRecursive(rootPath, packageName, publicModules);
-
     const uniqueModules: string[] = [];
     const moduleMap = new Map<string, string>();
-
     publicModules = publicModules.filter((module) => module.startsWith(moduleFilter));
-
     publicModules.forEach((module) => {
       if (!moduleMap.has(module)) {
         uniqueModules.push(module);
         moduleMap.set(module, module);
       }
     });
-
     return uniqueModules;
   }
-
   private _addPublicModulesRecursive(dirPath: string, modulePath: string, publicModules: string[]) {
     const dirEntries = this._fileSystem.readdirEntriesSync(dirPath);
-
     dirEntries.forEach((entry) => {
       let isFile = entry.isFile();
       let isDir = entry.isDir();
@@ -318,13 +262,10 @@ export class PackageTypeVerifier {
           isDir = stat.isDir();
         }
       }
-
       if (isFile) {
         const fileExtension = getFileExtension(entry.name);
-
         if (fileExtension === '.py' || fileExtension === '.pyi') {
           const nameWithoutExtension = stripFileExtension(entry.name);
-
           if (nameWithoutExtension === '__init__') {
             publicModules.push(modulePath);
           } else {
@@ -340,15 +281,12 @@ export class PackageTypeVerifier {
       }
     });
   }
-
   private _isLegalModulePartName(name: string): boolean {
     return !!name.match(/[a-z_]+/);
   }
-
   private _shouldIgnoreType(report: PackageTypeReport, fullTypeName: string) {
     return report.ignoreUnknownTypesFromImports && !fullTypeName.startsWith(report.packageName);
   }
-
   private _verifySymbolsInSymbolTable(
     report: PackageTypeReport,
     module: PackageModule,
@@ -361,7 +299,6 @@ export class PackageTypeVerifier {
     if (this._shouldIgnoreType(report, scopeName)) {
       return;
     }
-
     symbolTable.forEach((symbol, name) => {
       if (!isPrivateOrProtectedName(name) && !symbol.isExternallyHidden() && !symbol.isIgnoredForProtocolMatch() && !this._isSymbolTypeImplied(scopeType, name)) {
         const fullName = `${scopeName}.${name}`;
@@ -378,9 +315,7 @@ export class PackageTypeVerifier {
         };
         module.symbols.push(packageSymbol);
         report.symbolCount++;
-
         const typedDecls = symbol.getTypedDeclarations();
-
         if (!this._isSymbolTypeImplied(scopeType, name)) {
           if (isUnknown(symbolType)) {
             if (typedDecls.length === 0) {
@@ -395,36 +330,29 @@ export class PackageTypeVerifier {
             }
           }
         }
-
         if (errorMessage) {
           diagnostics.push(new Diag(DiagCategory.Error, errorMessage, range));
           report.unknownTypeCount++;
         }
-
         if (typedDecls.length > 0) {
           const classDecl = typedDecls.find((decl) => decl.type === DeclarationType.Class);
           if (classDecl) {
             if (isClass(symbolType)) {
               if (!symbolType.details.docString) {
                 diagnostics.push(new Diag(DiagCategory.Warning, `No docstring found for class "${fullName}"`, range));
-
                 report.missingClassDocStringCount++;
               }
-
               this._verifySymbolsInSymbolTable(report, module, fullName, symbolType.details.fields, ScopeType.Class, publicSymbolMap, currentSymbol);
             }
           }
-
           const funcDecls = typedDecls.filter((decl) => decl.type === DeclarationType.Function);
           if (funcDecls.length > 0) {
             let isDocStringMissing = false;
             let isDefaultValueEllipsis = false;
-
             if (isFunction(symbolType)) {
               if (!symbolType.details.docString) {
                 isDocStringMissing = true;
               }
-
               if (symbolType.details.parameters.find((param) => param.hasDefault && isEllipsisType(param.defaultType!))) {
                 isDefaultValueEllipsis = true;
               }
@@ -433,25 +361,20 @@ export class PackageTypeVerifier {
               if (!funcWithDocstring) {
                 isDocStringMissing = true;
               }
-
               symbolType.overloads.forEach((func) => {
                 if (func.details.parameters.find((param) => param.hasDefault && isEllipsisType(param.defaultType!))) {
                   isDefaultValueEllipsis = true;
                 }
               });
             }
-
             if (isDocStringMissing) {
               if (!isDunderName(name)) {
                 diagnostics.push(new Diag(DiagCategory.Warning, `No docstring found for function "${fullName}"`, range));
-
                 report.missingFunctionDocStringCount++;
               }
             }
-
             if (isDefaultValueEllipsis) {
               diagnostics.push(new Diag(DiagCategory.Warning, `One or more default values in function "${fullName}" is specified as "..."`, range));
-
               report.missingDefaultParamCount++;
             }
           }
@@ -459,21 +382,17 @@ export class PackageTypeVerifier {
       }
     });
   }
-
   private _pushType<T>(typeStack: string[], typeToPush: string, callback: () => T) {
     typeStack.push(typeToPush);
     const result = callback();
     typeStack.pop();
     return result;
   }
-
   private _validateTypeIsCompletelyKnown(report: PackageTypeReport, type: Type, diag: DiagAddendum, publicSymbolMap: PublicSymbolMap, currentSymbol: string, typeStack: string[]): boolean {
     if (typeStack.length > maxTypeRecursionCount) {
       return true;
     }
-
     type = transformTypeObjectToClass(type);
-
     switch (type.category) {
       case TypeCategory.Unbound:
       case TypeCategory.Any:
@@ -481,15 +400,12 @@ export class PackageTypeVerifier {
       case TypeCategory.Never:
       case TypeCategory.TypeVar:
         return true;
-
       case TypeCategory.Unknown: {
         return false;
       }
-
       case TypeCategory.Object: {
         return this._validateTypeIsCompletelyKnown(report, type.classType, diag, publicSymbolMap, currentSymbol, typeStack);
       }
-
       case TypeCategory.OverloadedFunction: {
         let isKnown = true;
         for (const overload of type.overloads) {
@@ -497,10 +413,8 @@ export class PackageTypeVerifier {
             isKnown = false;
           }
         }
-
         return isKnown;
       }
-
       case TypeCategory.Union: {
         let isKnown = true;
         doForEachSubtype(type, (subtype) => {
@@ -508,23 +422,18 @@ export class PackageTypeVerifier {
             isKnown = false;
           }
         });
-
         return isKnown;
       }
-
       case TypeCategory.Function: {
         let isKnown = true;
-
         if (this._shouldIgnoreType(report, type.details.fullName)) {
           return true;
         }
-
         type.details.parameters.forEach((param) => {
           if (param.name) {
             const subDiag = diag.createAddendum();
             if (!param.hasDeclaredType) {
               const isSynthesized = isTypeVar(param.type) && param.type.details.isSynthesized;
-
               if (!isSynthesized) {
                 subDiag.addMessage(`Parameter "${param.name}" is missing a type annotation`);
                 isKnown = false;
@@ -538,7 +447,6 @@ export class PackageTypeVerifier {
             }
           }
         });
-
         if (type.details.declaredReturnType) {
           const subDiag = diag.createAddendum();
           if (isUnknown(type.details.declaredReturnType)) {
@@ -555,26 +463,19 @@ export class PackageTypeVerifier {
             isKnown = false;
           }
         }
-
         return isKnown;
       }
-
       case TypeCategory.Class: {
         if (this._shouldIgnoreType(report, type.details.fullName)) {
           return true;
         }
-
         const typeInfo = this._validateClassTypeIsCompletelyKnown(report, type, publicSymbolMap, currentSymbol, typeStack);
-
         let isKnown = typeInfo.isFullyKnown;
-
         if (currentSymbol === type.details.fullName || !publicSymbolMap.has(type.details.fullName)) {
           const classDiag = diag.createAddendum();
-
           if (!isKnown) {
             classDiag.addAddendum(typeInfo.diag);
           }
-
           if (typeInfo.classFields) {
             typeInfo.classFields.forEach((info) => {
               if (!info.isFullyKnown) {
@@ -583,35 +484,27 @@ export class PackageTypeVerifier {
               }
             });
           }
-
           if (!isKnown) {
             classDiag.addMessage(`Type partially unknown for class "${this._program.printType(convertToInstance(type), /* expandTypeAlias */ false)}"`);
           }
         }
-
         return isKnown;
       }
-
       case TypeCategory.Module: {
         if (this._shouldIgnoreType(report, type.moduleName)) {
           return true;
         }
-
         const typeInfo = this._validateModuleTypeIsCompletelyKnown(report, type, publicSymbolMap, typeStack);
-
         if (!typeInfo.isFullyKnown) {
           diag.addAddendum(typeInfo.diag);
         }
-
         return typeInfo.isFullyKnown;
       }
     }
   }
-
   private _validateClassTypeIsCompletelyKnown(report: PackageTypeReport, type: ClassType, publicSymbolMap: PublicSymbolMap, currentSymbol: string, typeStack: string[]): TypeVerificationInfo {
     let typeInfo: TypeVerificationInfo | undefined;
     const diag = new DiagAddendum();
-
     if (currentSymbol !== type.details.fullName && publicSymbolMap.has(type.details.fullName)) {
       typeInfo = {
         isFullyKnown: true,
@@ -626,7 +519,6 @@ export class PackageTypeVerifier {
           classFields: undefined,
         };
       }
-
       this._pushType(typeStack, type.details.fullName, () => {
         const cachedTypeInfo = this._typeCache.get(type.details.fullName);
         if (cachedTypeInfo) {
@@ -643,17 +535,14 @@ export class PackageTypeVerifier {
             diag: diag,
             classFields: undefined,
           });
-
           const classFieldMap = new Map<string, TypeVerificationInfo>();
           let isKnown = true;
-
           type.details.fields.forEach((symbol, name) => {
             if (!isPrivateOrProtectedName(name) && !symbol.isExternallyHidden() && !symbol.isIgnoredForProtocolMatch()) {
               const symbolType = this._program.getTypeForSymbol(symbol);
               const packageSymbolType = this._getPackageSymbolType(symbol, symbolType);
               const symbolTypeText = PackageTypeVerifier.getSymbolTypeString(packageSymbolType);
               const symbolDiag = new DiagAddendum();
-
               if (!this._isSymbolTypeImplied(ScopeType.Class, name)) {
                 if (isUnknown(symbolType)) {
                   symbolDiag.addMessage(`Type unknown for ${symbolTypeText} "${name}"`);
@@ -663,7 +552,6 @@ export class PackageTypeVerifier {
                   diag.addAddendum(symbolDiag);
                 }
               }
-
               classFieldMap.set(name, {
                 isFullyKnown: symbolDiag.isEmpty(),
                 diag: symbolDiag,
@@ -671,31 +559,25 @@ export class PackageTypeVerifier {
               });
             }
           });
-
           type.details.mro.forEach((mroType, index) => {
             if (index === 0) {
               return;
             }
-
             if (isClass(mroType)) {
               const mroClassInfo = this._validateClassTypeIsCompletelyKnown(report, mroType, publicSymbolMap, currentSymbol, typeStack);
-
               if (mroClassInfo.classFields) {
                 const baseClass = mroType.details.baseClasses.find((baseClass) => {
                   return isClass(baseClass) && baseClass.details.mro.some((baseClassMro) => isClass(baseClassMro) && ClassType.isSameGenericClass(baseClassMro, mroType));
                 }) as ClassType | undefined;
                 const isBaseClassPublicSymbol = baseClass && publicSymbolMap.has(baseClass.details.fullName);
-
                 mroClassInfo.classFields.forEach((info, name) => {
                   if (!classFieldMap.has(name)) {
                     const reportError = !info.isFullyKnown && !isBaseClassPublicSymbol;
-
                     const diag = new DiagAddendum();
                     if (reportError) {
                       diag.addAddendum(info.diag);
                       diag.addMessage(`Type partially unknown for symbol "${name}" defined in base class "${this._program.printType(convertToInstance(mroType), /* expandTypeAlias */ false)}"`);
                     }
-
                     classFieldMap.set(name, {
                       isFullyKnown: !reportError,
                       diag,
@@ -706,28 +588,24 @@ export class PackageTypeVerifier {
               }
             }
           });
-
           if (type.details.effectiveMetaclass) {
             if (!isClass(type.details.effectiveMetaclass)) {
               diag.addMessage(`Type for metaclass is unknown`);
               isKnown = false;
             } else if (!ClassType.isBuiltIn(type.details.effectiveMetaclass)) {
               const metaclassInfo = this._validateClassTypeIsCompletelyKnown(report, type.details.effectiveMetaclass, publicSymbolMap, currentSymbol, typeStack);
-
               const metaclassDiag = new DiagAddendum();
               let isMetaclassKnown = true;
               if (!metaclassInfo.isFullyKnown) {
                 metaclassDiag.addAddendum(metaclassInfo.diag);
                 isMetaclassKnown = false;
               }
-
               metaclassInfo.classFields?.forEach((info) => {
                 if (!info.isFullyKnown) {
                   metaclassDiag.addAddendum(info.diag);
                   isMetaclassKnown = false;
                 }
               });
-
               if (!isMetaclassKnown) {
                 metaclassDiag.addMessage(`Type of metaclass "${type.details.effectiveMetaclass.details.fullName}" is partially unknown`);
                 diag.addAddendum(metaclassDiag);
@@ -735,7 +613,6 @@ export class PackageTypeVerifier {
               }
             }
           }
-
           type.details.baseClasses.forEach((baseClass, index) => {
             const baseClassDiag = new DiagAddendum();
             if (!isClass(baseClass)) {
@@ -743,44 +620,36 @@ export class PackageTypeVerifier {
               isKnown = false;
             } else if (!ClassType.isBuiltIn(baseClass)) {
               const classInfo = this._validateClassTypeIsCompletelyKnown(report, baseClass, publicSymbolMap, currentSymbol, typeStack);
-
               if (!classInfo.isFullyKnown) {
                 baseClassDiag.addMessage(`Type partially unknown for base class "${this._program.printType(convertToInstance(baseClass), /* expandTypeAlias */ false)}"`);
-
                 diag.addAddendum(classInfo.diag);
                 isKnown = false;
               }
             }
           });
-
           typeInfo = {
             isFullyKnown: isKnown,
             diag,
             classFields: classFieldMap,
           };
-
           this._typeCache.set(type.details.fullName, typeInfo);
         }
       });
     }
-
     if (type.typeArguments) {
       this._pushType(typeStack, type.details.fullName, () => {
         const diag = new DiagAddendum();
         typeInfo!.diag.getChildren().forEach((childDiag) => {
           diag.addAddendum(childDiag);
         });
-
         typeInfo = {
           isFullyKnown: typeInfo!.isFullyKnown,
           diag,
           classFields: typeInfo!.classFields,
         };
-
         type.typeArguments!.forEach((typeArg, index) => {
           const typeArgDiag = new DiagAddendum();
           const typeVarText = index < type.details.typeParameters.length ? ` which corresponds to TypeVar ${type.details.typeParameters[index].details.name}` : '';
-
           if (isUnknown(typeArg)) {
             typeArgDiag.addMessage(`Type unknown for type argument ${index + 1}${typeVarText}`);
             diag.addAddendum(typeArgDiag);
@@ -793,18 +662,14 @@ export class PackageTypeVerifier {
         });
       });
     }
-
     return typeInfo!;
   }
-
   private _validateModuleTypeIsCompletelyKnown(report: PackageTypeReport, type: ModuleType, publicSymbolMap: PublicSymbolMap, typeStack: string[]): TypeVerificationInfo {
     let typeInfo = this._typeCache.get(type.moduleName);
     if (typeInfo) {
       return typeInfo;
     }
-
     const diag = new DiagAddendum();
-
     if (typeStack.length > maxTypeRecursionCount) {
       return {
         isFullyKnown: true,
@@ -812,16 +677,13 @@ export class PackageTypeVerifier {
         classFields: undefined,
       };
     }
-
     let isKnown = true;
-
     type.fields.forEach((symbol, name) => {
       if (!isPrivateOrProtectedName(name) && !symbol.isExternallyHidden() && !symbol.isIgnoredForProtocolMatch() && !this._isSymbolTypeImplied(ScopeType.Module, name)) {
         const symbolType = this._program.getTypeForSymbol(symbol);
         const packageSymbolType = this._getPackageSymbolType(symbol, symbolType);
         const symbolTypeText = PackageTypeVerifier.getSymbolTypeString(packageSymbolType);
         const symbolDiag = new DiagAddendum();
-
         if (isUnknown(symbolType)) {
           symbolDiag.addMessage(`Type unknown for ${symbolTypeText} "${name}"`);
           diag.addAddendum(symbolDiag);
@@ -833,38 +695,30 @@ export class PackageTypeVerifier {
         }
       }
     });
-
     typeInfo = {
       isFullyKnown: isKnown,
       diag,
       classFields: undefined,
     };
-
     this._typeCache.set(type.moduleName, typeInfo);
-
     return typeInfo;
   }
-
   private _getPackageSymbolType(symbol: Symbol, type: Type): PackageSymbolType {
     if (type.typeAliasInfo) {
       return PackageSymbolType.TypeAlias;
     }
-
     switch (type.category) {
       case TypeCategory.Class: {
         return PackageSymbolType.Class;
       }
-
       case TypeCategory.Function:
       case TypeCategory.OverloadedFunction: {
         const funcDecl = symbol.getDeclarations().find((decl) => decl.type === DeclarationType.Function) as FunctionDeclaration;
         if (funcDecl && funcDecl.isMethod) {
           return PackageSymbolType.Method;
         }
-
         return PackageSymbolType.Function;
       }
-
       case TypeCategory.Object: {
         const varDecl = symbol.getDeclarations().find((decl) => decl.type === DeclarationType.Variable) as VariableDeclaration;
         if (varDecl && (varDecl.isConstant || varDecl.isFinal)) {
@@ -872,15 +726,12 @@ export class PackageTypeVerifier {
         }
         return PackageSymbolType.Variable;
       }
-
       case TypeCategory.Module: {
         return PackageSymbolType.Module;
       }
-
       case TypeCategory.TypeVar: {
         return PackageSymbolType.TypeVar;
       }
-
       default: {
         const varDecl = symbol.getDeclarations().find((decl) => decl.type === DeclarationType.Variable) as VariableDeclaration;
         if (varDecl) {
@@ -890,29 +741,23 @@ export class PackageTypeVerifier {
             return PackageSymbolType.Variable;
           }
         }
-
         return PackageSymbolType.Indeterminate;
       }
     }
   }
-
   private _getDirForPackage(packageName: string): string | undefined {
     const moduleDescriptor: ImportedModuleDescriptor = {
       leadingDots: 0,
       nameParts: [packageName],
       importedSymbols: [],
     };
-
     const importResult = this._importResolver.resolveImport('', this._execEnv, moduleDescriptor);
-
     if (importResult.isImportFound) {
       const resolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
       return getDirPath(resolvedPath);
     }
-
     return undefined;
   }
-
   private _isSymbolTypeImplied(scopeType: ScopeType, name: string) {
     if (scopeType === ScopeType.Class) {
       const knownClassSymbols = ['__class__', '__dict__', '__doc__', '__module__', '__slots__'];
@@ -921,7 +766,6 @@ export class PackageTypeVerifier {
       const knownModuleSymbols = ['__all__', '__author__', '__copyright__', '__email__', '__license__', '__title__', '__uri__', '__version__'];
       return knownModuleSymbols.some((sym) => sym === name);
     }
-
     return false;
   }
 }
