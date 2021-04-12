@@ -8,6 +8,17 @@ import * as qv from 'vscode';
 import API from '../../old/ts/utils/api';
 import FileConfigMgr from '../../old/ts/languageFeatures/fileConfigMgr';
 import type * as qp from '../protocol';
+import { CancellationToken } from 'vscode-languageserver';
+import { getTextEditsForAutoImportInsertion, getTextEditsForAutoImportSymbolAddition, getTopLevelImports, ImportGroup } from '../analyzer/importStatementUtils';
+import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
+import { Commands } from '../commands/commands';
+import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { TextEditAction } from '../common/editAction';
+import { convertOffsetToPosition } from '../common/positionUtils';
+import { TextRange } from '../common/textRange';
+import { ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ParseResults } from '../parser/parser';
+import { ImportSorter } from './importSorter';
 
 class ApplyCodeActionCommand implements Command {
   public static readonly ID = '_typescript.applyCodeActionCommand';
@@ -28,11 +39,9 @@ class ApplyCodeActionCommand implements Command {
     return qu.applyCodeActionCommands(this.client, action.commands, qu.nulToken);
   }
 }
-
 type ApplyFixAllCodeAction_args = {
   readonly action: VsCodeFixAllCodeAction;
 };
-
 class ApplyFixAllCodeAction implements Command {
   public static readonly ID = '_typescript.applyFixAllCodeAction';
   public readonly id = ApplyFixAllCodeAction.ID;
@@ -54,7 +63,6 @@ class ApplyFixAllCodeAction implements Command {
     }
   }
 }
-
 class DiagsSet {
   public static from(diagnostics: qv.Diag[]) {
     const values = new Map<string, qv.Diag>();
@@ -75,20 +83,17 @@ class DiagsSet {
     return this._values.size;
   }
 }
-
 class VsCodeCodeAction extends qv.CodeAction {
   constructor(public readonly tsAction: qp.CodeFixAction, title: string, kind: qv.CodeActionKind) {
     super(title, kind);
   }
 }
-
 class VsCodeFixAllCodeAction extends VsCodeCodeAction {
   constructor(tsAction: qp.CodeFixAction, public readonly file: string, title: string, kind: qv.CodeActionKind) {
     super(tsAction, title, kind);
   }
   public combinedResponse?: qp.GetCombinedCodeFixResponse;
 }
-
 class CodeActionSet {
   private readonly _actions = new Set<VsCodeCodeAction>();
   private readonly _fixAllActions = new Map<{}, VsCodeCodeAction>();
@@ -120,7 +125,6 @@ class CodeActionSet {
     return this._fixAllActions.has(fixId);
   }
 }
-
 class SupportedCodeActionProvider {
   public constructor(private readonly client: ServiceClient) {}
   public async getFixableDiagsForContext(context: qv.CodeActionContext): Promise<DiagsSet> {
@@ -135,7 +139,6 @@ class SupportedCodeActionProvider {
       .then((codes) => new Set(codes));
   }
 }
-
 class QuickFix implements qv.CodeActionProvider<VsCodeCodeAction> {
   public static readonly metadata: qv.CodeActionProviderMetadata = {
     providedCodeActionKinds: [qv.CodeActionKind.QuickFix],
@@ -152,7 +155,6 @@ class QuickFix implements qv.CodeActionProvider<VsCodeCodeAction> {
     commandMgr.register(new ApplyFixAllCodeAction(client, telemetryReporter));
     this.supportedCodeActionProvider = new SupportedCodeActionProvider(client);
   }
-
   public async provideCodeActions(document: qv.TextDocument, _range: qv.Range, context: qv.CodeActionContext, token: qv.CancellationToken): Promise<VsCodeCodeAction[]> {
     const file = this.client.toOpenedFilePath(document);
     if (!file) return [];
@@ -170,7 +172,6 @@ class QuickFix implements qv.CodeActionProvider<VsCodeCodeAction> {
     }
     return allActions;
   }
-
   public async resolveCodeAction(codeAction: VsCodeCodeAction, token: qv.CancellationToken): Promise<VsCodeCodeAction> {
     if (!(codeAction instanceof VsCodeFixAllCodeAction) || !codeAction.tsAction.fixId) return codeAction;
     const arg: qp.GetCombinedCodeFixRequestArgs = {
@@ -187,7 +188,6 @@ class QuickFix implements qv.CodeActionProvider<VsCodeCodeAction> {
     }
     return codeAction;
   }
-
   private async getFixesForDiag(document: qv.TextDocument, file: string, diagnostic: qv.Diag, results: CodeActionSet, token: qv.CancellationToken): Promise<CodeActionSet> {
     const args: qp.CodeFixRequestArgs = {
       ...qu.Range.toFileRangeRequestArgs(file, diagnostic.range),
@@ -200,13 +200,11 @@ class QuickFix implements qv.CodeActionProvider<VsCodeCodeAction> {
     }
     return results;
   }
-
   private addAllFixesForTsCodeAction(results: CodeActionSet, document: qv.TextDocument, file: string, diagnostic: qv.Diag, tsAction: qp.CodeFixAction): CodeActionSet {
     results.addAction(this.getSingleFixForTsCodeAction(diagnostic, tsAction));
     this.addFixAllForTsCodeAction(results, document, file, diagnostic, tsAction as qp.CodeFixAction);
     return results;
   }
-
   private getSingleFixForTsCodeAction(diagnostic: qv.Diag, tsAction: qp.CodeFixAction): VsCodeCodeAction {
     const codeAction = new VsCodeCodeAction(tsAction, tsAction.description, qv.CodeActionKind.QuickFix);
     codeAction.edit = qu.getEditForCodeAction(this.client, tsAction);
@@ -218,7 +216,6 @@ class QuickFix implements qv.CodeActionProvider<VsCodeCodeAction> {
     };
     return codeAction;
   }
-
   private addFixAllForTsCodeAction(results: CodeActionSet, document: qv.TextDocument, file: string, diagnostic: qv.Diag, tsAction: qp.CodeFixAction): CodeActionSet {
     if (!tsAction.fixId || this.client.apiVersion.lt(API.v270) || results.hasFixAllAction(tsAction.fixId)) return results;
     if (
@@ -240,12 +237,10 @@ class QuickFix implements qv.CodeActionProvider<VsCodeCodeAction> {
     return results;
   }
 }
-
 const fixAllErrorCodes = new Map<number, number>([
   [2339, 2339],
   [2345, 2339],
 ]);
-
 const preferredFixes = new Map<string, { readonly priority: number; readonly thereCanOnlyBeOne?: boolean }>([
   [qu.addMissingAwait, { priority: 2 }],
   [qu.annotateWithTypeFromJSDoc, { priority: 2 }],
@@ -260,7 +255,6 @@ const preferredFixes = new Map<string, { readonly priority: number; readonly the
   [qu.spelling, { priority: 0 }],
   [qu.unusedIdentifier, { priority: 2 }],
 ]);
-
 function isPreferredFix(action: VsCodeCodeAction, allActions: readonly VsCodeCodeAction[]): boolean {
   if (action instanceof VsCodeFixAllCodeAction) return false;
   const fixPriority = preferredFixes.get(action.tsAction.fixName);
@@ -275,9 +269,59 @@ function isPreferredFix(action: VsCodeCodeAction, allActions: readonly VsCodeCod
     return true;
   });
 }
-
 export function register(s: qu.DocumentSelector, c: ServiceClient, fileConfigMgr: FileConfigMgr, commandMgr: CommandMgr, diagnosticsMgr: DiagsMgr, telemetryReporter: TelemetryReporter) {
   return condRegistration([requireSomeCap(c, ClientCap.Semantic)], () => {
     return qv.languages.registerCodeActionsProvider(s.semantic, new QuickFix(c, fileConfigMgr, commandMgr, diagnosticsMgr, telemetryReporter), QuickFix.metadata);
   });
+}
+
+export function performQuickAction(command: string, args: any[], parseResults: ParseResults, token: CancellationToken) {
+  if (command === Commands.orderImports) {
+    const importSorter = new ImportSorter(parseResults, token);
+    return importSorter.sort();
+  } else if (command === Commands.addMissingOptionalToParam) {
+    if (args.length >= 1) {
+      const nodeOffset = parseInt(args[0], 10);
+      return _addMissingOptionalToParam(parseResults, nodeOffset, token);
+    }
+  }
+  return [];
+}
+function _addMissingOptionalToParam(parseResults: ParseResults, offset: number, token: CancellationToken): TextEditAction[] {
+  throwIfCancellationRequested(token);
+  let node: ParseNode | undefined = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset);
+  while (node) {
+    if (node.nodeType === ParseNodeType.Parameter) {
+      break;
+    }
+    node = node.parent;
+  }
+  if (!node) {
+    return [];
+  }
+  const typeAnnotation = node.typeAnnotation || node.typeAnnotationComment;
+  if (!typeAnnotation) {
+    return [];
+  }
+  const editActions: TextEditAction[] = [];
+  const startPos = convertOffsetToPosition(typeAnnotation.start, parseResults.tokenizerOutput.lines);
+  const endPos = convertOffsetToPosition(TextRange.getEnd(typeAnnotation), parseResults.tokenizerOutput.lines);
+  editActions.push({
+    range: { start: startPos, end: startPos },
+    replacementText: 'Optional[',
+  });
+  editActions.push({
+    range: { start: endPos, end: endPos },
+    replacementText: ']',
+  });
+  const importStatements = getTopLevelImports(parseResults.parseTree);
+  const importStatement = importStatements.orderedImports.find((imp) => imp.moduleName === 'typing');
+  if (importStatement && importStatement.node.nodeType === ParseNodeType.ImportFrom) {
+    const additionalEditActions = getTextEditsForAutoImportSymbolAddition('Optional', importStatement, parseResults);
+    editActions.push(...additionalEditActions);
+  } else {
+    const additionalEditActions = getTextEditsForAutoImportInsertion('Optional', importStatements, 'typing', ImportGroup.BuiltIn, parseResults, startPos);
+    editActions.push(...additionalEditActions);
+  }
+  return editActions;
 }

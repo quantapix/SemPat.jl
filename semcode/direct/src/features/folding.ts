@@ -4,11 +4,9 @@ import * as qu from '../utils';
 import * as qv from 'vscode';
 import API from '../../old/ts/utils/api';
 import type * as qp from '../protocol';
-
 class Folding implements qv.FoldingRangeProvider {
   public static readonly minVer = API.v280;
   public constructor(private readonly client: ServiceClient) {}
-
   async provideFoldingRanges(d: qv.TextDocument, _: qv.FoldingContext, t: qv.CancellationToken): Promise<qv.FoldingRange[] | undefined> {
     const f = this.client.toOpenedFilePath(d);
     if (!f) return;
@@ -17,7 +15,6 @@ class Folding implements qv.FoldingRangeProvider {
     if (y.type !== 'response' || !y.body) return;
     return qu.coalesce(y.body.map((s) => this.convertOutliningSpan(s, d)));
   }
-
   private convertOutliningSpan(s: qp.OutliningSpan, d: qv.TextDocument): qv.FoldingRange | undefined {
     const r = qu.Range.fromTextSpan(s.textSpan);
     if (s.kind === 'comment') {
@@ -28,9 +25,7 @@ class Folding implements qv.FoldingRangeProvider {
     const e = this.adjustFoldingEnd(r, d);
     return new qv.FoldingRange(b, e, Folding.getFoldingRangeKind(s));
   }
-
   private static readonly endPairChars = ['}', ']', ')', '`'];
-
   private adjustFoldingEnd(r: qv.Range, d: qv.TextDocument) {
     if (r.end.character > 0) {
       const e = d.getText(new qv.Range(r.end.translate(0, -1), r.end));
@@ -38,7 +33,6 @@ class Folding implements qv.FoldingRangeProvider {
     }
     return r.end.line;
   }
-
   private static getFoldingRangeKind(s: qp.OutliningSpan): qv.FoldingRangeKind | undefined {
     switch (s.kind) {
       case 'comment':
@@ -53,7 +47,6 @@ class Folding implements qv.FoldingRangeProvider {
     }
   }
 }
-
 export function register(s: qu.DocumentSelector, c: ServiceClient): qv.Disposable {
   return condRegistration([requireMinVer(c, Folding.minVer)], () => {
     return qv.languages.registerFoldingRangeProvider(s.syntax, new Folding(c));

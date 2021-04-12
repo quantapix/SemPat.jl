@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as qv from 'vscode';
 import { goBuild } from './goBuild';
-import { buildLanguageServerConfig } from '../../direct/src/features/go/server';
+import { buildLanguageServerConfig } from '../../direct/src/features/server';
 import { goLint } from './goLint';
 import { buildDiagnosticCollection, lintDiagnosticCollection, vetDiagnosticCollection } from './goMain';
 import { isModSupported } from './goModules';

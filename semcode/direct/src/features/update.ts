@@ -11,9 +11,7 @@ import * as fileSchemes from '../utils/fileSchemes';
 import { doesResourceLookLikeATypeScriptFile } from '../utils/languageDescription';
 import * as qu from '../utils/qu';
 import FileConfigMgr from './fileConfigMgr';
-
 const updateImportsOnFileMoveName = 'updateImportsOnFileMove.enabled';
-
 async function isDir(resource: qv.Uri): Promise<boolean> {
   try {
     return (await qv.workspace.fs.stat(resource)).type === qv.FileType.Dir;
@@ -21,13 +19,11 @@ async function isDir(resource: qv.Uri): Promise<boolean> {
     return false;
   }
 }
-
 const enum UpdateImportsOnFileMoveSetting {
   Prompt = 'prompt',
   Always = 'always',
   Never = 'never',
 }
-
 interface RenameAction {
   readonly oldUri: qv.Uri;
   readonly newUri: qv.Uri;
@@ -35,16 +31,12 @@ interface RenameAction {
   readonly oldFilePath: string;
   readonly jsTsFileThatIsBeingMoved: qv.Uri;
 }
-
 class UpdateImportsOnFileRenameHandler extends Disposable {
   public static readonly minVersion = API.v300;
-
   private readonly _delayer = new Delayer(50);
   private readonly _pendingRenames = new Set<RenameAction>();
-
   public constructor(private readonly client: ServiceClient, private readonly fileConfigMgr: FileConfigMgr, private readonly _handles: (uri: qv.Uri) => Promise<boolean>) {
     super();
-
     this._register(
       qv.workspace.onDidRenameFiles(async (e) => {
         const [{ newUri, oldUri }] = e.files;
@@ -52,12 +44,10 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
         if (!newFilePath) {
           return;
         }
-
         const oldFilePath = this.client.toPath(oldUri);
         if (!oldFilePath) {
           return;
         }
-
         const config = this.getConfig(newUri);
         const setting = config.get<UpdateImportsOnFileMoveSetting>(updateImportsOnFileMoveName);
         if (setting === UpdateImportsOnFileMoveSetting.Never) {
@@ -67,9 +57,7 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
         if (!jsTsFileThatIsBeingMoved || !this.client.toPath(jsTsFileThatIsBeingMoved)) {
           return;
         }
-
         this._pendingRenames.add({ oldUri, newUri, newFilePath, oldFilePath, jsTsFileThatIsBeingMoved });
-
         this._delayer.trigger(() => {
           qv.window.withProgress(
             {
@@ -82,25 +70,20 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
       })
     );
   }
-
   private async flushRenames(): Promise<void> {
     const renames = Array.from(this._pendingRenames);
     this._pendingRenames.clear();
     for (const group of this.groupRenames(renames)) {
       const edits = new qv.WorkspaceEdit();
       const resourcesBeingRenamed: qv.Uri[] = [];
-
       for (const { oldUri, newUri, newFilePath, oldFilePath, jsTsFileThatIsBeingMoved } of group) {
         const document = await qv.workspace.openTextDocument(jsTsFileThatIsBeingMoved);
-
         this.client.bufferSyncSupport.closeResource(oldUri);
         this.client.bufferSyncSupport.openTextDocument(document);
-
         if (await this.withEditsForFileRename(edits, document, oldFilePath, newFilePath)) {
           resourcesBeingRenamed.push(newUri);
         }
       }
-
       if (edits.size) {
         if (await this.confirmActionWithUser(resourcesBeingRenamed)) {
           await qv.workspace.applyEdit(edits);
@@ -108,12 +91,10 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
       }
     }
   }
-
   private async confirmActionWithUser(newResources: readonly qv.Uri[]): Promise<boolean> {
     if (!newResources.length) {
       return false;
     }
-
     const config = this.getConfig(newResources[0]);
     const setting = config.get<UpdateImportsOnFileMoveSetting>(updateImportsOnFileMoveName);
     switch (setting) {
@@ -126,16 +107,13 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
         return this.promptUser(newResources);
     }
   }
-
   private getConfig(resource: qv.Uri) {
     return qv.workspace.getConfig(doesResourceLookLikeATypeScriptFile(resource) ? 'typescript' : 'javascript', resource);
   }
-
   private async promptUser(newResources: readonly qv.Uri[]): Promise<boolean> {
     if (!newResources.length) {
       return false;
     }
-
     const enum Choice {
       None = 0,
       Accept = 1,
@@ -143,11 +121,9 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
       Always = 3,
       Never = 4,
     }
-
     interface Item extends qv.MessageItem {
       readonly choice: Choice;
     }
-
     const response = await qv.window.showInformationMessage<Item>(
       newResources.length === 1 ? 'prompt' : this.getConfirmMessage('promptMoreThanOne', newResources),
       {
@@ -171,11 +147,9 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
         choice: Choice.Never,
       }
     );
-
     if (!response) {
       return false;
     }
-
     switch (response.choice) {
       case Choice.Accept: {
         return true;
@@ -194,15 +168,12 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
         return false;
       }
     }
-
     return false;
   }
-
   private async getJsTsFileBeingMoved(resource: qv.Uri): Promise<qv.Uri | undefined> {
     if (resource.scheme !== fileSchemes.file) {
       return undefined;
     }
-
     if (await isDir(resource)) {
       const files = await qv.workspace.findFiles(
         {
@@ -214,10 +185,8 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
       );
       return files[0];
     }
-
     return (await this._handles(resource)) ? resource : undefined;
   }
-
   private async withEditsForFileRename(edits: qv.WorkspaceEdit, document: qv.TextDocument, oldFilePath: string, newFilePath: string): Promise<boolean> {
     const response = await this.client.interruptGetErr(() => {
       this.fileConfigMgr.setGlobalConfigFromDocument(document, nulToken);
@@ -230,14 +199,11 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
     if (response.type !== 'response' || !response.body.length) {
       return false;
     }
-
     qu.WorkspaceEdit.withFileCodeEdits(edits, this.client, response.body);
     return true;
   }
-
   private groupRenames(renames: Iterable<RenameAction>): Iterable<Iterable<RenameAction>> {
     const groups = new Map<string, Set<RenameAction>>();
-
     for (const rename of renames) {
       const key = `${this.client.getWorkspaceRootForResource(rename.jsTsFileThatIsBeingMoved)}@@@${doesResourceLookLikeATypeScriptFile(rename.jsTsFileThatIsBeingMoved)}`;
       if (!groups.has(key)) {
@@ -245,17 +211,13 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
       }
       groups.get(key)!.add(rename);
     }
-
     return groups.values();
   }
-
   private getConfirmMessage(start: string, resourcesToConfirm: readonly qv.Uri[]): string {
     const MAX_CONFIRM_FILES = 10;
-
     const paths = [start];
     paths.push('');
     paths.push(...resourcesToConfirm.slice(0, MAX_CONFIRM_FILES).map((r) => path.basename(r.fsPath)));
-
     if (resourcesToConfirm.length > MAX_CONFIRM_FILES) {
       if (resourcesToConfirm.length - MAX_CONFIRM_FILES === 1) {
         paths.push('moreFile');
@@ -263,12 +225,10 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
         paths.push('moreFiles');
       }
     }
-
     paths.push('');
     return paths.join('\n');
   }
 }
-
 export function register(client: ServiceClient, fileConfigMgr: FileConfigMgr, handles: (uri: qv.Uri) => Promise<boolean>) {
   return conditionalRegistration([requireMinVersion(client, UpdateImportsOnFileRenameHandler.minVersion), requireSomeCap(client, ClientCap.Semantic)], () => {
     return new UpdateImportsOnFileRenameHandler(client, fileConfigMgr, handles);

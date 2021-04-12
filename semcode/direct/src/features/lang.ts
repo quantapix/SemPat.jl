@@ -9,10 +9,8 @@ import * as qv from 'vscode';
 import FileConfigMgr from '../../old/ts/languageFeatures/fileConfigMgr';
 import TypeScriptServiceClient from '../client';
 import TypingsStatus from '../../old/ts/utils/typingsStatus';
-
 const validateSetting = 'validate.enable';
 const suggestionSetting = 'suggestionActions.enabled';
-
 export default class LangProvider extends qu.Disposable {
   constructor(
     private readonly client: TypeScriptServiceClient,
@@ -28,7 +26,6 @@ export default class LangProvider extends qu.Disposable {
     this.configurationChanged();
     client.onReady(() => this.registerProviders());
   }
-
   private get documentSelector(): qu.DocumentSelector {
     const semantic: qv.DocumentFilter[] = [];
     const syntax: qv.DocumentFilter[] = [];
@@ -40,7 +37,6 @@ export default class LangProvider extends qu.Disposable {
     }
     return { semantic, syntax };
   }
-
   private async registerProviders(): Promise<void> {
     const s = this.documentSelector;
     const c = new CachedResponse();
@@ -72,43 +68,34 @@ export default class LangProvider extends qu.Disposable {
       import('../../old/ts/languageFeatures/tagClosing').then((provider) => this._register(provider.register(s, this.description.id, this.client))),
     ]);
   }
-
   private configurationChanged(): void {
     const c = qv.workspace.getConfig(this.id, null);
     this.updateValidate(c.get(validateSetting, true));
     this.updateSuggestionDiags(c.get(suggestionSetting, true));
   }
-
   public handles(r: qv.Uri, d: qv.TextDocument): boolean {
     if (d && this.description.modeIds.indexOf(d.languageId) >= 0) return true;
     const b = basename(r.fsPath);
     return !!b && !!this.description.configFilePattern && this.description.configFilePattern.test(b);
   }
-
   private get id(): string {
     return this.description.id;
   }
-
   public get diagnosticSource(): string {
     return this.description.diagnosticSource;
   }
-
   private updateValidate(v: boolean) {
     this.client.diagnosticsMgr.setValidate(this._diagnosticLang, v);
   }
-
   private updateSuggestionDiags(v: boolean) {
     this.client.diagnosticsMgr.setEnableSuggestions(this._diagnosticLang, v);
   }
-
   public reInitialize(): void {
     this.client.diagnosticsMgr.reInitialize();
   }
-
   public triggerAllDiags(): void {
     this.client.bufferSyncSupport.requestAllDiags();
   }
-
   public diagnosticsReceived(k: DiagKind, r: qv.Uri, ds: (qv.Diag & { reportUnnecessary: any; reportDeprecated: any })[]): void {
     const c = qv.workspace.getConfig(this.id, r);
     const unnecessary = c.get<boolean>('showUnused', true);
@@ -128,11 +115,9 @@ export default class LangProvider extends qu.Disposable {
       })
     );
   }
-
   public configFileDiagsReceived(r: qv.Uri, ds: qv.Diag[]): void {
     this.client.diagnosticsMgr.configFileDiagsReceived(r, ds);
   }
-
   private get _diagnosticLang() {
     return this.description.diagnosticLang;
   }

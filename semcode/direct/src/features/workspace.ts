@@ -150,7 +150,13 @@ export class GoWorkspaceSymbol implements qv.WorkspaceSymbolProvider {
     });
   }
 }
-export function getWorkspaceSymbols(workspacePath: string, query: string, token: qv.CancellationToken, goConfig?: qv.WorkspaceConfig, ignoreFolderFeatureOn = true): Thenable<GoSymbolDeclaration[]> {
+export function getWorkspaceSymbols(
+  workspacePath: string,
+  query: string,
+  token: qv.CancellationToken,
+  goConfig?: qv.WorkspaceConfiguration,
+  ignoreFolderFeatureOn = true
+): Thenable<GoSymbolDeclaration[]> {
   if (!goConfig) {
     goConfig = getGoConfig();
   }

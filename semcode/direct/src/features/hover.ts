@@ -22,8 +22,7 @@ import { Position, Range } from '../common/textRange';
 import { TextRange } from '../common/textRange';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { getOverloadedFunctionTooltip } from './tooltipUtils';
-
+import { OverloadedFunctionType } from '../analyzer/types';
 class TsHover implements qv.HoverProvider {
   public constructor(private readonly client: ServiceClient) {}
   public async provideHover(d: qv.TextDocument, p: qv.Position, t: qv.CancellationToken): Promise<qv.Hover | undefined> {
@@ -52,8 +51,8 @@ export function register(s: qu.DocumentSelector, c: ServiceClient): qv.Disposabl
   });
 }
 export class GoHover implements qv.HoverProvider {
-  private goConfig: qv.WorkspaceConfig | undefined;
-  constructor(goConfig?: qv.WorkspaceConfig) {
+  private goConfig: qv.WorkspaceConfiguration | undefined;
+  constructor(goConfig?: qv.WorkspaceConfiguration) {
     this.goConfig = goConfig;
   }
   public provideHover(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): Thenable<qv.Hover> {
@@ -86,7 +85,6 @@ export class GoHover implements qv.HoverProvider {
     );
   }
 }
-
 export interface PyHoverTextPart {
   python?: boolean;
   text: string;
@@ -359,4 +357,21 @@ export function convertHoverResults(format: MarkupKind, hoverResults: PyHoverRes
     },
     range: hoverResults.range,
   };
+}
+export function getOverloadedFunctionTooltip(type: OverloadedFunctionType, evaluator: TypeEvaluator, columnThreshold = 70) {
+  let content = '';
+  const overloads = type.overloads.map((o) => o.details.name + evaluator.printType(o, /* expandTypeAlias */ false));
+  for (let i = 0; i < overloads.length; i++) {
+    if (i !== 0 && overloads[i].length > columnThreshold && overloads[i - 1].length <= columnThreshold) {
+      content += '\n';
+    }
+    content += overloads[i];
+    if (i < overloads.length - 1) {
+      content += '\n';
+      if (overloads[i].length > columnThreshold) {
+        content += '\n';
+      }
+    }
+  }
+  return content;
 }

@@ -20,7 +20,7 @@ import { getGoConfig } from './config';
 import { definitionLocation } from './go/definition';
 import { getParametersAndReturnType, isPositionInComment, isPositionInString } from './util';
 export class GoSignatureHelp implements qv.SignatureHelpProvider {
-  constructor(private goConfig?: qv.WorkspaceConfig) {}
+  constructor(private goConfig?: qv.WorkspaceConfiguration) {}
   public async provideSignatureHelp(document: qv.TextDocument, position: Position, token: qv.CancellationToken): Promise<qv.SignatureHelp> {
     let goConfig = this.goConfig || getGoConfig(document.uri);
     const theCall = this.walkBackwardsToBeginningOfCall(document, position);

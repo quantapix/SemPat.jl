@@ -15,36 +15,27 @@ import { TelemetryReporter } from '../utils/telemetry';
 import * as qu from '../utils/qu';
 import TypingsStatus from '../utils/typingsStatus';
 import FileConfigMgr from './fileConfig';
-
 interface DotAccessorContext {
   readonly range: qv.Range;
   readonly text: string;
 }
-
 interface CompletionContext {
   readonly isNewIdentifierLocation: boolean;
   readonly isMemberCompletion: boolean;
   readonly isInValidCommitCharacterContext: boolean;
-
   readonly dotAccessorContext?: DotAccessorContext;
-
   readonly enableCallCompletions: boolean;
   readonly useCodeSnippetsOnMethodSuggest: boolean;
-
   readonly wordRange: qv.Range | undefined;
   readonly line: string;
-
   readonly useFuzzyWordRangeLogic: boolean;
 }
-
 type ResolvedCompletionItem = {
   readonly edits?: readonly qv.TextEdit[];
   readonly commands: readonly qv.Command[];
 };
-
 class MyCompletionItem extends qv.CompletionItem {
   public readonly useCodeSnippet: boolean;
-
   constructor(
     public readonly position: qv.Position,
     public readonly document: qv.TextDocument,
@@ -53,10 +44,8 @@ class MyCompletionItem extends qv.CompletionItem {
     public readonly metadata: any | undefined
   ) {
     super(tsEntry.name, MyCompletionItem.convertKind(tsEntry.kind));
-
     if (tsEntry.source) {
       this.sortText = '\uffff' + tsEntry.sortText;
-
       const qualifierCandidate = qv.workspace.asRelativePath(tsEntry.source);
       if (qualifierCandidate !== tsEntry.source) {
         this.label2 = { name: tsEntry.name, qualifier: qualifierCandidate };
@@ -64,16 +53,13 @@ class MyCompletionItem extends qv.CompletionItem {
     } else {
       this.sortText = tsEntry.sortText;
     }
-
     this.preselect = tsEntry.isRecommended;
     this.position = position;
     this.useCodeSnippet = completionContext.useCodeSnippetsOnMethodSuggest && (this.kind === qv.CompletionItemKind.Function || this.kind === qv.CompletionItemKind.Method);
-
     this.range = this.getRangeFromReplacementSpan(tsEntry, completionContext);
     this.commitCharacters = MyCompletionItem.getCommitCharacters(completionContext, tsEntry);
     this.insertText = tsEntry.insertText;
     this.filterText = this.getFilterText(completionContext.line, tsEntry.insertText);
-
     if (completionContext.isMemberCompletion && completionContext.dotAccessorContext) {
       this.filterText = completionContext.dotAccessorContext.text + (this.insertText || this.label);
       if (!this.range) {
@@ -89,14 +75,12 @@ class MyCompletionItem extends qv.CompletionItem {
         this.insertText = this.filterText;
       }
     }
-
     if (tsEntry.kindModifiers) {
       const kindModifiers = parseKindModifier(tsEntry.kindModifiers);
       if (kindModifiers.has(PConst.KindModifiers.optional)) {
         if (!this.insertText) {
           this.insertText = this.label;
         }
-
         if (!this.filterText) {
           this.filterText = this.label;
         }
@@ -105,11 +89,9 @@ class MyCompletionItem extends qv.CompletionItem {
       if (kindModifiers.has(PConst.KindModifiers.depreacted)) {
         this.tags = [qv.CompletionItemTag.Deprecated];
       }
-
       if (kindModifiers.has(PConst.KindModifiers.color)) {
         this.kind = qv.CompletionItemKind.Color;
       }
-
       if (tsEntry.kind === PConst.Kind.script) {
         for (const extModifier of PConst.KindModifiers.fileExtensionKindModifiers) {
           if (kindModifiers.has(extModifier)) {
@@ -123,16 +105,13 @@ class MyCompletionItem extends qv.CompletionItem {
         }
       }
     }
-
     this.resolveRange();
   }
-
   private _resolvedPromise?: {
     readonly requestToken: qv.CancellationTokenSource;
     readonly promise: Promise<ResolvedCompletionItem | undefined>;
     waiting: number;
   };
-
   public async resolveCompletionItem(client: ServiceClient, token: qv.CancellationToken): Promise<ResolvedCompletionItem | undefined> {
     token.onCancellationRequested(() => {
       if (this._resolvedPromise && --this._resolvedPromise.waiting <= 0) {
@@ -143,20 +122,16 @@ class MyCompletionItem extends qv.CompletionItem {
         }, 300);
       }
     });
-
     if (this._resolvedPromise) {
       ++this._resolvedPromise.waiting;
       return this._resolvedPromise.promise;
     }
-
     const requestToken = new qv.CancellationTokenSource();
-
     const promise = (async (): Promise<ResolvedCompletionItem | undefined> => {
       const filepath = client.toOpenedFilePath(this.document);
       if (!filepath) {
         return undefined;
       }
-
       const args: qp.CompletionDetailsRequestArgs = {
         ...qu.Position.toFileLocationRequestArgs(filepath, this.position),
         entryNames: [
@@ -164,7 +139,6 @@ class MyCompletionItem extends qv.CompletionItem {
             ? {
                 name: this.tsEntry.name,
                 source: this.tsEntry.source,
-
                 data: this.tsEntry.data,
               }
             : this.tsEntry.name,
@@ -174,14 +148,11 @@ class MyCompletionItem extends qv.CompletionItem {
       if (response.type !== 'response' || !response.body || !response.body.length) {
         return undefined;
       }
-
       const detail = response.body[0];
-
       if (!this.detail && detail.displayParts.length) {
         this.detail = Previewer.plain(detail.displayParts);
       }
       this.documentation = this.getDocumentation(detail, this);
-
       const codeAction = this.getCodeActions(detail, filepath);
       const commands: qv.Command[] = [
         {
@@ -194,7 +165,6 @@ class MyCompletionItem extends qv.CompletionItem {
         commands.push(codeAction.command);
       }
       const additionalTextEdits = codeAction.additionalTextEdits;
-
       if (this.useCodeSnippet) {
         const shouldCompleteFunction = await this.isValidFunctionCompletionContext(client, filepath, this.position, this.document, token);
         if (shouldCompleteFunction) {
@@ -207,19 +177,15 @@ class MyCompletionItem extends qv.CompletionItem {
           }
         }
       }
-
       return { commands, edits: additionalTextEdits };
     })();
-
     this._resolvedPromise = {
       promise,
       requestToken,
       waiting: 1,
     };
-
     return this._resolvedPromise.promise;
   }
-
   private getDocumentation(detail: qp.CompletionEntryDetails, item: MyCompletionItem): qv.MarkdownString | undefined {
     const documentation = new qv.MarkdownString();
     if (detail.source) {
@@ -228,10 +194,8 @@ class MyCompletionItem extends qv.CompletionItem {
       item.detail = `${autoImportLabel}\n${item.detail}`;
     }
     Previewer.addMarkdownDocumentation(documentation, detail.documentation, detail.tags);
-
     return documentation.value.length ? documentation : undefined;
   }
-
   private async isValidFunctionCompletionContext(client: ServiceClient, filepath: string, position: qv.Position, document: qv.TextDocument, token: qv.CancellationToken): Promise<boolean> {
     try {
       const args: qp.FileLocationRequestArgs = qu.Position.toFileLocationRequestArgs(filepath, position);
@@ -246,23 +210,19 @@ class MyCompletionItem extends qv.CompletionItem {
         }
       }
     } catch {}
-
     const after = document.lineAt(position.line).text.slice(position.character);
     return after.match(/^[a-z_$0-9]*\s*\(/gi) === null;
   }
-
   private getCodeActions(detail: qp.CompletionEntryDetails, filepath: string): { command?: qv.Command; additionalTextEdits?: qv.TextEdit[] } {
     if (!detail.codeActions || !detail.codeActions.length) {
       return {};
     }
-
     const additionalTextEdits: qv.TextEdit[] = [];
     let hasRemainingCommandsOrEdits = false;
     for (const tsAction of detail.codeActions) {
       if (tsAction.commands) {
         hasRemainingCommandsOrEdits = true;
       }
-
       if (tsAction.changes) {
         for (const change of tsAction.changes) {
           if (change.fileName === filepath) {
@@ -273,7 +233,6 @@ class MyCompletionItem extends qv.CompletionItem {
         }
       }
     }
-
     let command: qv.Command | undefined = undefined;
     if (hasRemainingCommandsOrEdits) {
       command = {
@@ -291,30 +250,24 @@ class MyCompletionItem extends qv.CompletionItem {
         ],
       };
     }
-
     return {
       command,
       additionalTextEdits: additionalTextEdits.length ? additionalTextEdits : undefined,
     };
   }
-
   private getRangeFromReplacementSpan(tsEntry: qp.CompletionEntry, completionContext: CompletionContext) {
     if (!tsEntry.replacementSpan) {
       return;
     }
-
     let replaceRange = qu.Range.fromTextSpan(tsEntry.replacementSpan);
-
     if (!replaceRange.isSingleLine) {
       replaceRange = new qv.Range(replaceRange.start.line, replaceRange.start.character, replaceRange.start.line, completionContext.line.length);
     }
-
     return {
       inserting: replaceRange,
       replacing: replaceRange,
     };
   }
-
   private getFilterText(line: string, insertText: string | undefined): string | undefined {
     if (this.tsEntry.name.startsWith('#')) {
       const wordRange = this.completionContext.wordRange;
@@ -329,21 +282,17 @@ class MyCompletionItem extends qv.CompletionItem {
         return wordStart === '#' ? undefined : this.tsEntry.name.replace(/^#/, '');
       }
     }
-
     if (insertText?.startsWith('this.')) {
       return undefined;
     } else if (insertText?.startsWith('[')) {
       return insertText.replace(/^\[['"](.+)[['"]\]$/, '.$1');
     }
-
     return insertText;
   }
-
   private resolveRange(): void {
     if (this.range) {
       return;
     }
-
     const replaceRange = this.getFuzzyWordRange();
     if (replaceRange) {
       this.range = {
@@ -352,7 +301,6 @@ class MyCompletionItem extends qv.CompletionItem {
       };
     }
   }
-
   private getFuzzyWordRange() {
     if (this.completionContext.useFuzzyWordRangeLogic) {
       const text = this.completionContext.line.slice(Math.max(0, this.position.character - this.label.length), this.position.character).toLowerCase();
@@ -363,16 +311,13 @@ class MyCompletionItem extends qv.CompletionItem {
         }
       }
     }
-
     return this.completionContext.wordRange;
   }
-
   private static convertKind(kind: string): qv.CompletionItemKind {
     switch (kind) {
       case PConst.Kind.primitiveType:
       case PConst.Kind.keyword:
         return qv.CompletionItemKind.Keyword;
-
       case PConst.Kind.const:
       case PConst.Kind.let:
       case PConst.Kind.variable:
@@ -380,61 +325,46 @@ class MyCompletionItem extends qv.CompletionItem {
       case PConst.Kind.alias:
       case PConst.Kind.parameter:
         return qv.CompletionItemKind.Variable;
-
       case PConst.Kind.memberVariable:
       case PConst.Kind.memberGetAccessor:
       case PConst.Kind.memberSetAccessor:
         return qv.CompletionItemKind.Field;
-
       case PConst.Kind.function:
       case PConst.Kind.localFunction:
         return qv.CompletionItemKind.Function;
-
       case PConst.Kind.method:
       case PConst.Kind.constructSignature:
       case PConst.Kind.callSignature:
       case PConst.Kind.indexSignature:
         return qv.CompletionItemKind.Method;
-
       case PConst.Kind.enum:
         return qv.CompletionItemKind.Enum;
-
       case PConst.Kind.enumMember:
         return qv.CompletionItemKind.EnumMember;
-
       case PConst.Kind.module:
       case PConst.Kind.externalModuleName:
         return qv.CompletionItemKind.Module;
-
       case PConst.Kind.class:
       case PConst.Kind.type:
         return qv.CompletionItemKind.Class;
-
       case PConst.Kind.interface:
         return qv.CompletionItemKind.Interface;
-
       case PConst.Kind.warning:
         return qv.CompletionItemKind.Text;
-
       case PConst.Kind.script:
         return qv.CompletionItemKind.File;
-
       case PConst.Kind.directory:
         return qv.CompletionItemKind.Folder;
-
       case PConst.Kind.string:
         return qv.CompletionItemKind.Constant;
-
       default:
         return qv.CompletionItemKind.Property;
     }
   }
-
   private static getCommitCharacters(context: CompletionContext, entry: qp.CompletionEntry): string[] | undefined {
     if (context.isNewIdentifierLocation || !context.isInValidCommitCharacterContext) {
       return undefined;
     }
-
     const commitCharacters: string[] = [];
     switch (entry.kind) {
       case PConst.Kind.memberGetAccessor:
@@ -446,7 +376,6 @@ class MyCompletionItem extends qv.CompletionItem {
       case PConst.Kind.interface:
         commitCharacters.push('.', ';');
         break;
-
       case PConst.Kind.module:
       case PConst.Kind.alias:
       case PConst.Kind.const:
@@ -468,24 +397,19 @@ class MyCompletionItem extends qv.CompletionItem {
     return commitCharacters.length === 0 ? undefined : commitCharacters;
   }
 }
-
 class CompositeCommand implements Command {
   public static readonly ID = '_typescript.composite';
   public readonly id = CompositeCommand.ID;
-
   public execute(...commands: qv.Command[]) {
     for (const command of commands) {
       qv.commands.executeCommand(command.command, ...(command.arguments || []));
     }
   }
 }
-
 class CompletionAcceptedCommand implements Command {
   public static readonly ID = '_typescript.onCompletionAccepted';
   public readonly id = CompletionAcceptedCommand.ID;
-
   public constructor(private readonly onCompletionAccepted: (item: qv.CompletionItem) => void, private readonly telemetryReporter: TelemetryReporter) {}
-
   public execute(item: qv.CompletionItem) {
     this.onCompletionAccepted(item);
     if (item instanceof MyCompletionItem) {
@@ -503,21 +427,16 @@ class CompletionAcceptedCommand implements Command {
     }
   }
 }
-
 class ApplyCompletionCommand implements Command {
   public static readonly ID = '_typescript.applyCompletionCommand';
   public readonly id = ApplyCompletionCommand.ID;
-
   public constructor(private readonly client: ServiceClient) {}
-
   public async execute(item: MyCompletionItem) {
     const resolved = await item.resolveCompletionItem(this.client, nulToken);
     if (!resolved) {
       return;
     }
-
     const { edits, commands } = resolved;
-
     if (edits) {
       const workspaceEdit = new qv.WorkspaceEdit();
       for (const edit of edits) {
@@ -525,28 +444,22 @@ class ApplyCompletionCommand implements Command {
       }
       await qv.workspace.applyEdit(workspaceEdit);
     }
-
     for (const command of commands) {
       await qv.commands.executeCommand(command.command, ...(command.arguments ?? []));
     }
   }
 }
-
 class ApplyCompletionCodeActionCommand implements Command {
   public static readonly ID = '_typescript.applyCompletionCodeAction';
   public readonly id = ApplyCompletionCodeActionCommand.ID;
-
   public constructor(private readonly client: ServiceClient) {}
-
   public async execute(_file: string, codeActions: qp.CodeAction[]): Promise<boolean> {
     if (codeActions.length === 0) {
       return true;
     }
-
     if (codeActions.length === 1) {
       return applyCodeAction(this.client, codeActions[0], nulToken);
     }
-
     const selection = await qv.window.showQuickPick(
       codeActions.map((action) => ({
         label: action.description,
@@ -557,27 +470,23 @@ class ApplyCompletionCodeActionCommand implements Command {
         placeHolder: 'selectCodeAction',
       }
     );
-
     if (selection) {
       return applyCodeAction(this.client, selection.action, nulToken);
     }
     return false;
   }
 }
-
 interface CompletionConfig {
   readonly useCodeSnippetsOnMethodSuggest: boolean;
   readonly nameSuggestions: boolean;
   readonly pathSuggestions: boolean;
   readonly autoImportSuggestions: boolean;
 }
-
 namespace CompletionConfig {
   export const useCodeSnippetsOnMethodSuggest = 'suggest.completeFunctionCalls';
   export const nameSuggestions = 'suggest.names';
   export const pathSuggestions = 'suggest.paths';
   export const autoImportSuggestions = 'suggest.autoImports';
-
   export function getConfigForResource(modeId: string, resource: qv.Uri): CompletionConfig {
     const config = qv.workspace.getConfig(modeId, resource);
     return {
@@ -588,10 +497,8 @@ namespace CompletionConfig {
     };
   }
 }
-
 class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCompletionItem> {
   public static readonly triggerCharacters = ['.', '"', "'", '`', '/', '@', '<', '#'];
-
   constructor(
     private readonly client: ServiceClient,
     private readonly modeId: string,
@@ -606,7 +513,6 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
     commandMgr.register(new CompletionAcceptedCommand(onCompletionAccepted, this.telemetryReporter));
     commandMgr.register(new ApplyCompletionCommand(this.client));
   }
-
   public async provideCompletionItems(
     document: qv.TextDocument,
     position: qv.Position,
@@ -619,30 +525,23 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
         detail: 'acquiringTypingsDetail',
       });
     }
-
     const file = this.client.toOpenedFilePath(document);
     if (!file) {
       return undefined;
     }
-
     const line = document.lineAt(position.line);
     const completionConfig = CompletionConfig.getConfigForResource(this.modeId, document.uri);
-
     if (!this.shouldTrigger(context, line, position)) {
       return undefined;
     }
-
     const wordRange = document.getWordRangeAtPosition(position);
-
     await this.client.interruptGetErr(() => this.fileConfigMgr.ensureConfigForDocument(document, token));
-
     const args: qp.CompletionsRequestArgs = {
       ...qu.Position.toFileLocationRequestArgs(file, position),
       includeExternalModuleExports: completionConfig.autoImportSuggestions,
       includeInsertTextCompletions: true,
       triggerCharacter: this.getTsTriggerCharacter(context),
     };
-
     let isNewIdentifierLocation = true;
     let isIncomplete = false;
     let isMemberCompletion = false;
@@ -658,7 +557,6 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
       } finally {
         duration = Date.now() - startTime;
       }
-
       if (response.type !== 'response' || !response.body) {
         this.logCompletionsTelemetry(duration, response);
         return undefined;
@@ -681,11 +579,9 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
       if (response.type !== 'response' || !response.body) {
         return undefined;
       }
-
       entries = response.body;
       metadata = response.metadata;
     }
-
     const completionContext = {
       isNewIdentifierLocation,
       isMemberCompletion,
@@ -697,7 +593,6 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
       useCodeSnippetsOnMethodSuggest: completionConfig.useCodeSnippetsOnMethodSuggest,
       useFuzzyWordRangeLogic: this.client.apiVersion.lt(API.v390),
     };
-
     let includesPackageJsonImport = false;
     const items: MyCompletionItem[] = [];
     for (const entry of entries) {
@@ -717,7 +612,6 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
     }
     return new qv.CompletionList(items, isIncomplete);
   }
-
   private logCompletionsTelemetry(duration: number, response: ServerResponse.Response<qp.CompletionInfoResponse> | undefined, includesPackageJsonImport?: boolean) {
     /* __GDPR__
 			"completions.execute" : {
@@ -741,15 +635,12 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
       includesPackageJsonImport: includesPackageJsonImport ? 'true' : undefined,
     });
   }
-
   private getTsTriggerCharacter(context: qv.CompletionContext): qp.CompletionsTriggerCharacter | undefined {
     switch (context.triggerCharacter) {
       case '@': // Workaround for https://github.com/microsoft/TypeScript/issues/27321
         return this.client.apiVersion.gte(API.v310) && this.client.apiVersion.lt(API.v320) ? undefined : '@';
-
       case '#': // Workaround for https://github.com/microsoft/TypeScript/issues/36367
         return this.client.apiVersion.lt(API.v381) ? undefined : '#';
-
       case '.':
       case '"':
       case "'":
@@ -758,15 +649,12 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
       case '<':
         return context.triggerCharacter;
     }
-
     return undefined;
   }
-
   public async resolveCompletionItem(item: MyCompletionItem, token: qv.CancellationToken): Promise<MyCompletionItem | undefined> {
     await item.resolveCompletionItem(this.client, token);
     return item;
   }
-
   private isInValidCommitCharacterContext(document: qv.TextDocument, position: qv.Position): boolean {
     if (this.client.apiVersion.lt(API.v320)) {
       if (position.character > 1) {
@@ -774,10 +662,8 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
         return preText.match(/(\s|^)\.$/gi) === null;
       }
     }
-
     return true;
   }
-
   private shouldTrigger(context: qv.CompletionContext, line: qv.TextLine, position: qv.Position): boolean {
     if (context.triggerCharacter && this.client.apiVersion.lt(API.v290)) {
       if (context.triggerCharacter === '"' || context.triggerCharacter === "'") {
@@ -786,30 +672,25 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
           return false;
         }
       }
-
       if (context.triggerCharacter === '/') {
         const pre = line.text.slice(0, position.character);
         if (!/\b(from|import)\s*["'][^'"]*$/.test(pre) && !/\b(import|require)\(['"][^'"]*$/.test(pre)) {
           return false;
         }
       }
-
       if (context.triggerCharacter === '@') {
         const pre = line.text.slice(0, position.character);
         if (!/^\s*\*[ ]?@/.test(pre) && !/\/\*\*+[ ]?@/.test(pre)) {
           return false;
         }
       }
-
       if (context.triggerCharacter === '<') {
         return false;
       }
     }
-
     return true;
   }
 }
-
 function shouldExcludeCompletionEntry(element: qp.CompletionEntry, completionConfig: CompletionConfig) {
   return (
     (!completionConfig.nameSuggestions && element.kind === PConst.Kind.warning) ||
@@ -817,7 +698,6 @@ function shouldExcludeCompletionEntry(element: qp.CompletionEntry, completionCon
     (!completionConfig.autoImportSuggestions && element.hasAction)
   );
 }
-
 export function register(
   selector: DocumentSelector,
   modeId: string,

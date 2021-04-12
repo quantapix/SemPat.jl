@@ -14,7 +14,7 @@ import { getBinPath, getBinPathWithExplanation, getCheckForToolsUpdatesConfig, g
 import { correctBinname, envPath, getCurrentGoRoot, setCurrentGoRoot } from './utils/pathUtils';
 import util = require('util');
 import * as qv from 'vscode';
-import { isInPreviewMode } from '../../direct/src/features/go/server';
+import { isInPreviewMode } from '../../direct/src/features/server';
 
 // declinedUpdates tracks the tools that the user has declined to update.
 const declinedUpdates: Tool[] = [];

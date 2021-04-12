@@ -9,7 +9,6 @@ export class AnalyzerServiceExecutor {
     workspace.serviceInstance.setOptions(commandLineOptions, trackFiles);
   }
 }
-
 function getEffectiveCommandLineOptions(languageServiceRootPath: string, workspaceRootPath: string, serverSettings: ServerSettings, trackFiles: boolean, typeStubTargetImportName?: string) {
   const opts = new CommandLineOptions(workspaceRootPath, true);
   opts.checkOnlyOpenFiles = serverSettings.openFilesOnly;

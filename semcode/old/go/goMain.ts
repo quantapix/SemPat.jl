@@ -12,7 +12,7 @@ import {
   trackCodeCoverageRemovalOnFileChange,
   updateCodeCoverageDecorators,
 } from './goCover';
-import { GoDebugConfigurationProvider } from '../../direct/src/features/go/debugConfiguration';
+import { GoDebugConfigurationProvider } from '../../direct/src/features/debug';
 import { GoDebugAdapterDescriptorFactory } from './goDebugFactory';
 import { extractFunction, extractVariable } from './goDoctor';
 import { toolExecutionEnvironment } from './goEnv';
@@ -33,7 +33,7 @@ import {
   startLanguageServerWithFallback,
   timeMinute,
   watchLanguageServerConfiguration,
-} from '../../direct/src/features/go/server';
+} from '../../direct/src/features/server';
 import { lintCode } from './goLint';
 import { logVerbose, setLogConfig } from './goLogging';
 import { GO_MODE } from './goMode';

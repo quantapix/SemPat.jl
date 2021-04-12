@@ -4,53 +4,41 @@ import * as qp from '../protocol';
 import * as qv from 'vscode';
 import * as qu from '../utils';
 import API from '../../old/ts/utils/api';
-
 const minTSVersion = API.fromVersionString(`${VersionRequirement.major}.${VersionRequirement.minor}`);
-
 const CONTENT_LENGTH_LIMIT = 100000;
-
 export function register(s: qu.DocumentSelector, c: ServiceClient) {
   return condRegistration([requireMinVer(c, minTSVersion), requireSomeCap(c, ClientCap.Semantic)], () => {
     const p = new SemanticTokens(c);
     return qv.Disposable.from(qv.languages.registerDocumentRangeSemanticTokensProvider(s.semantic, p, p.getLegend()));
   });
 }
-
 class SemanticTokens implements qv.DocumentSemanticTokensProvider, qv.DocumentRangeSemanticTokensProvider {
   constructor(private readonly client: ServiceClient) {}
-
   getLegend(): qv.SemanticTokensLegend {
     return new qv.SemanticTokensLegend(tokenTypes, tokenModifiers);
   }
-
   async provideDocumentSemanticTokens(document: qv.TextDocument, token: qv.CancellationToken): Promise<qv.SemanticTokens | null> {
     const file = this.client.toOpenedFilePath(document);
     if (!file || document.getText().length > CONTENT_LENGTH_LIMIT) return null;
     return this._provideSemanticTokens(document, { file, start: 0, length: document.getText().length }, token);
   }
-
   async provideDocumentRangeSemanticTokens(document: qv.TextDocument, range: qv.Range, token: qv.CancellationToken): Promise<qv.SemanticTokens | null> {
     const file = this.client.toOpenedFilePath(document);
     if (!file || document.offsetAt(range.end) - document.offsetAt(range.start) > CONTENT_LENGTH_LIMIT) return null;
-
     const start = document.offsetAt(range.start);
     const length = document.offsetAt(range.end) - start;
     return this._provideSemanticTokens(document, { file, start, length }, token);
   }
-
   async _provideSemanticTokens(document: qv.TextDocument, requestArg: qp.EncodedSemanticClassificationsRequestArgs, token: qv.CancellationToken): Promise<qv.SemanticTokens | null> {
     const file = this.client.toOpenedFilePath(document);
     if (!file) return null;
-
     const versionBeforeRequest = document.version;
     requestArg.format = '2020';
     const response = await (this.client as ExperimentalProtocol.IExtendedTypeScriptServiceClient).execute('encodedSemanticClassifications-full', requestArg, token, {
       cancelOnResourceChange: document.uri,
     });
     if (response.type !== 'response' || !response.body) return null;
-
     const versionAfterRequest = document.version;
-
     if (versionBeforeRequest !== versionAfterRequest) {
       await waitForDocumentChangesToEnd(document);
       throw new qv.CancellationError();
@@ -83,7 +71,6 @@ class SemanticTokens implements qv.DocumentSemanticTokensProvider, qv.DocumentRa
     return builder.build();
   }
 }
-
 function waitForDocumentChangesToEnd(document: qv.TextDocument) {
   let version = document.version;
   return new Promise<void>((s) => {
@@ -96,7 +83,6 @@ function waitForDocumentChangesToEnd(document: qv.TextDocument) {
     }, 400);
   });
 }
-
 declare const enum TokenType {
   class = 0,
   enum = 1,
@@ -129,18 +115,15 @@ declare const enum VersionRequirement {
   major = 3,
   minor = 7,
 }
-
 function getTokenTypeFromClassification(tsClassification: number): number | undefined {
   if (tsClassification > TokenEncodingConsts.modifierMask) {
     return (tsClassification >> TokenEncodingConsts.typeOffset) - 1;
   }
   return undefined;
 }
-
 function getTokenModifierFromClassification(tsClassification: number) {
   return tsClassification & TokenEncodingConsts.modifierMask;
 }
-
 const tokenTypes: string[] = [];
 tokenTypes[TokenType.class] = 'class';
 tokenTypes[TokenType.enum] = 'enum';
@@ -154,7 +137,6 @@ tokenTypes[TokenType.enumMember] = 'enumMember';
 tokenTypes[TokenType.property] = 'property';
 tokenTypes[TokenType.function] = 'function';
 tokenTypes[TokenType.method] = 'method';
-
 const tokenModifiers: string[] = [];
 tokenModifiers[TokenModifier.async] = 'async';
 tokenModifiers[TokenModifier.declaration] = 'declaration';
@@ -162,7 +144,6 @@ tokenModifiers[TokenModifier.readonly] = 'readonly';
 tokenModifiers[TokenModifier.static] = 'static';
 tokenModifiers[TokenModifier.local] = 'local';
 tokenModifiers[TokenModifier.defaultLibrary] = 'defaultLibrary';
-
 const tokenTypeMap: number[] = [];
 tokenTypeMap[ExperimentalProtocol.ClassificationType.className] = TokenType.class;
 tokenTypeMap[ExperimentalProtocol.ClassificationType.enumName] = TokenType.enum;
@@ -171,7 +152,6 @@ tokenTypeMap[ExperimentalProtocol.ClassificationType.moduleName] = TokenType.nam
 tokenTypeMap[ExperimentalProtocol.ClassificationType.typeParameterName] = TokenType.typeParameter;
 tokenTypeMap[ExperimentalProtocol.ClassificationType.typeAliasName] = TokenType.type;
 tokenTypeMap[ExperimentalProtocol.ClassificationType.parameterName] = TokenType.parameter;
-
 namespace ExperimentalProtocol {
   export interface IExtendedTypeScriptServiceClient {
     execute<K extends keyof ExperimentalProtocol.ExtendedTSServerRequests>(
@@ -188,7 +168,6 @@ namespace ExperimentalProtocol {
     start: number;
     length: number;
   }
-
   export const enum EndOfLineState {
     None,
     InMultiLineCommentTrivia,
@@ -198,7 +177,6 @@ namespace ExperimentalProtocol {
     InTemplateMiddleOrTail,
     InTemplateSubstitutionPosition,
   }
-
   export const enum ClassificationType {
     comment = 1,
     identifier = 2,
@@ -226,22 +204,18 @@ namespace ExperimentalProtocol {
     jsxAttributeStringLiteralValue = 24,
     bigintLiteral = 25,
   }
-
   export interface EncodedSemanticClassificationsResponse extends qp.Response {
     body?: {
       endOfLineState: EndOfLineState;
       spans: number[];
     };
   }
-
   export interface ExtendedTSServerRequests {
     'encodedSemanticClassifications-full': [ExperimentalProtocol.EncodedSemanticClassificationsRequestArgs, ExperimentalProtocol.EncodedSemanticClassificationsResponse];
   }
 }
-
 const tokenTypes = new Map<string, number>();
 const tokenModifiers = new Map<string, number>();
-
 const legend = (function () {
   const tokenTypesLegend = [
     'comment',
@@ -270,11 +244,9 @@ const legend = (function () {
   tokenModifiersLegend.forEach((tokenModifier, index) => tokenModifiers.set(tokenModifier, index));
   return new qv.SemanticTokensLegend(tokenTypesLegend, tokenModifiersLegend);
 })();
-
 export function activate(context: qv.ExtensionContext) {
   context.subscriptions.push(qv.languages.registerDocumentSemanticTokensProvider({ language: 'semanticLang' }, new DocumentSemanticTokensProvider(), legend));
 }
-
 interface IParsedToken {
   line: number;
   startCharacter: number;
@@ -282,7 +254,6 @@ interface IParsedToken {
   tokenType: string;
   tokenModifiers: string[];
 }
-
 class DocumentSemanticTokensProvider implements qv.DocumentSemanticTokensProvider {
   async provideDocumentSemanticTokens(document: qv.TextDocument, token: qv.CancellationToken): Promise<qv.SemanticTokens> {
     const allTokens = this._parseText(document.getText());
@@ -292,7 +263,6 @@ class DocumentSemanticTokensProvider implements qv.DocumentSemanticTokensProvide
     });
     return builder.build();
   }
-
   private _encodeTokenType(tokenType: string): number {
     if (tokenTypes.has(tokenType)) {
       return tokenTypes.get(tokenType)!;
@@ -301,7 +271,6 @@ class DocumentSemanticTokensProvider implements qv.DocumentSemanticTokensProvide
     }
     return 0;
   }
-
   private _encodeTokenModifiers(strTokenModifiers: string[]): number {
     let result = 0;
     for (let i = 0; i < strTokenModifiers.length; i++) {
@@ -314,7 +283,6 @@ class DocumentSemanticTokensProvider implements qv.DocumentSemanticTokensProvide
     }
     return result;
   }
-
   private _parseText(text: string): IParsedToken[] {
     const r: IParsedToken[] = [];
     const lines = text.split(/\r\n|\r|\n/);
@@ -339,7 +307,6 @@ class DocumentSemanticTokensProvider implements qv.DocumentSemanticTokensProvide
     }
     return r;
   }
-
   private _parseTextToken(text: string): { tokenType: string; tokenModifiers: string[] } {
     const parts = text.split('.');
     return {
