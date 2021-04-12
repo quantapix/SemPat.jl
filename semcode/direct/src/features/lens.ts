@@ -7,7 +7,7 @@ import { ClientCap, ServiceClient } from '../service';
 import { conditionalRegistration, requireSomeCap, requireConfig } from '../registration';
 import { DocumentSelector } from '../../utils/documentSelector';
 import * as qu from '../utils';
-import { getSymbolRange } from './codeLens';
+import { getSymbolRange } from './lens';
 import { ExecTarget } from '../../old/ts/tsServer/server';
 
 export class CodelensProvider implements qv.CodeLensProvider {
