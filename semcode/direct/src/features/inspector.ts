@@ -1,8 +1,7 @@
 import * as qv from 'vscode';
-import * as qu from '../../utils';
+import * as qu from '../utils';
 import { Ctx, Disposable } from '../../old/rs/analyzer/ctx';
 import { RustEditor, isRustEditor } from '../../old/rs/analyzer/util';
-
 export class AstInspector implements qv.HoverProvider, qv.DefinitionProvider, Disposable {
   private readonly astDecorationType = qv.window.createTextEditorDecorationType({
     borderColor: new qv.ThemeColor('rust_analyzer.syntaxTreeBorder'),
@@ -10,7 +9,6 @@ export class AstInspector implements qv.HoverProvider, qv.DefinitionProvider, Di
     borderWidth: '2px',
   });
   private rustEditor: undefined | RustEditor;
-
   private readonly rust2Ast = new qu.Lazy(() => {
     const astEditor = this.findAstTextEditor();
     if (!this.rustEditor || !astEditor) return undefined;
@@ -25,7 +23,6 @@ export class AstInspector implements qv.HoverProvider, qv.DefinitionProvider, Di
     }
     return buf;
   });
-
   constructor(ctx: Ctx) {
     ctx.pushCleanup(qv.languages.registerHoverProvider({ scheme: 'rust-analyzer' }, this));
     ctx.pushCleanup(qv.languages.registerDefinitionProvider({ language: 'rust' }, this));
@@ -37,19 +34,16 @@ export class AstInspector implements qv.HoverProvider, qv.DefinitionProvider, Di
   dispose() {
     this.setRustEditor(undefined);
   }
-
   private onDidChangeTextDocument(e: qv.TextDocumentChangeEvent) {
     if (this.rustEditor && e.document.uri.toString() === this.rustEditor.document.uri.toString()) {
       this.rust2Ast.reset();
     }
   }
-
   private onDidCloseTextDocument(d: qv.TextDocument) {
     if (this.rustEditor && d.uri.toString() === this.rustEditor.document.uri.toString()) {
       this.setRustEditor(undefined);
     }
   }
-
   private onDidChangeVisibleTextEditors(es: qv.TextEditor[]) {
     if (!this.findAstTextEditor()) {
       this.setRustEditor(undefined);
@@ -57,11 +51,9 @@ export class AstInspector implements qv.HoverProvider, qv.DefinitionProvider, Di
     }
     this.setRustEditor(es.find(isRustEditor));
   }
-
   private findAstTextEditor(): undefined | qv.TextEditor {
     return qv.window.visibleTextEditors.find((it) => it.document.uri.scheme === 'rust-analyzer');
   }
-
   private setRustEditor(e?: RustEditor) {
     if (this.rustEditor && this.rustEditor !== e) {
       this.rustEditor.setDecorations(this.astDecorationType, []);
@@ -69,7 +61,6 @@ export class AstInspector implements qv.HoverProvider, qv.DefinitionProvider, Di
     }
     this.rustEditor = e;
   }
-
   provideDefinition(doc: qv.TextDocument, pos: qv.Position): qv.ProviderResult<qv.DefinitionLink[]> {
     if (!this.rustEditor || doc.uri.toString() !== this.rustEditor.document.uri.toString()) return;
     const astEditor = this.findAstTextEditor();
@@ -88,7 +79,6 @@ export class AstInspector implements qv.HoverProvider, qv.DefinitionProvider, Di
       },
     ];
   }
-
   provideHover(doc: qv.TextDocument, hoverPosition: qv.Position): qv.ProviderResult<qv.Hover> {
     if (!this.rustEditor) return;
     const astFileLine = doc.lineAt(hoverPosition.line);
@@ -100,23 +90,19 @@ export class AstInspector implements qv.HoverProvider, qv.DefinitionProvider, Di
     const astFileRange = this.findAstNodeRange(astFileLine);
     return new qv.Hover(['```rust\n' + rustSourceCode + '\n```'], astFileRange);
   }
-
   private findAstNodeRange(l: qv.TextLine): qv.Range {
     const lineOffset = l.range.start;
     const begin = lineOffset.translate(undefined, l.firstNonWhitespaceCharacterIndex);
     const end = lineOffset.translate(undefined, l.text.trimEnd().length);
     return new qv.Range(begin, end);
   }
-
   private parseRustTextRange(doc: qv.TextDocument, astLine: string): undefined | qv.Range {
     const parsedRange = /(\d+)\.\.(\d+)/.exec(astLine);
     if (!parsedRange) return;
     const [begin, end] = parsedRange.slice(1).map((off) => this.positionAt(doc, +off));
     return new qv.Range(begin, end);
   }
-
   cache?: { doc: qv.TextDocument; offset: number; line: number };
-
   positionAt(doc: qv.TextDocument, targetOffset: number): qv.Position {
     if (doc.eol === qv.EndOfLine.LF) return doc.positionAt(targetOffset);
     let line = 0;

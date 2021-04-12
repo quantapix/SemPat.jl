@@ -11,7 +11,7 @@ import { getSymbolRange } from './lens';
 import { ExecTarget } from '../../old/ts/tsServer/server';
 import { isAbsolute } from 'path';
 import { getGoConfig } from './config';
-import { GoDocumentSymbolProvider } from './go/symbol';
+import { GoSymbol } from './go/symbol';
 import { GoReferenceProvider } from './reference';
 import { getBinPath } from './util';
 import { CodeLens } from 'vscode';
@@ -331,7 +331,7 @@ export class GoRefsLens extends GoBaseLens {
     );
   }
   private async provideDocumentSymbols(document: qv.TextDocument, token: qv.CancellationToken): Promise<qv.DocumentSymbol[]> {
-    const symbolProvider = new GoDocumentSymbolProvider();
+    const symbolProvider = new GoSymbol();
     const isTestFile = document.fileName.endsWith('_test.go');
     const symbols = await symbolProvider.provideDocumentSymbols(document, token);
     return symbols[0].children.filter((symbol) => {
@@ -364,7 +364,7 @@ export class GoRunTestLens extends GoBaseLens {
     return ([] as qv.CodeLens[]).concat(...codelenses);
   }
   private async getCodeLensForPackage(document: qv.TextDocument, token: qv.CancellationToken): Promise<CodeLens[]> {
-    const documentSymbolProvider = new GoDocumentSymbolProvider();
+    const documentSymbolProvider = new GoSymbol();
     const symbols = await documentSymbolProvider.provideDocumentSymbols(document, token);
     if (!symbols || symbols.length === 0) {
       return [];

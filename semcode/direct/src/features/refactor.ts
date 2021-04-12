@@ -8,11 +8,9 @@ import * as qv from 'vscode';
 import API from '../../old/ts/utils/api';
 import FormattingOptionsMgr from '../../old/ts/languageFeatures/fileConfigMgr';
 import type * as qp from '../protocol';
-
 interface DidApplyRefactoringCommand_Args {
   readonly codeAction: InlinedCodeAction;
 }
-
 class DidApplyRefactoringCommand implements Command {
   public static readonly ID = '_typescript.didApplyRefactoring';
   public readonly id = DidApplyRefactoringCommand.ID;
@@ -41,14 +39,12 @@ class DidApplyRefactoringCommand implements Command {
     }
   }
 }
-
 interface SelectRefactorCommand_Args {
   readonly action: qv.CodeAction;
   readonly document: qv.TextDocument;
   readonly info: qp.ApplicableRefactorInfo;
   readonly rangeOrSelection: qv.Range | qv.Selection;
 }
-
 class SelectRefactorCommand implements Command {
   public static readonly ID = '_typescript.selectRefactoring';
   public readonly id = SelectRefactorCommand.ID;
@@ -76,62 +72,50 @@ class SelectRefactorCommand implements Command {
     await this.didApplyCommand.execute({ codeAction: tsAction });
   }
 }
-
 interface CodeActionKind {
   readonly kind: qv.CodeActionKind;
   matches(refactor: qp.RefactorActionInfo): boolean;
 }
-
 const Extract_Function = Object.freeze<CodeActionKind>({
   kind: qv.CodeActionKind.RefactorExtract.append('function'),
   matches: (refactor) => refactor.name.startsWith('function_'),
 });
-
 const Extract_Constant = Object.freeze<CodeActionKind>({
   kind: qv.CodeActionKind.RefactorExtract.append('constant'),
   matches: (refactor) => refactor.name.startsWith('constant_'),
 });
-
 const Extract_Type = Object.freeze<CodeActionKind>({
   kind: qv.CodeActionKind.RefactorExtract.append('type'),
   matches: (refactor) => refactor.name.startsWith('Extract to type alias'),
 });
-
 const Extract_Interface = Object.freeze<CodeActionKind>({
   kind: qv.CodeActionKind.RefactorExtract.append('interface'),
   matches: (refactor) => refactor.name.startsWith('Extract to interface'),
 });
-
 const Move_NewFile = Object.freeze<CodeActionKind>({
   kind: qv.CodeActionKind.Refactor.append('move').append('newFile'),
   matches: (refactor) => refactor.name.startsWith('Move to a new file'),
 });
-
 const Rewrite_Import = Object.freeze<CodeActionKind>({
   kind: qv.CodeActionKind.RefactorRewrite.append('import'),
   matches: (refactor) => refactor.name.startsWith('Convert namespace import') || refactor.name.startsWith('Convert named imports'),
 });
-
 const Rewrite_Export = Object.freeze<CodeActionKind>({
   kind: qv.CodeActionKind.RefactorRewrite.append('export'),
   matches: (refactor) => refactor.name.startsWith('Convert default export') || refactor.name.startsWith('Convert named export'),
 });
-
 const Rewrite_Arrow_Braces = Object.freeze<CodeActionKind>({
   kind: qv.CodeActionKind.RefactorRewrite.append('arrow').append('braces'),
   matches: (refactor) => refactor.name.startsWith('Convert default export') || refactor.name.startsWith('Convert named export'),
 });
-
 const Rewrite_Parameters_ToDestructured = Object.freeze<CodeActionKind>({
   kind: qv.CodeActionKind.RefactorRewrite.append('parameters').append('toDestructured'),
   matches: (refactor) => refactor.name.startsWith('Convert parameters to destructured object'),
 });
-
 const Rewrite_Property_GenerateAccessors = Object.freeze<CodeActionKind>({
   kind: qv.CodeActionKind.RefactorRewrite.append('property').append('generateAccessors'),
   matches: (refactor) => refactor.name.startsWith("Generate 'get' and 'set' accessors"),
 });
-
 const allKnownCodeActionKinds = [
   Extract_Function,
   Extract_Constant,
@@ -144,7 +128,6 @@ const allKnownCodeActionKinds = [
   Rewrite_Parameters_ToDestructured,
   Rewrite_Property_GenerateAccessors,
 ];
-
 class InlinedCodeAction extends qv.CodeAction {
   constructor(
     public readonly client: ServiceClient,
@@ -172,7 +155,6 @@ class InlinedCodeAction extends qv.CodeAction {
     this.renameLocation = response.body.renameLocation;
     return;
   }
-
   private static getWorkspaceEditForRefactoring(client: ServiceClient, body: qp.RefactorEditInfo): qv.WorkspaceEdit {
     const workspaceEdit = new qv.WorkspaceEdit();
     for (const edit of body.edits) {
@@ -185,7 +167,6 @@ class InlinedCodeAction extends qv.CodeAction {
     return workspaceEdit;
   }
 }
-
 class SelectCodeAction extends qv.CodeAction {
   constructor(info: qp.ApplicableRefactorInfo, document: qv.TextDocument, rangeOrSelection: qv.Range | qv.Selection) {
     super(info.description, qv.CodeActionKind.Refactor);
@@ -196,17 +177,13 @@ class SelectCodeAction extends qv.CodeAction {
     };
   }
 }
-
 type TsCodeAction = InlinedCodeAction | SelectCodeAction;
-
-class Refactor implements qv.CodeActionProvider<TsCodeAction> {
+class TsRefactor implements qv.CodeActionProvider<TsCodeAction> {
   public static readonly minVersion = API.v240;
-
   constructor(private readonly client: ServiceClient, private readonly formattingOptionsMgr: FormattingOptionsMgr, commandMgr: CommandMgr, telemetryReporter: TelemetryReporter) {
     const didApplyRefactoringCommand = commandMgr.register(new DidApplyRefactoringCommand(telemetryReporter));
     commandMgr.register(new SelectRefactorCommand(this.client, didApplyRefactoringCommand));
   }
-
   public static readonly metadata: qv.CodeActionProviderMetadata = {
     providedCodeActionKinds: [qv.CodeActionKind.Refactor, ...allKnownCodeActionKinds.map((x) => x.kind)],
     documentation: [
@@ -219,7 +196,6 @@ class Refactor implements qv.CodeActionProvider<TsCodeAction> {
       },
     ],
   };
-
   public async provideCodeActions(
     document: qv.TextDocument,
     rangeOrSelection: qv.Range | qv.Selection,
@@ -247,17 +223,14 @@ class Refactor implements qv.CodeActionProvider<TsCodeAction> {
     if (!context.only) return actions;
     return this.pruneInvalidActions(this.appendInvalidActions(actions), context.only, /* numberOfInvalid = */ 5);
   }
-
   public async resolveCodeAction(codeAction: TsCodeAction, token: qv.CancellationToken): Promise<TsCodeAction> {
     if (codeAction instanceof InlinedCodeAction) await codeAction.resolve(token);
     return codeAction;
   }
-
   private toTsTriggerReason(context: qv.CodeActionContext): qp.RefactorTriggerReason | undefined {
     if (context.triggerKind === qv.CodeActionTriggerKind.Invoke) return 'invoked';
     return undefined;
   }
-
   private convertApplicableRefactors(body: qp.ApplicableRefactorInfo[], document: qv.TextDocument, rangeOrSelection: qv.Range | qv.Selection): TsCodeAction[] {
     const actions: TsCodeAction[] = [];
     for (const info of body) {
@@ -272,7 +245,6 @@ class Refactor implements qv.CodeActionProvider<TsCodeAction> {
     }
     return actions;
   }
-
   private refactorActionToCodeAction(
     action: qp.RefactorActionInfo,
     document: qv.TextDocument,
@@ -280,7 +252,7 @@ class Refactor implements qv.CodeActionProvider<TsCodeAction> {
     rangeOrSelection: qv.Range | qv.Selection,
     allActions: readonly qp.RefactorActionInfo[]
   ): InlinedCodeAction {
-    const codeAction = new InlinedCodeAction(this.client, action.description, Refactor.getKind(action), document, info.name, action.name, rangeOrSelection);
+    const codeAction = new InlinedCodeAction(this.client, action.description, TsRefactor.getKind(action), document, info.name, action.name, rangeOrSelection);
     if (action.notApplicableReason) codeAction.disabled = { reason: action.notApplicableReason };
     else {
       codeAction.command = {
@@ -289,15 +261,13 @@ class Refactor implements qv.CodeActionProvider<TsCodeAction> {
         arguments: [<DidApplyRefactoringCommand_Args>{ codeAction }],
       };
     }
-    codeAction.isPreferred = Refactor.isPreferred(action, allActions);
+    codeAction.isPreferred = TsRefactor.isPreferred(action, allActions);
     return codeAction;
   }
-
   private shouldTrigger(context: qv.CodeActionContext) {
     if (context.only && !qv.CodeActionKind.Refactor.contains(context.only)) return false;
     return context.triggerKind === qv.CodeActionTriggerKind.Invoke;
   }
-
   private static getKind(refactor: qp.RefactorActionInfo) {
     if ((refactor as qp.RefactorActionInfo & { kind?: string }).kind) {
       return qv.CodeActionKind.Empty.append((refactor as qp.RefactorActionInfo & { kind?: string }).kind!);
@@ -305,7 +275,6 @@ class Refactor implements qv.CodeActionProvider<TsCodeAction> {
     const match = allKnownCodeActionKinds.find((kind) => kind.matches(refactor));
     return match ? match.kind : qv.CodeActionKind.Refactor;
   }
-
   private static isPreferred(action: qp.RefactorActionInfo, allActions: readonly qp.RefactorActionInfo[]): boolean {
     if (Extract_Constant.matches(action)) {
       const getScope = (name: string) => {
@@ -324,7 +293,6 @@ class Refactor implements qv.CodeActionProvider<TsCodeAction> {
     if (Extract_Type.matches(action) || Extract_Interface.matches(action)) return true;
     return false;
   }
-
   private appendInvalidActions(actions: qv.CodeAction[]): qv.CodeAction[] {
     if (this.client.apiVersion.gte(API.v400)) return actions;
     if (!actions.some((action) => action.kind && Extract_Constant.kind.contains(action.kind))) {
@@ -344,7 +312,6 @@ class Refactor implements qv.CodeActionProvider<TsCodeAction> {
     }
     return actions;
   }
-
   private pruneInvalidActions(actions: qv.CodeAction[], only?: qv.CodeActionKind, numberOfInvalid?: number): qv.CodeAction[] {
     const availableActions: qv.CodeAction[] = [];
     const invalidCommonActions: qv.CodeAction[] = [];
@@ -368,9 +335,27 @@ class Refactor implements qv.CodeActionProvider<TsCodeAction> {
     return availableActions;
   }
 }
-
 export function register(s: qu.DocumentSelector, c: ServiceClient, formattingOptionsMgr: FormattingOptionsMgr, commandMgr: CommandMgr, telemetryReporter: TelemetryReporter) {
-  return condRegistration([requireMinVer(c, Refactor.minVersion), requireSomeCap(c, ClientCap.Semantic)], () => {
-    return qv.languages.registerCodeActionsProvider(s.semantic, new Refactor(c, formattingOptionsMgr, commandMgr, telemetryReporter), Refactor.metadata);
+  return condRegistration([requireMinVer(c, TsRefactor.minVersion), requireSomeCap(c, ClientCap.Semantic)], () => {
+    return qv.languages.registerCodeActionsProvider(s.semantic, new TsRefactor(c, formattingOptionsMgr, commandMgr, telemetryReporter), TsRefactor.metadata);
   });
+}
+
+export class GoRefactor implements qv.CodeActionProvider {
+  public provideCodeActions(document: qv.TextDocument, range: qv.Range, context: qv.CodeActionContext, token: qv.CancellationToken): qv.ProviderResult<qv.CodeAction[]> {
+    if (range.isEmpty) {
+      return [];
+    }
+    const extractFunction = new qv.CodeAction('Extract to function in package scope', qv.CodeActionKind.RefactorExtract);
+    const extractVar = new qv.CodeAction('Extract to variable in local scope', qv.CodeActionKind.RefactorExtract);
+    extractFunction.command = {
+      title: 'Extract to function in package scope',
+      command: 'go.godoctor.extract',
+    };
+    extractVar.command = {
+      title: 'Extract to variable in local scope',
+      command: 'go.godoctor.var',
+    };
+    return [extractFunction, extractVar];
+  }
 }

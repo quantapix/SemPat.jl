@@ -121,7 +121,7 @@ function convertToCodeSymbols(document: qv.TextDocument, decls: GoOutlineDeclara
   });
   return symbols;
 }
-export class GoDocumentSymbolProvider implements qv.DocumentSymbolProvider {
+export class GoSymbol implements qv.DocumentSymbolProvider {
   constructor(private includeImports?: boolean) {}
   public provideDocumentSymbols(document: qv.TextDocument, token: qv.CancellationToken): Thenable<qv.DocumentSymbol[]> {
     if (typeof this.includeImports !== 'boolean') {

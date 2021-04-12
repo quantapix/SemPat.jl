@@ -6,10 +6,74 @@ import * as qv from 'vscode';
 import API from '../../old/ts/utils/api';
 import FileConfigMgr from '../../old/ts/languageFeatures/fileConfigMgr';
 import type * as qp from '../protocol';
-
-class TypeScriptRenameProvider implements qv.RenameProvider {
+import cp = require('child_process');
+import { getGoConfig } from './config';
+import { Edit, FilePatch, getEditsFromUnifiedDiffStr, isDiffToolAvailable } from './diffUtils';
+import { toolExecutionEnvironment } from './goEnv';
+import { promptForMissingTool } from './goInstallTools';
+import { outputChannel } from './goStatus';
+import { byteOffsetAt, canonicalizeGOPATHPrefix, getBinPath } from './util';
+import { killProcTree } from './utils/processUtils';
+export class GoRename implements qv.RenameProvider {
+  public provideRenameEdits(document: qv.TextDocument, position: qv.Position, newName: string, token: qv.CancellationToken): Thenable<qv.WorkspaceEdit> {
+    return qv.workspace.saveAll(false).then(() => {
+      return this.doRename(document, position, newName, token);
+    });
+  }
+  private doRename(document: qv.TextDocument, position: qv.Position, newName: string, token: qv.CancellationToken): Thenable<qv.WorkspaceEdit> {
+    return new Promise<qv.WorkspaceEdit>((resolve, reject) => {
+      const filename = canonicalizeGOPATHPrefix(document.fileName);
+      const range = document.getWordRangeAtPosition(position);
+      const pos = range ? range.start : position;
+      const offset = byteOffsetAt(document, pos);
+      const env = toolExecutionEnvironment();
+      const gorename = getBinPath('gorename');
+      const buildTags = getGoConfig(document.uri)['buildTags'];
+      const gorenameArgs = ['-offset', filename + ':#' + offset, '-to', newName];
+      if (buildTags) {
+        gorenameArgs.push('-tags', buildTags);
+      }
+      const canRenameToolUseDiff = isDiffToolAvailable();
+      if (canRenameToolUseDiff) {
+        gorenameArgs.push('-d');
+      }
+      let p: cp.ChildProc;
+      if (token) {
+        token.onCancellationRequested(() => killProcTree(p));
+      }
+      p = cp.execFile(gorename, gorenameArgs, { env }, (err, stdout, stderr) => {
+        try {
+          if (err && (<any>err).code === 'ENOENT') {
+            promptForMissingTool('gorename');
+            return reject('Could not find gorename tool.');
+          }
+          if (err) {
+            const errMsg = stderr ? 'Rename failed: ' + stderr.replace(/\n/g, ' ') : 'Rename failed';
+            console.log(errMsg);
+            outputChannel.appendLine(errMsg);
+            outputChannel.show();
+            return reject();
+          }
+          const result = new qv.WorkspaceEdit();
+          if (canRenameToolUseDiff) {
+            const filePatches = getEditsFromUnifiedDiffStr(stdout);
+            filePatches.forEach((filePatch: FilePatch) => {
+              const fileUri = qv.Uri.file(filePatch.fileName);
+              filePatch.edits.forEach((edit: Edit) => {
+                edit.applyUsingWorkspaceEdit(result, fileUri);
+              });
+            });
+          }
+          return resolve(result);
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+  }
+}
+class TsRename implements qv.RenameProvider {
   public constructor(private readonly client: ServiceClient, private readonly fileConfigMgr: FileConfigMgr) {}
-
   public async prepareRename(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): Promise<qv.Range | null> {
     if (this.client.apiVersion.lt(API.v310)) return null;
     const response = await this.execRename(document, position, token);
@@ -18,7 +82,6 @@ class TypeScriptRenameProvider implements qv.RenameProvider {
     if (!renameInfo.canRename) return Promise.reject<qv.Range>(renameInfo.localizedErrorMessage);
     return qu.Range.fromTextSpan(renameInfo.triggerSpan);
   }
-
   public async provideRenameEdits(document: qv.TextDocument, position: qv.Position, newName: string, token: qv.CancellationToken): Promise<qv.WorkspaceEdit | null> {
     const response = await this.execRename(document, position, token);
     if (!response || response.type !== 'response' || !response.body) return null;
@@ -31,7 +94,6 @@ class TypeScriptRenameProvider implements qv.RenameProvider {
     }
     return this.updateLocs(response.body.locs, newName);
   }
-
   public async execRename(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): Promise<ServerResponse.Response<qp.RenameResponse> | undefined> {
     const file = this.client.toOpenedFilePath(document);
     if (!file) return undefined;
@@ -45,7 +107,6 @@ class TypeScriptRenameProvider implements qv.RenameProvider {
       return this.client.execute('rename', args, token);
     });
   }
-
   private updateLocs(locations: ReadonlyArray<qp.SpanGroup>, newName: string) {
     const edit = new qv.WorkspaceEdit();
     for (const spanGroup of locations) {
@@ -56,7 +117,6 @@ class TypeScriptRenameProvider implements qv.RenameProvider {
     }
     return edit;
   }
-
   private async renameFile(fileToRename: string, newName: string, token: qv.CancellationToken): Promise<qv.WorkspaceEdit | undefined> {
     if (!path.extname(newName)) newName += path.extname(fileToRename);
     const dirname = path.dirname(fileToRename);
@@ -73,9 +133,8 @@ class TypeScriptRenameProvider implements qv.RenameProvider {
     return edits;
   }
 }
-
 export function register(s: qu.DocumentSelector, c: ServiceClient, fileConfigMgr: FileConfigMgr) {
   return condRegistration([requireSomeCap(c, ClientCap.Semantic)], () => {
-    return qv.languages.registerRenameProvider(s.semantic, new TypeScriptRenameProvider(c, fileConfigMgr));
+    return qv.languages.registerRenameProvider(s.semantic, new TsRename(c, fileConfigMgr));
   });
 }
