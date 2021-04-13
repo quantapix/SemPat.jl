@@ -4,7 +4,7 @@ import { DiagSeverityOverridesMap } from './commandLineOptions';
 import { Console } from './console';
 import { DiagRule } from './py/diagnosticRules';
 import { FileSystem } from './files';
-import { combinePaths, ensureTrailingDirSeparator, FileSpec, getFileSpec, normalizePath, resolvePaths } from './py/paths';
+import { combinePaths, ensureTrailingDirSeparator, FileSpec, getFileSpec, normalizePath, resolvePaths } from './paths2';
 import { latestStablePythonVersion, PythonVersion, versionFromMajorMinor, versionFromString, versionToString } from './py/version';
 export const typeshedFallback = 'typeshed-fallback';
 export const lib = 'lib';

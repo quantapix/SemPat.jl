@@ -1,5 +1,5 @@
 import { TextEdit, WorkspaceEdit } from 'vscode-languageserver';
-import { convertPathToUri } from './py/paths';
+import { convertPathToUri } from './paths2';
 import { FileSystem } from './files';
 export interface TextRange {
   start: number;

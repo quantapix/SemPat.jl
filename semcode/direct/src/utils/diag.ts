@@ -1,5 +1,5 @@
 import { Commands } from '../commands/commands';
-import { DiagLevel } from './options';
+import { DiagLevel } from './opts';
 import { convertOffsetsToRange } from './texts';
 import { Range, TextRange } from './texts';
 import { TextRangeCollection } from './texts';
