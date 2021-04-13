@@ -1,7 +1,10 @@
+import Tracer from '../utils/tracer';
 import * as fs from 'fs';
+import { getTempFile } from '../utils/temp';
 import * as os from 'os';
 import * as path from 'path';
-import { CancellationId, CancellationTokenSource } from 'vscode-jsonrpc';
+import { CancellationId, CancellationTokenSource, MessageConnection } from 'vscode-jsonrpc';
+import { randomBytes } from 'crypto';
 import {
   AbstractCancellationTokenSource,
   CancellationReceiverStrategy,
@@ -201,4 +204,106 @@ export function CancelAfter(...tokens: CancellationToken[]) {
     })
   );
   return source;
+}
+
+export interface OngoingRequestCancel {
+  readonly cancellationPipeName: string | undefined;
+  tryCancelOngoingRequest(seq: number): boolean;
+}
+export interface OngoingRequestCancelFact {
+  create(serverId: string, tracer: Tracer): OngoingRequestCancel;
+}
+const noopRequestCancel = new (class implements OngoingRequestCancel {
+  public readonly cancellationPipeName = undefined;
+  public tryCancelOngoingRequest(_seq: number): boolean {
+    return false;
+  }
+})();
+export const noopRequestCancelFact = new (class implements OngoingRequestCancelFact {
+  create(_serverId: string, _tracer: Tracer): OngoingRequestCancel {
+    return noopRequestCancel;
+  }
+})();
+export class NodeRequestCancel implements OngoingRequestCancel {
+  public readonly cancellationPipeName: string;
+  public constructor(private readonly _serverId: string, private readonly _tracer: Tracer) {
+    this.cancellationPipeName = getTempFile('tscancellation');
+  }
+  public tryCancelOngoingRequest(seq: number): boolean {
+    if (!this.cancellationPipeName) {
+      return false;
+    }
+    this._tracer.logTrace(this._serverId, `TypeScript Server: trying to cancel ongoing request with sequence number ${seq}`);
+    try {
+      fs.writeFileSync(this.cancellationPipeName + seq, '');
+    } catch {}
+    return true;
+  }
+}
+export const nodeRequestCancelFact = new (class implements OngoingRequestCancelFact {
+  create(serverId: string, tracer: Tracer): OngoingRequestCancel {
+    return new NodeRequestCancel(serverId, tracer);
+  }
+})();
+function getCancellationFolderPath(folderName: string) {
+  return path.join(os.tmpdir(), 'python-languageserver-cancellation', folderName);
+}
+function getCancellationFilePath(folderName: string, id: CancellationId) {
+  return path.join(getCancellationFolderPath(folderName), `cancellation-${String(id)}.tmp`);
+}
+function tryRun(callback: () => void) {
+  try {
+    callback();
+  } catch (e) {
+    /* empty */
+  }
+}
+class FileCancellationSenderStrategy implements CancellationSenderStrategy {
+  constructor(readonly folderName: string) {
+    const folder = getCancellationFolderPath(folderName)!;
+    tryRun(() => fs.mkdirSync(folder, { recursive: true }));
+  }
+  sendCancellation(_: MessageConnection, id: CancellationId): void {
+    const file = getCancellationFilePath(this.folderName, id);
+    tryRun(() => fs.writeFileSync(file, '', { flag: 'w' }));
+  }
+  cleanup(id: CancellationId): void {
+    tryRun(() => fs.unlinkSync(getCancellationFilePath(this.folderName, id)));
+  }
+  dispose(): void {
+    const folder = getCancellationFolderPath(this.folderName);
+    tryRun(() => rimraf(folder));
+    function rimraf(location: string) {
+      const stat = fs.lstatSync(location);
+      if (stat) {
+        if (stat.isDir() && !stat.isSymbolicLink()) {
+          for (const dir of fs.readdirSync(location)) {
+            rimraf(path.join(location, dir));
+          }
+          fs.rmdirSync(location);
+        } else {
+          fs.unlinkSync(location);
+        }
+      }
+    }
+  }
+}
+export class FileBasedCancellationStrategy implements CancellationStrategy, Disposable {
+  private _sender: FileCancellationSenderStrategy;
+  constructor() {
+    const folderName = randomBytes(21).toString('hex');
+    this._sender = new FileCancellationSenderStrategy(folderName);
+  }
+  get receiver(): CancellationReceiverStrategy {
+    return CancellationReceiverStrategy.Message;
+  }
+  get sender(): CancellationSenderStrategy {
+    return this._sender;
+  }
+  getCommandLineArguments(): string[] {
+    return [`--cancellationReceive=file:${this._sender.folderName}`];
+  }
+  dispose(): void {
+    this._sender.dispose();
+  }
 }

@@ -2,8 +2,8 @@ import * as qv from 'vscode';
 import type * as qp from '../protocol';
 import { ServiceClient, ClientCap } from '../service';
 import API from '../utils/api';
-import * as languageModeIds from '../utils/languageModeIds';
-import * as qu from '../utils';
+import * as languageModeIds from '../utils/lang';
+import * as qu from '../utils/base';
 const enum BufferKind {
   TypeScript = 1,
   JavaScript = 2,
