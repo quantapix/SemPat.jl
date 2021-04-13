@@ -880,3 +880,15 @@ export abstract class LangServerBase implements LangServerInterface {
     });
   }
 }
+export enum CompletionItemDataType {
+  Builtin,
+  Executable,
+  ReservedWord,
+  Symbol,
+}
+export interface BashCompletionItem extends LSP.CompletionItem {
+  data: {
+    type: CompletionItemDataType;
+    name: string;
+  };
+}
