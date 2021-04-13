@@ -1,8 +1,26 @@
-import fs = require('fs');
-import os = require('os');
+import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { promisify } from 'util';
 import { logVerbose } from '../goLogging';
+import * as qv from 'vscode';
+import { TSServiceConfig } from './config';
+import { RelativeWorkspacePathResolver } from './relativePathResolver';
+import * as glob from 'glob';
+export function untildify(pathWithTilde: string): string {
+  const homeDir = os.homedir();
+  return homeDir ? pathWithTilde.replace(/^~(?=$|\/|\\)/, homeDir) : pathWithTilde;
+}
+export async function getFilePaths({ globPattern, rootPath }: { globPattern: string; rootPath: string }): Promise<string[]> {
+  return new Promise((resolve, reject) => {
+    glob(globPattern, { cwd: rootPath, nodir: true, absolute: true, strict: false }, function (err, files) {
+      if (err) {
+        return reject(err);
+      }
+      resolve(files);
+    });
+  });
+}
 let binPathCache: { [bin: string]: string } = {};
 export const envPath = process.env['PATH'] || (process.platform === 'win32' ? process.env['Path'] : null);
 export function getBinPathFromEnvVar(toolName: string, envVarValue: string, appendBinToPath: boolean): string | null {
@@ -173,4 +191,27 @@ export function expandFilePathInOutput(output: string, cwd: string): string {
     }
   }
   return lines.join('\n');
+}
+export class TSPluginPathsProvider {
+  public constructor(private configuration: TSServiceConfig) {}
+  public updateConfig(configuration: TSServiceConfig): void {
+    this.configuration = configuration;
+  }
+  public getPluginPaths(): string[] {
+    const pluginPaths = [];
+    for (const pluginPath of this.configuration.tsServerPluginPaths) {
+      pluginPaths.push(...this.resolvePluginPath(pluginPath));
+    }
+    return pluginPaths;
+  }
+  private resolvePluginPath(pluginPath: string): string[] {
+    if (path.isAbsolute(pluginPath)) {
+      return [pluginPath];
+    }
+    const workspacePath = RelativeWorkspacePathResolver.asAbsoluteWorkspacePath(pluginPath);
+    if (workspacePath !== undefined) {
+      return [workspacePath];
+    }
+    return (qv.workspace.workspaceFolders || []).map((workspaceFolder) => path.join(workspaceFolder.uri.fsPath, pluginPath));
+  }
 }

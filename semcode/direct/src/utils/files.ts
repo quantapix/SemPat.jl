@@ -2,7 +2,7 @@ import * as chokidar from 'chokidar';
 import * as fs from 'fs';
 import * as tmp from 'tmp';
 tmp.setGracefulCleanup();
-import { Console, NullConsole } from './console';
+import { Console, NullConsole } from '../console';
 import { createDeferred } from './deferred';
 export type FileWatcherEventType = 'add' | 'addDir' | 'change' | 'unlink' | 'unlinkDir';
 export type FileWatcherEventHandler = (eventName: FileWatcherEventType, path: string, stats?: Stats) => void;

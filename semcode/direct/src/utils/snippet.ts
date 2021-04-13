@@ -1,6 +1,6 @@
 import * as qv from 'vscode';
 import type * as qp from '../protocol';
-import * as PConst from '../../../src/protocol.const';
+import * as PConst from '../protocol.const';
 
 export function snippetForFunctionCall(
   item: { insertText?: string | qv.SnippetString; label: string },

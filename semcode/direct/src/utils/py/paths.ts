@@ -3,11 +3,11 @@ import { Dirent } from 'fs';
 import * as path from 'path';
 import Char from 'typescript-char';
 import { URI } from 'vscode-uri';
-import { PyrightFileSystem } from './files';
+import { PyrightFileSystem } from '../files';
 import { some } from './collection';
-import { compareValues, Comparison, GetCanonicalFileName, identity } from './core';
-import * as debug from './debug';
-import { FileSystem, Stats } from './files';
+import { compareValues, Comparison, GetCanonicalFileName, identity } from '../core';
+import * as debug from '../debug';
+import { FileSystem, Stats } from '../files';
 import { compareStringsCaseInsensitive, compareStringsCaseSensitive, equateStringsCaseInsensitive, equateStringsCaseSensitive, getStringComparer } from './strings';
 let _fsCaseSensitivity: boolean | undefined = undefined;
 export interface FileSpec {

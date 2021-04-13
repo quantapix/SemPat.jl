@@ -1,7 +1,6 @@
 import * as qv from 'vscode';
 import * as arrays from './arrays';
 import { Disposable } from './dispose';
-
 export interface TypeScriptServerPlugin {
   readonly path: string;
   readonly name: string;
@@ -9,21 +8,16 @@ export interface TypeScriptServerPlugin {
   readonly languages: ReadonlyArray<string>;
   readonly configNamespace?: string;
 }
-
 namespace TypeScriptServerPlugin {
   export function equals(a: TypeScriptServerPlugin, b: TypeScriptServerPlugin): boolean {
     return a.path === b.path && a.name === b.name && a.enableForWorkspaceTSVersions === b.enableForWorkspaceTSVersions && arrays.equals(a.languages, b.languages);
   }
 }
-
 export class PluginMgr extends Disposable {
   private readonly _pluginConfigs = new Map<string, {}>();
-
   private _plugins: Map<string, ReadonlyArray<TypeScriptServerPlugin>> | undefined;
-
   constructor() {
     super();
-
     qv.extensions.onDidChange(
       () => {
         if (!this._plugins) {
@@ -39,29 +33,23 @@ export class PluginMgr extends Disposable {
       this._disposables
     );
   }
-
   public get plugins(): ReadonlyArray<TypeScriptServerPlugin> {
     if (!this._plugins) {
       this._plugins = this.readPlugins();
     }
     return arrays.flatten(Array.from(this._plugins.values()));
   }
-
   private readonly _onDidUpdatePlugins = this._register(new qv.EventEmitter<this>());
   public readonly onDidChangePlugins = this._onDidUpdatePlugins.event;
-
   private readonly _onDidUpdateConfig = this._register(new qv.EventEmitter<{ pluginId: string; config: {} }>());
   public readonly onDidUpdateConfig = this._onDidUpdateConfig.event;
-
   public setConfig(pluginId: string, config: {}) {
     this._pluginConfigs.set(pluginId, config);
     this._onDidUpdateConfig.fire({ pluginId, config });
   }
-
   public configurations(): IterableIterator<[string, {}]> {
     return this._pluginConfigs.entries();
   }
-
   private readPlugins() {
     const pluginMap = new Map<string, ReadonlyArray<TypeScriptServerPlugin>>();
     for (const extension of qv.extensions.all) {
