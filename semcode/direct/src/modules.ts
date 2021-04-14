@@ -5,6 +5,7 @@ import { onSetLangClient } from './extension_rs';
 import { registerCommand } from './utils';
 import { VersionedTextDocumentPositionParams } from './misc';
 import { onExit, onInit } from './repl';
+
 let statusBarItem: qv.StatusBarItem = null;
 let g_connection: rpc.MessageConnection = null;
 let g_languageClient: vslc.LangClient = null;
@@ -13,39 +14,39 @@ const manuallySetDocuments = [];
 const requestTypeGetModules = new rpc.RequestType<void, string[], void>('repl/loadedModules');
 const requestTypeIsModuleLoaded = new rpc.RequestType<{ mod: string }, boolean, void>('repl/isModuleLoaded');
 const automaticallyChooseOption = 'Choose Automatically';
-export function activate(context: qv.ExtensionContext) {
-  context.subscriptions.push(
-    qv.window.onDidChangeActiveTextEditor((ed) => {
+export function activate(c: qv.ExtensionContext) {
+  c.subscriptions.push(
+    qv.window.onDidChangeActiveTextEditor((x) => {
       cancelCurrentGetModuleRequest();
       g_currentGetModuleRequestCancelTokenSource = new qv.CancellationTokenSource();
-      updateStatusBarItem(ed, g_currentGetModuleRequestCancelTokenSource.token);
+      updateStatusBarItem(x, g_currentGetModuleRequestCancelTokenSource.token);
     })
   );
-  context.subscriptions.push(
-    qv.window.onDidChangeTextEditorSelection((changeEvent) => {
+  c.subscriptions.push(
+    qv.window.onDidChangeTextEditorSelection((x) => {
       cancelCurrentGetModuleRequest();
       g_currentGetModuleRequestCancelTokenSource = new qv.CancellationTokenSource();
-      updateModuleForSelectionEvent(changeEvent, g_currentGetModuleRequestCancelTokenSource.token);
+      updateModuleForSelectionEvent(x, g_currentGetModuleRequestCancelTokenSource.token);
     })
   );
-  context.subscriptions.push(registerCommand('language-julia.chooseModule', chooseModule));
-  context.subscriptions.push(
-    onSetLangClient((languageClient) => {
-      g_languageClient = languageClient;
+  c.subscriptions.push(registerCommand('language-julia.chooseModule', chooseModule));
+  c.subscriptions.push(
+    onSetLangClient((x) => {
+      g_languageClient = x;
     })
   );
   statusBarItem = qv.window.createStatusBarItem(qv.StatusBarAlignment.Right, 99);
   statusBarItem.command = 'language-julia.chooseModule';
   statusBarItem.tooltip = 'Choose Current Module';
-  onInit((conn) => {
-    g_connection = conn;
+  onInit((x) => {
+    g_connection = x;
     updateStatusBarItem();
   });
-  onExit((hadError) => {
+  onExit((x) => {
     g_connection = null;
     updateStatusBarItem();
   });
-  context.subscriptions.push(statusBarItem);
+  c.subscriptions.push(statusBarItem);
   updateStatusBarItem();
 }
 function cancelCurrentGetModuleRequest() {
@@ -82,55 +83,51 @@ export async function getModuleForEditor(document: qv.TextDocument, position: qv
     return 'Main';
   }
 }
-function isJuliaEditor(editor: qv.TextEditor = qv.window.activeTextEditor) {
-  return editor && editor.document.languageId === 'julia';
+function isJuliaEditor(e: qv.TextEditor = qv.window.activeTextEditor) {
+  return e && e.document.languageId === 'julia';
 }
-async function updateStatusBarItem(editor: qv.TextEditor = qv.window.activeTextEditor, token?: qv.CancellationToken) {
-  if (isJuliaEditor(editor)) {
+async function updateStatusBarItem(e: qv.TextEditor = qv.window.activeTextEditor, t?: qv.CancellationToken) {
+  if (isJuliaEditor(e)) {
     statusBarItem.show();
-    await updateModuleForEditor(editor, token);
+    await updateModuleForEditor(e, t);
   } else statusBarItem.hide();
 }
-async function updateModuleForSelectionEvent(event: qv.TextEditorSelectionChangeEvent, token?: qv.CancellationToken) {
-  const editor = event.textEditor;
-  await updateStatusBarItem(editor, token);
+async function updateModuleForSelectionEvent(e: qv.TextEditorSelectionChangeEvent, t?: qv.CancellationToken) {
+  await updateStatusBarItem(e.textEditor, t);
 }
-async function updateModuleForEditor(editor: qv.TextEditor, token?: qv.CancellationToken) {
-  const mod = await getModuleForEditor(editor.document, editor.selection.start, token);
-  if (mod) {
-    const loaded = await isModuleLoaded(mod);
-    statusBarItem.text = loaded ? mod : '(' + mod + ')';
+async function updateModuleForEditor(e: qv.TextEditor, t?: qv.CancellationToken) {
+  const m = await getModuleForEditor(e.document, e.selection.start, t);
+  if (m) {
+    const x = await isModuleLoaded(m);
+    statusBarItem.text = x ? m : '(' + m + ')';
   }
 }
 async function isModuleLoaded(mod: string) {
   if (!g_connection) return false;
   try {
-    return await g_connection.sendRequest(requestTypeIsModuleLoaded, { mod: mod });
-  } catch (err) {
-    if (g_connection) qv.window.showErrorMessage(err);
+    return await g_connection.sendRequest(requestTypeIsModuleLoaded, { mod });
+  } catch (e) {
+    if (g_connection) qv.window.showErrorMessage(e);
     return false;
   }
 }
 async function chooseModule() {
-  let possibleModules = [];
+  let ms = [];
   try {
-    possibleModules = await g_connection.sendRequest(requestTypeGetModules, null);
-  } catch (err) {
-    if (g_connection) qv.window.showErrorMessage(err);
+    ms = await g_connection.sendRequest(requestTypeGetModules, null);
+  } catch (e) {
+    if (g_connection) qv.window.showErrorMessage(e);
     else qv.window.showInformationMessage('Setting a module requires an active REPL.');
     return;
   }
-  possibleModules.sort();
-  possibleModules.splice(0, 0, automaticallyChooseOption);
-  const qpOptions: qv.QuickPickOptions = {
-    placeHolder: 'Select module',
-    canPickMany: false,
-  };
-  const mod = await qv.window.showQuickPick(possibleModules, qpOptions);
-  const ed = qv.window.activeTextEditor;
-  if (mod === automaticallyChooseOption) delete manuallySetDocuments[ed.document.fileName];
-  else manuallySetDocuments[ed.document.fileName] = mod;
+  ms.sort();
+  ms.splice(0, 0, automaticallyChooseOption);
+  const os: qv.QuickPickOptions = { placeHolder: 'Select module', canPickMany: false };
+  const m = await qv.window.showQuickPick(ms, os);
+  const e = qv.window.activeTextEditor;
+  if (m === automaticallyChooseOption) delete manuallySetDocuments[e.document.fileName];
+  else manuallySetDocuments[e.document.fileName] = m;
   cancelCurrentGetModuleRequest();
   g_currentGetModuleRequestCancelTokenSource = new qv.CancellationTokenSource();
-  updateStatusBarItem(ed, g_currentGetModuleRequestCancelTokenSource.token);
+  updateStatusBarItem(e, g_currentGetModuleRequestCancelTokenSource.token);
 }

@@ -1,5 +1,5 @@
 import * as qv from 'vscode';
-import * as qp from './protocol';
+import * as qp from '../protocol';
 import BufferSyncSupport from '../old/ts/tsServer/bufferSyncSupport';
 import { ExecTarget } from '../old/ts/tsServer/server';
 import { TSVersion } from '../old/ts/tsServer/versionProvider';

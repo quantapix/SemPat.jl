@@ -400,7 +400,8 @@ export function inferJuliaNumThreads(): string {
   const config: number | undefined = qv.workspace.getConfig('julia').get('NumThreads') ?? undefined;
   const env: string | undefined = process.env['JULIA_NUM_THREADS'];
   if (config !== undefined) return config.toString();
-  else if (env !== undefined) return env; else {
+  else if (env !== undefined) return env;
+  else {
     return '';
   }
 }
@@ -628,8 +629,10 @@ export class Delayer<T> {
   public trigger(t: ITask<T>, d: number = this.defDelay): Promise<T | undefined> {
     this.task = t;
     if (d >= 0) this.cancelTimeout();
-    if (!this.prom) this.prom = new Promise<T | undefined>((resolve) => {
-        this.onSuccess = resolve;).then(() => {
+    if (!this.prom) {
+      this.prom = new Promise<T | undefined>((resolve) => {
+        this.onSuccess = resolve;
+      }).then(() => {
         this.prom = undefined;
         this.onSuccess = undefined;
         const y = this.task && this.task();

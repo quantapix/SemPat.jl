@@ -5,6 +5,9 @@ import * as qv from 'vscode';
 import type * as qp from '../protocol';
 import { ServiceClient, ServerResponse } from '../service';
 import { nulToken } from '../utils';
+import { RevealOutputChannelOn } from 'vscode-languageclient';
+import { getActiveChannel, RustupConfig } from './rs/rustup';
+
 export enum TSServerLogLevel {
   Off,
   Normal,
@@ -48,7 +51,7 @@ export class ImplicitProjectConfig {
   public readonly experimentalDecorators: boolean;
   public readonly strictNullChecks: boolean;
   public readonly strictFunctionTypes: boolean;
-  constructor(configuration: qv.WorkspaceConfig) {
+  constructor(configuration: qv.WorkspaceConfiguration) {
     this.checkJs = ImplicitProjectConfig.readCheckJs(configuration);
     this.experimentalDecorators = ImplicitProjectConfig.readExperimentalDecorators(configuration);
     this.strictNullChecks = ImplicitProjectConfig.readImplicitStrictNullChecks(configuration);
@@ -57,16 +60,16 @@ export class ImplicitProjectConfig {
   public isEqualTo(other: ImplicitProjectConfig): boolean {
     return qu.equals(this, other);
   }
-  private static readCheckJs(configuration: qv.WorkspaceConfig): boolean {
+  private static readCheckJs(configuration: qv.WorkspaceConfiguration): boolean {
     return configuration.get<boolean>('js/ts.implicitProjectConfig.checkJs') ?? configuration.get<boolean>('javascript.implicitProjectConfig.checkJs', false);
   }
-  private static readExperimentalDecorators(configuration: qv.WorkspaceConfig): boolean {
+  private static readExperimentalDecorators(configuration: qv.WorkspaceConfiguration): boolean {
     return configuration.get<boolean>('js/ts.implicitProjectConfig.experimentalDecorators') ?? configuration.get<boolean>('javascript.implicitProjectConfig.experimentalDecorators', false);
   }
-  private static readImplicitStrictNullChecks(configuration: qv.WorkspaceConfig): boolean {
+  private static readImplicitStrictNullChecks(configuration: qv.WorkspaceConfiguration): boolean {
     return configuration.get<boolean>('js/ts.implicitProjectConfig.strictNullChecks', false);
   }
-  private static readImplicitStrictFunctionTypes(configuration: qv.WorkspaceConfig): boolean {
+  private static readImplicitStrictFunctionTypes(configuration: qv.WorkspaceConfiguration): boolean {
     return configuration.get<boolean>('js/ts.implicitProjectConfig.strictFunctionTypes', true);
   }
 }
@@ -119,47 +122,47 @@ export class TSServiceConfig {
     }
     return inspectValue;
   }
-  private static extractGlobalTsdk(configuration: qv.WorkspaceConfig): string | null {
+  private static extractGlobalTsdk(configuration: qv.WorkspaceConfiguration): string | null {
     const inspect = configuration.inspect('typescript.tsdk');
     if (inspect && typeof inspect.globalValue === 'string') return this.fixPathPrefixes(inspect.globalValue);
     return null;
   }
-  private static extractLocalTsdk(configuration: qv.WorkspaceConfig): string | null {
+  private static extractLocalTsdk(configuration: qv.WorkspaceConfiguration): string | null {
     const inspect = configuration.inspect('typescript.tsdk');
     if (inspect && typeof inspect.workspaceValue === 'string') return this.fixPathPrefixes(inspect.workspaceValue);
     return null;
   }
-  private static readTSServerLogLevel(configuration: qv.WorkspaceConfig): TSServerLogLevel {
+  private static readTSServerLogLevel(configuration: qv.WorkspaceConfiguration): TSServerLogLevel {
     const setting = configuration.get<string>('typescript.tsserver.log', 'off');
     return TSServerLogLevel.fromString(setting);
   }
-  private static readTSServerPluginPaths(configuration: qv.WorkspaceConfig): string[] {
+  private static readTSServerPluginPaths(configuration: qv.WorkspaceConfiguration): string[] {
     return configuration.get<string[]>('typescript.tsserver.pluginPaths', []);
   }
-  private static readNpmLocation(configuration: qv.WorkspaceConfig): string | null {
+  private static readNpmLocation(configuration: qv.WorkspaceConfiguration): string | null {
     return configuration.get<string | null>('typescript.npm', null);
   }
-  private static readDisableAutomaticTypeAcquisition(configuration: qv.WorkspaceConfig): boolean {
+  private static readDisableAutomaticTypeAcquisition(configuration: qv.WorkspaceConfiguration): boolean {
     return configuration.get<boolean>('typescript.disableAutomaticTypeAcquisition', false);
   }
-  private static extractLocale(configuration: qv.WorkspaceConfig): string | null {
+  private static extractLocale(configuration: qv.WorkspaceConfiguration): string | null {
     return configuration.get<string | null>('typescript.locale', null);
   }
-  private static readUseSeparateSyntaxServer(configuration: qv.WorkspaceConfig): SeparateSyntaxServerConfig {
+  private static readUseSeparateSyntaxServer(configuration: qv.WorkspaceConfiguration): SeparateSyntaxServerConfig {
     const value = configuration.get('typescript.tsserver.useSeparateSyntaxServer', true);
     if (value === true) return SeparateSyntaxServerConfig.Enabled;
     return SeparateSyntaxServerConfig.Disabled;
   }
-  private static readEnableProjectDiags(configuration: qv.WorkspaceConfig): boolean {
+  private static readEnableProjectDiags(configuration: qv.WorkspaceConfiguration): boolean {
     return configuration.get<boolean>('typescript.tsserver.experimental.enableProjectDiags', false);
   }
-  private static readWatchOptions(configuration: qv.WorkspaceConfig): protocol.WatchOptions | undefined {
+  private static readWatchOptions(configuration: qv.WorkspaceConfiguration): protocol.WatchOptions | undefined {
     return configuration.get<protocol.WatchOptions>('typescript.tsserver.watchOptions');
   }
-  private static readIncludePackageJsonAutoImports(configuration: qv.WorkspaceConfig): 'auto' | 'on' | 'off' | undefined {
+  private static readIncludePackageJsonAutoImports(configuration: qv.WorkspaceConfiguration): 'auto' | 'on' | 'off' | undefined {
     return configuration.get<'auto' | 'on' | 'off'>('typescript.preferences.includePackageJsonAutoImports');
   }
-  private static readMaxTSServerMemory(configuration: qv.WorkspaceConfig): number {
+  private static readMaxTSServerMemory(configuration: qv.WorkspaceConfiguration): number {
     const defaultMaxMemory = 3072;
     const minimumMaxMemory = 128;
     const memoryInMB = configuration.get<number>('typescript.tsserver.maxTSServerMemory', defaultMaxMemory);
@@ -168,10 +171,10 @@ export class TSServiceConfig {
     }
     return Math.max(memoryInMB, minimumMaxMemory);
   }
-  private static readEnablePromptUseWorkspaceTsdk(configuration: qv.WorkspaceConfig): boolean {
+  private static readEnablePromptUseWorkspaceTsdk(configuration: qv.WorkspaceConfiguration): boolean {
     return configuration.get<boolean>('typescript.enablePromptUseWorkspaceTsdk', false);
   }
-  private static readEnableTSServerTracing(configuration: qv.WorkspaceConfig): boolean {
+  private static readEnableTSServerTracing(configuration: qv.WorkspaceConfiguration): boolean {
     return configuration.get<boolean>('typescript.tsserver.enableTracing', false);
   }
 }
@@ -262,4 +265,81 @@ export async function openProjectConfigForFile(projectType: ProjectType, client:
     return;
   }
   return openProjectConfigOrPromptToCreate(projectType, client, rootPath, res.body.configFileName);
+}
+
+function fromStringToRevealOutputChannelOn(s: string): RevealOutputChannelOn {
+  switch (s && s.toLowerCase()) {
+    case 'info':
+      return RevealOutputChannelOn.Info;
+    case 'warn':
+      return RevealOutputChannelOn.Warn;
+    case 'error':
+      return RevealOutputChannelOn.Error;
+    case 'never':
+    default:
+      return RevealOutputChannelOn.Never;
+  }
+}
+export class RLSConfig {
+  private readonly configuration: qv.WorkspaceConfiguration;
+  private readonly wsPath: string;
+  private constructor(c: qv.WorkspaceConfiguration, p: string) {
+    this.configuration = c;
+    this.wsPath = p;
+  }
+  public static loadFromWorkspace(p: string): RLSConfig {
+    const c = qv.workspace.getConfig();
+    return new RLSConfig(c, p);
+  }
+  private static readRevealOutputChannelOn(c: qv.WorkspaceConfiguration) {
+    const y = c.get<string>('rust-client.revealOutputChannelOn', 'never');
+    return fromStringToRevealOutputChannelOn(y);
+  }
+  private static readChannel(wsPath: string, rustupPath: string, c: qv.WorkspaceConfiguration): string {
+    const ch = c.get<string>('rust-client.channel');
+    if (ch === 'default' || !ch) {
+      try {
+        return getActiveChannel(wsPath, rustupPath);
+      } catch (e) {
+        return 'nightly';
+      }
+    } else return ch;
+  }
+  public get rustupPath(): string {
+    return this.configuration.get('rust-client.rustupPath', 'rustup');
+  }
+  public get logToFile(): boolean {
+    return this.configuration.get<boolean>('rust-client.logToFile', false);
+  }
+  public get rustupDisabled(): boolean {
+    const y = Boolean(this.rlsPath);
+    return y || this.configuration.get<boolean>('rust-client.disableRustup', false);
+  }
+  public get rustAnalyzer(): { path?: string; releaseTag: string } {
+    const c = this.configuration;
+    const releaseTag = c.get('rust.rust-analyzer.releaseTag', 'nightly');
+    const path = c.get<string>('rust.rust-analyzer.path');
+    return { releaseTag, ...{ path } };
+  }
+  public get revealOutputChannelOn(): RevealOutputChannelOn {
+    return RLSConfig.readRevealOutputChannelOn(this.configuration);
+  }
+  public get updateOnStartup(): boolean {
+    return this.configuration.get<boolean>('rust-client.updateOnStartup', true);
+  }
+  public get channel(): string {
+    return RLSConfig.readChannel(this.wsPath, this.rustupPath, this.configuration);
+  }
+  public get rlsPath(): string | undefined {
+    return this.configuration.get<string>('rust-client.rlsPath');
+  }
+  public get engine(): 'rls' | 'rust-analyzer' {
+    return this.configuration.get('rust-client.engine') || 'rls';
+  }
+  public get autoStartRls(): boolean {
+    return this.configuration.get<boolean>('rust-client.autoStartRls', true);
+  }
+  public rustupConfig(): RustupConfig {
+    return { channel: this.channel, path: this.rustupPath };
+  }
 }
