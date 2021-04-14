@@ -11,7 +11,6 @@ import * as process from 'process';
 import * as which from 'which';
 import * as vslc from 'vscode-languageclient/node';
 import { onSetLangClient } from './extension_rs';
-
 let juliaPackagePath = '';
 let juliaDepotPath = '';
 let actualJuliaExePath = '';
@@ -19,7 +18,6 @@ let g_languageClient: vslc.LangClient = null;
 let g_current_environment: qv.StatusBarItem = null;
 let g_path_of_current_environment: string = null;
 let g_path_of_default_environment: string = null;
-
 export async function getProjectFilePaths(envpath: string) {
   const dlext = process.platform === 'darwin' ? 'dylib' : process.platform === 'win32' ? 'dll' : 'so';
   return {
@@ -36,19 +34,14 @@ export async function getProjectFilePaths(envpath: string) {
     sysimage_path: (await fs.exists(path.join(envpath, `JuliaSysimage.${dlext}`))) ? path.join(envpath, `JuliaSysimage.${dlext}`) : undefined,
   };
 }
-
 export async function switchEnvToPath(envpath: string, notifyLS: boolean) {
   g_path_of_current_environment = envpath;
   const section = qv.workspace.getConfig('julia');
   const currentConfigValue = section.get<string>('environmentPath');
   if (g_path_of_current_environment !== (await getDefaultEnvPath())) {
-    if (currentConfigValue !== g_path_of_current_environment) {
-      section.update('environmentPath', g_path_of_current_environment, qv.ConfigTarget.Workspace);
-    }
+    if (currentConfigValue !== g_path_of_current_environment) section.update('environmentPath', g_path_of_current_environment, qv.ConfigTarget.Workspace);
   } else {
-    if (currentConfigValue !== null) {
-      section.update('environmentPath', undefined, qv.ConfigTarget.Workspace);
-    }
+    if (currentConfigValue !== null) section.update('environmentPath', undefined, qv.ConfigTarget.Workspace);
   }
   g_current_environment.text = 'Julia env: ' + (await getEnvName());
   if (
@@ -61,7 +54,6 @@ export async function switchEnvToPath(envpath: string, notifyLS: boolean) {
       process.platform === 'win32'
         ? qv.workspace.workspaceFolders[0].uri.fsPath.charAt(0).toUpperCase() + qv.workspace.workspaceFolders[0].uri.fsPath.slice(1)
         : qv.workspace.workspaceFolders[0].uri.fsPath;
-
     const jlexepath = await getJuliaExePath();
     const res = await exec(
       `"${jlexepath}" --project=${g_path_of_current_environment} --startup-file=no --history-file=no -e "using Pkg; println(in(ARGS[1], VERSION>=VersionNumber(1,1,0) ? realpath.(filter(i->i!==nothing && isdir(i), getproperty.(values(Pkg.Types.Context().env.manifest), :path))) : realpath.(filter(i->i!=nothing && isdir(i), map(i->get(i[1], string(:path), nothing), values(Pkg.Types.Context().env.manifest)))) ))" "${case_adjusted}"`
@@ -70,9 +62,7 @@ export async function switchEnvToPath(envpath: string, notifyLS: boolean) {
       qv.window
         .showInformationMessage('You opened a Julia package that is not part of your current environment. Do you want to activate a different environment?', 'Change Julia environment')
         .then((env_choice) => {
-          if (env_choice === 'Change Julia environment') {
-            changeJuliaEnvironment();
-          }
+          if (env_choice === 'Change Julia environment') changeJuliaEnvironment();
         });
     }
   }
@@ -82,7 +72,6 @@ export async function switchEnvToPath(envpath: string, notifyLS: boolean) {
     g_languageClient.sendNotification('julia/activateenvironment', { envPath: envpath });
   }
 }
-
 async function changeJuliaEnvironment() {
   const optionsEnv: qv.QuickPickOptions = {
     placeHolder: 'Select environment',
@@ -102,13 +91,9 @@ async function changeJuliaEnvironment() {
             break;
           }
         }
-        if (cur === homeDir) {
-          break;
-        }
+        if (cur === homeDir) break;
         cur = path.dirname(cur);
-        if (old === cur) {
-          break;
-        }
+        if (old === cur) break;
       }
     }
   }
@@ -135,7 +120,6 @@ async function changeJuliaEnvironment() {
     } else switchEnvToPath(y.description, true);
   }
 }
-
 async function getDefaultEnvPath() {
   if (g_path_of_default_environment === null) {
     if (qv.workspace.workspaceFolders) {
@@ -157,7 +141,6 @@ async function getDefaultEnvPath() {
   }
   return g_path_of_default_environment;
 }
-
 async function getEnvPath() {
   if (g_path_of_current_environment === null) {
     const section = qv.workspace.getConfig('julia');
@@ -172,7 +155,6 @@ async function getEnvPath() {
   }
   return g_path_of_current_environment;
 }
-
 function absEnvPath(p: string) {
   if (path.isAbsolute(p)) {
     return p;
@@ -180,17 +162,14 @@ function absEnvPath(p: string) {
     return path.join(qv.workspace.workspaceFolders[0].uri.fsPath, p);
   }
 }
-
 export async function getAbsEnvPath() {
   const envPath = await getEnvPath();
   return absEnvPath(envPath);
 }
-
 export async function getEnvName() {
   const envpath = await getEnvPath();
   return path.basename(envpath);
 }
-
 async function setNewJuliaExePath(p: string) {
   actualJuliaExePath = p;
   const env = {
@@ -204,15 +183,13 @@ async function setNewJuliaExePath(p: string) {
     const v = stdout.trim();
   });
 }
-
 export async function getJuliaExePath() {
   if (actualJuliaExePath === null) {
     if (!getExecutablePath()) {
       const homedir = os.homedir();
       let pathsToSearch = [];
-      if (process.platform === 'win32') {
-        pathsToSearch = ['julia.exe', path.join(homedir, 'AppData', 'Local', 'Programs', 'Julia 1.6.0', 'bin', 'julia.exe')];
-      } else if (process.platform === 'darwin') {
+      if (process.platform === 'win32') pathsToSearch = ['julia.exe', path.join(homedir, 'AppData', 'Local', 'Programs', 'Julia 1.6.0', 'bin', 'julia.exe')];
+      else if (process.platform === 'darwin') {
         pathsToSearch = [
           'julia',
           path.join(homedir, 'Applications', 'Julia-1.6.app', 'Contents', 'Resources', 'julia', 'bin', 'julia'),
@@ -224,9 +201,8 @@ export async function getJuliaExePath() {
       for (const p of pathsToSearch) {
         try {
           const res = await exec(`"${p}" --startup-file=no --history-file=no -e "println(Sys.BINDIR)"`);
-          if (p === 'julia' || p === 'julia.exe') {
-            setNewJuliaExePath(path.join(res.stdout.trim(), p));
-          } else {
+          if (p === 'julia' || p === 'julia.exe') setNewJuliaExePath(path.join(res.stdout.trim(), p));
+          else {
             setNewJuliaExePath(p);
           }
           break;
@@ -240,21 +216,17 @@ export async function getJuliaExePath() {
         try {
           fullPath = await which(getExecutablePath());
         } catch (err) {}
-        if (fullPath) {
-          setNewJuliaExePath(fullPath);
-        }
+        if (fullPath) setNewJuliaExePath(fullPath);
       }
     }
   }
   return actualJuliaExePath;
 }
-
 function getExecutablePath() {
   const c = qv.workspace.getConfig('julia');
   const p = c ? c.get('executablePath', undefined) : undefined;
   return p === undefined ? '' : p;
 }
-
 export async function getPkgPath() {
   if (!juliaPackagePath) {
     const e = await getJuliaExePath();
@@ -263,7 +235,6 @@ export async function getPkgPath() {
   }
   return juliaPackagePath;
 }
-
 export async function getPkgDepotPath() {
   if (!juliaDepotPath) {
     const e = await getJuliaExePath();
@@ -272,7 +243,6 @@ export async function getPkgDepotPath() {
   }
   return juliaDepotPath;
 }
-
 async function openPackageDirCommand() {
   const optionsPackage: qv.QuickPickOptions = {
     placeHolder: 'Select package',
@@ -281,9 +251,8 @@ async function openPackageDirCommand() {
     const juliaVersionHomeDir = await getPkgPath();
     const files = await fs.readdir(juliaVersionHomeDir);
     const filteredPackages = files.filter((path) => !path.startsWith('.') && ['METADATA', 'REQUIRE', 'META_BRANCH'].indexOf(path) < 0);
-    if (filteredPackages.length === 0) {
-      qv.window.showInformationMessage('Error: There are no packages installed.');
-    } else {
+    if (filteredPackages.length === 0) qv.window.showInformationMessage('Error: There are no packages installed.');
+    else {
       const resultPackage = await qv.window.showQuickPick(filteredPackages, optionsPackage);
       if (resultPackage !== undefined) {
         const folder = qv.Uri.file(path.join(juliaVersionHomeDir, resultPackage));
@@ -298,7 +267,6 @@ async function openPackageDirCommand() {
     qv.window.showInformationMessage('Error: Could not read package directory.');
   }
 }
-
 export function activate(c: qv.ExtensionContext) {
   c.subscriptions.push(
     onDidChangeConfig((x) => {
@@ -322,17 +290,13 @@ export function activate(c: qv.ExtensionContext) {
   c.subscriptions.push(g_current_environment);
   await switchEnvToPath(await getEnvPath(), false);
 }
-
 export class JuliaPackageDevFeature {
   constructor(private ctx: qv.ExtensionContext) {
     this.ctx.subscriptions.push(registerCommand('language-julia.tagNewPackageVersion', () => this.tagNewPackageVersion()));
   }
-
   private async tagNewPackageVersion() {
     let resultVersion = await qv.window.showQuickPick(['Next', 'Major', 'Minor', 'Patch', 'Custom'], { placeHolder: 'Please select the version to be tagged.' });
-    if (resultVersion === 'Custom') {
-      resultVersion = await qv.window.showInputBox({ prompt: 'Please enter the version number you want to tag.' });
-    }
+    if (resultVersion === 'Custom') resultVersion = await qv.window.showInputBox({ prompt: 'Please enter the version number you want to tag.' });
     if (resultVersion !== undefined) {
       const bar = await qv.authentication.getSession('github', ['repo'], { createIfNone: true });
       const accessToken = bar.accessToken;
@@ -350,6 +314,5 @@ export class JuliaPackageDevFeature {
       newTerm.show(true);
     }
   }
-
   public dispose() {}
 }

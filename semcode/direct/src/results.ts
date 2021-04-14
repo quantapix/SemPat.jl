@@ -40,31 +40,20 @@ export class Result {
   setContent(content: ResultContent) {
     if (this.destroyed) return;
     this.content = content;
-    if (this.decoration) {
-      this.remove();
-    }
+    if (this.decoration) this.remove();
     const decoration = this.createDecoration();
-    if (content.isIcon) {
-      decoration.before.contentIconPath = content.content;
-    } else if (decoration.before) {
+    if (content.isIcon) decoration.before.contentIconPath = content.content;
+    else if (decoration.before) {
       decoration.before.contentText = content.content;
     }
     this.decoration = qv.window.createTextEditorDecorationType(decoration);
     for (const ed of qv.window.visibleTextEditors) {
-      if (ed.document === this.document) {
-        ed.setDecorations(this.decoration, [
-          {
-            hoverMessage: this.content.hoverContent,
-            range: this.decorationRange,
-          },
-        ]);
-      }
+      if (ed.document === this.document) ed.setDecorations(this.decoration, [{ hoverMessage: this.content.hoverContent, range: this.decorationRange }]);
     }
   }
   createDecoration(): qv.DecorationRenderOptions {
-    if (this.content.type === ResultType.Error) {
-      return this.createErrorDecoration();
-    } else {
+    if (this.content.type === ResultType.Error) return this.createErrorDecoration();
+    else {
       return this.createResultDecoration();
     }
   }
@@ -124,9 +113,7 @@ export class Result {
     this.setContent(this.content);
   }
   validate(e: qv.TextDocumentChangeEvent) {
-    if (this.document !== e.document) {
-      return true;
-    }
+    if (this.document !== e.document) return true;
     for (const change of e.contentChanges) {
       const intersect = change.range.intersection(this.range);
       if (intersect !== undefined && !(intersect.isEmpty && change.text === '\n')) {
@@ -229,9 +216,7 @@ export function setStackTrace(result: Result, err: string, frames: Frame[]) {
 }
 export function clearStackTrace() {
   stackFrameHighlights.highlights.forEach((highlight) => {
-    if (highlight.result) {
-      highlight.result.remove();
-    }
+    if (highlight.result) highlight.result.remove();
   });
   stackFrameHighlights.highlights = [];
   stackFrameHighlights.err = '';
@@ -240,14 +225,11 @@ function setStackFrameHighlight(err: string, frames: Frame[], editors: qv.TextEd
   stackFrameHighlights.err = err;
   frames.forEach((frame) => {
     const targetEditors = editors.filter((editor) => isEditorPath(editor, frame.path));
-    if (targetEditors.length === 0) {
-      stackFrameHighlights.highlights.push({ frame, result: undefined });
-    } else {
+    if (targetEditors.length === 0) stackFrameHighlights.highlights.push({ frame, result: undefined });
+    else {
       targetEditors.forEach((targetEditor) => {
         const result = addErrorResult(err, frame, targetEditor);
-        if (result) {
-          stackFrameHighlights.highlights.push({ frame, result });
-        }
+        if (result) stackFrameHighlights.highlights.push({ frame, result });
       });
     }
   });
@@ -285,22 +267,17 @@ function attachGotoFrameCommandLinks(transformed: string, frame: Frame) {
 export function refreshResults(editors: qv.TextEditor[]) {
   results.forEach((result) => {
     editors.forEach((editor) => {
-      if (result.document === editor.document) {
-        result.draw();
-      }
+      if (result.document === editor.document) result.draw();
     });
   });
   stackFrameHighlights.highlights.forEach((highlight) => {
     const frame = highlight.frame;
     editors.forEach((editor) => {
       if (isEditorPath(editor, frame.path)) {
-        if (highlight.result) {
-          highlight.result.draw();
-        } else {
+        if (highlight.result) highlight.result.draw();
+        else {
           const result = addErrorResult(stackFrameHighlights.err, frame, editor);
-          if (result) {
-            highlight.result = result;
-          }
+          if (result) highlight.result = result;
         }
       }
     });
@@ -324,9 +301,7 @@ export function removeCurrent(editor: qv.TextEditor) {
   setContext('juliaHasInlineResult', false);
 }
 function isResultInLineRange(editor: qv.TextEditor, result: Result, range: qv.Selection | qv.Range) {
-  if (result.document !== editor.document) {
-    return false;
-  }
+  if (result.document !== editor.document) return false;
   const intersect = range.intersection(result.range);
   const lineRange = new qv.Range(range.start.with(undefined, 0), editor.document.validatePosition(range.start.with(undefined, LINE_INF)));
   const lineIntersect = lineRange.intersection(result.range);

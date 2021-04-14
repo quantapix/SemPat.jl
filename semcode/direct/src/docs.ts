@@ -3,7 +3,6 @@ import * as path from 'path';
 import * as qv from 'vscode';
 import { withLangClient } from './extension_rs';
 import { constructCommandString, getVersionedParamsAtPosition, registerCommand } from './utils';
-
 function openArgs(href: string) {
   const matches = href.match(/^((\w+\:\/\/)?.+?)(?:\:(\d+))?$/);
   let uri;
@@ -16,16 +15,13 @@ function openArgs(href: string) {
   }
   return { uri, line };
 }
-
 const md = new markdownit()
   .use(require('@traptitech/markdown-it-katex'), {
     output: 'html',
   })
   .use(require('markdown-it-footnote'));
-
 md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
   const aIndex = tokens[idx].attrIndex('href');
-
   if (aIndex >= 0 && tokens[idx].attrs[aIndex][1] === '@ref' && tokens.length > idx + 1) {
     const commandUri = constructCommandString('language-julia.search-word', { searchTerm: tokens[idx + 1].content });
     tokens[idx].attrs[aIndex][1] = qv.Uri.parse(commandUri).toString();
@@ -33,20 +29,16 @@ md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
     const href = tokens[idx + 1].content;
     const { uri, line } = openArgs(href);
     let commandUri;
-    if (line === undefined) {
-      commandUri = constructCommandString('qv.open', uri);
-    } else {
+    if (line === undefined) commandUri = constructCommandString('qv.open', uri);
+    else {
       commandUri = constructCommandString('language-julia.openFile', { path: uri, line });
     }
     tokens[idx].attrs[aIndex][1] = commandUri;
   }
-
   return self.renderToken(tokens, idx, options);
 };
-
 export function activate(context: qv.ExtensionContext) {
   const provider = new DocumentationViewProvider(context);
-
   context.subscriptions.push(
     registerCommand('language-julia.show-documentation-pane', () => provider.showDocumentationPane()),
     registerCommand('language-julia.show-documentation', () => provider.showDocumentation()),
@@ -56,57 +48,41 @@ export function activate(context: qv.ExtensionContext) {
     qv.window.registerWebviewViewProvider('julia-documentation', provider)
   );
 }
-
 class DocumentationViewProvider implements qv.WebviewViewProvider {
   private view?: qv.WebviewView;
   private context: qv.ExtensionContext;
-
   private backStack = Array<string>(); // also keep current page
   private forwardStack = Array<string>();
-
   constructor(context) {
     this.context = context;
   }
-
   resolveWebviewView(view: qv.WebviewView, context: qv.WebviewViewResolveContext) {
     this.view = view;
-
     view.webview.options = {
       enableScripts: true,
       enableCommandUris: true,
     };
     view.webview.html = this.createWebviewHTML('Use the `language-julia.show-documentation` command in an editor or search for documentation above.');
-
     view.webview.onDidReceiveMessage((msg) => {
-      if (msg.type === 'search') {
-        this.showDocumentationFromWord(msg.query);
-      } else {
+      if (msg.type === 'search') this.showDocumentationFromWord(msg.query); else {
         console.error('unknown message received');
       }
     });
   }
-
   findHelp(params: { searchTerm: string }) {
     this.showDocumentationFromWord(params.searchTerm);
   }
-
   async showDocumentationPane() {
     await qv.commands.executeCommand('julia-documentation.focus');
-
-    if (this.view) {
-      this.view.show?.(true);
-    }
+    if (this.view) this.view.show?.(true);
   }
-
   async showDocumentationFromWord(word: string) {
     const docAsMD = await this.getDocumentationFromWord(word);
     if (!docAsMD) return;
-
     await this.showDocumentationPane();
     const html = this.createWebviewHTML(docAsMD);
     this.setHTML(html);
   }
-
   async getDocumentationFromWord(word: string): Promise<string> {
     return await withLangClient(
       async (languageClient) => {
@@ -118,20 +94,16 @@ class DocumentationViewProvider implements qv.WebviewViewProvider {
       }
     );
   }
-
   async showDocumentation() {
     const editor = qv.window.activeTextEditor;
     if (!editor) return;
-
     const docAsMD = await this.getDocumentation(editor);
     if (!docAsMD) return;
-
     this.forwardStack = [];
     await this.showDocumentationPane();
     const html = this.createWebviewHTML(docAsMD);
     this.setHTML(html);
   }
-
   async getDocumentation(editor: qv.TextEditor): Promise<string> {
     return await withLangClient(
       async (languageClient) => {
@@ -143,24 +115,18 @@ class DocumentationViewProvider implements qv.WebviewViewProvider {
       }
     );
   }
-
   createWebviewHTML(docAsMD: string) {
     const docAsHTML = md.render(docAsMD);
-
     const extensionPath = this.context.extensionPath;
-
     const googleFontscss = this.view.webview.asWebviewUri(qv.Uri.file(path.join(extensionPath, 'libs', 'google_fonts', 'css')));
     const fontawesomecss = this.view.webview.asWebviewUri(qv.Uri.file(path.join(extensionPath, 'libs', 'fontawesome', 'fontawesome.min.css')));
     const solidcss = this.view.webview.asWebviewUri(qv.Uri.file(path.join(extensionPath, 'libs', 'fontawesome', 'solid.min.css')));
     const brandscss = this.view.webview.asWebviewUri(qv.Uri.file(path.join(extensionPath, 'libs', 'fontawesome', 'brands.min.css')));
     const documenterStylesheetcss = this.view.webview.asWebviewUri(qv.Uri.file(path.join(extensionPath, 'libs', 'documenter', 'documenter-qv.css')));
     const katexcss = this.view.webview.asWebviewUri(qv.Uri.file(path.join(extensionPath, 'libs', 'katex', 'katex.min.css')));
-
     const webfontjs = this.view.webview.asWebviewUri(qv.Uri.file(path.join(extensionPath, 'libs', 'webfont', 'webfont.js')));
-
     return `
     <html lang="en" class='theme--documenter-vscode'>
-
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -171,7 +137,6 @@ class DocumentationViewProvider implements qv.WebviewViewProvider {
         <link href=${brandscss} rel="stylesheet" type="text/css" />
         <link href=${katexcss} rel="stylesheet" type="text/css" />
         <link href=${documenterStylesheetcss} rel="stylesheet" type="text/css">
-
         <script type="text/javascript">
             WebFontConfig = {
                 custom: {
@@ -180,7 +145,6 @@ class DocumentationViewProvider implements qv.WebviewViewProvider {
                 },
             }
         </script>
-
         <style>
         body:active {
             outline: 1px solid var(--vscode-focusBorder);
@@ -222,16 +186,13 @@ class DocumentationViewProvider implements qv.WebviewViewProvider {
         button:hover {
             background-color: var(--vscode-button-hoverBackground);
         }
-
         button:focus {
             outline: 1px solid var(--vscode-focusBorder);
             outline-offset: 0px;
         }
         </style>
-
         <script src=${webfontjs}></script>
     </head>
-
     <body>
         <div class="search">
             <input id="search-input" type="text" placeholder="Search"></input>
@@ -243,10 +204,8 @@ class DocumentationViewProvider implements qv.WebviewViewProvider {
         </div>
         <script>
             const vscode = acquireVsCodeApi()
-
             function search(val) {
-                if (val) {
-                    qv.postMessage({
+                if (val) qv.postMessage({
                         type: 'search',
                         query: val
                     })
@@ -261,39 +220,26 @@ class DocumentationViewProvider implements qv.WebviewViewProvider {
             document.getElementById('search-input').addEventListener('keydown', onKeyDown)
         </script>
     </body>
-
     </html>
     `;
-  }
-
   setHTML(html: string) {
     this.backStack.push(html);
-
-    if (this.view) {
-      this.view.webview.html = html;
-    }
+    if (this.view) this.view.webview.html = html;
   }
-
   isBrowseBackAvailable() {
     return this.backStack.length > 1;
   }
-
   isBrowseForwardAvailable() {
     return this.forwardStack.length > 0;
   }
-
   browseBack() {
     if (!this.isBrowseBackAvailable()) return;
-
     const current = this.backStack.pop();
     this.forwardStack.push(current);
-
     this.setHTML(this.backStack.pop());
   }
-
   browseForward() {
     if (!this.isBrowseForwardAvailable()) return;
-
     this.setHTML(this.forwardStack.pop());
   }
 }

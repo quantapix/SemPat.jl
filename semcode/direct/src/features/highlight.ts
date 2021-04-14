@@ -14,6 +14,7 @@ import { convertOffsetToPosition, convertPositionToOffset } from '../common/posi
 import { Position, TextRange } from '../common/textRange';
 import { ModuleNameNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
+
 class TsHighlight implements qv.DocumentHighlightProvider {
   public constructor(private readonly client: ServiceClient) {}
   public async provideDocumentHighlights(d: qv.TextDocument, p: qv.Position, t: qv.CancellationToken): Promise<qv.DocumentHighlight[]> {
@@ -25,15 +26,16 @@ class TsHighlight implements qv.DocumentHighlightProvider {
     };
     const y = await this.client.execute('documentHighlights', xs, t);
     if (y.type !== 'response' || !y.body) return [];
-    return qu.flatten(y.body.filter((highlight) => highlight.file === f).map(convertDocumentHighlight));
+    return qu.flatten(y.body.filter((x) => x.file === f).map(convertDocumentHighlight));
   }
 }
 function convertDocumentHighlight(i: qp.DocumentHighlightsItem): ReadonlyArray<qv.DocumentHighlight> {
-  return i.highlightSpans.map((s) => new qv.DocumentHighlight(qu.Range.fromTextSpan(s), s.kind === 'writtenReference' ? qv.DocumentHighlightKind.Write : qv.DocumentHighlightKind.Read));
+  return i.highlightSpans.map((x) => new qv.DocumentHighlight(qu.Range.fromTextSpan(x), x.kind === 'writtenReference' ? qv.DocumentHighlightKind.Write : qv.DocumentHighlightKind.Read));
 }
 export function register(s: qu.DocumentSelector, c: ServiceClient) {
   return qv.languages.registerDocumentHighlightProvider(s.syntax, new TsHighlight(c));
 }
+
 class HighlightSymbolTreeWalker extends ParseTreeWalker {
   constructor(
     private _symbolName: string,
@@ -51,7 +53,7 @@ class HighlightSymbolTreeWalker extends ParseTreeWalker {
   walk(node: ParseNode) {
     if (!isCodeUnreachable(node)) super.walk(node);
   }
-  visitModuleName(node: ModuleNameNode): boolean {
+  visitModuleName(_: ModuleNameNode): boolean {
     return false;
   }
   visitName(node: NameNode): boolean {
@@ -124,6 +126,7 @@ class HighlightSymbolTreeWalker extends ParseTreeWalker {
     return this._declarations.some((decl) => areDeclarationsSame(decl, resolvedDeclNonlocal));
   }
 }
+
 export class PyHighlight {
   static getDocumentHighlight(parseResults: ParseResults, position: Position, evaluator: TypeEvaluator, token: qv.CancellationToken): DocumentHighlight[] | undefined {
     throwIfCancellationRequested(token);

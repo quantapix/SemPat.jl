@@ -44,9 +44,7 @@ export class RLSConfig {
       } catch (e) {
         return 'nightly';
       }
-    } else {
-      return channel;
-    }
+    } else return channel;
   }
 
   public get rustupPath(): string {

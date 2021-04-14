@@ -12,7 +12,6 @@ import { NotificationType, RequestType, RequestType0 } from 'vscode-jsonrpc';
 import * as packs from './packs';
 import { getJuliaExePath } from './packs';
 import { registerCommand } from './utils';
-
 interface DisconnectResponseArguments {}
 interface SetBreakpointsResponseArguments {
   breakpoints: DebugProtocol.Breakpoint[];
@@ -82,7 +81,6 @@ interface ThreadsResponseArguments {
 interface BreakpointLocationsResponseArguments {
   breakpoints: DebugProtocol.BreakpointLocation[];
 }
-
 export const requestTypeDisconnect = new RequestType<DebugProtocol.DisconnectArguments, DisconnectResponseArguments, void>('disconnect');
 export const requestTypeSetBreakpoints = new RequestType<DebugProtocol.SetBreakpointsArguments, SetBreakpointsResponseArguments, void>('setBreakpoints');
 export const requestTypeSetExceptionBreakpoints = new RequestType<DebugProtocol.SetExceptionBreakpointsArguments, SetExceptionBreakpointsResponseArguments, void>('setExceptionBreakpoints');
@@ -108,7 +106,6 @@ export const notifyTypeDebug = new NotificationType<{ stopOnEntry: boolean; prog
 export const notifyTypeExec = new NotificationType<{ stopOnEntry: boolean; code: string; file: string }>('exec');
 export const notifyTypeOurFinished = new NotificationType<void>('finished');
 export const notifyTypeStopped = new NotificationType<StoppedArguments>('stopped');
-
 interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
   program: string;
   stopOnEntry?: boolean;
@@ -117,31 +114,24 @@ interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
   trace?: boolean;
   args?: string[];
 }
-
 interface AttachRequestArguments extends DebugProtocol.AttachRequestArguments {
   code: string;
   file: string;
   stopOnEntry: boolean;
 }
-
 export class JuliaDebugSession extends LoggingDebugSession {
   private _configurationDone = new Subject();
-
   private _debuggeeTerminal: qv.Terminal;
   private _connection: MessageConnection;
   private _debuggeeWrapperSocket: net.Socket;
-
   private _launchMode: boolean;
   private _launchedWithoutDebug: boolean;
-
   private _no_need_for_force_kill: boolean = false;
-
   public constructor(private context: qv.ExtensionContext, private juliaPath: string) {
     super('julia-debug.txt');
     this.setDebuggerLinesStartAt1(true);
     this.setDebuggerColumnsStartAt1(true);
   }
-
   protected async initializeRequest(r: DebugProtocol.InitializeResponse, _: DebugProtocol.InitializeRequestArguments): Promise<void> {
     r.body = r.body || {};
     r.body.supportsConfigDoneRequest = true;
@@ -167,17 +157,14 @@ export class JuliaDebugSession extends LoggingDebugSession {
     ];
     this.sendResponse(r);
   }
-
   protected configurationDoneRequest(response: DebugProtocol.ConfigDoneResponse, args: DebugProtocol.ConfigDoneArguments): void {
     super.configurationDoneRequest(response, args);
     this._configurationDone.notify();
   }
-
   protected ourFinishedEvent() {
     this._no_need_for_force_kill = true;
     this.sendEvent(new TerminatedEvent());
   }
-
   protected async attachRequest(response: DebugProtocol.AttachResponse, args: AttachRequestArguments) {
     this._launchMode = false;
     const pn = generatePipeName(uuid(), 'vsc-jl-dbg');
@@ -201,7 +188,6 @@ export class JuliaDebugSession extends LoggingDebugSession {
     this._connection.sendNotification(notifyTypeExec, { stopOnEntry: args.stopOnEntry, code: args.code, file: args.file });
     this.sendResponse(response);
   }
-
   protected async launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments) {
     this._launchMode = true;
     logger.setup(args.trace ? Logger.LogLevel.Verbose : Logger.LogLevel.Stop, false);
@@ -217,23 +203,17 @@ export class JuliaDebugSession extends LoggingDebugSession {
       this._connection.listen();
       connectedPromise.notify();
     });
-
     const serverForWrapper = net.createServer((socket) => {
       this._debuggeeWrapperSocket = socket;
     });
-
     serverForWrapper.listen(pnForWrapper, () => {
       serverForWrapperPromise.notify();
     });
-
     await serverForWrapperPromise.wait();
-
     server.listen(pn, () => {
       serverListeningPromise.notify();
     });
-
     await serverListeningPromise.wait();
-
     this._debuggeeTerminal = qv.window.createTerminal({
       name: 'Julia Debugger',
       shellPath: this.juliaPath,
@@ -254,42 +234,29 @@ export class JuliaDebugSession extends LoggingDebugSession {
       this,
       disposables
     );
-
     await connectedPromise.wait();
     this.sendEvent(new InitializedEvent());
     await this._configurationDone.wait();
     this._launchedWithoutDebug = args.noDebug;
-    if (args.noDebug) {
-      this._connection.sendNotification(notifyTypeRun, { program: args.program });
-    } else {
+    if (args.noDebug) this._connection.sendNotification(notifyTypeRun, { program: args.program });
+    else {
       this._connection.sendNotification(notifyTypeDebug, { stopOnEntry: args.stopOnEntry, program: args.program });
     }
-
     this.sendResponse(response);
   }
-
   protected async terminateRequest(response: DebugProtocol.TerminateResponse, args: DebugProtocol.TerminateArguments) {
     if (this._launchedWithoutDebug) {
       this._debuggeeWrapperSocket.write('TERMINATE\n');
       this.sendEvent(new TerminatedEvent());
-    } else {
-      response.body = await this._connection.sendRequest(requestTypeTerminate, args);
-    }
+    } else response.body = await this._connection.sendRequest(requestTypeTerminate, args);
     this.sendResponse(response);
   }
-
   protected async disconnectRequest(response: DebugProtocol.DisconnectResponse, args: DebugProtocol.DisconnectArguments) {
     if (this._launchMode) {
-      if (!this._no_need_for_force_kill) {
-        this._debuggeeWrapperSocket.write('TERMINATE\n');
-      }
-    } else {
-      response.body = await this._connection.sendRequest(requestTypeDisconnect, args);
-    }
-
+      if (!this._no_need_for_force_kill) this._debuggeeWrapperSocket.write('TERMINATE\n');
+    } else response.body = await this._connection.sendRequest(requestTypeDisconnect, args);
     this.sendResponse(response);
   }
-
   protected async setVariableRequest(response: DebugProtocol.SetVariableResponse, args: DebugProtocol.SetVariableArguments) {
     try {
       response.body = await this._connection.sendRequest(requestTypeSetVariable, args);
@@ -299,42 +266,34 @@ export class JuliaDebugSession extends LoggingDebugSession {
     }
     this.sendResponse(response);
   }
-
   protected async breakpointLocationsRequest(response: DebugProtocol.BreakpointLocationsResponse, args: DebugProtocol.BreakpointLocationsArguments) {
     response.body = await this._connection.sendRequest(requestTypeBreakpointLocations, args);
     this.sendResponse(response);
   }
-
   protected async threadsRequest(response: DebugProtocol.ThreadsResponse) {
     response.body = await this._connection.sendRequest(requestTypeThreads);
     this.sendResponse(response);
   }
-
   protected async setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments) {
     response.body = await this._connection.sendRequest(requestTypeSetBreakpoints, args);
     this.sendResponse(response);
   }
-
   protected async setFunctionBreakPointsRequest(response: DebugProtocol.SetFunctionBreakpointsResponse, args: DebugProtocol.SetFunctionBreakpointsArguments) {
     response.body = await this._connection.sendRequest(requestTypeSetFunctionBreakpoints, args);
     this.sendResponse(response);
   }
-
   protected async setExceptionBreakPointsRequest(response: DebugProtocol.SetExceptionBreakpointsResponse, args: DebugProtocol.SetExceptionBreakpointsArguments) {
     response.body = await this._connection.sendRequest(requestTypeSetExceptionBreakpoints, args);
     this.sendResponse(response);
   }
-
   protected async continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments) {
     response.body = await this._connection.sendRequest(requestTypeContinue, args);
     this.sendResponse(response);
   }
-
   protected async nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments) {
     response.body = await this._connection.sendRequest(requestTypeNext, args);
     this.sendResponse(response);
   }
-
   protected async stepInRequest(response: DebugProtocol.StepInResponse, args: DebugProtocol.StepInArguments) {
     response.body = await this._connection.sendRequest(requestTypeStepIn, args);
     this.sendResponse(response);
@@ -343,53 +302,43 @@ export class JuliaDebugSession extends LoggingDebugSession {
     response.body = await this._connection.sendRequest(requestTypeStepInTargets, args);
     this.sendResponse(response);
   }
-
   protected async stepOutRequest(response: DebugProtocol.StepOutResponse, args: DebugProtocol.StepOutArguments) {
     response.body = await this._connection.sendRequest(requestTypeStepOut, args);
     this.sendResponse(response);
   }
-
   protected async restartFrameRequest(response: DebugProtocol.RestartFrameResponse, args: DebugProtocol.RestartFrameArguments) {
     response.body = await this._connection.sendRequest(requestTypeRestartFrame, args);
     this.sendResponse(response);
   }
-
   protected async evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments) {
     response.body = await this._connection.sendRequest(requestTypeEvaluate, args);
     this.sendResponse(response);
   }
-
   protected async exceptionInfoRequest(response: DebugProtocol.ExceptionInfoResponse, args: DebugProtocol.ExceptionInfoArguments) {
     response.body = await this._connection.sendRequest(requestTypeExceptionInfo, args);
     this.sendResponse(response);
   }
-
   protected async stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments) {
     response.body = await this._connection.sendRequest(requestTypeStackTrace, args);
     this.sendResponse(response);
   }
-
   protected async sourceRequest(response: DebugProtocol.SourceResponse, args: DebugProtocol.SourceArguments) {
     response.body = await this._connection.sendRequest(requestTypeSource, args);
     this.sendResponse(response);
   }
-
   protected async scopesRequest(response: DebugProtocol.ScopesResponse, args: DebugProtocol.ScopesArguments) {
     response.body = await this._connection.sendRequest(requestTypeScopes, args);
     this.sendResponse(response);
   }
-
   protected async variablesRequest(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments) {
     response.body = await this._connection.sendRequest(requestTypeVariables, args);
     this.sendResponse(response);
   }
 }
-
 export class JuliaDebugFeature {
   constructor(private context: qv.ExtensionContext) {
     const provider = new JuliaDebugConfigProvider();
     const factory = new InlineDebugAdapterFact(this.context);
-
     this.context.subscriptions.push(
       qv.debug.registerDebugConfigProvider('julia', provider),
       qv.debug.registerDebugAdapterDescriptorFact('julia', factory),
@@ -414,9 +363,7 @@ export class JuliaDebugFeature {
           program: resource.fsPath,
           noDebug: true,
         });
-        if (!success) {
-          qv.window.showErrorMessage('Could not run editor content in new process.');
-        }
+        if (!success) qv.window.showErrorMessage('Could not run editor content in new process.');
       }),
       registerCommand('language-julia.debugEditorContents', async (resource: qv.Uri | undefined) => {
         resource = getActiveUri(resource);
@@ -435,63 +382,31 @@ export class JuliaDebugFeature {
           request: 'launch',
           program: resource.fsPath,
         });
-        if (!success) {
-          qv.window.showErrorMessage('Could not debug editor content in new process.');
-        }
+        if (!success) qv.window.showErrorMessage('Could not debug editor content in new process.');
       })
     );
   }
-
   public dispose() {}
 }
-
 function getActiveUri(uri: qv.Uri | undefined, editor: qv.TextEditor | undefined = qv.window.activeTextEditor) {
   return uri || (editor ? editor.document.uri : undefined);
 }
-
 export class JuliaDebugConfigProvider implements qv.DebugConfigProvider {
   public resolveDebugConfig(folder: qv.WorkspaceFolder | undefined, config: qv.DebugConfig, token?: qv.CancellationToken): qv.ProviderResult<qv.DebugConfig> {
-    if (!config.request) {
-      config.request = 'launch';
-    }
-
-    if (!config.type) {
-      config.type = 'julia';
-    }
-
-    if (!config.name) {
-      config.name = 'Launch Julia';
-    }
-
-    if (!config.program && config.request !== 'attach') {
-      config.program = qv.window.activeTextEditor.document.fileName;
-    }
-
-    if (!config.internalConsoleOptions) {
-      config.internalConsoleOptions = 'neverOpen';
-    }
-
-    if (!config.stopOnEntry) {
-      config.stopOnEntry = false;
-    }
-
-    if (!config.cwd && config.request !== 'attach') {
-      config.cwd = '${workspaceFolder}';
-    }
-
-    if (!config.juliaEnv && config.request !== 'attach') {
-      config.juliaEnv = '${command:activeJuliaEnvironment}';
-    }
-
+    if (!config.request) config.request = 'launch';
+    if (!config.type) config.type = 'julia';
+    if (!config.name) config.name = 'Launch Julia';
+    if (!config.program && config.request !== 'attach') config.program = qv.window.activeTextEditor.document.fileName;
+    if (!config.internalConsoleOptions) config.internalConsoleOptions = 'neverOpen';
+    if (!config.stopOnEntry) config.stopOnEntry = false;
+    if (!config.cwd && config.request !== 'attach') config.cwd = '${workspaceFolder}';
+    if (!config.juliaEnv && config.request !== 'attach') config.juliaEnv = '${command:activeJuliaEnvironment}';
     console.log(config);
-
     return config;
   }
 }
-
 class InlineDebugAdapterFact implements qv.DebugAdapterDescriptorFact {
   constructor(private context: qv.ExtensionContext) {}
-
   createDebugAdapterDescriptor(_session: qv.DebugSession): qv.ProviderResult<qv.DebugAdapterDescriptor> {
     return (async () => {
       return new qv.DebugAdapterInlineImplementation(<any>new JuliaDebugSession(this.context, await getJuliaExePath()));

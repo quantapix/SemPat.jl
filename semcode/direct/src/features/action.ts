@@ -1,84 +1,81 @@
 import * as qv from 'vscode';
-import { listPackages } from '../goImport';
+import { listPackages } from './import';
 import { CancellationToken, CodeAction, CodeActionKind, Command } from 'vscode-languageserver';
-import { Commands } from '../commands/commands';
-import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { Commands } from '../commands';
+import { throwIfCancellationRequested } from '../utils/cancel';
 import { AddMissingOptionalToParamAction, CreateTypeStubFileAction } from '../common/diagnostic';
 import { Range } from '../common/textRange';
 import { WorkspaceServiceInstance } from '../languageServerBase';
 import { Localizer } from '../localization/localize';
+
 export class GoCodeAction implements qv.CodeActionProvider {
-  public provideCodeActions(document: qv.TextDocument, range: qv.Range, context: qv.CodeActionContext, token: qv.CancellationToken): Thenable<qv.Command[]> {
-    const promises = context.diagnostics.map((diag) => {
-      if (diag.message.indexOf('undefined: ') === 0) {
-        const [, name] = /^undefined: (\S*)/.exec(diag.message);
-        return listPackages().then((packages) => {
-          const commands = packages
-            .filter((pkg) => pkg === name || pkg.endsWith('/' + name))
-            .map((pkg) => {
-              return {
-                title: 'import "' + pkg + '"',
-                command: 'go.import.add',
-                arguments: [{ importPath: pkg, from: 'codeAction' }],
-              };
+  public provideCodeActions(d: qv.TextDocument, r: qv.Range, c: qv.CodeActionContext, t: qv.CancellationToken): Thenable<qv.Command[]> {
+    const ps = c.diagnostics.map((d) => {
+      if (d.message.indexOf('undefined: ') === 0) {
+        const [, name] = /^undefined: (\S*)/.exec(d.message);
+        return listPackages().then((ps) => {
+          return ps
+            .filter((p) => p === name || p.endsWith('/' + name))
+            .map((p) => {
+              return { title: 'import "' + p + '"', command: 'go.import.add', arguments: [{ importPath: p, from: 'codeAction' }] };
             });
-          return commands;
         });
       }
       return [];
     });
-    return Promise.all(promises).then((arrs) => {
-      const results: { [key: string]: any } = {};
-      for (const segment of arrs) {
-        for (const item of segment) {
-          results[item.title] = item;
+    return Promise.all(ps).then((arrs) => {
+      const xs: { [k: string]: any } = {};
+      for (const es of arrs) {
+        for (const e of es) {
+          xs[e.title] = e;
         }
       }
-      const ret = [];
-      for (const title of Object.keys(results).sort()) {
-        ret.push(results[title]);
+      const ys = [];
+      for (const k of Object.keys(xs).sort()) {
+        ys.push(xs[k]);
       }
-      return ret;
+      return ys;
     });
   }
 }
+
 export class PyCodeAction {
-  static async getCodeActionsForPosition(workspace: WorkspaceServiceInstance, filePath: string, range: Range, token: CancellationToken) {
-    throwIfCancellationRequested(token);
-    const codeActions: CodeAction[] = [];
-    if (!workspace.disableLangServices) {
-      const diags = await workspace.serviceInstance.getDiagsForRange(filePath, range, token);
-      const typeStubDiag = diags.find((d) => {
-        const actions = d.getActions();
-        return actions && actions.find((a) => a.action === Commands.createTypeStub);
+  static async getCodeActionsForPosition(w: WorkspaceServiceInstance, path: string, r: Range, t: CancellationToken) {
+    throwIfCancellationRequested(t);
+    const ys: CodeAction[] = [];
+    if (!w.disableLangServices) {
+      const ds = await w.serviceInstance.getDiagsForRange(path, r, t);
+      const stub = ds.find((d) => {
+        const xs = d.getActions();
+        return xs && xs.find((x) => x.action === Commands.createTypeStub);
       });
-      if (typeStubDiag) {
-        const action = typeStubDiag.getActions()!.find((a) => a.action === Commands.createTypeStub) as CreateTypeStubFileAction;
-        if (action) {
-          const createTypeStubAction = CodeAction.create(
-            Localizer.CodeAction.createTypeStubFor().format({ moduleName: action.moduleName }),
-            Command.create(Localizer.CodeAction.createTypeStub(), Commands.createTypeStub, workspace.rootPath, action.moduleName, filePath),
+      if (stub) {
+        const a = stub.getActions()!.find((x) => x.action === Commands.createTypeStub) as CreateTypeStubFileAction;
+        if (a) {
+          const y = CodeAction.create(
+            Localizer.CodeAction.createTypeStubFor().format({ moduleName: a.moduleName }),
+            Command.create(Localizer.CodeAction.createTypeStub(), Commands.createTypeStub, w.rootPath, a.moduleName, path),
             CodeActionKind.QuickFix
           );
-          codeActions.push(createTypeStubAction);
+          ys.push(y);
         }
       }
-      const addOptionalDiag = diags.find((d) => {
-        const actions = d.getActions();
-        return actions && actions.find((a) => a.action === Commands.addMissingOptionalToParam);
+      const opt = ds.find((d) => {
+        const xs = d.getActions();
+        return xs && xs.find((x) => x.action === Commands.addMissingOptionalToParam);
       });
-      if (addOptionalDiag) {
-        const action = addOptionalDiag.getActions()!.find((a) => a.action === Commands.addMissingOptionalToParam) as AddMissingOptionalToParamAction;
-        if (action) {
-          const addMissingOptionalAction = CodeAction.create(
+      if (opt) {
+        const a = opt.getActions()!.find((x) => x.action === Commands.addMissingOptionalToParam) as AddMissingOptionalToParamAction;
+        if (a) {
+          const y = CodeAction.create(
             Localizer.CodeAction.addOptionalToAnnotation(),
-            Command.create(Localizer.CodeAction.addOptionalToAnnotation(), Commands.addMissingOptionalToParam, action.offsetOfTypeNode),
+            Command.create(Localizer.CodeAction.addOptionalToAnnotation(), Commands.addMissingOptionalToParam, a.offsetOfTypeNode),
             CodeActionKind.QuickFix
           );
-          codeActions.push(addMissingOptionalAction);
+          ys.push(y);
         }
       }
     }
-    return codeActions;
+    return ys;
   }
 }

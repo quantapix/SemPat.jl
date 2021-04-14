@@ -261,16 +261,12 @@ function setLangClient(c?: LangClient) {
 }
 
 export async function withLangClient(callback: (c: LangClient) => any, callbackOnHandledErr: (err: Error) => any) {
-  if (g_languageClient === null) {
-    return callbackOnHandledErr(new Error('Lang client is not active'));
-  }
+  if (g_languageClient === null) return callbackOnHandledErr(new Error('Lang client is not active'));
   await g_languageClient.onReady();
   try {
     return callback(g_languageClient);
   } catch (err) {
-    if (err.message === 'Lang client is not ready yet') {
-      return callbackOnHandledErr(err);
-    }
+    if (err.message === 'Lang client is not ready yet') return callbackOnHandledErr(err);
     throw err;
   }
 }
@@ -349,9 +345,7 @@ async function startLangServer() {
   };
   const languageClient = new LangClient('julia', 'Julia Lang Server', serverOptions, clientOptions);
   languageClient.registerProposedFeatures();
-  if (g_watchedEnvironmentFile) {
-    unwatchFile(g_watchedEnvironmentFile);
-  }
+  if (g_watchedEnvironmentFile) unwatchFile(g_watchedEnvironmentFile);
   g_watchedEnvironmentFile = (await packs.getProjectFilePaths(jlEnvPath)).manifest_toml_path;
   if (g_watchedEnvironmentFile) {
     watchFile(g_watchedEnvironmentFile, { interval: 10000 }, (curr, prev) => {

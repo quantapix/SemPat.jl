@@ -16,9 +16,7 @@ export interface Api {
 export function getExtensionApi(onCompletionAccepted: qv.Event<qv.CompletionItem>, pluginMgr: PluginMgr): Api {
   return {
     getAPI(version) {
-      if (version === 0) {
-        return new ApiV0(onCompletionAccepted, pluginMgr);
-      }
+      if (version === 0) return new ApiV0(onCompletionAccepted, pluginMgr);
       return undefined;
     },
   };
