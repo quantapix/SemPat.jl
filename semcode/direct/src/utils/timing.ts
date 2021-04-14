@@ -18,9 +18,8 @@ export class TimingStat {
   isTiming = false;
   timeOp<T>(callback: () => T): T {
     this.callCount++;
-    if (this.isTiming) {
-      return callback();
-    } else {
+    if (this.isTiming) return callback();
+    else {
       this.isTiming = true;
       const duration = new Duration();
       const result = callback();

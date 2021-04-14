@@ -97,16 +97,14 @@ export class TSServerSpawner {
     const canceller = cancellerFact.create(kind, this._tracer);
     const { args, tsServerLogFile, tsServerTraceDir } = this.getTSServerArgs(kind, configuration, version, apiVersion, pluginMgr, canceller.cancellationPipeName);
     if (TSServerSpawner.isLoggingEnabled(configuration)) {
-      if (tsServerLogFile) {
-        this._logger.info(`<${kind}> Log file: ${tsServerLogFile}`);
-      } else {
+      if (tsServerLogFile) this._logger.info(`<${kind}> Log file: ${tsServerLogFile}`);
+      else {
         this._logger.error(`<${kind}> Could not create log directory`);
       }
     }
     if (configuration.enableTSServerTracing) {
-      if (tsServerTraceDir) {
-        this._logger.info(`<${kind}> Trace directory: ${tsServerTraceDir}`);
-      } else {
+      if (tsServerTraceDir) this._logger.info(`<${kind}> Trace directory: ${tsServerTraceDir}`);
+      else {
         this._logger.error(`<${kind}> Could not create trace directory`);
       }
     }
@@ -138,9 +136,8 @@ export class TSServerSpawner {
     let tsServerLogFile: string | undefined;
     let tsServerTraceDir: string | undefined;
     if (kind === TSServerProcKind.Syntax) {
-      if (apiVersion.gte(API.v401)) {
-        args.push('--serverMode', 'partialSemantic');
-      } else {
+      if (apiVersion.gte(API.v401)) args.push('--serverMode', 'partialSemantic');
+      else {
         args.push('--syntaxOnly');
       }
     }
@@ -149,15 +146,9 @@ export class TSServerSpawner {
     } else {
       args.push('--useSingleInferredProject');
     }
-    if (configuration.disableAutomaticTypeAcquisition || kind === TSServerProcKind.Syntax || kind === TSServerProcKind.Diags) {
-      args.push('--disableAutomaticTypingAcquisition');
-    }
-    if (kind === TSServerProcKind.Semantic || kind === TSServerProcKind.Main) {
-      args.push('--enableTelemetry');
-    }
-    if (cancellationPipeName) {
-      args.push('--cancellationPipeName', cancellationPipeName + '*');
-    }
+    if (configuration.disableAutomaticTypeAcquisition || kind === TSServerProcKind.Syntax || kind === TSServerProcKind.Diags) args.push('--disableAutomaticTypingAcquisition');
+    if (kind === TSServerProcKind.Semantic || kind === TSServerProcKind.Main) args.push('--enableTelemetry');
+    if (cancellationPipeName) args.push('--cancellationPipeName', cancellationPipeName + '*');
     if (TSServerSpawner.isLoggingEnabled(configuration)) {
       if (isWeb()) {
         args.push('--logVerbosity', TSServerLogLevel.toString(configuration.tsServerLogLevel));
@@ -172,9 +163,7 @@ export class TSServerSpawner {
     }
     if (configuration.enableTSServerTracing && !isWeb()) {
       tsServerTraceDir = this._logDirProvider.getNewLogDir();
-      if (tsServerTraceDir) {
-        args.push('--traceDir', tsServerTraceDir);
-      }
+      if (tsServerTraceDir) args.push('--traceDir', tsServerTraceDir);
     }
     if (!isWeb()) {
       const pluginPaths = this._pluginPathsProvider.getPluginPaths();
@@ -182,18 +171,12 @@ export class TSServerSpawner {
         args.push('--globalPlugins', pluginMgr.plugins.map((x) => x.name).join(','));
         const isUsingBundledTSVersion = currentVersion.path === this._versionProvider.defaultVersion.path;
         for (const plugin of pluginMgr.plugins) {
-          if (isUsingBundledTSVersion || plugin.enableForWorkspaceTSVersions) {
-            pluginPaths.push(plugin.path);
-          }
+          if (isUsingBundledTSVersion || plugin.enableForWorkspaceTSVersions) pluginPaths.push(plugin.path);
         }
       }
-      if (pluginPaths.length !== 0) {
-        args.push('--pluginProbeLocations', pluginPaths.join(','));
-      }
+      if (pluginPaths.length !== 0) args.push('--pluginProbeLocations', pluginPaths.join(','));
     }
-    if (configuration.npmLocation) {
-      args.push('--npmLocation', `"${configuration.npmLocation}"`);
-    }
+    if (configuration.npmLocation) args.push('--npmLocation', `"${configuration.npmLocation}"`);
     if (apiVersion.gte(API.v260)) {
       args.push('--locale', TSServerSpawner.getTsLocale(configuration));
     }

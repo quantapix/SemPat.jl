@@ -180,22 +180,16 @@ export class ProcBasedTSServer extends Disposable implements ITypeScriptServer {
       return false;
     } finally {
       const callback = this.fetchCallback(seq);
-      if (callback) {
-        callback.onSuccess(new ServerResponse.Cancelled(`Cancelled request ${seq} - ${command}`));
-      }
+      if (callback) callback.onSuccess(new ServerResponse.Cancelled(`Cancelled request ${seq} - ${command}`));
     }
   }
   private dispatchResponse(response: qp.Response) {
     const callback = this.fetchCallback(response.request_seq);
-    if (!callback) {
-      return;
-    }
+    if (!callback) return;
     this._tracer.traceResponse(this._serverId, response, callback);
-    if (response.success) {
-      callback.onSuccess(response);
-    } else if (response.message === 'No content available.') {
-      callback.onSuccess(ServerResponse.NoContent);
-    } else {
+    if (response.success) callback.onSuccess(response);
+    else if (response.message === 'No content available.') callback.onSuccess(ServerResponse.NoContent);
+    else {
       callback.onError(TSServerError.create(this._serverId, this._version, response));
     }
   }
@@ -258,31 +252,23 @@ export class ProcBasedTSServer extends Disposable implements ITypeScriptServer {
   private sendNextRequests(): void {
     while (this._pendingResponses.size === 0 && this._requestQueue.length > 0) {
       const item = this._requestQueue.dequeue();
-      if (item) {
-        this.sendRequest(item);
-      }
+      if (item) this.sendRequest(item);
     }
   }
   private sendRequest(requestItem: RequestItem): void {
     const serverRequest = requestItem.request;
     this._tracer.traceRequest(this._serverId, serverRequest, requestItem.expectsResponse, this._requestQueue.length);
-    if (requestItem.expectsResponse && !requestItem.isAsync) {
-      this._pendingResponses.add(requestItem.request.seq);
-    }
+    if (requestItem.expectsResponse && !requestItem.isAsync) this._pendingResponses.add(requestItem.request.seq);
     try {
       this.write(serverRequest);
     } catch (err) {
       const callback = this.fetchCallback(serverRequest.seq);
-      if (callback) {
-        callback.onError(err);
-      }
+      if (callback) callback.onError(err);
     }
   }
   private fetchCallback(seq: number) {
     const callback = this._callbacks.fetch(seq);
-    if (!callback) {
-      return undefined;
-    }
+    if (!callback) return undefined;
     this._pendingResponses.delete(seq);
     return callback;
   }
@@ -320,9 +306,7 @@ class RequestRouter {
       if (executeInfo.token) {
         const source = new qv.CancellationTokenSource();
         executeInfo.token.onCancellationRequested(() => {
-          if (requestStates.some((state) => state === RequestState.Resolved)) {
-            return;
-          }
+          if (requestStates.some((state) => state === RequestState.Resolved)) return;
           source.cancel();
         });
         token = source.token;
@@ -331,17 +315,13 @@ class RequestRouter {
       for (let serverIndex = 0; serverIndex < this.servers.length; ++serverIndex) {
         const server = this.servers[serverIndex].server;
         const request = server.executeImpl(command, args, { ...executeInfo, token }) as Promise<ServerResponse.Response<qp.Response>> | undefined;
-        if (serverIndex === 0) {
-          firstRequest = request;
-        }
+        if (serverIndex === 0) firstRequest = request;
         if (request) {
           request.then(
             (result) => {
               requestStates[serverIndex] = RequestState.Resolved;
               const erroredRequest = requestStates.find((state) => state.type === RequestState.Type.Errored) as RequestState.Errored | undefined;
-              if (erroredRequest) {
-                this.delegate.onFatalError(command, erroredRequest.err);
-              }
+              if (erroredRequest) this.delegate.onFatalError(command, erroredRequest.err);
               return result;
             },
             (err) => {
@@ -625,37 +605,22 @@ class PyrightServer extends LangServerBase {
           for (const [name, value] of Object.entries(diagnosticSeverityOverrides)) {
             const ruleName = this.getDiagRuleName(name);
             const severity = this.getSeverityOverrides(value as string);
-            if (ruleName && severity) {
-              serverSettings.diagnosticSeverityOverrides![ruleName] = severity!;
-            }
+            if (ruleName && severity) serverSettings.diagnosticSeverityOverrides![ruleName] = severity!;
           }
         }
-        if (pythonAnalysisSection.diagnosticMode !== undefined) {
-          serverSettings.openFilesOnly = this.isOpenFilesOnly(pythonAnalysisSection.diagnosticMode);
-        } else if (pythonAnalysisSection.openFilesOnly !== undefined) {
-          serverSettings.openFilesOnly = !!pythonAnalysisSection.openFilesOnly;
-        }
-        if (pythonAnalysisSection.useLibraryCodeForTypes !== undefined) {
-          serverSettings.useLibraryCodeForTypes = !!pythonAnalysisSection.useLibraryCodeForTypes;
-        }
+        if (pythonAnalysisSection.diagnosticMode !== undefined) serverSettings.openFilesOnly = this.isOpenFilesOnly(pythonAnalysisSection.diagnosticMode);
+        else if (pythonAnalysisSection.openFilesOnly !== undefined) serverSettings.openFilesOnly = !!pythonAnalysisSection.openFilesOnly;
+        if (pythonAnalysisSection.useLibraryCodeForTypes !== undefined) serverSettings.useLibraryCodeForTypes = !!pythonAnalysisSection.useLibraryCodeForTypes;
         serverSettings.logLevel = this.convertLogLevel(pythonAnalysisSection.logLevel);
         serverSettings.autoSearchPaths = !!pythonAnalysisSection.autoSearchPaths;
         const extraPaths = pythonAnalysisSection.extraPaths;
         if (extraPaths && Array.isArray(extraPaths) && extraPaths.length > 0) {
           serverSettings.extraPaths = extraPaths.filter((p) => p && isString(p)).map((p) => resolvePaths(workspace.rootPath, this.expandPathVariables(workspace.rootPath, p)));
         }
-        if (pythonAnalysisSection.typeCheckingMode !== undefined) {
-          serverSettings.typeCheckingMode = pythonAnalysisSection.typeCheckingMode;
-        }
-        if (pythonAnalysisSection.autoImportCompletions !== undefined) {
-          serverSettings.autoImportCompletions = pythonAnalysisSection.autoImportCompletions;
-        }
-        if (serverSettings.logLevel === LogLevel.Log && pythonAnalysisSection.logTypeEvaluationTime !== undefined) {
-          serverSettings.logTypeEvaluationTime = pythonAnalysisSection.logTypeEvaluationTime;
-        }
-        if (pythonAnalysisSection.typeEvaluationTimeThreshold !== undefined) {
-          serverSettings.typeEvaluationTimeThreshold = pythonAnalysisSection.typeEvaluationTimeThreshold;
-        }
+        if (pythonAnalysisSection.typeCheckingMode !== undefined) serverSettings.typeCheckingMode = pythonAnalysisSection.typeCheckingMode;
+        if (pythonAnalysisSection.autoImportCompletions !== undefined) serverSettings.autoImportCompletions = pythonAnalysisSection.autoImportCompletions;
+        if (serverSettings.logLevel === LogLevel.Log && pythonAnalysisSection.logTypeEvaluationTime !== undefined) serverSettings.logTypeEvaluationTime = pythonAnalysisSection.logTypeEvaluationTime;
+        if (pythonAnalysisSection.typeEvaluationTimeThreshold !== undefined) serverSettings.typeEvaluationTimeThreshold = pythonAnalysisSection.typeEvaluationTimeThreshold;
       } else {
         serverSettings.autoSearchPaths = true;
       }
@@ -664,9 +629,7 @@ class PyrightServer extends LangServerBase {
         if (pyrightSection.openFilesOnly !== undefined) {
           serverSettings.openFilesOnly = !!pyrightSection.openFilesOnly;
         }
-        if (pyrightSection.useLibraryCodeForTypes !== undefined) {
-          serverSettings.useLibraryCodeForTypes = !!pyrightSection.useLibraryCodeForTypes;
-        }
+        if (pyrightSection.useLibraryCodeForTypes !== undefined) serverSettings.useLibraryCodeForTypes = !!pyrightSection.useLibraryCodeForTypes;
         serverSettings.disableLangServices = !!pyrightSection.disableLangServices;
         serverSettings.disableOrganizeImports = !!pyrightSection.disableOrganizeImports;
         const typeCheckingMode = pyrightSection.typeCheckingMode;
@@ -740,12 +703,9 @@ class PyrightServer extends LangServerBase {
   }
 }
 function main() {
-  if (process.env.NODE_ENV === 'production') {
-    require('source-map-support').install();
-  }
-  if (isMainThread) {
-    new PyrightServer();
-  } else {
+  if (process.env.NODE_ENV === 'production') require('source-map-support').install();
+  if (isMainThread) new PyrightServer();
+  else {
     const runner = new BackgroundAnalysisRunner();
     runner.start();
   }
@@ -756,9 +716,7 @@ export default class BashServer {
   public static async initialize(connection: LSP.Connection, { rootPath }: LSP.InitializeParams): Promise<BashServer> {
     const parser = await initializeParser();
     const { PATH } = process.env;
-    if (!PATH) {
-      throw new Error('Expected PATH environment variable to be set');
-    }
+    if (!PATH) throw new Error('Expected PATH environment variable to be set');
     return Promise.all([Executables.fromPath(PATH), Analyzer.fromRoot({ connection, rootPath, parser })]).then((xs) => {
       const executables = xs[0];
       const analyzer = xs[1];
@@ -858,9 +816,8 @@ export default class BashServer {
           params,
           endpoint: explainshellEndpoint,
         });
-        if (response.status === 'error') {
-          this.connection.console.log(`getExplainshellDocumentation returned: ${JSON.stringify(response, null, 4)}`);
-        } else {
+        if (response.status === 'error') this.connection.console.log(`getExplainshellDocumentation returned: ${JSON.stringify(response, null, 4)}`);
+        else {
           return {
             contents: {
               kind: 'markdown',
@@ -874,10 +831,7 @@ export default class BashServer {
     }
     if (ReservedWords.isReservedWord(word) || Builtins.isBuiltin(word) || this.executables.isExecutableOnPATH(word)) {
       const shellDocumentation = await getShellDocumentation({ word });
-      if (shellDocumentation) {
-        // eslint-disable-next-line no-console
-        return { contents: getMarkdownContent(shellDocumentation) };
-      }
+      if (shellDocumentation) return { contents: getMarkdownContent(shellDocumentation) };
     } else {
       const symbolDocumentation = deduplicateSymbols({
         symbols: this.analyzer.findSymbolsMatchingWord({
@@ -888,18 +842,14 @@ export default class BashServer {
       })
         .filter((symbol) => symbol.location.range.start.line !== params.position.line)
         .map((symbol: LSP.SymbolInformation) => this.getDocumentationForSymbol({ currentUri, symbol }));
-      if (symbolDocumentation.length === 1) {
-        return { contents: symbolDocumentation[0] };
-      }
+      if (symbolDocumentation.length === 1) return { contents: symbolDocumentation[0] };
     }
     return null;
   }
   private onDefinition(params: LSP.TextDocumentPositionParams): LSP.Definition | null {
     const word = this.getWordAtPoint(params);
     this.logRequest({ request: 'onDefinition', params, word });
-    if (!word) {
-      return null;
-    }
+    if (!word) return null;
     return this.analyzer.findDefinition(word);
   }
   private onDocumentSymbol(params: LSP.DocumentSymbolParams): LSP.SymbolInformation[] {
@@ -913,17 +863,13 @@ export default class BashServer {
   private onDocumentHighlight(params: LSP.TextDocumentPositionParams): LSP.DocumentHighlight[] | null {
     const word = this.getWordAtPoint(params);
     this.logRequest({ request: 'onDocumentHighlight', params, word });
-    if (!word) {
-      return [];
-    }
+    if (!word) return [];
     return this.analyzer.findOccurrences(params.textDocument.uri, word).map((n) => ({ range: n.range }));
   }
   private onReferences(params: LSP.ReferenceParams): LSP.Location[] | null {
     const word = this.getWordAtPoint(params);
     this.logRequest({ request: 'onReferences', params, word });
-    if (!word) {
-      return null;
-    }
+    if (!word) return null;
     return this.analyzer.findReferences(word);
   }
   private onCompletion(params: LSP.TextDocumentPositionParams): BashCompletionItem[] {
@@ -940,9 +886,7 @@ export default class BashServer {
       // Inside a comment block
       return [];
     }
-    if (word && word === '{') {
-      return [];
-    }
+    if (word && word === '{') return [];
     const currentUri = params.textDocument.uri;
     const shouldCompleteOnVariables = word ? PARAMETER_EXPANSION_PREFIXES.has(word) : false;
     const symbolCompletions =
@@ -957,9 +901,7 @@ export default class BashServer {
                 }),
             currentUri,
           });
-    if (shouldCompleteOnVariables) {
-      return symbolCompletions;
-    }
+    if (shouldCompleteOnVariables) return symbolCompletions;
     const reservedWordsCompletions = ReservedWords.LIST.map((reservedWord) => ({
       label: reservedWord,
       kind: LSP.SymbolKind.Interface, // ??
@@ -990,9 +932,7 @@ export default class BashServer {
       },
     }));
     const allCompletions = [...reservedWordsCompletions, ...symbolCompletions, ...programCompletions, ...builtinsCompletions];
-    if (word) {
-      return allCompletions.filter((item) => item.label.startsWith(word));
-    }
+    if (word) return allCompletions.filter((item) => item.label.startsWith(word));
     return allCompletions;
   }
   private async onCompletionResolve(item: LSP.CompletionItem): Promise<LSP.CompletionItem> {

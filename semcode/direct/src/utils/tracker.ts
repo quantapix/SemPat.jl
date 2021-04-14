@@ -15,9 +15,7 @@ export class ActiveJsTsEditorTracker extends Disposable {
     qv.window.onDidChangeVisibleTextEditors(
       () => {
         if (this._activeJsTsEditor) {
-          if (!qv.window.visibleTextEditors.some((visibleEditor) => visibleEditor === this._activeJsTsEditor)) {
-            this.onDidChangeActiveTextEditor(undefined);
-          }
+          if (!qv.window.visibleTextEditors.some((visibleEditor) => visibleEditor === this._activeJsTsEditor)) this.onDidChangeActiveTextEditor(undefined);
         }
       },
       this,
@@ -29,12 +27,8 @@ export class ActiveJsTsEditorTracker extends Disposable {
     return this._activeJsTsEditor;
   }
   private onDidChangeActiveTextEditor(editor: qv.TextEditor | undefined): any {
-    if (editor === this._activeJsTsEditor) {
-      return;
-    }
-    if (editor && !editor.viewColumn) {
-      return;
-    }
+    if (editor === this._activeJsTsEditor) return;
+    if (editor && !editor.viewColumn) return;
     if (editor && this.isManagedFile(editor)) {
       this._activeJsTsEditor = editor;
     } else {
@@ -98,9 +92,8 @@ function createLargeProjectMonitorFromTypeScript(item: ExcludeHintItem, client: 
     index: number;
   }
   return client.onProjectLangServiceStateChanged((body) => {
-    if (body.languageServiceEnabled) {
-      item.hide();
-    } else {
+    if (body.languageServiceEnabled) item.hide();
+    else {
       item.show();
       const configFileName = body.projectName;
       if (configFileName) {
@@ -111,9 +104,7 @@ function createLargeProjectMonitorFromTypeScript(item: ExcludeHintItem, client: 
             index: 0,
           })
           .then((selected) => {
-            if (selected && selected.index === 0) {
-              onConfigureExcludesSelected(client, configFileName);
-            }
+            if (selected && selected.index === 0) onConfigureExcludesSelected(client, configFileName);
           });
       }
     }
@@ -124,9 +115,7 @@ function onConfigureExcludesSelected(client: ServiceClient, configFileName: stri
     qv.workspace.openTextDocument(configFileName).then(qv.window.showTextDocument);
   } else {
     const root = client.getWorkspaceRootForResource(qv.Uri.file(configFileName));
-    if (root) {
-      openOrCreateConfig(/tsconfig\.?.*\.json/.test(configFileName) ? ProjectType.TypeScript : ProjectType.JavaScript, root, client.configuration);
-    }
+    if (root) openOrCreateConfig(/tsconfig\.?.*\.json/.test(configFileName) ? ProjectType.TypeScript : ProjectType.JavaScript, root, client.configuration);
   }
 }
 export function create(client: ServiceClient): qv.Disposable {
@@ -134,9 +123,7 @@ export function create(client: ServiceClient): qv.Disposable {
   const item = new ExcludeHintItem(client.telemetryReporter);
   toDispose.push(
     qv.commands.registerCommand('js.projectStatus.command', () => {
-      if (item.configFileName) {
-        onConfigureExcludesSelected(client, item.configFileName);
-      }
+      if (item.configFileName) onConfigureExcludesSelected(client, item.configFileName);
       const { message } = item.getCurrentHint();
       return qv.window.showInformationMessage(message);
     })
@@ -154,28 +141,20 @@ export class ProgressReportTracker implements ProgressReporter {
   private _isDisplayingProgress = false;
   constructor(private _reporter: ProgressReporter) {}
   isEnabled(data: any): boolean {
-    if (this._isDisplayingProgress) {
-      return true;
-    }
+    if (this._isDisplayingProgress) return true;
     return this._reporter.isEnabled(data) ?? false;
   }
   begin(): void {
-    if (this._isDisplayingProgress) {
-      return;
-    }
+    if (this._isDisplayingProgress) return;
     this._isDisplayingProgress = true;
     this._reporter.begin();
   }
   report(message: string): void {
-    if (!this._isDisplayingProgress) {
-      return;
-    }
+    if (!this._isDisplayingProgress) return;
     this._reporter.report(message);
   }
   end(): void {
-    if (!this._isDisplayingProgress) {
-      return;
-    }
+    if (!this._isDisplayingProgress) return;
     this._isDisplayingProgress = false;
     this._reporter.end();
   }

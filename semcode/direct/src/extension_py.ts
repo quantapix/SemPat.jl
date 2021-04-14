@@ -194,9 +194,7 @@ async function getPythonPathFromPythonExtension(outputChannel: OutputChannel, sc
 
 function installPythonPathChangedListener(onDidChangeExecutionDetails: (callback: () => void) => void, scopeUri: Uri | undefined, postConfigChanged: () => void) {
   const uriString = scopeUri ? scopeUri.toString() : '';
-  if (pythonPathChangedListenerMap.has(uriString)) {
-    return;
-  }
+  if (pythonPathChangedListenerMap.has(uriString)) return;
   onDidChangeExecutionDetails(() => {
     postConfigChanged();
   });

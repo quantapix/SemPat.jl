@@ -108,15 +108,11 @@ export class BackgroundAnalysisProgram {
     }
   }
   startIndexing() {
-    if (!this._configOptions.indexing) {
-      return;
-    }
+    if (!this._configOptions.indexing) return;
     this._backgroundAnalysis?.startIndexing(this._configOptions, this._getIndices());
   }
   refreshIndexing() {
-    if (!this._configOptions.indexing) {
-      return;
-    }
+    if (!this._configOptions.indexing) return;
     this._backgroundAnalysis?.refreshIndexing(this._configOptions, this._indices);
   }
   cancelIndexing() {
@@ -126,22 +122,16 @@ export class BackgroundAnalysisProgram {
     return this._indices?.getIndex(this._configOptions.findExecEnvironment(filePath).root);
   }
   async getDiagsForRange(filePath: string, range: Range, token: CancellationToken): Promise<Diag[]> {
-    if (this._backgroundAnalysis) {
-      return this._backgroundAnalysis.getDiagsForRange(filePath, range, token);
-    }
+    if (this._backgroundAnalysis) return this._backgroundAnalysis.getDiagsForRange(filePath, range, token);
     return this._program.getDiagsForRange(filePath, range);
   }
   async writeTypeStub(targetImportPath: string, targetIsSingleFile: boolean, stubPath: string, token: CancellationToken): Promise<any> {
-    if (this._backgroundAnalysis) {
-      return this._backgroundAnalysis.writeTypeStub(targetImportPath, targetIsSingleFile, stubPath, token);
-    }
+    if (this._backgroundAnalysis) return this._backgroundAnalysis.writeTypeStub(targetImportPath, targetIsSingleFile, stubPath, token);
     analyzeProgram(this._program, undefined, this._configOptions, this._onAnalysisCompletion, this._console, token);
     return this._program.writeTypeStub(targetImportPath, targetIsSingleFile, stubPath, token);
   }
   invalidateAndForceReanalysis(rebuildLibraryIndexing: boolean) {
-    if (rebuildLibraryIndexing) {
-      this.refreshIndexing();
-    }
+    if (rebuildLibraryIndexing) this.refreshIndexing();
     this._backgroundAnalysis?.invalidateAndForceReanalysis();
     this._importResolver.invalidateCache();
     this._program.markAllFilesDirty(true);

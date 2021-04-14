@@ -7,21 +7,13 @@ export interface TextRange {
 }
 export namespace TextRange {
   export function create(start: number, length: number): TextRange {
-    if (start < 0) {
-      throw new Error('start must be non-negative');
-    }
-    if (length < 0) {
-      throw new Error('length must be non-negative');
-    }
+    if (start < 0) throw new Error('start must be non-negative');
+    if (length < 0) throw new Error('length must be non-negative');
     return { start, length };
   }
   export function fromBounds(start: number, end: number): TextRange {
-    if (start < 0) {
-      throw new Error('start must be non-negative');
-    }
-    if (start > end) {
-      throw new Error('end must be greater than or equal to start');
-    }
+    if (start < 0) throw new Error('start must be non-negative');
+    if (start > end) throw new Error('end must be greater than or equal to start');
     return create(start, end - start);
   }
   export function getEnd(range: TextRange): number {
@@ -54,9 +46,7 @@ export namespace TextRange {
     }
   }
   export function combine(ranges: TextRange[]): TextRange | undefined {
-    if (ranges.length === 0) {
-      return undefined;
-    }
+    if (ranges.length === 0) return undefined;
     const combinedRange = ranges[0];
     for (let i = 1; i < ranges.length; i++) {
       extend(combinedRange, ranges[i]);
@@ -89,15 +79,10 @@ export interface DocumentRange {
   range: Range;
 }
 export function comparePositions(a: Position, b: Position) {
-  if (a.line < b.line) {
-    return -1;
-  } else if (a.line > b.line) {
-    return 1;
-  } else if (a.character < b.character) {
-    return -1;
-  } else if (a.character > b.character) {
-    return 1;
-  }
+  if (a.line < b.line) return -1;
+  else if (a.line > b.line) return 1;
+  else if (a.character < b.character) return -1;
+  else if (a.character > b.character) return 1;
   return 0;
 }
 export function getEmptyPosition(): Position {
@@ -165,49 +150,30 @@ export class TextRangeCollection<T extends TextRange> {
     return position >= this.start && position < this.end;
   }
   getItemAt(index: number): T {
-    if (index < 0 || index >= this._items.length) {
-      throw new Error('index is out of range');
-    }
+    if (index < 0 || index >= this._items.length) throw new Error('index is out of range');
     return this._items[index];
   }
   getItemAtPosition(position: number): number {
-    if (this.count === 0) {
-      return -1;
-    }
-    if (position < this.start) {
-      return -1;
-    }
-    if (position > this.end) {
-      return -1;
-    }
+    if (this.count === 0) return -1;
+    if (position < this.start) return -1;
+    if (position > this.end) return -1;
     let min = 0;
     let max = this.count - 1;
     while (min < max) {
       const mid = Math.floor(min + (max - min) / 2);
       const item = this._items[mid];
-      if (position >= item.start) {
-        if (mid >= this.count - 1 || position < this._items[mid + 1].start) {
-          return mid;
-        }
-      }
-      if (position < item.start) {
-        max = mid - 1;
-      } else {
+      if (position >= item.start) if (mid >= this.count - 1 || position < this._items[mid + 1].start) return mid;
+      if (position < item.start) max = mid - 1;
+      else {
         min = mid + 1;
       }
     }
     return min;
   }
   getItemContaining(position: number): number {
-    if (this.count === 0) {
-      return -1;
-    }
-    if (position < this.start) {
-      return -1;
-    }
-    if (position > this.end) {
-      return -1;
-    }
+    if (this.count === 0) return -1;
+    if (position < this.start) return -1;
+    if (position > this.end) return -1;
     let min = 0;
     let max = this.count - 1;
     while (min <= max) {
@@ -219,9 +185,8 @@ export class TextRangeCollection<T extends TextRange> {
       if (mid < this.count - 1 && TextRange.getEnd(item) <= position && position < this._items[mid + 1].start) {
         return -1;
       }
-      if (position < item.start) {
-        max = mid - 1;
-      } else {
+      if (position < item.start) max = mid - 1;
+      else {
         min = mid + 1;
       }
     }
@@ -229,12 +194,7 @@ export class TextRangeCollection<T extends TextRange> {
   }
 }
 export function convertOffsetToPosition(offset: number, lines: TextRangeCollection<TextRange>): Position {
-  if (lines.end === 0) {
-    return {
-      line: 0,
-      character: 0,
-    };
-  }
+  if (lines.end === 0) return { line: 0, character: 0 };
   let offsetAdjustment = 0;
   if (offset >= lines.end) {
     offset = lines.end - 1;
@@ -255,20 +215,14 @@ export function convertOffsetsToRange(startOffset: number, endOffset: number, li
   return { start, end };
 }
 export function convertPositionToOffset(position: Position, lines: TextRangeCollection<TextRange>): number | undefined {
-  if (position.line >= lines.count) {
-    return undefined;
-  }
+  if (position.line >= lines.count) return undefined;
   return lines.getItemAt(position.line).start + position.character;
 }
 export function convertRangeToTextRange(range: Range, lines: TextRangeCollection<TextRange>): TextRange | undefined {
   const start = convertPositionToOffset(range.start, lines);
-  if (start === undefined) {
-    return undefined;
-  }
+  if (start === undefined) return undefined;
   const end = convertPositionToOffset(range.end, lines);
-  if (end === undefined) {
-    return undefined;
-  }
+  if (end === undefined) return undefined;
   return TextRange.fromBounds(start, end);
 }
 export interface TextEditAction {
@@ -279,9 +233,7 @@ export interface FileEditAction extends TextEditAction {
   filePath: string;
 }
 export function convertTextEdits(uri: string, editActions: TextEditAction[] | undefined): WorkspaceEdit {
-  if (!editActions) {
-    return {};
-  }
+  if (!editActions) return {};
   const edits: TextEdit[] = [];
   editActions.forEach((editAction) => {
     edits.push({

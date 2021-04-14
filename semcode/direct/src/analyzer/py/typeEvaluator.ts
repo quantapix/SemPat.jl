@@ -1790,9 +1790,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
   function assignTypeToNameNode(nameNode: NameNode, type: Type, isTypeIncomplete: boolean, srcExpression?: ParseNode, expectedTypeDiagAddendum?: DiagAddendum) {
     const nameValue = nameNode.value;
     const symbolWithScope = lookUpSymbolRecursive(nameNode, nameValue, /* honorCodeFlow */ false);
-    if (!symbolWithScope) {
-      return;
-    }
+    if (!symbolWithScope) return;
     const declarations = symbolWithScope.symbol.getDeclarations();
     const declaredType = getDeclaredTypeOfSymbol(symbolWithScope.symbol);
     const fileInfo = getFileInfo(nameNode);
@@ -1875,9 +1873,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     const memberName = node.memberName.value;
     const fileInfo = getFileInfo(node);
     const classDef = ParseTreeUtils.getEnclosingClass(node);
-    if (!classDef) {
-      return;
-    }
+    if (!classDef) return;
     const classTypeInfo = getTypeOfClass(classDef);
     if (classTypeInfo && isClass(classTypeInfo.classType)) {
       let memberInfo = lookUpClassMember(classTypeInfo.classType, memberName, isInstanceMember ? ClassMemberLookupFlags.Default : ClassMemberLookupFlags.SkipInstanceVariables);
@@ -3680,14 +3676,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
   }
   function updateNamedTupleBaseClass(classType: ClassType, typeArgs: Type[], isTypeArgumentExplicit: boolean) {
     const namedTupleIndex = classType.details.mro.findIndex((c) => isClass(c) && ClassType.isBuiltIn(c, 'NamedTuple'));
-    if (namedTupleIndex < 0 || classType.details.mro.length < namedTupleIndex + 2) {
-      return;
-    }
+    if (namedTupleIndex < 0 || classType.details.mro.length < namedTupleIndex + 2) return;
     const namedTupleClass = classType.details.mro[namedTupleIndex] as ClassType;
     const typedTupleClass = classType.details.mro[namedTupleIndex + 1];
-    if (!isClass(typedTupleClass) || !isTupleClass(typedTupleClass)) {
-      return;
-    }
+    if (!isClass(typedTupleClass) || !isTupleClass(typedTupleClass)) return;
     const updatedTupleClass = specializeTupleClass(typedTupleClass, typeArgs, isTypeArgumentExplicit);
     const clonedNamedTupleClass = ClassType.cloneForSpecialization(namedTupleClass, [], isTypeArgumentExplicit);
     clonedNamedTupleClass.details = { ...clonedNamedTupleClass.details };
@@ -6497,9 +6489,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     return { type, node };
   }
   function reportPossibleUnknownAssignment(diagLevel: DiagLevel, rule: string, target: NameNode, type: Type, errorNode: ExpressionNode) {
-    if (diagLevel === 'none') {
-      return;
-    }
+    if (diagLevel === 'none') return;
     const nameValue = target.value;
     const simplifiedType = removeUnbound(type);
     if (isUnknown(simplifiedType)) {
@@ -7158,9 +7148,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
   }
   function evaluateTypesForAssignmentStatement(node: AssignmentNode): void {
     const fileInfo = getFileInfo(node);
-    if (readTypeCache(node)) {
-      return;
-    }
+    if (readTypeCache(node)) return;
     let rightHandType = readTypeCache(node.rightExpression);
     let isIncomplete = false;
     let expectedTypeDiagAddendum: DiagAddendum | undefined;
@@ -7249,9 +7237,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     writeTypeCache(node, rightHandType, isIncomplete);
   }
   function evaluateTypesForAugmentedAssignment(node: AugmentedAssignmentNode): void {
-    if (readTypeCache(node)) {
-      return;
-    }
+    if (readTypeCache(node)) return;
     const destTypeResult = getTypeFromAugmentedAssignment(node, /* expectedType */ undefined);
     assignTypeToExpression(node.destExpression, destTypeResult.type, !!destTypeResult.isIncomplete, node.rightExpression);
     writeTypeCache(node, destTypeResult.type, !!destTypeResult.isIncomplete);
@@ -8432,9 +8418,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     return true;
   }
   function evaluateTypesForForStatement(node: ForNode): void {
-    if (readTypeCache(node)) {
-      return;
-    }
+    if (readTypeCache(node)) return;
     const iteratorTypeResult = getTypeOfExpression(node.iterableExpression);
     const iteratedType = getTypeFromIterator(iteratorTypeResult.type, !!node.isAsync, node.iterableExpression) || UnknownType.create();
     assignTypeToExpression(node.targetExpression, iteratedType, !!iteratorTypeResult.isIncomplete, node.targetExpression);
@@ -8442,9 +8426,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
   }
   function evaluateTypesForExceptStatement(node: ExceptNode): void {
     assert(node.typeExpression !== undefined);
-    if (readTypeCache(node)) {
-      return;
-    }
+    if (readTypeCache(node)) return;
     const exceptionTypes = getTypeOfExpression(node.typeExpression!).type;
     function getExceptionType(exceptionType: Type, errorNode: ParseNode) {
       exceptionType = makeTopLevelTypeVarsConcrete(exceptionType);
@@ -8488,9 +8470,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     writeTypeCache(node, targetType, /* isIncomplete */ false);
   }
   function evaluateTypesForWithStatement(node: WithItemNode): void {
-    if (readTypeCache(node)) {
-      return;
-    }
+    if (readTypeCache(node)) return;
     const exprTypeResult = getTypeOfExpression(node.expression);
     let exprType = exprTypeResult.type;
     const isAsync = node.parent && node.parent.nodeType === ParseNodeType.With && !!node.parent.isAsync;
@@ -8540,15 +8520,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     const exitMethodName = isAsync ? '__aexit__' : '__exit__';
     doForEachSubtype(exprType, (subtype) => {
       subtype = makeTopLevelTypeVarsConcrete(subtype);
-      if (isAnyOrUnknown(subtype)) {
-        return;
-      }
+      if (isAnyOrUnknown(subtype)) return;
       const diag = new DiagAddendum();
       if (isObject(subtype)) {
         const exitType = getTypeFromObjectMember(node.expression, subtype, exitMethodName, { method: 'get' }, diag);
-        if (exitType) {
-          return;
-        }
+        if (exitType) return;
       }
       const fileInfo = getFileInfo(node);
       addDiag(
@@ -8564,18 +8540,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     writeTypeCache(node, scopedType, !!exprTypeResult.isIncomplete);
   }
   function evaluateTypesForImportAs(node: ImportAsNode): void {
-    if (readTypeCache(node)) {
-      return;
-    }
+    if (readTypeCache(node)) return;
     let symbolNameNode: NameNode;
     if (node.alias) {
       symbolNameNode = node.alias;
     } else {
       symbolNameNode = node.module.nameParts[0];
     }
-    if (!symbolNameNode) {
-      return;
-    }
+    if (!symbolNameNode) return;
     let symbolType = getAliasedSymbolTypeForName(node, symbolNameNode.value) || UnknownType.create();
     const cachedModuleType = readTypeCache(node) as ModuleType;
     if (cachedModuleType && isModule(cachedModuleType) && symbolType) {
@@ -8587,9 +8559,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     writeTypeCache(node, symbolType, /* isIncomplete */ false);
   }
   function evaluateTypesForImportFromAs(node: ImportFromAsNode): void {
-    if (readTypeCache(node)) {
-      return;
-    }
+    if (readTypeCache(node)) return;
     const aliasNode = node.alias || node.name;
     const fileInfo = getFileInfo(node);
     if (node.alias?.value === node.name.value) {
@@ -8635,9 +8605,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     writeTypeCache(node, symbolType, /* isIncomplete */ false);
   }
   function evaluateTypesForCaseNode(node: CaseNode) {
-    if (readTypeCache(node)) {
-      return;
-    }
+    if (readTypeCache(node)) return;
     if (!node.parent || node.parent.nodeType !== ParseNodeType.Match) {
       fail('Expected parent of case statement to be match statement');
       return;
@@ -9181,9 +9149,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
   }
   function evaluateTypesForImportFrom(node: ImportFromNode): void {
-    if (readTypeCache(node)) {
-      return;
-    }
+    if (readTypeCache(node)) return;
     const symbolNameNode = node.module.nameParts[0];
     let symbolType = getAliasedSymbolTypeForName(node, symbolNameNode.value) || UnknownType.create();
     const cachedModuleType = readTypeCache(node) as ModuleType;
@@ -9307,12 +9273,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       evaluateTypeAnnotationExpression(parent);
       return;
     }
-    if (parent.nodeType === ParseNodeType.ModuleName) {
-      return;
-    }
-    if (parent.nodeType === ParseNodeType.Argument && lastContextualExpression === parent.name) {
-      return;
-    }
+    if (parent.nodeType === ParseNodeType.ModuleName) return;
+    if (parent.nodeType === ParseNodeType.Argument && lastContextualExpression === parent.name) return;
     if (parent.nodeType === ParseNodeType.Return && parent.returnExpression) {
       const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
       const declaredReturnType = enclosingFunctionNode ? getFunctionDeclaredReturnType(enclosingFunctionNode) : undefined;
@@ -10617,9 +10579,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
       }
       typeArgs.forEach((typeArg, index) => {
         if (index === variadicTypeParamIndex) {
-          if (isObject(typeArg.type) && isTupleClass(typeArg.type.classType)) {
-            return;
-          }
+          if (isObject(typeArg.type) && isTupleClass(typeArg.type.classType)) return;
           if (isVariadicTypeVar(typeArg.type)) {
             validateVariadicTypeVarIsUnpacked(typeArg.type, typeArg.node);
             return;
@@ -13255,9 +13215,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
   }
   function getTypedDictMembersForClassRecursive(classType: ClassType, keyMap: Map<string, TypedDictEntry>, recursionCount = 0) {
     assert(ClassType.isTypedDictClass(classType));
-    if (recursionCount > maxTypeRecursionCount) {
-      return;
-    }
+    if (recursionCount > maxTypeRecursionCount) return;
     classType.details.baseClasses.forEach((baseClassType) => {
       if (isClass(baseClassType) && ClassType.isTypedDictClass(baseClassType)) {
         getTypedDictMembersForClassRecursive(baseClassType, keyMap, recursionCount + 1);

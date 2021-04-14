@@ -104,9 +104,7 @@ class FileBasedCancellationTokenSource implements AbstractCancellationTokenSourc
   private _token: CancellationToken | undefined;
   constructor(private _cancellationFilePath: string, private _ownFile: boolean = false) {}
   get token(): CancellationToken {
-    if (!this._token) {
-      this._token = this._ownFile ? new OwningFileToken(this._cancellationFilePath) : new FileBasedToken(this._cancellationFilePath);
-    }
+    if (!this._token) this._token = this._ownFile ? new OwningFileToken(this._cancellationFilePath) : new FileBasedToken(this._cancellationFilePath);
     return this._token;
   }
   cancel(): void {
@@ -139,9 +137,7 @@ export class OpCanceledException extends ResponseError<void> {
   }
 }
 export function throwIfCancellationRequested(token: CancellationToken) {
-  if (token.isCancellationRequested) {
-    throw new OpCanceledException();
-  }
+  if (token.isCancellationRequested) throw new OpCanceledException();
 }
 let cancellationFolderName: string | undefined;
 export function getCancellationFolderName() {
@@ -230,9 +226,7 @@ export class NodeRequestCancel implements OngoingRequestCancel {
     this.cancellationPipeName = getTempFile('tscancellation');
   }
   public tryCancelOngoingRequest(seq: number): boolean {
-    if (!this.cancellationPipeName) {
-      return false;
-    }
+    if (!this.cancellationPipeName) return false;
     this._tracer.logTrace(this._serverId, `TypeScript Server: trying to cancel ongoing request with sequence number ${seq}`);
     try {
       fs.writeFileSync(this.cancellationPipeName + seq, '');

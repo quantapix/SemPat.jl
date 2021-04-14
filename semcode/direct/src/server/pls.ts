@@ -156,59 +156,38 @@ function processArgs() {
   } else {
     options.fileSpecs = [];
   }
-  if (args.project) {
-    options.configFilePath = combinePaths(process.cwd(), normalizePath(args.project));
-  }
+  if (args.project) options.configFilePath = combinePaths(process.cwd(), normalizePath(args.project));
   if (args.pythonplatform) {
-    if (args.pythonplatform === 'Darwin' || args.pythonplatform === 'Linux' || args.pythonplatform === 'Windows') {
-      options.pythonPlatform = args.pythonplatform;
-    } else {
+    if (args.pythonplatform === 'Darwin' || args.pythonplatform === 'Linux' || args.pythonplatform === 'Windows') options.pythonPlatform = args.pythonplatform;
+    else {
       console.error(`'${args.pythonplatform}' is not a supported Python platform; specify Darwin, Linux, or Windows`);
       process.exit(ExitStatus.ParameterError);
     }
   }
   if (args.pythonversion) {
     const version = versionFromString(args.pythonversion);
-    if (version) {
-      options.pythonVersion = version;
-    } else {
+    if (version) options.pythonVersion = version;
+    else {
       console.error(`'${args.pythonversion}' is not a supported Python version; specify 3.3, 3.4, etc.`);
       process.exit(ExitStatus.ParameterError);
     }
   }
-  if (args['venv-path']) {
-    options.venvPath = combinePaths(process.cwd(), normalizePath(args['venv-path']));
-  }
-  if (args['typeshed-path']) {
-    options.typeshedPath = combinePaths(process.cwd(), normalizePath(args['typeshed-path']));
-  }
-  if (args.createstub) {
-    options.typeStubTargetImportName = args.createstub;
-  }
-  if (args.verbose) {
-    options.verboseOutput = true;
-  }
-  if (args.lib) {
-    options.useLibraryCodeForTypes = true;
-  }
+  if (args['venv-path']) options.venvPath = combinePaths(process.cwd(), normalizePath(args['venv-path']));
+  if (args['typeshed-path']) options.typeshedPath = combinePaths(process.cwd(), normalizePath(args['typeshed-path']));
+  if (args.createstub) options.typeStubTargetImportName = args.createstub;
+  if (args.verbose) options.verboseOutput = true;
+  if (args.lib) options.useLibraryCodeForTypes = true;
   options.checkOnlyOpenFiles = false;
   const output = args.outputjson ? new NullConsole() : undefined;
   const fileSystem = new PyrightFileSystem(createFromRealFileSystem(output));
-  if (args['verifytypes'] !== undefined) {
-    verifyPackageTypes(fileSystem, args['verifytypes'] || '', !!args.verbose, !!args.outputjson, args['ignoreexternal']);
-  } else if (args['ignoreexternal'] !== undefined) {
-    console.error(`'--ignoreexternal' is valid only when used with '--verifytypes'`);
-  }
+  if (args['verifytypes'] !== undefined) verifyPackageTypes(fileSystem, args['verifytypes'] || '', !!args.verbose, !!args.outputjson, args['ignoreexternal']);
+  else if (args['ignoreexternal'] !== undefined) console.error(`'--ignoreexternal' is valid only when used with '--verifytypes'`);
   const watch = args.watch !== undefined;
   options.watchForSourceChanges = watch;
   const service = new AnalyzerService('<default>', fileSystem, output);
   service.setCompletionCallback((results) => {
-    if (results.fatalErrorOccurred) {
-      process.exit(ExitStatus.FatalError);
-    }
-    if (results.configParseErrorOccurred) {
-      process.exit(ExitStatus.ConfigFileParseError);
-    }
+    if (results.fatalErrorOccurred) process.exit(ExitStatus.FatalError);
+    if (results.configParseErrorOccurred) process.exit(ExitStatus.ConfigFileParseError);
     let errorCount = 0;
     if (results.diagnostics.length > 0 && !args.createstub && !args['verifytypes']) {
       if (args.outputjson) {
@@ -226,31 +205,23 @@ function processArgs() {
         console.log(`Type stub was created for '${args.createstub}'`);
       } catch (err) {
         let errMessage = '';
-        if (err instanceof Error) {
-          errMessage = ': ' + err.message;
-        }
+        if (err instanceof Error) errMessage = ': ' + err.message;
         console.error(`Error occurred when creating type stub: ` + errMessage);
         process.exit(ExitStatus.FatalError);
       }
       process.exit(ExitStatus.NoErrors);
     }
     if (!args.outputjson) {
-      if (!watch) {
-        timingStats.printSummary(console);
-      }
+      if (!watch) timingStats.printSummary(console);
+
       if (args.stats !== undefined) {
         service.printStats();
         timingStats.printDetails(console);
       }
-      if (args.dependencies) {
-        service.printDependencies(!!args.verbose);
-      }
+      if (args.dependencies) service.printDependencies(!!args.verbose);
     }
-    if (!watch) {
-      process.exit(errorCount > 0 ? ExitStatus.ErrorsReported : ExitStatus.NoErrors);
-    } else if (!args.outputjson) {
-      console.log('Watching for file changes...');
-    }
+    if (!watch) process.exit(errorCount > 0 ? ExitStatus.ErrorsReported : ExitStatus.NoErrors);
+    else if (!args.outputjson) console.log('Watching for file changes...');
   });
   service.setOptions(options);
   const brokenPromise = new Promise(() => {});
@@ -261,17 +232,14 @@ function verifyPackageTypes(fileSystem: PyrightFileSystem, packageName: string, 
     const verifier = new PackageTypeVerifier(fileSystem);
     const report = verifier.verify(packageName, ignoreUnknownTypesFromImports);
     const jsonReport = buildTypeCompletenessReport(packageName, report);
-    if (outputJson) {
-      console.log(JSON.stringify(jsonReport, undefined, 4));
-    } else {
+    if (outputJson) console.log(JSON.stringify(jsonReport, undefined, 4));
+    else {
       printTypeCompletenessReportText(jsonReport, verboseOutput);
     }
     process.exit(jsonReport.typeCompleteness!.completenessScore < 1 ? ExitStatus.ErrorsReported : ExitStatus.NoErrors);
   } catch (err) {
     let errMessage = '';
-    if (err instanceof Error) {
-      errMessage = ': ' + err.message;
-    }
+    if (err instanceof Error) errMessage = ': ' + err.message;
     console.error(`Error occurred when verifying types: ` + errMessage);
     process.exit(ExitStatus.FatalError);
   }
@@ -293,13 +261,9 @@ function buildTypeCompletenessReport(packageName: string, completenessReport: Pa
     fileDiags.diagnostics.forEach((diag) => {
       const jsonDiag = convertDiagToJson(fileDiags.filePath, diag);
       report.diagnostics.push(jsonDiag);
-      if (jsonDiag.severity === 'error') {
-        report.summary.errorCount++;
-      } else if (jsonDiag.severity === 'warning') {
-        report.summary.warningCount++;
-      } else if (jsonDiag.severity === 'information') {
-        report.summary.informationCount++;
-      }
+      if (jsonDiag.severity === 'error') report.summary.errorCount++;
+      else if (jsonDiag.severity === 'warning') report.summary.warningCount++;
+      else if (jsonDiag.severity === 'information') report.summary.informationCount++;
     });
   });
   report.typeCompleteness = {
@@ -327,36 +291,24 @@ function buildTypeCompletenessReport(packageName: string, completenessReport: Pa
         symbolType: PackageTypeVerifier.getSymbolTypeString(symbol.symbolType),
       };
       const alternateNames = completenessReport.alternateSymbolNames.get(symbol.fullName);
-      if (alternateNames) {
-        jsonSymbol.alternateNames = alternateNames;
-      }
+      if (alternateNames) jsonSymbol.alternateNames = alternateNames;
       jsonModule.symbols.push(jsonSymbol);
     });
     report.typeCompleteness!.modules.push(jsonModule);
   });
-  if (completenessReport.symbolCount > 0) {
-    report.typeCompleteness!.completenessScore = (completenessReport.symbolCount - completenessReport.unknownTypeCount) / completenessReport.symbolCount;
-  }
+  if (completenessReport.symbolCount > 0) report.typeCompleteness!.completenessScore = (completenessReport.symbolCount - completenessReport.unknownTypeCount) / completenessReport.symbolCount;
   return report;
 }
 function printTypeCompletenessReportText(results: PyrightJsonResults, verboseOutput: boolean) {
   const completenessReport = results.typeCompleteness!;
   console.log(`Package name: "${completenessReport.packageName}"`);
-  if (completenessReport.packageRootDir !== undefined) {
-    console.log(`Package directory: "${completenessReport.packageRootDir}"`);
-  }
-  if (completenessReport.pyTypedPath !== undefined) {
-    console.log(`Path of py.typed file: "${completenessReport.pyTypedPath}"`);
-  }
+  if (completenessReport.packageRootDir !== undefined) console.log(`Package directory: "${completenessReport.packageRootDir}"`);
+  if (completenessReport.pyTypedPath !== undefined) console.log(`Path of py.typed file: "${completenessReport.pyTypedPath}"`);
   results.diagnostics.forEach((diag) => {
-    if (diag.severity === 'error') {
-      logDiagToConsole(diag);
-    }
+    if (diag.severity === 'error') logDiagToConsole(diag);
   });
   results.diagnostics.forEach((diag) => {
-    if (diag.severity !== 'error') {
-      logDiagToConsole(diag);
-    }
+    if (diag.severity !== 'error') logDiagToConsole(diag);
   });
   if (completenessReport.modules.length > 0) {
     console.log('');
@@ -373,9 +325,7 @@ function printTypeCompletenessReportText(results: PyrightJsonResults, verboseOut
   console.log('');
   console.log(`Public symbols: ${completenessReport.symbolCount}`);
   console.log(`  Symbols with unknown type: ${completenessReport.unknownTypeCount}`);
-  if (completenessReport.ignoreUnknownTypesFromImports) {
-    console.log(`    (Ignoring unknown types imported from other packages)`);
-  }
+  if (completenessReport.ignoreUnknownTypesFromImports) console.log(`    (Ignoring unknown types imported from other packages)`);
   console.log(`  Functions with missing docstring: ${completenessReport.missingFunctionDocStringCount}`);
   console.log(`  Functions with missing default param: ${completenessReport.missingDefaultParamCount}`);
   console.log(`  Classes with missing docstring: ${completenessReport.missingClassDocStringCount}`);
@@ -434,13 +384,9 @@ function reportDiagsAsJson(fileDiags: FileDiags[], filesInProgram: number, timeI
     fileDiag.diagnostics.forEach((diag) => {
       if (diag.category === DiagCategory.Error || diag.category === DiagCategory.Warning || diag.category === DiagCategory.Information) {
         report.diagnostics.push(convertDiagToJson(fileDiag.filePath, diag));
-        if (diag.category === DiagCategory.Error) {
-          errorCount++;
-        } else if (diag.category === DiagCategory.Warning) {
-          warningCount++;
-        } else if (diag.category === DiagCategory.Information) {
-          informationCount++;
-        }
+        if (diag.category === DiagCategory.Error) errorCount++;
+        else if (diag.category === DiagCategory.Warning) warningCount++;
+        else if (diag.category === DiagCategory.Information) informationCount++;
       }
     });
   });
@@ -474,13 +420,9 @@ function reportDiagsAsText(fileDiags: FileDiags[]): DiagResult {
       console.log(`${fileDiags.filePath}`);
       fileErrorsAndWarnings.forEach((diag) => {
         logDiagToConsole(convertDiagToJson(fileDiags.filePath, diag));
-        if (diag.category === DiagCategory.Error) {
-          errorCount++;
-        } else if (diag.category === DiagCategory.Warning) {
-          warningCount++;
-        } else if (diag.category === DiagCategory.Information) {
-          informationCount++;
-        }
+        if (diag.category === DiagCategory.Error) errorCount++;
+        else if (diag.category === DiagCategory.Warning) warningCount++;
+        else if (diag.category === DiagCategory.Information) informationCount++;
       });
     }
   });
@@ -498,26 +440,18 @@ function reportDiagsAsText(fileDiags: FileDiags[]): DiagResult {
 }
 function logDiagToConsole(diag: PyrightJsonDiag, prefix = '  ') {
   let message = prefix;
-  if (diag.file) {
-    message += `${diag.file}:`;
-  }
+  if (diag.file) message += `${diag.file}:`;
   if (diag.range && !isEmptyRange(diag.range)) {
     message += chalk.yellow(`${diag.range.start.line + 1}`) + ':' + chalk.yellow(`${diag.range.start.character + 1}`) + ' - ';
   }
   const [firstLine, ...remainingLines] = diag.message.split('\n');
   message += diag.severity === 'error' ? chalk.red('error') : diag.severity === 'warning' ? chalk.cyan('warning') : chalk.blue('info');
   message += `: ${firstLine}`;
-  if (remainingLines.length > 0) {
-    message += '\n' + prefix + remainingLines.join('\n' + prefix);
-  }
-  if (diag.rule) {
-    message += chalk.gray(` (${diag.rule})`);
-  }
+  if (remainingLines.length > 0) message += '\n' + prefix + remainingLines.join('\n' + prefix);
+  if (diag.rule) message += chalk.gray(` (${diag.rule})`);
   console.log(message);
 }
 export function main() {
-  if (process.env.NODE_ENV === 'production') {
-    require('source-map-support').install();
-  }
+  if (process.env.NODE_ENV === 'production') require('source-map-support').install();
   processArgs();
 }

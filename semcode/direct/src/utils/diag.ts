@@ -46,9 +46,8 @@ export class Diag {
   private _relatedInfo: DiagRelatedInfo[] = [];
   constructor(readonly category: DiagCategory, readonly message: string, readonly range: Range) {}
   addAction(action: DiagAction) {
-    if (this._actions === undefined) {
-      this._actions = [action];
-    } else {
+    if (this._actions === undefined) this._actions = [action];
+    else {
       this._actions.push(action);
     }
   }
@@ -86,9 +85,7 @@ export class DiagAddendum {
       lines.push('  ...');
     }
     const text = lines.join('\n');
-    if (text.length > 0) {
-      return '\n' + text;
-    }
+    if (text.length > 0) return '\n' + text;
     return '';
   }
   isEmpty() {
@@ -101,9 +98,7 @@ export class DiagAddendum {
     return this._childAddenda;
   }
   private _getMessageCount(recursionCount = 0) {
-    if (recursionCount > maxRecursionCount) {
-      return 0;
-    }
+    if (recursionCount > maxRecursionCount) return 0;
     let messageCount = this._messages.length;
     for (const diag of this._childAddenda) {
       messageCount += diag._getMessageCount(recursionCount + 1);
@@ -111,9 +106,7 @@ export class DiagAddendum {
     return messageCount;
   }
   private _getLinesRecursive(maxDepth: number, maxLineCount: number, recursionCount = 0): string[] {
-    if (maxDepth <= 0 || recursionCount > maxRecursionCount) {
-      return [];
-    }
+    if (maxDepth <= 0 || recursionCount > maxRecursionCount) return [];
     let childLines: string[] = [];
     for (const addendum of this._childAddenda) {
       const maxDepthRemaining = this._messages.length > 0 ? maxDepth - 1 : maxDepth;
@@ -156,9 +149,7 @@ export class DiagSink {
   }
   addUnusedCode(message: string, range: Range, action?: DiagAction) {
     const diag = new Diag(DiagCategory.UnusedCode, message, range);
-    if (action) {
-      diag.addAction(action);
-    }
+    if (action) diag.addAction(action);
     return this.addDiag(diag);
   }
   addDiag(diag: Diag) {

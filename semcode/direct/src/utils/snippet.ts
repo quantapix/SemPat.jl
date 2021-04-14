@@ -6,17 +6,13 @@ export function snippetForFunctionCall(
   item: { insertText?: string | qv.SnippetString; label: string },
   displayParts: ReadonlyArray<qp.SymbolDisplayPart>
 ): { snippet: qv.SnippetString; parameterCount: number } {
-  if (item.insertText && typeof item.insertText !== 'string') {
-    return { snippet: item.insertText, parameterCount: 0 };
-  }
+  if (item.insertText && typeof item.insertText !== 'string') return { snippet: item.insertText, parameterCount: 0 };
 
   const parameterListParts = getParameterListParts(displayParts);
   const snippet = new qv.SnippetString();
   snippet.appendText(`${item.insertText || item.label}(`);
   appendJoinedPlaceholders(snippet, parameterListParts.parts, ', ');
-  if (parameterListParts.hasOptionalParameters) {
-    snippet.appendTabstop();
-  }
+  if (parameterListParts.hasOptionalParameters) snippet.appendTabstop();
   snippet.appendText(')');
   snippet.appendTabstop(0);
   return { snippet, parameterCount: parameterListParts.parts.length + (parameterListParts.hasOptionalParameters ? 1 : 0) };
@@ -26,9 +22,7 @@ function appendJoinedPlaceholders(snippet: qv.SnippetString, parts: ReadonlyArra
   for (let i = 0; i < parts.length; ++i) {
     const paramterPart = parts[i];
     snippet.appendPlaceholder(paramterPart.text);
-    if (i !== parts.length - 1) {
-      snippet.appendText(joiner);
-    }
+    if (i !== parts.length - 1) snippet.appendText(joiner);
   }
 }
 
@@ -51,9 +45,7 @@ function getParameterListParts(displayParts: ReadonlyArray<qp.SymbolDisplayPart>
       case PConst.DisplayPartKind.functionName:
       case PConst.DisplayPartKind.text:
       case PConst.DisplayPartKind.propertyName:
-        if (parenCount === 0 && braceCount === 0) {
-          isInMethod = true;
-        }
+        if (parenCount === 0 && braceCount === 0) isInMethod = true;
         break;
 
       case PConst.DisplayPartKind.parameterName:
@@ -63,9 +55,7 @@ function getParameterListParts(displayParts: ReadonlyArray<qp.SymbolDisplayPart>
           const nameIsFollowedByOptionalIndicator = next && next.text === '?';
 
           const nameIsThis = part.text === 'this';
-          if (!nameIsFollowedByOptionalIndicator && !nameIsThis) {
-            parts.push(part);
-          }
+          if (!nameIsFollowedByOptionalIndicator && !nameIsThis) parts.push(part);
           hasOptionalParameters = hasOptionalParameters || nameIsFollowedByOptionalIndicator;
         }
         break;
@@ -75,9 +65,7 @@ function getParameterListParts(displayParts: ReadonlyArray<qp.SymbolDisplayPart>
           ++parenCount;
         } else if (part.text === ')') {
           --parenCount;
-          if (parenCount <= 0 && isInMethod) {
-            break outer;
-          }
+          if (parenCount <= 0 && isInMethod) break outer;
         } else if (part.text === '...' && parenCount === 1) {
           hasOptionalParameters = true;
           break outer;

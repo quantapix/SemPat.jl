@@ -365,9 +365,7 @@ export class ImportResolver {
     this._invalidateFileSystemCache();
     return true;
     function addPaths(path?: string) {
-      if (!path || fs.isPathScanned(path)) {
-        return;
-      }
+      if (!path || fs.isPathScanned(path)) return;
       paths.push(path);
     }
   }
@@ -812,9 +810,7 @@ export class ImportResolver {
         if (outerEntry.isDir()) {
           const innerDirPath = combinePaths(thirdPartyDir, outerEntry.name);
           this.readdirEntriesCached(innerDirPath).forEach((innerEntry) => {
-            if (innerEntry.name === '@python2') {
-              return;
-            }
+            if (innerEntry.name === '@python2') return;
             if (innerEntry.isDir()) {
               this._cachedTypeshedThirdPartyPackagePaths!.set(innerEntry.name, innerDirPath);
             } else if (innerEntry.isFile()) {
@@ -831,9 +827,7 @@ export class ImportResolver {
   private _getCompletionSuggestionsTypeshedPath(execEnv: ExecutionEnvironment, moduleDescriptor: ImportedModuleDescriptor, isStdLib: boolean, suggestions: string[], similarityLimit: number) {
     const importFailureInfo: string[] = [];
     const typeshedPath = isStdLib ? this._getStdlibTypeshedPath(execEnv, importFailureInfo) : this._getThirdPartyTypeshedPackagePath(moduleDescriptor, execEnv, importFailureInfo);
-    if (!typeshedPath) {
-      return;
-    }
+    if (!typeshedPath) return;
     if (this.dirExistsCached(typeshedPath)) {
       this._getCompletionSuggestionsAbsolute(typeshedPath, moduleDescriptor, suggestions, similarityLimit);
     }
@@ -921,9 +915,7 @@ export class ImportResolver {
   private _getCompletionSuggestionsRelative(sourceFilePath: string, moduleDescriptor: ImportedModuleDescriptor, suggestions: string[], similarityLimit: number) {
     let curDir = getDirPath(sourceFilePath);
     for (let i = 1; i < moduleDescriptor.leadingDots; i++) {
-      if (curDir === '') {
-        return;
-      }
+      if (curDir === '') return;
       curDir = getDirPath(curDir);
     }
     this._getCompletionSuggestionsAbsolute(curDir, moduleDescriptor, suggestions, similarityLimit);
@@ -979,15 +971,9 @@ export class ImportResolver {
     });
   }
   private _addUniqueSuggestion(suggestionToAdd: string, suggestions: string[]) {
-    if (suggestions.some((s) => s === suggestionToAdd)) {
-      return;
-    }
-    if (/[.-]/.test(suggestionToAdd)) {
-      return;
-    }
-    if (isDunderName(suggestionToAdd) && suggestionToAdd !== '__future__') {
-      return;
-    }
+    if (suggestions.some((s) => s === suggestionToAdd)) return;
+    if (/[.-]/.test(suggestionToAdd)) return;
+    if (isDunderName(suggestionToAdd) && suggestionToAdd !== '__future__') return;
     suggestions.push(suggestionToAdd);
   }
   private _filterImplicitImports(importResult: ImportResult, importedSymbols: string[] | undefined): ImportResult {

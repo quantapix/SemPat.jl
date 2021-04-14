@@ -77,9 +77,7 @@ export async function switchEnvToPath(envpath: string, notifyLS: boolean) {
     }
   }
   if (notifyLS) {
-    if (!g_languageClient) {
-      return;
-    }
+    if (!g_languageClient) return;
     await g_languageClient.onReady();
     g_languageClient.sendNotification('julia/activateenvironment', { envPath: envpath });
   }

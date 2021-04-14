@@ -180,9 +180,7 @@ export class Binder extends ParseTreeWalker {
   visitModuleName(node: ModuleNameNode): boolean {
     const importResult = AnalyzerNodeInfo.getImportInfo(node);
     assert(importResult !== undefined);
-    if (!importResult || importResult.isNativeLib) {
-      return true;
-    }
+    if (!importResult || importResult.isNativeLib) return true;
     if (!importResult.isImportFound) {
       this._addDiag(this._fileInfo.diagnosticRuleSet.reportMissingImports, DiagRule.reportMissingImports, Localizer.Diag.importResolveFailure().format({ importName: importResult.importName }), node);
       return true;

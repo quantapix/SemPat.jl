@@ -48,9 +48,7 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
         const setting = config.get<UpdateImportsOnFileMoveSetting>(updateImportsOnFileMoveName);
         if (setting === UpdateImportsOnFileMoveSetting.Never) return;
         const jsTsFileThatIsBeingMoved = await this.getJsTsFileBeingMoved(newUri);
-        if (!jsTsFileThatIsBeingMoved || !this.client.toPath(jsTsFileThatIsBeingMoved)) {
-          return;
-        }
+        if (!jsTsFileThatIsBeingMoved || !this.client.toPath(jsTsFileThatIsBeingMoved)) return;
         this._pendingRenames.add({ oldUri, newUri, newFilePath, oldFilePath, jsTsFileThatIsBeingMoved });
         this._delayer.trigger(() => {
           qv.window.withProgress(

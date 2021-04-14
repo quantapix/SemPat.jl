@@ -124,9 +124,7 @@ export class PyImportSorter {
   }
   private _addSecondaryReplacementRanges(statements: ImportStatement[], actions: TextEditAction[]) {
     let secondaryBlockStart = statements.findIndex((s) => s.followsNonImportStatement);
-    if (secondaryBlockStart < 0) {
-      return;
-    }
+    if (secondaryBlockStart < 0) return;
     while (true) {
       let secondaryBlockLimit = statements.findIndex((s, index) => index > secondaryBlockStart && s.followsNonImportStatement);
       if (secondaryBlockLimit < 0) {
@@ -217,33 +215,21 @@ export function buildModuleSymbolsMap(files: SourceFileInfo[], includeIndexUserS
   const moduleSymbolMap = new Map<string, ModuleSymbolTable>();
   files.forEach((file) => {
     throwIfCancellationRequested(token);
-    if (file.shadows.length > 0) {
-      return;
-    }
+    if (file.shadows.length > 0) return;
     const filePath = file.sourceFile.getFilePath();
     const symbolTable = file.sourceFile.getModuleSymbolTable();
     if (symbolTable) {
       const fileName = stripFileExtension(getFileName(filePath));
-      if (SymbolNameUtils.isPrivateOrProtectedName(fileName)) {
-        return;
-      }
+      if (SymbolNameUtils.isPrivateOrProtectedName(fileName)) return;
       moduleSymbolMap.set(filePath, {
         forEach(callbackfn: (value: AutoImportSymbol, key: string, library: boolean) => void): void {
           symbolTable.forEach((symbol, name) => {
-            if (symbol.isExternallyHidden()) {
-              return;
-            }
+            if (symbol.isExternallyHidden()) return;
             const declarations = symbol.getDeclarations();
-            if (!declarations || declarations.length === 0) {
-              return;
-            }
+            if (!declarations || declarations.length === 0) return;
             const declaration = declarations[0];
-            if (!declaration) {
-              return;
-            }
-            if (declaration.type === DeclarationType.Alias) {
-              return;
-            }
+            if (!declaration) return;
+            if (declaration.type === DeclarationType.Alias) return;
             const variableKind = declaration.type === DeclarationType.Variable && !declaration.isConstant && !declaration.isFinal ? SymbolKind.Variable : undefined;
             callbackfn({ symbol, kind: variableKind }, name, /* library */ false);
           });
@@ -358,12 +344,8 @@ export class AutoImporter {
   ) {
     const startTime = this._stopWatch.getDurationInMilliseconds();
     this._options.libraryMap?.forEach((indexResults, filePath) => {
-      if (indexResults.privateOrProtected) {
-        return;
-      }
-      if (this._moduleSymbolMap.has(filePath)) {
-        return;
-      }
+      if (indexResults.privateOrProtected) return;
+      if (this._moduleSymbolMap.has(filePath)) return;
       const isStubFileOrHasInit = this._isStubFileOrHasInit(this._options.libraryMap!, filePath);
       this._processModuleSymbolTable(
         createModuleSymbolTableFromIndexResult(indexResults, /* library */ true),
@@ -415,24 +397,16 @@ export class AutoImporter {
   ) {
     throwIfCancellationRequested(token);
     const [importSource, importGroup, moduleNameAndType] = this._getImportPartsForSymbols(filePath);
-    if (!importSource) {
-      return;
-    }
+    if (!importSource) return;
     const dotCount = StringUtils.getCharacterCount(importSource, '.');
     topLevelSymbols.forEach((autoImportSymbol, name, library) => {
       throwIfCancellationRequested(token);
       this._perfIndexCount(autoImportSymbol, library);
-      if (!this._shouldIncludeVariable(autoImportSymbol, name, isStubOrHasInit.isStub, library)) {
-        return;
-      }
+      if (!this._shouldIncludeVariable(autoImportSymbol, name, isStubOrHasInit.isStub, library)) return;
       const isSimilar = this._isSimilar(word, name, similarityLimit);
-      if (!isSimilar) {
-        return;
-      }
+      if (!isSimilar) return;
       const alreadyIncluded = this._containsName(name, importSource, results);
-      if (alreadyIncluded) {
-        return;
-      }
+      if (alreadyIncluded) return;
       if (autoImportSymbol.importAlias) {
         this._addToImportAliasMap(
           autoImportSymbol.importAlias,
@@ -464,21 +438,13 @@ export class AutoImporter {
         edits: autoImportTextEdits.edits,
       });
     });
-    if (!isStubOrHasInit.isStub && !isStubOrHasInit.hasInit) {
-      return;
-    }
+    if (!isStubOrHasInit.isStub && !isStubOrHasInit.hasInit) return;
     const importParts = this._getImportParts(filePath);
-    if (!importParts) {
-      return;
-    }
+    if (!importParts) return;
     const isSimilar = this._isSimilar(word, importParts.importName, similarityLimit);
-    if (!isSimilar) {
-      return;
-    }
+    if (!isSimilar) return;
     const alreadyIncluded = this._containsName(importParts.importName, importParts.importFrom, results);
-    if (alreadyIncluded) {
-      return;
-    }
+    if (alreadyIncluded) return;
     this._addToImportAliasMap({ modulePath: filePath, originalName: importParts.importName, kind: SymbolKind.Module }, { importParts, importGroup }, importAliasMap);
   }
   private _shouldIncludeVariable(autoImportSymbol: AutoImportSymbol, name: string, isStub: boolean, library: boolean) {
@@ -498,20 +464,14 @@ export class AutoImporter {
       mapPerSymbolName.forEach((importAliasData) => {
         throwIfCancellationRequested(token);
         if (abbrFromUsers) {
-          if (this._importStatements.mapByFilePath.has(importAliasData.importParts.filePath)) {
-            return;
-          }
+          if (this._importStatements.mapByFilePath.has(importAliasData.importParts.filePath)) return;
           if (importAliasData.importParts.importFrom) {
             const imported = this._importStatements.orderedImports.find((i) => i.moduleName === importAliasData.importParts.importFrom);
-            if (imported && imported.node.nodeType === ParseNodeType.ImportFrom && imported.node.imports.some((i) => i.name.value === importAliasData.importParts.symbolName)) {
-              return;
-            }
+            if (imported && imported.node.nodeType === ParseNodeType.ImportFrom && imported.node.imports.some((i) => i.name.value === importAliasData.importParts.symbolName)) return;
           }
         }
         const alreadyIncluded = this._containsName(importAliasData.importParts.importName, importAliasData.importParts.importFrom, results);
-        if (alreadyIncluded) {
-          return;
-        }
+        if (alreadyIncluded) return;
         const autoImportTextEdits = this._getTextEditsForAutoImportByFilePath(
           importAliasData.importParts.importFrom ?? importAliasData.importParts.importName,
           importAliasData.importParts.symbolName,
@@ -547,9 +507,7 @@ export class AutoImporter {
     }
     const existingData = map.get(alias.originalName)!;
     const comparison = this._compareImportAliasData(existingData, data);
-    if (comparison <= 0) {
-      return;
-    }
+    if (comparison <= 0) return;
     map.set(alias.originalName, data);
   }
   private _compareImportAliasData(left: ImportAliasData, right: ImportAliasData) {
@@ -757,9 +715,7 @@ function createModuleSymbolTableFromIndexResult(indexResults: IndexResults, libr
   return {
     forEach(callbackfn: (value: AutoImportSymbol, key: string, library: boolean) => void): void {
       indexResults.symbols.forEach((data) => {
-        if (!data.externallyVisible) {
-          return;
-        }
+        if (!data.externallyVisible) return;
         callbackfn(
           {
             importAlias: data.alias,

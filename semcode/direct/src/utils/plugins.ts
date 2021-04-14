@@ -23,9 +23,7 @@ export class PluginMgr extends Disposable {
     super();
     qv.extensions.onDidChange(
       () => {
-        if (!this._plugins) {
-          return;
-        }
+        if (!this._plugins) return;
         const newPlugins = this.readPlugins();
         if (!arrays.equals(arrays.flatten(Array.from(this._plugins.values())), arrays.flatten(Array.from(newPlugins.values())), TypeScriptServerPlugin.equals)) {
           this._plugins = newPlugins;
@@ -37,9 +35,7 @@ export class PluginMgr extends Disposable {
     );
   }
   public get plugins(): ReadonlyArray<TypeScriptServerPlugin> {
-    if (!this._plugins) {
-      this._plugins = this.readPlugins();
-    }
+    if (!this._plugins) this._plugins = this.readPlugins();
     return arrays.flatten(Array.from(this._plugins.values()));
   }
   private readonly _onDidUpdatePlugins = this._register(new qv.EventEmitter<this>());
@@ -68,9 +64,7 @@ export class PluginMgr extends Disposable {
             configNamespace: plugin.configNamespace,
           });
         }
-        if (plugins.length) {
-          pluginMap.set(extension.id, plugins);
-        }
+        if (plugins.length) pluginMap.set(extension.id, plugins);
       }
     }
     return pluginMap;

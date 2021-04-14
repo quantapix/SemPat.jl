@@ -3,9 +3,7 @@ import { TextRangeCollection } from '../common/textRangeCollection';
 import { Token } from '../parser/tokenizerTypes';
 export function getFileLevelDirectives(tokens: TextRangeCollection<Token>, defaultRuleSet: DiagRuleSet, useStrict: boolean): DiagRuleSet {
   let ruleSet = cloneDiagRuleSet(defaultRuleSet);
-  if (useStrict) {
-    _applyStrictRules(ruleSet);
-  }
+  if (useStrict) _applyStrictRules(ruleSet);
   for (let i = 0; i < tokens.count; i++) {
     const token = tokens.getItemAt(i);
     if (token.comments) {
@@ -58,22 +56,16 @@ function _parsePyrightComment(commentValue: string, ruleSet: DiagRuleSet) {
 }
 function _parsePyrightOperand(operand: string, ruleSet: DiagRuleSet) {
   const operandSplit = operand.split('=').map((s) => s.trim());
-  if (operandSplit.length !== 2) {
-    return ruleSet;
-  }
+  if (operandSplit.length !== 2) return ruleSet;
   const ruleName = operandSplit[0];
   const boolRules = getBooleanDiagRules();
   const diagLevelRules = getDiagLevelDiagRules();
   if (diagLevelRules.find((r) => r === ruleName)) {
     const diagLevelValue = _parseDiagLevel(operandSplit[1]);
-    if (diagLevelValue !== undefined) {
-      (ruleSet as any)[ruleName] = diagLevelValue;
-    }
+    if (diagLevelValue !== undefined) (ruleSet as any)[ruleName] = diagLevelValue;
   } else if (boolRules.find((r) => r === ruleName)) {
     const boolValue = _parseBoolSetting(operandSplit[1]);
-    if (boolValue !== undefined) {
-      (ruleSet as any)[ruleName] = boolValue;
-    }
+    if (boolValue !== undefined) (ruleSet as any)[ruleName] = boolValue;
   }
   return ruleSet;
 }
@@ -94,9 +86,8 @@ function _parseDiagLevel(value: string): DiagLevel | undefined {
   }
 }
 function _parseBoolSetting(value: string): boolean | undefined {
-  if (value === 'false') {
-    return false;
-  } else if (value === 'true') {
+  if (value === 'false') return false;
+  else if (value === 'true') {
     return true;
   }
   return undefined;

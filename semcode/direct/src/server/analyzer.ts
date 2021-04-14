@@ -276,9 +276,7 @@ export class BackgroundAnalysisBase {
     this.enqueueRequest({ requestType: 'restart', data: null });
   }
   protected enqueueRequest(request: AnalysisRequest) {
-    if (this._worker) {
-      this._worker.postMessage(request, request.port ? [request.port] : undefined);
-    }
+    if (this._worker) this._worker.postMessage(request, request.port ? [request.port] : undefined);
   }
   protected log(level: LogLevel, msg: string) {
     log(this.console, level, msg);
@@ -307,9 +305,7 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
     parentPort?.on('message', (msg: AnalysisRequest) => this.onMessage(msg));
     parentPort?.on('error', (msg) => debug.fail(`failed ${msg}`));
     parentPort?.on('exit', (c) => {
-      if (c !== 0) {
-        debug.fail(`worker stopped with exit code ${c}`);
-      }
+      if (c !== 0) debug.fail(`worker stopped with exit code ${c}`);
     });
   }
   protected onMessage(msg: AnalysisRequest) {
@@ -413,9 +409,8 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
   private _analyzeOneChunk(port: MessagePort, token: CancellationToken, msg: AnalysisRequest) {
     const maxTime = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
     const moreToAnalyze = analyzeProgram(this.program, maxTime, this._configOptions, (result) => this._onAnalysisCompletion(port, result), this.getConsole(), token);
-    if (moreToAnalyze) {
-      this._analysisPaused(port, msg.data);
-    } else {
+    if (moreToAnalyze) this._analysisPaused(port, msg.data);
+    else {
       this.processIndexing(port, token);
       this._analysisDone(port, msg.data);
     }
@@ -469,9 +464,7 @@ function convertDiags(diagnostics: Diag[]) {
         diag.addAction(action);
       }
     }
-    if (d._rule) {
-      diag.setRule(d._rule);
-    }
+    if (d._rule) diag.setRule(d._rule);
     if (d._relatedInfo) {
       for (const info of d._relatedInfo) {
         diag.addRelatedInfo(info.message, info.filePath, info.range);
@@ -534,9 +527,7 @@ const REQUIRED_COMPONENTS = ['rust-src'];
 function installDir(): string | undefined {
   if (process.platform === 'linux' || process.platform === 'darwin') {
     const { HOME, XDG_DATA_HOME, XDG_BIN_HOME } = process.env;
-    if (XDG_BIN_HOME) {
-      return path.resolve(XDG_BIN_HOME);
-    }
+    if (XDG_BIN_HOME) return path.resolve(XDG_BIN_HOME);
     const baseDir = XDG_DATA_HOME ? path.join(XDG_DATA_HOME, '..') : HOME && path.join(HOME, '.local');
     return baseDir && path.resolve(path.join(baseDir, 'bin'));
   } else if (process.platform === 'win32') {
@@ -570,9 +561,7 @@ interface Metadata {
 }
 async function readMetadata(): Promise<Metadata | Record<string, unknown>> {
   const stateDir = metadataDir();
-  if (!stateDir) {
-    return { kind: 'error', code: 'NotSupported' };
-  }
+  if (!stateDir) return { kind: 'error', code: 'NotSupported' };
   const filePath = path.join(stateDir, 'metadata.json');
   if (!(await stat(filePath).catch(() => false))) {
     return { kind: 'error', code: 'FileMissing' };
@@ -583,9 +572,7 @@ async function readMetadata(): Promise<Metadata | Record<string, unknown>> {
 }
 async function writeMetadata(config: Metadata) {
   const stateDir = metadataDir();
-  if (!stateDir) {
-    return false;
-  }
+  if (!stateDir) return false;
   if (!(await ensureDir(stateDir))) {
     return false;
   }
@@ -595,15 +582,10 @@ async function writeMetadata(config: Metadata) {
 export async function getServer({ askBeforeDownload, package: pkg }: RustAnalyzerConfig): Promise<string | undefined> {
   let binaryName: string | undefined;
   if (process.arch === 'x64' || process.arch === 'ia32') {
-    if (process.platform === 'linux') {
-      binaryName = 'rust-analyzer-linux';
-    }
-    if (process.platform === 'darwin') {
-      binaryName = 'rust-analyzer-mac';
-    }
-    if (process.platform === 'win32') {
-      binaryName = 'rust-analyzer-windows.exe';
-    }
+    if (process.platform === 'linux') binaryName = 'rust-analyzer-linux';
+
+    if (process.platform === 'darwin') binaryName = 'rust-analyzer-mac';
+    if (process.platform === 'win32') binaryName = 'rust-analyzer-windows.exe';
   }
   if (binaryName === undefined) {
     vs.window.showErrorMessage(
@@ -617,16 +599,12 @@ export async function getServer({ askBeforeDownload, package: pkg }: RustAnalyze
     return undefined;
   }
   const dir = installDir();
-  if (!dir) {
-    return;
-  }
+  if (!dir) return;
   await ensureDir(dir);
   const metadata: Partial<Metadata> = await readMetadata().catch(() => ({}));
   const dest = path.join(dir, binaryName);
   const exists = await stat(dest).catch(() => false);
-  if (exists && metadata.releaseTag === pkg.releaseTag) {
-    return dest;
-  }
+  if (exists && metadata.releaseTag === pkg.releaseTag) return dest;
   if (askBeforeDownload) {
     const userResponse = await vs.window.showInformationMessage(
       `${metadata.releaseTag && metadata.releaseTag !== pkg.releaseTag ? `You seem to have installed release \`${metadata.releaseTag}\` but requested a different one.` : ''}
@@ -634,15 +612,11 @@ export async function getServer({ askBeforeDownload, package: pkg }: RustAnalyze
       Install to ${dir}?`,
       'Download'
     );
-    if (userResponse !== 'Download') {
-      return dest;
-    }
+    if (userResponse !== 'Download') return dest;
   }
   const release = await fetchRelease('rust-analyzer', 'rust-analyzer', pkg.releaseTag);
   const artifact = release.assets.find((asset) => asset.name === binaryName);
-  if (!artifact) {
-    throw new Error(`Bad release: ${JSON.stringify(release)}`);
-  }
+  if (!artifact) throw new Error(`Bad release: ${JSON.stringify(release)}`);
   await download(artifact.browser_download_url, dest, 'Downloading rust-analyzer server', { mode: 0o755 });
   await writeMetadata({ releaseTag: pkg.releaseTag }).catch(() => {
     vs.window.showWarningMessage(`Couldn't save rust-analyzer metadata`);
@@ -670,18 +644,14 @@ export async function createLangClient(
       package: { releaseTag: config.rustAnalyzer.releaseTag },
     });
   }
-  if (INSTANCE) {
-    return INSTANCE;
-  }
+  if (INSTANCE) return INSTANCE;
   const serverOptions: lc.ServerOptions = async () => {
     const binPath =
       config.rustAnalyzer.path ||
       (await getServer({
         package: { releaseTag: config.rustAnalyzer.releaseTag },
       }));
-    if (!binPath) {
-      throw new Error("Couldn't fetch Rust Analyzer binary");
-    }
+    if (!binPath) throw new Error("Couldn't fetch Rust Analyzer binary");
     const childProc = child_process.exec(binPath);
     if (config.logToFile) {
       const logPath = path.join(folder.uri.fsPath, `ra-${Date.now()}.log`);
@@ -716,12 +686,8 @@ async function setupGlobalProgress(client: lc.LangClient) {
         }>(),
         RUST_ANALYZER_PROGRESS,
         ({ kind, message: msg }) => {
-          if (kind === 'report') {
-            PROGRESS.value = { state: 'progress', message: msg || '' };
-          }
-          if (kind === 'end') {
-            PROGRESS.value = { state: 'ready' };
-          }
+          if (kind === 'report') PROGRESS.value = { state: 'progress', message: msg || '' };
+          if (kind === 'end') PROGRESS.value = { state: 'ready' };
         }
       );
     }
@@ -810,12 +776,7 @@ export default class Analyzer {
       column: params.position.character,
     });
     const interestingNode = leafNode.type === 'word' ? leafNode.parent : leafNode;
-    if (!interestingNode) {
-      return {
-        status: 'error',
-        message: 'no interestingNode found',
-      };
-    }
+    if (!interestingNode) return { status: 'error', message: 'no interestingNode found' };
     const cmd = this.uriToFileContent[params.textDocument.uri].slice(interestingNode.startIndex, interestingNode.endIndex);
     // FIXME: type the response and unit test it
     const explainshellResponse = await request({
@@ -823,17 +784,13 @@ export default class Analyzer {
       json: true,
     });
     const response = { ...explainshellResponse, cmd, cmdType: interestingNode.type };
-    if (explainshellResponse.status === 'error') {
-      return response;
-    } else if (!explainshellResponse.matches) {
-      return { ...response, status: 'error' };
-    } else {
+    if (explainshellResponse.status === 'error') return response;
+    else if (!explainshellResponse.matches) return { ...response, status: 'error' };
+    else {
       const offsetOfMousePointerInCommand = this.uriToTextDocument[params.textDocument.uri].offsetAt(params.position) - interestingNode.startIndex;
       const match = explainshellResponse.matches.find((helpItem: any) => helpItem.start <= offsetOfMousePointerInCommand && offsetOfMousePointerInCommand < helpItem.end);
       const helpHTML = match && match.helpHTML;
-      if (!helpHTML) {
-        return { ...response, status: 'error' };
-      }
+      if (!helpHTML) return { ...response, status: 'error' };
       return { ...response, helpHTML };
     }
   }
@@ -859,9 +816,7 @@ export default class Analyzer {
           range = TreeSitterUtil.range(namedNode);
         }
       }
-      if (name === query && range !== null) {
-        locations.push(LSP.Location.create(uri, range));
-      }
+      if (name === query && range !== null) locations.push(LSP.Location.create(uri, range));
     });
     return locations;
   }
@@ -875,9 +830,7 @@ export default class Analyzer {
       const declarationsInFile = this.uriToDeclarations[uri] || {};
       Object.keys(declarationsInFile).map((name) => {
         const match = exactMatch ? name === word : name.startsWith(word);
-        if (match) {
-          declarationsInFile[name].forEach((symbol) => symbols.push(symbol));
-        }
+        if (match) declarationsInFile[name].forEach((symbol) => symbols.push(symbol));
       });
     });
     return symbols;
@@ -896,9 +849,7 @@ export default class Analyzer {
         return;
       } else if (TreeSitterUtil.isDefinition(n)) {
         const named = n.firstNamedChild;
-        if (named === null) {
-          return;
-        }
+        if (named === null) return;
         const name = contents.slice(named.startIndex, named.endIndex);
         const namedDeclarations = this.uriToDeclarations[uri][name] || [];
         const parent = TreeSitterUtil.findParent(n, (p) => p.type === 'function_definition');
@@ -919,10 +870,7 @@ export default class Analyzer {
   }
   public wordAtPoint(uri: string, line: number, column: number): string | null {
     const document = this.uriToTreeSitterTrees[uri];
-    if (!document.rootNode) {
-      // Check for lacking rootNode (due to failed parse?)
-      return null;
-    }
+    if (!document.rootNode) return null;
     const node = document.rootNode.descendantForPosition({ row: line, column });
     if (!node || node.childCount > 0 || node.text.trim() === '') {
       return null;
@@ -951,9 +899,7 @@ export default class Analyzer {
         end: { line: commentBlockIndex + 1, character: 0 },
       });
     }
-    if (commentBlock.length) {
-      return commentBlock.reverse().join('\n');
-    }
+    if (commentBlock.length) return commentBlock.reverse().join('\n');
     return null;
   }
   public getAllVariableSymbols(): LSP.SymbolInformation[] {

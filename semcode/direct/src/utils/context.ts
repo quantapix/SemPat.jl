@@ -12,16 +12,11 @@ export default class ManagedFileContextMgr extends Disposable {
     this.onDidChangeActiveTextEditor(activeJsTsEditorTracker.activeJsTsEditor);
   }
   private onDidChangeActiveTextEditor(editor?: qv.TextEditor): void {
-    if (editor) {
-      this.updateContext(this.isManagedFile(editor));
-    } else {
-      this.updateContext(false);
-    }
+    if (editor) this.updateContext(this.isManagedFile(editor));
+    else this.updateContext(false);
   }
   private updateContext(newValue: boolean) {
-    if (newValue === this.isInManagedFileContext) {
-      return;
-    }
+    if (newValue === this.isInManagedFileContext) return;
     qv.commands.executeCommand('setContext', ManagedFileContextMgr.contextName, newValue);
     this.isInManagedFileContext = newValue;
   }

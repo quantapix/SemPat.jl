@@ -14,9 +14,7 @@ export function untildify(pathWithTilde: string): string {
 export async function getFilePaths({ globPattern, rootPath }: { globPattern: string; rootPath: string }): Promise<string[]> {
   return new Promise((resolve, reject) => {
     glob(globPattern, { cwd: rootPath, nodir: true, absolute: true, strict: false }, function (err, files) {
-      if (err) {
-        return reject(err);
-      }
+      if (err) return reject(err);
       resolve(files);
     });
   });
@@ -51,9 +49,7 @@ export function getBinPathWithPreferredGopathGorootWithExplanation(
     binPathCache[toolName] = alternateTool;
     return { binPath: alternateTool, why: 'alternateTool' };
   }
-  if (useCache && binPathCache[toolName]) {
-    return { binPath: binPathCache[toolName], why: 'cached' };
-  }
+  if (useCache && binPathCache[toolName]) return { binPath: binPathCache[toolName], why: 'cached' };
   const binname = alternateTool && !path.isAbsolute(alternateTool) ? alternateTool : toolName;
   const found = (why: string) => (binname === toolName ? why : 'alternateTool');
   const pathFromGoBin = getBinPathFromEnvVar(binname, process.env['GOBIN'], false);
@@ -101,18 +97,14 @@ export function setCurrentGoRoot(goroot: string) {
   currentGoRoot = goroot;
 }
 export function correctBinname(toolName: string) {
-  if (process.platform === 'win32') {
-    return toolName + '.exe';
-  }
+  if (process.platform === 'win32') return toolName + '.exe';
   return toolName;
 }
 export function executableFileExists(filePath: string): boolean {
   let exists = true;
   try {
     exists = fs.statSync(filePath).isFile();
-    if (exists) {
-      fs.accessSync(filePath, fs.constants.F_OK | fs.constants.X_OK);
-    }
+    if (exists) fs.accessSync(filePath, fs.constants.F_OK | fs.constants.X_OK);
   } catch (e) {
     exists = false;
   }
@@ -143,28 +135,20 @@ export function resolveHomeDir(inputPath: string): string {
   return inputPath.startsWith('~') ? path.join(os.homedir(), inputPath.substr(1)) : inputPath;
 }
 export function getInferredGopath(folderPath: string): string {
-  if (!folderPath) {
-    return;
-  }
+  if (!folderPath) return;
   const dirs = folderPath.toLowerCase().split(path.sep);
   const srcIdx = dirs.lastIndexOf('src');
-  if (srcIdx > 0) {
-    return folderPath.substr(0, dirs.slice(0, srcIdx).join(path.sep).length);
-  }
+  if (srcIdx > 0) return folderPath.substr(0, dirs.slice(0, srcIdx).join(path.sep).length);
 }
 export function getCurrentGoWorkspaceFromGOPATH(gopath: string, currentFileDirPath: string): string {
-  if (!gopath) {
-    return;
-  }
+  if (!gopath) return;
   const workspaces: string[] = gopath.split(path.delimiter);
   let currentWorkspace = '';
   currentFileDirPath = fixDriveCasingInWindows(currentFileDirPath);
   for (const workspace of workspaces) {
     const possibleCurrentWorkspace = path.join(workspace, 'src');
     if (currentFileDirPath.startsWith(possibleCurrentWorkspace) || (process.platform === 'win32' && currentFileDirPath.toLowerCase().startsWith(possibleCurrentWorkspace.toLowerCase()))) {
-      if (possibleCurrentWorkspace.length > currentWorkspace.length) {
-        currentWorkspace = currentFileDirPath.substr(0, possibleCurrentWorkspace.length);
-      }
+      if (possibleCurrentWorkspace.length > currentWorkspace.length) currentWorkspace = currentFileDirPath.substr(0, possibleCurrentWorkspace.length);
     }
   }
   return currentWorkspace;
@@ -173,9 +157,7 @@ export function fixDriveCasingInWindows(pathToFix: string): string {
   return process.platform === 'win32' && pathToFix ? pathToFix.substr(0, 1).toUpperCase() + pathToFix.substr(1) : pathToFix;
 }
 export function getToolFromToolPath(toolPath: string): string | undefined {
-  if (!toolPath) {
-    return;
-  }
+  if (!toolPath) return;
   let tool = path.basename(toolPath);
   if (process.platform === 'win32' && tool.endsWith('.exe')) {
     tool = tool.substr(0, tool.length - 4);
@@ -209,9 +191,7 @@ export class TSPluginPathsProvider {
       return [pluginPath];
     }
     const workspacePath = RelativeWorkspacePathResolver.asAbsoluteWorkspacePath(pluginPath);
-    if (workspacePath !== undefined) {
-      return [workspacePath];
-    }
+    if (workspacePath !== undefined) return [workspacePath];
     return (qv.workspace.workspaceFolders || []).map((workspaceFolder) => path.join(workspaceFolder.uri.fsPath, pluginPath));
   }
 }

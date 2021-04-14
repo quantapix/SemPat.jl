@@ -423,15 +423,11 @@ export class SourceFile {
     return ReferencesProvider.getDeclarationForPosition(sourceMapper, this._parseResults, this._filePath, position, evaluator, reporter, token);
   }
   addReferences(referencesResult: ReferencesResult, includeDeclaration: boolean, evaluator: TypeEvaluator, token: CancellationToken): void {
-    if (!this._parseResults) {
-      return;
-    }
+    if (!this._parseResults) return;
     ReferencesProvider.addReferences(this._parseResults, this._filePath, referencesResult, includeDeclaration, evaluator, token);
   }
   addHierarchicalSymbolsForDocument(symbolList: DocumentSymbol[], token: CancellationToken) {
-    if (!this._parseResults && !this._cachedIndexResults) {
-      return;
-    }
+    if (!this._parseResults && !this._cachedIndexResults) return;
     DocumentSymbolProvider.addHierarchicalSymbolsForDocument(
       this._parseResults ? AnalyzerNodeInfo.getFileInfo(this._parseResults.parseTree) : undefined,
       this.getCachedIndexResults(),
@@ -527,9 +523,7 @@ export class SourceFile {
     token: CancellationToken
   ) {
     const fileContents = this.getFileContents();
-    if (!this._parseResults || fileContents === undefined) {
-      return;
-    }
+    if (!this._parseResults || fileContents === undefined) return;
     const completionData = completionItem.data as CompletionItemData;
     const completionProvider = new CompletionProvider(
       completionData.workspacePath,

@@ -38,9 +38,7 @@ export class Result {
     this.setContent(content);
   }
   setContent(content: ResultContent) {
-    if (this.destroyed) {
-      return;
-    }
+    if (this.destroyed) return;
     this.content = content;
     if (this.decoration) {
       this.remove();
@@ -179,9 +177,7 @@ export function activate(context: qv.ExtensionContext) {
   );
 }
 function updateResultContextKey(changeEvent: qv.TextEditorSelectionChangeEvent) {
-  if (changeEvent.textEditor.document.languageId !== 'julia') {
-    return;
-  }
+  if (changeEvent.textEditor.document.languageId !== 'julia') return;
   for (const selection of changeEvent.selections) {
     for (const r of results) {
       if (isResultInLineRange(changeEvent.textEditor, r, selection)) {
@@ -356,16 +352,12 @@ function gotoFirstFrame() {
 }
 function gotoPreviousFrame(frame: Frame) {
   const i = findFrameIndex(frame);
-  if (i < 1) {
-    return;
-  }
+  if (i < 1) return;
   return gotoFrame(stackFrameHighlights.highlights[i - 1].frame);
 }
 function gotoNextFrame(frame: Frame) {
   const i = findFrameIndex(frame);
-  if (i === -1 || i >= stackFrameHighlights.highlights.length - 1) {
-    return;
-  }
+  if (i === -1 || i >= stackFrameHighlights.highlights.length - 1) return;
   return gotoFrame(stackFrameHighlights.highlights[i + 1].frame);
 }
 function gotoLastFrame() {

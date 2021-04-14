@@ -356,9 +356,7 @@ async function startLangServer() {
   if (g_watchedEnvironmentFile) {
     watchFile(g_watchedEnvironmentFile, { interval: 10000 }, (curr, prev) => {
       if (curr.mtime > prev.mtime) {
-        if (!languageClient.needsStop()) {
-          return;
-        }
+        if (!languageClient.needsStop()) return;
         refreshLangServer(languageClient);
       }
     });

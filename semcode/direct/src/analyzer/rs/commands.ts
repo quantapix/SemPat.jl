@@ -361,9 +361,7 @@ export function resolveCodeAction(ctx: Ctx): Cmd {
   const client = ctx.client;
   return async (params: ra.ResolveCodeActionParams) => {
     const item: lc.WorkspaceEdit = await client.sendRequest(ra.resolveCodeAction, params);
-    if (!item) {
-      return;
-    }
+    if (!item) return;
     const edit = client.protocol2CodeConverter.asWorkspaceEdit(item);
     await applySnippetWorkspaceEdit(edit);
   };

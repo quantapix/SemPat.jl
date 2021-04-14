@@ -175,9 +175,7 @@ export class PyDefinition {
   }
   private static _addIfUnique(definitions: DocumentRange[], itemToAdd: DocumentRange) {
     for (const def of definitions) {
-      if (def.path === itemToAdd.path && rangesAreEqual(def.range, itemToAdd.range)) {
-        return;
-      }
+      if (def.path === itemToAdd.path && rangesAreEqual(def.range, itemToAdd.range)) return;
     }
     definitions.push(itemToAdd);
   }
@@ -235,9 +233,7 @@ export function definitionLocation(
       cwd: modFolderPath && modFolderPath !== getModuleCache() ? modFolderPath : getWorkspaceFolderPath(document.uri) || path.dirname(document.fileName),
     };
     if (toolForDocs === 'godoc') return definitionLocation_godef(input, token);
-    else if (toolForDocs === 'guru') {
-      return definitionLocation_guru(input, token);
-    }
+    else if (toolForDocs === 'guru') return definitionLocation_guru(input, token);
     return definitionLocation_gogetdoc(input, token, true);
   });
 }
@@ -432,9 +428,7 @@ export class GoDefinition implements qv.DefinitionProvider {
       (err) => {
         const miss = parseMissingError(err);
         if (miss[0]) promptForMissingTool(miss[1]);
-        else if (err) {
-          return Promise.reject(err);
-        }
+        else if (err) return Promise.reject(err);
         return Promise.resolve(null);
       }
     );
@@ -496,9 +490,7 @@ export class GoTypeDefinition implements qv.TypeDefinitionProvider {
               (err) => {
                 const miss = parseMissingError(err);
                 if (miss[0]) promptForMissingTool(miss[1]);
-                else if (err) {
-                  return Promise.reject(err);
-                }
+                else if (err) return Promise.reject(err);
                 return Promise.resolve(null);
               }
             );

@@ -10,13 +10,9 @@ export default class API {
   public static readonly v420 = API.fromSimpleString('4.2.0');
   public static fromVersionString(versionString: string): API {
     let version = semver.valid(versionString);
-    if (!version) {
-      return new API('invalidVersion', '1.0.0', '1.0.0');
-    }
+    if (!version) return new API('invalidVersion', '1.0.0', '1.0.0');
     const index = versionString.indexOf('-');
-    if (index >= 0) {
-      version = version.substr(0, index);
-    }
+    if (index >= 0) version = version.substr(0, index);
     return new API(versionString, version, versionString);
   }
   private constructor(public readonly displayName: string, public readonly version: string, public readonly fullVersionString: string) {}
@@ -34,16 +30,12 @@ export function isWindows() {
   return process.platform === 'win32';
 }
 function stripBOM(s: string): string {
-  if (s && s[0] === '\uFEFF') {
-    s = s.substr(1);
-  }
+  if (s && s[0] === '\uFEFF') s = s.substr(1);
   return s;
 }
 export function parseEnvFile(envFilePath: string): { [key: string]: string } {
   const env: { [key: string]: string } = {};
-  if (!envFilePath) {
-    return env;
-  }
+  if (!envFilePath) return env;
   try {
     const buffer = stripBOM(fs.readFileSync(envFilePath, 'utf8'));
     buffer.split('\n').forEach((line) => {
@@ -63,9 +55,7 @@ export function parseEnvFile(envFilePath: string): { [key: string]: string } {
 }
 export function parseEnvFiles(envFiles: string[] | string): { [key: string]: string } {
   const fileEnvs = [];
-  if (typeof envFiles === 'string') {
-    fileEnvs.push(parseEnvFile(envFiles));
-  }
+  if (typeof envFiles === 'string') fileEnvs.push(parseEnvFile(envFiles));
   if (Array.isArray(envFiles)) {
     envFiles.forEach((envFile) => {
       fileEnvs.push(parseEnvFile(envFile));
@@ -98,9 +88,7 @@ const getRootTempDir = (() => {
 export const getInstanceTempDir = (() => {
   let dir: string | undefined;
   return () => {
-    if (!dir) {
-      dir = path.join(getRootTempDir(), makeRandomHexString(20));
-    }
+    if (!dir) dir = path.join(getRootTempDir(), makeRandomHexString(20));
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir);
     }
@@ -114,11 +102,9 @@ export const onCaseInsenitiveFileSystem = (() => {
   let value: boolean | undefined;
   return (): boolean => {
     if (typeof value === 'undefined') {
-      if (process.platform === 'win32') {
-        value = true;
-      } else if (process.platform !== 'darwin') {
-        value = false;
-      } else {
+      if (process.platform === 'win32') value = true;
+      else if (process.platform !== 'darwin') value = false;
+      else {
         const temp = getTempFile('typescript-case-check');
         fs.writeFileSync(temp, '');
         value = fs.existsSync(temp.toUpperCase());
@@ -149,9 +135,7 @@ export function versionToString(version: PythonVersion): string {
 }
 export function versionFromString(verString: string): PythonVersion | undefined {
   const split = verString.split('.');
-  if (split.length < 2) {
-    return undefined;
-  }
+  if (split.length < 2) return undefined;
   const majorVersion = parseInt(split[0], 10);
   const minorVersion = parseInt(split[1], 10);
   return versionFromMajorMinor(majorVersion, minorVersion);
@@ -160,13 +144,9 @@ export function versionFromMajorMinor(major: number, minor: number): PythonVersi
   if (isNaN(major) || isNaN(minor)) {
     return undefined;
   }
-  if (major > 255 || minor > 255) {
-    return undefined;
-  }
+  if (major > 255 || minor > 255) return undefined;
   const value = major * 256 + minor;
-  if (PythonVersion[value] === undefined) {
-    return undefined;
-  }
+  if (PythonVersion[value] === undefined) return undefined;
   if (!is3x(value)) {
     return undefined;
   }

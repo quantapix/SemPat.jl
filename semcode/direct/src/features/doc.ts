@@ -34,9 +34,8 @@ class JsDocCompletionProvider implements qv.CompletionItemProvider {
     if (response.type !== 'response' || !response.body) return undefined;
     const item = new JsDocCompletionItem(document, position);
     if (response.body.newText === '/** */') item.insertText = defaultJsDoc;
-    else {
-      item.insertText = templateToSnippet(response.body.newText);
-    }
+    else item.insertText = templateToSnippet(response.body.newText);
+
     return [item];
   }
   private isPotentiallyValidDocCompletionPosition(document: qv.TextDocument, position: qv.Position): boolean {
@@ -57,9 +56,7 @@ export function templateToSnippet(template: string): qv.SnippetString {
   template = template.replace(/\* @param([ ]\{\S+\})?\s+(\S+)[ \t]*$/gm, (_param, type, post) => {
     let out = '* @param ';
     if (type === ' {any}' || type === ' {*}') out += `{\$\{${snippetIndex++}:*\}} `;
-    else if (type) {
-      out += type + ' ';
-    }
+    else if (type) out += type + ' ';
     out += post + ` \${${snippetIndex++}}`;
     return out;
   });

@@ -6,17 +6,11 @@ import { ModuleNode, ParseNodeType } from '../parser/parseNodes';
 import { TypeEvaluator } from './typeEvaluator';
 import { ClassIteratorFlags, ClassMemberLookupFlags, getClassIterator, getClassMemberIterator, isProperty } from './typeUtils';
 export function getPropertyDocStringInherited(resolvedDecl: Declaration | undefined, sourceMapper: SourceMapper, evaluator: TypeEvaluator, classType: ClassType) {
-  if (!resolvedDecl || !isFunctionDeclaration(resolvedDecl)) {
-    return;
-  }
+  if (!resolvedDecl || !isFunctionDeclaration(resolvedDecl)) return;
   const declaredType = evaluator.getTypeForDeclaration(resolvedDecl);
-  if (!declaredType || !isProperty(declaredType)) {
-    return;
-  }
+  if (!declaredType || !isProperty(declaredType)) return;
   const fieldName = resolvedDecl.node.nodeType === ParseNodeType.Function ? resolvedDecl.node.name.value : undefined;
-  if (!fieldName) {
-    return;
-  }
+  if (!fieldName) return;
   const classItr = getClassIterator(classType, ClassIteratorFlags.Default);
   for (const [mroClass] of classItr) {
     if (!isClass(mroClass)) {

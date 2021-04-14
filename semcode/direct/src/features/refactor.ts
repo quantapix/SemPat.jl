@@ -252,13 +252,8 @@ class TsRefactor implements qv.CodeActionProvider<TsCodeAction> {
   ): InlinedCodeAction {
     const codeAction = new InlinedCodeAction(this.client, action.description, TsRefactor.getKind(action), document, info.name, action.name, rangeOrSelection);
     if (action.notApplicableReason) codeAction.disabled = { reason: action.notApplicableReason };
-    else {
-      codeAction.command = {
-        title: action.description,
-        command: DidApplyRefactoringCommand.ID,
-        arguments: [<DidApplyRefactoringCommand_Args>{ codeAction }],
-      };
-    }
+    else codeAction.command = { title: action.description, command: DidApplyRefactoringCommand.ID, arguments: [<DidApplyRefactoringCommand_Args>{ codeAction }] };
+
     codeAction.isPreferred = TsRefactor.isPreferred(action, allActions);
     return codeAction;
   }

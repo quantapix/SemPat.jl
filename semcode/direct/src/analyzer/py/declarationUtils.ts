@@ -8,16 +8,12 @@ export function hasTypeForDeclaration(declaration: Declaration): boolean {
     case DeclarationType.Function:
       return true;
     case DeclarationType.Parameter: {
-      if (declaration.node.typeAnnotation || declaration.node.typeAnnotationComment) {
-        return true;
-      }
+      if (declaration.node.typeAnnotation || declaration.node.typeAnnotationComment) return true;
       const parameterParent = declaration.node.parent;
       if (parameterParent?.nodeType === ParseNodeType.Function) {
         if (parameterParent.functionAnnotationComment && !parameterParent.functionAnnotationComment.isParamListEllipsis) {
           const paramAnnotations = parameterParent.functionAnnotationComment.paramTypeAnnotations;
-          if (parameterParent.parameters.length > paramAnnotations.length && declaration.node === parameterParent.parameters[0]) {
-            return false;
-          }
+          if (parameterParent.parameters.length > paramAnnotations.length && declaration.node === parameterParent.parameters[0]) return false;
           return true;
         }
       }
@@ -30,15 +26,9 @@ export function hasTypeForDeclaration(declaration: Declaration): boolean {
   }
 }
 export function areDeclarationsSame(decl1: Declaration, decl2: Declaration): boolean {
-  if (decl1.type !== decl2.type) {
-    return false;
-  }
-  if (decl1.path !== decl2.path) {
-    return false;
-  }
-  if (decl1.range.start.line !== decl2.range.start.line || decl1.range.start.character !== decl2.range.start.character) {
-    return false;
-  }
+  if (decl1.type !== decl2.type) return false;
+  if (decl1.path !== decl2.path) return false;
+  if (decl1.range.start.line !== decl2.range.start.line || decl1.range.start.character !== decl2.range.start.character) return false;
   if (decl1.type === DeclarationType.Alias && decl2.type === DeclarationType.Alias) {
     if (decl1.symbolName !== decl2.symbolName || decl1.firstNamePart !== decl2.firstNamePart || decl1.usesLocalName !== decl2.usesLocalName) {
       return false;

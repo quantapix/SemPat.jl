@@ -164,9 +164,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
     throwIfCancellationRequested(this._cancellationToken);
     let nameNode: NameNode | undefined;
     if (node.leftExpression.nodeType === ParseNodeType.Name) nameNode = node.leftExpression;
-    else if (node.leftExpression.nodeType === ParseNodeType.MemberAccess) {
-      nameNode = node.leftExpression.memberName;
-    }
+    else if (node.leftExpression.nodeType === ParseNodeType.MemberAccess) nameNode = node.leftExpression.memberName;
     if (nameNode) {
       const declarations = this._evaluator.getDeclarationsForNameNode(nameNode);
       if (declarations) {
@@ -184,9 +182,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
       doForEachSubtype(leftHandType, (subtype) => {
         let baseType = subtype;
         baseType = this._evaluator.makeTopLevelTypeVarsConcrete(baseType);
-        if (!isObject(baseType)) {
-          return;
-        }
+        if (!isObject(baseType)) return;
         const memberInfo = lookUpObjectMember(baseType, node.memberName.value);
         if (!memberInfo) return;
         const memberType = this._evaluator.getTypeOfMember(memberInfo);
@@ -244,9 +240,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
     throwIfCancellationRequested(this._cancellationToken);
     let nameNode: NameNode | undefined;
     if (node.leftExpression.nodeType === ParseNodeType.Name) nameNode = node.leftExpression;
-    else if (node.leftExpression.nodeType === ParseNodeType.MemberAccess) {
-      nameNode = node.leftExpression.memberName;
-    }
+    else if (node.leftExpression.nodeType === ParseNodeType.MemberAccess) nameNode = node.leftExpression.memberName;
     if (nameNode && nameNode.value === this._symbolName) {
       const declarations = this._evaluator.getDeclarationsForNameNode(nameNode);
       if (declarations) {
@@ -270,9 +264,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
         doForEachSubtype(leftHandType, (subtype) => {
           let baseType = subtype;
           baseType = this._evaluator.makeTopLevelTypeVarsConcrete(baseType);
-          if (!isObject(baseType)) {
-            return;
-          }
+          if (!isObject(baseType)) return;
           const memberInfo = lookUpObjectMember(baseType, node.memberName.value);
           if (!memberInfo) return;
           const memberType = this._evaluator.getTypeOfMember(memberInfo);

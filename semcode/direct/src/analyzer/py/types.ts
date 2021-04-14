@@ -1377,14 +1377,10 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, constr
     if (!SubtypeConstraint.isSame(constraints, constraintsToAdd)) {
       continue;
     }
-    if (isTypeSame(type, typeToAdd)) {
-      return;
-    }
+    if (isTypeSame(type, typeToAdd)) return;
     if (isObject(type) && isObject(typeToAdd)) {
       if (isSameWithoutLiteralValue(type, typeToAdd)) {
-        if (type.classType.literalValue === undefined) {
-          return;
-        }
+        if (type.classType.literalValue === undefined) return;
       }
       if (ClassType.isBuiltIn(type.classType, 'bool') && ClassType.isBuiltIn(typeToAdd.classType, 'bool')) {
         if (typeToAdd.classType.literalValue !== undefined && !typeToAdd.classType.literalValue === type.classType.literalValue) {

@@ -95,9 +95,7 @@ class BufferSynchronizer {
     this._pending.clear();
   }
   public beforeCommand(command: string): void {
-    if (command === 'updateOpen') {
-      return;
-    }
+    if (command === 'updateOpen') return;
     this.flush();
   }
   private flush() {
@@ -157,14 +155,10 @@ class SyncBuffer {
       projectRootPath: this.client.getWorkspaceRootForResource(this.document.uri),
     };
     const scriptKind = mode2ScriptKind(this.document.languageId);
-    if (scriptKind) {
-      args.scriptKindName = scriptKind;
-    }
+    if (scriptKind) args.scriptKindName = scriptKind;
     if (this.client.apiVersion.gte(API.v240)) {
       const tsPluginsForDocument = this.client.pluginMgr.plugins.filter((x) => x.languages.indexOf(this.document.languageId) >= 0);
-      if (tsPluginsForDocument.length) {
-        (args as any).plugins = tsPluginsForDocument.map((plugin) => plugin.name);
-      }
+      if (tsPluginsForDocument.length) (args as any).plugins = tsPluginsForDocument.map((plugin) => plugin.name);
     }
     this.synchronizer.open(this.resource, args);
     this.state = BufferState.Open;
@@ -195,9 +189,7 @@ class SyncBuffer {
     return this.synchronizer.close(this.resource, this.filepath);
   }
   public onContentChanged(events: readonly qv.TextDocumentContentChangeEvent[]): void {
-    if (this.state !== BufferState.Open) {
-      console.error(`Unexpected buffer state: ${this.state}`);
-    }
+    if (this.state !== BufferState.Open) console.error(`Unexpected buffer state: ${this.state}`);
     this.synchronizer.change(this.resource, this.filepath, events);
   }
 }
@@ -241,18 +233,14 @@ class GetErrRequest {
         ? client.executeAsync('geterrForProject', { delay: 0, file: allFiles[0] }, this._token.token)
         : client.executeAsync('geterr', { delay: 0, files: allFiles }, this._token.token);
       request.finally(() => {
-        if (this._done) {
-          return;
-        }
+        if (this._done) return;
         this._done = true;
         onDone();
       });
     }
   }
   public cancel(): any {
-    if (!this._done) {
-      this._token.cancel();
-    }
+    if (!this._done) this._token.cancel();
     this._token.dispose();
   }
 }
@@ -284,9 +272,7 @@ export default class BufferSyncSupport extends qu.Disposable {
   private readonly _onWillChange = this._register(new qv.EventEmitter<qv.Uri>());
   public readonly onWillChange = this._onWillChange.event;
   public listen(): void {
-    if (this.listening) {
-      return;
-    }
+    if (this.listening) return;
     this.listening = true;
     qv.workspace.onDidOpenTextDocument(this.openTextDocument, this, this._disposables);
     qv.workspace.onDidCloseTextDocument(this.onDidCloseTextDocument, this, this._disposables);
@@ -295,9 +281,7 @@ export default class BufferSyncSupport extends qu.Disposable {
       (e) => {
         for (const { document } of e) {
           const syncedBuffer = this.syncedBuffers.get(document.uri);
-          if (syncedBuffer) {
-            this.requestDiag(syncedBuffer);
-          }
+          if (syncedBuffer) this.requestDiag(syncedBuffer);
         }
       },
       this,
@@ -313,25 +297,19 @@ export default class BufferSyncSupport extends qu.Disposable {
       return true;
     }
     const existingDocument = qv.workspace.textDocuments.find((doc) => doc.uri.toString() === resource.toString());
-    if (existingDocument) {
-      return this.openTextDocument(existingDocument);
-    }
+    if (existingDocument) return this.openTextDocument(existingDocument);
     return false;
   }
   public toVsCodeResource(resource: qv.Uri): qv.Uri {
     const filepath = this.client.normalizedPath(resource);
     for (const buffer of this.syncedBuffers.allBuffers) {
-      if (buffer.filepath === filepath) {
-        return buffer.resource;
-      }
+      if (buffer.filepath === filepath) return buffer.resource;
     }
     return resource;
   }
   public toResource(filePath: string): qv.Uri {
     const buffer = this.syncedBuffers.getForPath(filePath);
-    if (buffer) {
-      return buffer.resource;
-    }
+    if (buffer) return buffer.resource;
     return qv.Uri.file(filePath);
   }
   public reset(): void {
@@ -351,9 +329,7 @@ export default class BufferSyncSupport extends qu.Disposable {
     }
     const resource = d.uri;
     const filepath = this.client.normalizedPath(resource);
-    if (!filepath) {
-      return false;
-    }
+    if (!filepath) return false;
     if (this.syncedBuffers.has(resource)) {
       return true;
     }
@@ -365,22 +341,16 @@ export default class BufferSyncSupport extends qu.Disposable {
   }
   public closeResource(r: qv.Uri): void {
     const syncedBuffer = this.syncedBuffers.get(r);
-    if (!syncedBuffer) {
-      return;
-    }
+    if (!syncedBuffer) return;
     this.pendingDiags.delete(r);
     this.pendingGetErr?.files.delete(r);
     this.syncedBuffers.delete(r);
     const wasBufferOpen = syncedBuffer.close();
     this._onDelete.fire(r);
-    if (wasBufferOpen) {
-      this.requestAllDiags();
-    }
+    if (wasBufferOpen) this.requestAllDiags();
   }
   public interruptGetErr<R>(f: () => R): R {
-    if (!this.pendingGetErr || this.client.configuration.enableProjectDiags) {
-      return f();
-    }
+    if (!this.pendingGetErr || this.client.configuration.enableProjectDiags) return f();
     this.pendingGetErr.cancel();
     this.pendingGetErr = undefined;
     const result = f();
@@ -395,9 +365,7 @@ export default class BufferSyncSupport extends qu.Disposable {
   }
   private onDidChangeTextDocument(e: qv.TextDocumentChangeEvent): void {
     const syncedBuffer = this.syncedBuffers.get(e.document.uri);
-    if (!syncedBuffer) {
-      return;
-    }
+    if (!syncedBuffer) return;
     this._onWillChange.fire(syncedBuffer.resource);
     syncedBuffer.onContentChanged(e.contentChanges);
     const didTrigger = this.requestDiag(syncedBuffer);
@@ -417,9 +385,7 @@ export default class BufferSyncSupport extends qu.Disposable {
   }
   public getErr(rs: readonly qv.Uri[]): any {
     const handledResources = rs.filter((r) => this.handles(r));
-    if (!handledResources.length) {
-      return;
-    }
+    if (!handledResources.length) return;
     for (const resource of handledResources) {
       this.pendingDiags.set(resource, Date.now());
     }

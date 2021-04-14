@@ -48,16 +48,12 @@ export class TSServerError extends Error {
     return undefined;
   }
   private static sanitizeStack(m: string | undefined) {
-    if (!m) {
-      return '';
-    }
+    if (!m) return '';
     const regex = /(\btsserver)?(\.(?:ts|tsx|js|jsx)(?::\d+(?::\d+)?)?)\)?$/gim;
     let serverStack = '';
     while (true) {
       const match = regex.exec(m);
-      if (!match) {
-        break;
-      }
+      if (!match) break;
       serverStack += `${match[1] || 'suppressed'}${match[2]}\n`;
     }
     return serverStack;

@@ -91,9 +91,7 @@ export function isCodeUnreachable(node: ParseNode): boolean {
   let curNode: ParseNode | undefined = node;
   while (curNode) {
     const flowNode = getFlowNode(curNode);
-    if (flowNode) {
-      return !!(flowNode.flags & FlowFlags.Unreachable);
-    }
+    if (flowNode) return !!(flowNode.flags & FlowFlags.Unreachable);
     curNode = curNode.parent;
   }
   return false;

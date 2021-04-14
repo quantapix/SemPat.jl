@@ -93,9 +93,7 @@ export async function getModuleForEditor(document: qv.TextDocument, position: qv
             throw err;
           }
         }
-      } else {
-        return;
-      }
+      } else return;
     }
 
     return;

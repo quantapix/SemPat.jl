@@ -54,9 +54,7 @@ export function createLangClient(
   }
 ): lc.LangClient {
   const serverOptions: lc.ServerOptions = async () => {
-    if (config.updateOnStartup && !config.rustup.disabled) {
-      await rustupUpdate(config.rustup);
-    }
+    if (config.updateOnStartup && !config.rustup.disabled) await rustupUpdate(config.rustup);
     return makeRlsProc(
       config.rustup,
       {
@@ -86,20 +84,15 @@ export function setupProgress(client: lc.LangClient, observableProgress: Observa
   const runningProgress: Set<string> = new Set();
   client.onReady().then(() =>
     client.onNotification(new lc.NotificationType<ProgressParams, void>('window/progress'), (progress) => {
-      if (progress.done) {
-        runningProgress.delete(progress.id);
-      } else {
+      if (progress.done) runningProgress.delete(progress.id);
+      else {
         runningProgress.add(progress.id);
       }
       if (runningProgress.size) {
         let status = '';
-        if (typeof progress.percentage === 'number') {
-          status = `${Math.round(progress.percentage * 100)}%`;
-        } else if (progress.message) {
-          status = progress.message;
-        } else if (progress.title) {
-          status = `[${progress.title.toLowerCase()}]`;
-        }
+        if (typeof progress.percentage === 'number') status = `${Math.round(progress.percentage * 100)}%`;
+        else if (progress.message) status = progress.message;
+        else if (progress.title) status = `[${progress.title.toLowerCase()}]`;
         observableProgress.value = { state: 'progress', message: status };
       } else {
         observableProgress.value = { state: 'ready' };

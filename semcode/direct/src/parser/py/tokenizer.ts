@@ -262,9 +262,7 @@ export class Tokenizer {
   private _addNextToken(): void {
     this._cs.skipWhitespace();
 
-    if (this._cs.isEndOfStream()) {
-      return;
-    }
+    if (this._cs.isEndOfStream()) return;
 
     if (!this._handleCharacter()) {
       this._cs.moveNext();
@@ -496,9 +494,7 @@ export class Tokenizer {
   }
 
   private _setIndent(tab1Spaces: number, tab8Spaces: number, isSpacePresent: boolean, isTabPresent: boolean) {
-    if (this._parenDepth > 0) {
-      return;
-    }
+    if (this._parenDepth > 0) return;
 
     if (this._indentAmounts.length === 0) {
       if (tab8Spaces > 0) {

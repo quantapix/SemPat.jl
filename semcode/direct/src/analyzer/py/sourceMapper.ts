@@ -299,9 +299,7 @@ export class SourceMapper {
       this._addVariableDeclarations(decl, result, recursiveDeclCache);
       const nodeToBind = decl.typeAliasName ?? decl.node;
       const type = this._evaluator.getType(nodeToBind);
-      if (!type) {
-        return;
-      }
+      if (!type) return;
       if (isFunction(type) && type.details.declaration) {
         this._addClassOrFunctionDeclarations(type.details.declaration, result, recursiveDeclCache);
       } else if (isOverloadedFunction(type)) {

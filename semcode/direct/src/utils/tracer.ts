@@ -34,29 +34,19 @@ export default class Tracer {
   }
   private static readTrace(): Trace {
     let result: Trace = Trace.fromString(qv.workspace.getConfig().get<string>('typescript.tsserver.trace', 'off'));
-    if (result === Trace.Off && !!process.env.TSS_TRACE) {
-      result = Trace.Messages;
-    }
+    if (result === Trace.Off && !!process.env.TSS_TRACE) result = Trace.Messages;
     return result;
   }
   public traceRequest(serverId: string, request: qp.Request, responseExpected: boolean, queueLength: number): void {
-    if (this.trace === Trace.Off) {
-      return;
-    }
+    if (this.trace === Trace.Off) return;
     let data: string | undefined = undefined;
-    if (this.trace === Trace.Verbose && request.arguments) {
-      data = `Arguments: ${JSON.stringify(request.arguments, null, 4)}`;
-    }
+    if (this.trace === Trace.Verbose && request.arguments) data = `Arguments: ${JSON.stringify(request.arguments, null, 4)}`;
     this.logTrace(serverId, `Sending request: ${request.command} (${request.seq}). Response expected: ${responseExpected ? 'yes' : 'no'}. Current queue length: ${queueLength}`, data);
   }
   public traceResponse(serverId: string, response: qp.Response, meta: RequestExecutionMetadata): void {
-    if (this.trace === Trace.Off) {
-      return;
-    }
+    if (this.trace === Trace.Off) return;
     let data: string | undefined = undefined;
-    if (this.trace === Trace.Verbose && response.body) {
-      data = `Result: ${JSON.stringify(response.body, null, 4)}`;
-    }
+    if (this.trace === Trace.Verbose && response.body) data = `Result: ${JSON.stringify(response.body, null, 4)}`;
     this.logTrace(
       serverId,
       `Response received: ${response.command} (${response.request_seq}). Request took ${Date.now() - meta.queuingStartTime} ms. Success: ${response.success} ${
@@ -66,24 +56,16 @@ export default class Tracer {
     );
   }
   public traceRequestCompleted(serverId: string, command: string, request_seq: number, meta: RequestExecutionMetadata): any {
-    if (this.trace === Trace.Off) {
-      return;
-    }
+    if (this.trace === Trace.Off) return;
     this.logTrace(serverId, `Async response received: ${command} (${request_seq}). Request took ${Date.now() - meta.queuingStartTime} ms.`);
   }
   public traceEvent(serverId: string, event: qp.Event): void {
-    if (this.trace === Trace.Off) {
-      return;
-    }
+    if (this.trace === Trace.Off) return;
     let data: string | undefined = undefined;
-    if (this.trace === Trace.Verbose && event.body) {
-      data = `Data: ${JSON.stringify(event.body, null, 4)}`;
-    }
+    if (this.trace === Trace.Verbose && event.body) data = `Data: ${JSON.stringify(event.body, null, 4)}`;
     this.logTrace(serverId, `Event received: ${event.event} (${event.seq}).`, data);
   }
   public logTrace(serverId: string, message: string, data?: any): void {
-    if (this.trace !== Trace.Off) {
-      this.logger.logLevel('Trace', `<${serverId}> ${message}`, data);
-    }
+    if (this.trace !== Trace.Off) this.logger.logLevel('Trace', `<${serverId}> ${message}`, data);
   }
 }

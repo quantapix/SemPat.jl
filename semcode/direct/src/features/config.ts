@@ -52,9 +52,7 @@ export default class FileConfigMgr extends Disposable {
     const cachedOptions = this.formatOptions.get(document.uri);
     if (cachedOptions) {
       const cachedOptionsValue = await cachedOptions;
-      if (cachedOptionsValue && areFileConfigsEqual(cachedOptionsValue, currentOptions)) {
-        return;
-      }
+      if (cachedOptionsValue && areFileConfigsEqual(cachedOptionsValue, currentOptions)) return;
     }
     let resolve: (x: FileConfig | undefined) => void;
     this.formatOptions.set(document.uri, new Promise<FileConfig | undefined>((r) => (resolve = r)));

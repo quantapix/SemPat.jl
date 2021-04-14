@@ -72,20 +72,15 @@ class DocStringConverter {
   }
   convert(): string {
     const isEpyDoc = this._lines.some((v) => epyDocFieldTokensRegExp.exec(v));
-    if (isEpyDoc) {
-      this._lines = this._lines.map((v) => v.replace(epyDocCv2FixRegExp, ''));
-    }
+    if (isEpyDoc) this._lines = this._lines.map((v) => v.replace(epyDocCv2FixRegExp, ''));
     while (this._currentLineOrUndefined() !== undefined) {
       const before = this._state;
       const beforeLine = this._lineNum;
       this._state();
-      if (this._state === before && this._lineNum === beforeLine) {
-        break;
-      }
+      if (this._state === before && this._lineNum === beforeLine) break;
     }
-    if (this._state === this._parseBacktickBlock || this._state === this._parseDocTest || this._state === this._parseLiteralBlock) {
-      this._trimOutputAndAppendLine('```');
-    } else if (this._insideInlineCode) {
+    if (this._state === this._parseBacktickBlock || this._state === this._parseDocTest || this._state === this._parseLiteralBlock) this._trimOutputAndAppendLine('```');
+    else if (this._insideInlineCode) {
       this._trimOutputAndAppendLine('`', true);
     }
     return this._builder.trim();
@@ -118,41 +113,25 @@ class DocStringConverter {
     return this._currentLine().substr(this._blockIndent);
   }
   private _pushAndSetState(next: State): void {
-    if (this._state === this._parseText) {
-      this._insideInlineCode = false;
-    }
+    if (this._state === this._parseText) this._insideInlineCode = false;
     this._stateStack.push(this._state);
     this._state = next;
   }
   private _popState(): void {
     this._state = this._stateStack.splice(0, 1)[0];
-    if (this._state === this._parseText) {
-      this._insideInlineCode = false;
-    }
+    if (this._state === this._parseText) this._insideInlineCode = false;
   }
   private _parseText(): void {
     if (_isUndefinedOrWhitespace(this._currentLineOrUndefined())) {
       this._state = this._parseEmpty;
       return;
     }
-    if (this._beginBacktickBlock()) {
-      return;
-    }
-    if (this._beginLiteralBlock()) {
-      return;
-    }
-    if (this._beginDocTest()) {
-      return;
-    }
-    if (this._beginDirective()) {
-      return;
-    }
-    if (this._beginList()) {
-      return;
-    }
-    if (this._beginFieldList()) {
-      return;
-    }
+    if (this._beginBacktickBlock()) return;
+    if (this._beginLiteralBlock()) return;
+    if (this._beginDocTest()) return;
+    if (this._beginDirective()) return;
+    if (this._beginList()) return;
+    if (this._beginFieldList()) return;
     const line = this.formatPlainTextIndent(this._currentLine());
     this._appendTextLine(line);
     this._eatLine();
@@ -287,9 +266,8 @@ class DocStringConverter {
   }
   private _beginLiteralBlock(): boolean {
     const prev = this._lineAt(this._lineNum - 1);
-    if (prev === undefined) {
-      return false;
-    } else if (!_isUndefinedOrWhitespace(prev)) {
+    if (prev === undefined) return false;
+    else if (!_isUndefinedOrWhitespace(prev)) {
       return false;
     }
     let i = this._lineNum - 2;
@@ -303,9 +281,7 @@ class DocStringConverter {
       }
       return false;
     }
-    if (i < 0) {
-      return false;
-    }
+    if (i < 0) return false;
     if (this._currentIndent() === 0) {
       this._appendLine('```');
       this._pushAndSetState(this._parseLiteralBlockSingleLine);
@@ -346,9 +322,7 @@ class DocStringConverter {
     return true;
   }
   private _beginFieldList(): boolean {
-    if (this._insideInlineCode) {
-      return false;
-    }
+    if (this._insideInlineCode) return false;
     let line = this._currentLine();
     if (line.startsWith('@')) {
       this._appendLine();
@@ -371,9 +345,7 @@ class DocStringConverter {
     return false;
   }
   private _beginList(): boolean {
-    if (this._insideInlineCode) {
-      return false;
-    }
+    if (this._insideInlineCode) return false;
     let line = this._currentLine();
     const dashMatch = LeadingDashListRegExp.exec(line);
     if (dashMatch?.length === 2) {
@@ -382,9 +354,7 @@ class DocStringConverter {
       }
       this._appendTextLine(line);
       this._eatLine();
-      if (this._state !== this._parseList) {
-        this._pushAndSetState(this._parseList);
-      }
+      if (this._state !== this._parseList) this._pushAndSetState(this._parseList);
       return true;
     }
     const asteriskMatch = LeadingAsteriskListRegExp.exec(line);
@@ -396,9 +366,7 @@ class DocStringConverter {
       }
       this._appendTextLine(line);
       this._eatLine();
-      if (this._state !== this._parseList) {
-        this._pushAndSetState(this._parseList);
-      }
+      if (this._state !== this._parseList) this._pushAndSetState(this._parseList);
       return true;
     }
     const leadingNumberList = LeadingNumberListRegExp.exec(line);

@@ -41,9 +41,7 @@ class TagClosing extends Disposable {
     }
     const lastChange = changes[changes.length - 1];
     const lastCharacter = lastChange.text[lastChange.text.length - 1];
-    if (lastChange.rangeLength > 0 || (lastCharacter !== '>' && lastCharacter !== '/')) {
-      return;
-    }
+    if (lastChange.rangeLength > 0 || (lastCharacter !== '>' && lastCharacter !== '/')) return;
     const priorCharacter = lastChange.range.start.character > 0 ? document.getText(new qv.Range(lastChange.range.start.translate({ characterDelta: -1 }), lastChange.range.start)) : '';
     if (priorCharacter === '>') return;
     const version = document.version;

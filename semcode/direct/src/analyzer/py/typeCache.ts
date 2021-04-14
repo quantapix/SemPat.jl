@@ -77,9 +77,7 @@ export class SpeculativeTypeTracker {
   }
   addSpeculativeType(node: ParseNode, type: Type, expectedType: Type | undefined) {
     assert(this._speculativeContextStack.length > 0);
-    if (this._speculativeContextStack.some((context) => !context.allowCacheRetention)) {
-      return;
-    }
+    if (this._speculativeContextStack.some((context) => !context.allowCacheRetention)) return;
     let cacheEntries = this._speculativeTypeCache.get(node.id);
     if (!cacheEntries) {
       cacheEntries = [];

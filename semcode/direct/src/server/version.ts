@@ -23,15 +23,9 @@ export class TSVersion {
     return this.apiVersion !== undefined;
   }
   public eq(other: TSVersion): boolean {
-    if (this.path !== other.path) {
-      return false;
-    }
-    if (this.apiVersion === other.apiVersion) {
-      return true;
-    }
-    if (!this.apiVersion || !other.apiVersion) {
-      return false;
-    }
+    if (this.path !== other.path) return false;
+    if (this.apiVersion === other.apiVersion) return true;
+    if (!this.apiVersion || !other.apiVersion) return false;
     return this.apiVersion.eq(other.apiVersion);
   }
   public get displayName(): string {
@@ -58,21 +52,15 @@ export class DiskTSVersionProvider implements TSVersionProvider {
   public get globalVersion(): TSVersion | undefined {
     if (this.configuration?.globalTsdk) {
       const globals = this.loadVersionsFromSetting(VersionSource.UserSetting, this.configuration.globalTsdk);
-      if (globals && globals.length) {
-        return globals[0];
-      }
+      if (globals && globals.length) return globals[0];
     }
     return this.contributedTsNextVersion;
   }
   public get localVersion(): TSVersion | undefined {
     const tsdkVersions = this.localTsdkVersions;
-    if (tsdkVersions && tsdkVersions.length) {
-      return tsdkVersions[0];
-    }
+    if (tsdkVersions && tsdkVersions.length) return tsdkVersions[0];
     const nodeVersions = this.localNodeModulesVersions;
-    if (nodeVersions && nodeVersions.length === 1) {
-      return nodeVersions[0];
-    }
+    if (nodeVersions && nodeVersions.length === 1) return nodeVersions[0];
     return undefined;
   }
   public get localVersions(): TSVersion[] {
@@ -88,9 +76,7 @@ export class DiskTSVersionProvider implements TSVersionProvider {
   }
   public get bundledVersion(): TSVersion {
     const version = this.getContributedVersion(VersionSource.Bundled, 'qv.typescript-language-features', ['..', 'node_modules']);
-    if (version) {
-      return version;
-    }
+    if (version) return version;
     qv.window.showErrorMessage('noBundledServerFound');
     throw new Error('Could not find bundled tsserver.js');
   }
@@ -103,9 +89,7 @@ export class DiskTSVersionProvider implements TSVersionProvider {
       if (extension) {
         const serverPath = path.join(extension.extensionPath, ...pathToTs, 'typescript', 'lib', 'tsserver.js');
         const bundledVersion = new TSVersion(source, serverPath, DiskTSVersionProvider.getApiVersion(serverPath), '');
-        if (bundledVersion.isValid) {
-          return bundledVersion;
-        }
+        if (bundledVersion.isValid) return bundledVersion;
       }
     } catch {}
     return undefined;
@@ -130,15 +114,11 @@ export class DiskTSVersionProvider implements TSVersionProvider {
     return this.loadTSVersionsFromPath(VersionSource.NodeModules, path.join('node_modules', 'typescript', 'lib')).filter((x) => x.isValid);
   }
   private loadTSVersionsFromPath(source: VersionSource, relativePath: string): TSVersion[] {
-    if (!qv.workspace.workspaceFolders) {
-      return [];
-    }
+    if (!qv.workspace.workspaceFolders) return [];
     const versions: TSVersion[] = [];
     for (const root of qv.workspace.workspaceFolders) {
       let label: string = relativePath;
-      if (qv.workspace.workspaceFolders.length > 1) {
-        label = path.join(root.name, relativePath);
-      }
+      if (qv.workspace.workspaceFolders.length > 1) label = path.join(root.name, relativePath);
       const serverPath = path.join(root.uri.fsPath, relativePath, 'tsserver.js');
       versions.push(new TSVersion(source, serverPath, DiskTSVersionProvider.getApiVersion(serverPath), label));
     }
@@ -146,13 +126,9 @@ export class DiskTSVersionProvider implements TSVersionProvider {
   }
   private static getApiVersion(serverPath: string): API | undefined {
     const version = DiskTSVersionProvider.getTSVersion(serverPath);
-    if (version) {
-      return version;
-    }
+    if (version) return version;
     const tsdkVersion = qv.workspace.getConfig().get<string | undefined>('typescript.tsdk_version', undefined);
-    if (tsdkVersion) {
-      return API.fromVersionString(tsdkVersion);
-    }
+    if (tsdkVersion) return API.fromVersionString(tsdkVersion);
     return undefined;
   }
   private static getTSVersion(serverPath: string): API | undefined {
@@ -160,9 +136,7 @@ export class DiskTSVersionProvider implements TSVersionProvider {
       return undefined;
     }
     const p = serverPath.split(path.sep);
-    if (p.length <= 2) {
-      return undefined;
-    }
+    if (p.length <= 2) return undefined;
     const p2 = p.slice(0, -2);
     const modulePath = p2.join(path.sep);
     let fileName = path.join(modulePath, 'package.json');
@@ -181,9 +155,7 @@ export class DiskTSVersionProvider implements TSVersionProvider {
     } catch (err) {
       return undefined;
     }
-    if (!desc || !desc.version) {
-      return undefined;
-    }
+    if (!desc || !desc.version) return undefined;
     return desc.version ? API.fromVersionString(desc.version) : undefined;
   }
 }

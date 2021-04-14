@@ -296,9 +296,7 @@ export class PackageTypeVerifier {
     publicSymbolMap: PublicSymbolMap,
     currentSymbol: string
   ) {
-    if (this._shouldIgnoreType(report, scopeName)) {
-      return;
-    }
+    if (this._shouldIgnoreType(report, scopeName)) return;
     symbolTable.forEach((symbol, name) => {
       if (!isPrivateOrProtectedName(name) && !symbol.isExternallyHidden() && !symbol.isIgnoredForProtocolMatch() && !this._isSymbolTypeImplied(scopeType, name)) {
         const fullName = `${scopeName}.${name}`;
@@ -560,9 +558,7 @@ export class PackageTypeVerifier {
             }
           });
           type.details.mro.forEach((mroType, index) => {
-            if (index === 0) {
-              return;
-            }
+            if (index === 0) return;
             if (isClass(mroType)) {
               const mroClassInfo = this._validateClassTypeIsCompletelyKnown(report, mroType, publicSymbolMap, currentSymbol, typeStack);
               if (mroClassInfo.classFields) {

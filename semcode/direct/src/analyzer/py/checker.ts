@@ -741,9 +741,7 @@ export class Checker extends ParseTreeWalker {
     return !isNone(type) && !isNoReturnType(type) && !isNever(type) && !isAnyOrUnknown(type);
   }
   private _validateFunctionTypeVarUsage(node: FunctionNode) {
-    if (this._fileInfo.diagnosticRuleSet.reportInvalidTypeVarUse === 'none') {
-      return;
-    }
+    if (this._fileInfo.diagnosticRuleSet.reportInvalidTypeVarUse === 'none') return;
     const localTypeVarUsage = new Map<string, LocalTypeVarInfo>();
     const nameWalker = new ParseTreeUtils.NameNodeWalker((nameNode, subscriptIndex, baseExpression) => {
       const nameType = this._evaluator.getType(nameNode);
@@ -1056,9 +1054,7 @@ export class Checker extends ParseTreeWalker {
             );
           } else if (isOverloadedFunction(type)) {
             type.overloads.forEach((overload, index) => {
-              if (overload === implementationFunction || !FunctionType.isOverloaded(overload)) {
-                return;
-              }
+              if (overload === implementationFunction || !FunctionType.isOverloaded(overload)) return;
               const diag = new DiagAddendum();
               if (!this._isLegalOverloadImplementation(overload, implementationFunction!, diag)) {
                 if (implementationFunction!.details.declaration) {
@@ -1083,9 +1079,7 @@ export class Checker extends ParseTreeWalker {
     }
   }
   private _reportMultipleFinalDeclarations(name: string, symbol: Symbol) {
-    if (!isFinalVariable(symbol)) {
-      return;
-    }
+    if (!isFinalVariable(symbol)) return;
     const decls = symbol.getDeclarations();
     let sawFinal = false;
     let sawAssignment = false;
@@ -1123,9 +1117,7 @@ export class Checker extends ParseTreeWalker {
   }
   private _reportIncompatibleDeclarations(name: string, symbol: Symbol) {
     const primaryDecl = getLastTypedDeclaredForSymbol(symbol);
-    if (!primaryDecl) {
-      return;
-    }
+    if (!primaryDecl) return;
     let otherDecls = symbol.getDeclarations().filter((decl) => decl !== primaryDecl);
     if (primaryDecl.type === DeclarationType.Function) {
       const primaryDeclTypeInfo = this._evaluator.getTypeOfFunction(primaryDecl.node);
@@ -1149,9 +1141,7 @@ export class Checker extends ParseTreeWalker {
         return !FunctionType.isOverloaded(funcTypeInfo.functionType);
       });
     }
-    if (otherDecls.length === 0) {
-      return;
-    }
+    if (otherDecls.length === 0) return;
     let primaryDeclInfo: string;
     if (primaryDecl.type === DeclarationType.Function) {
       if (primaryDecl.isMethod) {
@@ -1251,15 +1241,9 @@ export class Checker extends ParseTreeWalker {
   }
   private _conditionallyReportUnusedSymbol(name: string, symbol: Symbol, scopeType: ScopeType) {
     const accessedSymbolMap = this._fileInfo.accessedSymbolMap;
-    if (symbol.isIgnoredForProtocolMatch() || accessedSymbolMap.has(symbol.id)) {
-      return;
-    }
-    if (name === '_') {
-      return;
-    }
-    if (SymbolNameUtils.isDunderName(name)) {
-      return;
-    }
+    if (symbol.isIgnoredForProtocolMatch() || accessedSymbolMap.has(symbol.id)) return;
+    if (name === '_') return;
+    if (SymbolNameUtils.isDunderName(name)) return;
     const decls = symbol.getDeclarations();
     decls.forEach((decl) => {
       this._conditionallyReportUnusedDeclaration(decl, this._isSymbolPrivate(name, scopeType));
@@ -1310,12 +1294,8 @@ export class Checker extends ParseTreeWalker {
         break;
       case DeclarationType.Variable:
       case DeclarationType.Parameter:
-        if (!isPrivate) {
-          return;
-        }
-        if (this._fileInfo.isStubFile) {
-          return;
-        }
+        if (!isPrivate) return;
+        if (this._fileInfo.isStubFile) return;
         diagnosticLevel = this._fileInfo.diagnosticRuleSet.reportUnusedVariable;
         if (decl.node.nodeType === ParseNodeType.Name) {
           nameNode = decl.node;
@@ -1329,24 +1309,16 @@ export class Checker extends ParseTreeWalker {
         }
         break;
       case DeclarationType.Class:
-        if (!isPrivate) {
-          return;
-        }
-        if (this._fileInfo.isStubFile) {
-          return;
-        }
+        if (!isPrivate) return;
+        if (this._fileInfo.isStubFile) return;
         diagnosticLevel = this._fileInfo.diagnosticRuleSet.reportUnusedClass;
         nameNode = decl.node.name;
         rule = DiagRule.reportUnusedClass;
         message = Localizer.Diag.unaccessedClass().format({ name: nameNode.value });
         break;
       case DeclarationType.Function:
-        if (!isPrivate) {
-          return;
-        }
-        if (this._fileInfo.isStubFile) {
-          return;
-        }
+        if (!isPrivate) return;
+        if (this._fileInfo.isStubFile) return;
         diagnosticLevel = this._fileInfo.diagnosticRuleSet.reportUnusedFunction;
         nameNode = decl.node.name;
         rule = DiagRule.reportUnusedFunction;
@@ -1362,25 +1334,17 @@ export class Checker extends ParseTreeWalker {
     }
   }
   private _validateIsInstanceCall(node: CallNode) {
-    if (node.leftExpression.nodeType !== ParseNodeType.Name || (node.leftExpression.value !== 'isinstance' && node.leftExpression.value !== 'issubclass') || node.arguments.length !== 2) {
-      return;
-    }
+    if (node.leftExpression.nodeType !== ParseNodeType.Name || (node.leftExpression.value !== 'isinstance' && node.leftExpression.value !== 'issubclass') || node.arguments.length !== 2) return;
     const callName = node.leftExpression.value;
     const isInstanceCheck = callName === 'isinstance';
     let arg0Type = this._evaluator.getType(node.arguments[0].valueExpression);
-    if (!arg0Type) {
-      return;
-    }
+    if (!arg0Type) return;
     arg0Type = mapSubtypes(arg0Type, (subtype) => {
       return transformPossibleRecursiveTypeAlias(transformTypeObjectToClass(subtype));
     });
-    if (derivesFromAnyOrUnknown(arg0Type)) {
-      return;
-    }
+    if (derivesFromAnyOrUnknown(arg0Type)) return;
     const arg1Type = this._evaluator.getType(node.arguments[1].valueExpression);
-    if (!arg1Type) {
-      return;
-    }
+    if (!arg1Type) return;
     const isSupportedTypeForIsInstance = (type: Type) => {
       let isSupported = true;
       doForEachSubtype(type, (subtype) => {
@@ -1432,35 +1396,25 @@ export class Checker extends ParseTreeWalker {
     }
     let curNode: ParseNode | undefined = node;
     while (curNode) {
-      if (curNode.nodeType === ParseNodeType.Assert) {
-        return;
-      }
+      if (curNode.nodeType === ParseNodeType.Assert) return;
       curNode = curNode.parent;
     }
     const nonstandardClassTypes = ['FunctionType', 'LambdaType', 'BuiltinFunctionType', 'BuiltinMethodType', 'type', 'Type'];
     const classTypeList: ClassType[] = [];
     if (isClass(arg1Type)) {
       classTypeList.push(arg1Type);
-      if (ClassType.isBuiltIn(arg1Type) && nonstandardClassTypes.some((name) => name === arg1Type.details.name)) {
-        return;
-      }
+      if (ClassType.isBuiltIn(arg1Type) && nonstandardClassTypes.some((name) => name === arg1Type.details.name)) return;
     } else if (isObject(arg1Type)) {
       const objClass = arg1Type.classType;
       if (isTupleClass(objClass) && objClass.tupleTypeArguments) {
         objClass.tupleTypeArguments.forEach((typeArg) => {
           if (isClass(typeArg)) {
             classTypeList.push(typeArg);
-          } else {
-            return;
-          }
+          } else return;
         });
       }
-      if (ClassType.isBuiltIn(objClass) && nonstandardClassTypes.some((name) => name === objClass.details.name)) {
-        return;
-      }
-    } else {
-      return;
-    }
+      if (ClassType.isBuiltIn(objClass) && nonstandardClassTypes.some((name) => name === objClass.details.name)) return;
+    } else return;
     if (classTypeList.some((type) => ClassType.isProtocolClass(type) && !ClassType.isRuntimeCheckable(type))) {
       this._evaluator.addError(Localizer.Diag.protocolUsedInCall().format({ name: callName }), node.arguments[1].valueExpression);
     }
@@ -1507,12 +1461,8 @@ export class Checker extends ParseTreeWalker {
         }
       });
       filteredType = finalizeFilteredTypeList(remainingTypes);
-      if (foundAnyType) {
-        return;
-      }
-    } else {
-      return;
-    }
+      if (foundAnyType) return;
+    } else return;
     const getTestType = () => {
       const objTypeList = classTypeList.map((t) => ObjectType.create(t));
       return combineTypes(objTypeList);
@@ -1563,33 +1513,19 @@ export class Checker extends ParseTreeWalker {
     return false;
   }
   private _conditionallyReportPrivateUsage(node: NameNode) {
-    if (this._fileInfo.diagnosticRuleSet.reportPrivateUsage === 'none') {
-      return;
-    }
-    if (this._fileInfo.isStubFile) {
-      return;
-    }
-    if (node.parent?.nodeType === ParseNodeType.Argument && node.parent.name === node) {
-      return;
-    }
+    if (this._fileInfo.diagnosticRuleSet.reportPrivateUsage === 'none') return;
+    if (this._fileInfo.isStubFile) return;
+    if (node.parent?.nodeType === ParseNodeType.Argument && node.parent.name === node) return;
     const nameValue = node.value;
     const isPrivateName = SymbolNameUtils.isPrivateName(nameValue);
     const isProtectedName = SymbolNameUtils.isProtectedName(nameValue);
-    if (!isPrivateName && !isProtectedName) {
-      return;
-    }
+    if (!isPrivateName && !isProtectedName) return;
     const declarations = this._evaluator.getDeclarationsForNameNode(node);
     let primaryDeclaration = declarations && declarations.length > 0 ? declarations[declarations.length - 1] : undefined;
-    if (!primaryDeclaration || primaryDeclaration.node === node) {
-      return;
-    }
-    if (primaryDeclaration.type === DeclarationType.Alias && primaryDeclaration.usesLocalName) {
-      return;
-    }
+    if (!primaryDeclaration || primaryDeclaration.node === node) return;
+    if (primaryDeclaration.type === DeclarationType.Alias && primaryDeclaration.usesLocalName) return;
     primaryDeclaration = this._evaluator.resolveAliasDeclaration(primaryDeclaration, /* resolveLocalNames */ true);
-    if (!primaryDeclaration || primaryDeclaration.node === node) {
-      return;
-    }
+    if (!primaryDeclaration || primaryDeclaration.node === node) return;
     let classOrModuleNode: ClassNode | ModuleNode | undefined;
     if (primaryDeclaration.node) {
       classOrModuleNode = ParseTreeUtils.getEnclosingClassOrModule(primaryDeclaration.node);
@@ -1608,9 +1544,7 @@ export class Checker extends ParseTreeWalker {
             isProtectedAccess = true;
             const enclosingClassTypeInfo = this._evaluator.getTypeOfClass(enclosingClassNode);
             if (enclosingClassTypeInfo && isClass(enclosingClassTypeInfo.decoratedType)) {
-              if (derivesFromClassRecursive(enclosingClassTypeInfo.decoratedType, declClassTypeInfo.decoratedType, /* ignoreUnknown */ true)) {
-                return;
-              }
+              if (derivesFromClassRecursive(enclosingClassTypeInfo.decoratedType, declClassTypeInfo.decoratedType, /* ignoreUnknown */ true)) return;
             }
           }
         }
@@ -1655,9 +1589,7 @@ export class Checker extends ParseTreeWalker {
     });
   }
   private _validateFunctionReturn(node: FunctionNode, functionType: FunctionType) {
-    if (this._fileInfo.isStubFile) {
-      return;
-    }
+    if (this._fileInfo.isStubFile) return;
     const returnAnnotation = node.returnTypeAnnotation || node.functionAnnotationComment?.returnTypeAnnotation;
     if (returnAnnotation) {
       const functionNeverReturns = !this._evaluator.isAfterNodeReachable(node);
@@ -1760,13 +1692,9 @@ export class Checker extends ParseTreeWalker {
   }
   private _validateProtocolTypeParamVariance(errorNode: ClassNode, classType: ClassType) {
     const origTypeParams = classType.details.typeParameters;
-    if (origTypeParams.length === 0) {
-      return;
-    }
+    if (origTypeParams.length === 0) return;
     const objectType = this._evaluator.getBuiltInType(errorNode, 'object');
-    if (!isClass(objectType)) {
-      return;
-    }
+    if (!isClass(objectType)) return;
     const updatedTypeParams = origTypeParams.map((typeParam) => TypeVarType.cloneAsInvariant(typeParam));
     const updatedClassType = ClassType.cloneWithNewTypeParameters(classType, updatedTypeParams);
     const objectObject = ObjectType.create(objectType);
@@ -1820,23 +1748,13 @@ export class Checker extends ParseTreeWalker {
   }
   private _validateBaseClassOverrides(classType: ClassType) {
     classType.details.fields.forEach((symbol, name) => {
-      if (!symbol.isClassMember()) {
-        return;
-      }
-      if (SymbolNameUtils.isPrivateName(name)) {
-        return;
-      }
+      if (!symbol.isClassMember()) return;
+      if (SymbolNameUtils.isPrivateName(name)) return;
       const typeOfSymbol = this._evaluator.getEffectiveTypeOfSymbol(symbol);
-      if (isAnyOrUnknown(typeOfSymbol)) {
-        return;
-      }
+      if (isAnyOrUnknown(typeOfSymbol)) return;
       const baseClassAndSymbol = lookUpClassMember(classType, name, ClassMemberLookupFlags.SkipOriginalClass);
-      if (!baseClassAndSymbol || !isClass(baseClassAndSymbol.classType)) {
-        return;
-      }
-      if (!baseClassAndSymbol.symbol.hasTypedDeclarations()) {
-        return;
-      }
+      if (!baseClassAndSymbol || !isClass(baseClassAndSymbol.classType)) return;
+      if (!baseClassAndSymbol.symbol.hasTypedDeclarations()) return;
       const baseClassSymbolType = partiallySpecializeType(this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol), baseClassAndSymbol.classType);
       if (isFunction(baseClassSymbolType) || isOverloadedFunction(baseClassSymbolType)) {
         const diagAddendum = new DiagAddendum();

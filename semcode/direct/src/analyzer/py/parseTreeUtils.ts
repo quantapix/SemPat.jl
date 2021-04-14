@@ -845,9 +845,7 @@ export function getCallNodeAndActiveParameterIndex(node: ParseNode, insertionOff
   let activeIndex = -1;
   let activeOrFake = false;
   callNode.arguments.forEach((arg, index) => {
-    if (addedActive) {
-      return;
-    }
+    if (addedActive) return;
     let start = arg.start;
     const startTokenIndex = tokens.getItemAtPosition(start);
     if (startTokenIndex >= 0) {

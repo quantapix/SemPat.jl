@@ -82,9 +82,7 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
     });
   }
   public resolveCompletionItem(item: qv.CompletionItem, token: qv.CancellationToken): qv.ProviderResult<qv.CompletionItem> {
-    if (!(item instanceof ExtendedCompletionItem) || item.kind === qv.CompletionItemKind.Module || this.excludeDocs) {
-      return;
-    }
+    if (!(item instanceof ExtendedCompletionItem) || item.kind === qv.CompletionItemKind.Module || this.excludeDocs) return;
     if (typeof item.package === 'undefined') {
       promptForUpdatingTool('gocode');
       return;
@@ -331,9 +329,7 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
       this.pkgsList = pkgMap;
     });
     if (!this.setGocodeOptions) {
-      return Promise.all([checkModSupport, setPkgsList]).then(() => {
-        return;
-      });
+      return Promise.all([checkModSupport, setPkgsList]).then(() => return;);
     }
     const setGocodeProps = new Promise<void>((resolve) => {
       const gocode = getBinPath('gocode');
@@ -356,9 +352,7 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
           const [name, value] = optionsToSet.pop();
           cp.execFile(gocode, ['set', name, value], { env }, () => {
             if (optionsToSet.length) setOption();
-            else {
-              resolve();
-            }
+            else resolve();
           });
         };
         if (existingOptions.indexOf('propose-builtins true') === -1) {
@@ -374,9 +368,7 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
         setOption();
       });
     });
-    return Promise.all([setPkgsList, setGocodeProps, checkModSupport]).then(() => {
-      return;
-    });
+    return Promise.all([setPkgsList, setGocodeProps, checkModSupport]).then(() => return;);
   }
   private getPackagePathFromLine(line: string): string[] {
     const pattern = /(\w+)\.$/g;

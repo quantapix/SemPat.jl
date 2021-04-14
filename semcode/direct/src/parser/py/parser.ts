@@ -3479,9 +3479,7 @@ export class Parser {
       this._addError(diag.message, stringListNode);
     });
 
-    if (!parseResults.parseTree || parseResults.parseTree.nodeType !== ParseNodeType.FunctionAnnotation) {
-      return;
-    }
+    if (!parseResults.parseTree || parseResults.parseTree.nodeType !== ParseNodeType.FunctionAnnotation) return;
 
     const functionAnnotation = parseResults.parseTree;
 
@@ -3683,17 +3681,11 @@ export class Parser {
   }
 
   private _reportConditionalErrorForStarTupleElement(possibleTupleExpr: ExpressionNode) {
-    if (possibleTupleExpr.nodeType !== ParseNodeType.Tuple) {
-      return;
-    }
+    if (possibleTupleExpr.nodeType !== ParseNodeType.Tuple) return;
 
-    if (possibleTupleExpr.enclosedInParens) {
-      return;
-    }
+    if (possibleTupleExpr.enclosedInParens) return;
 
-    if (this._parseOptions.pythonVersion >= PythonVersion.V3_8) {
-      return;
-    }
+    if (this._parseOptions.pythonVersion >= PythonVersion.V3_8) return;
 
     for (const expr of possibleTupleExpr.expressions) {
       if (expr.nodeType === ParseNodeType.Unpack) {

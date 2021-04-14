@@ -18,9 +18,7 @@ export class VSCodeTelemetryReporter implements TelemetryReporter {
   constructor(private readonly clientVersionDelegate: () => string) {}
   public logTelemetry(eventName: string, properties: { [prop: string]: string } = {}) {
     const reporter = this.reporter;
-    if (!reporter) {
-      return;
-    }
+    if (!reporter) return;
     /* __GDPR__FRAGMENT__
 			"TypeScriptCommonProperties" : {
 				"version" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
@@ -46,13 +44,7 @@ export class VSCodeTelemetryReporter implements TelemetryReporter {
   @memoize
   private get packageInfo(): PackageInfo | null {
     const { packageJSON } = qv.extensions.getExtension('qv.typescript-language-features')!;
-    if (packageJSON) {
-      return {
-        name: packageJSON.name,
-        version: packageJSON.version,
-        aiKey: packageJSON.aiKey,
-      };
-    }
+    if (packageJSON) return { name: packageJSON.name, version: packageJSON.version, aiKey: packageJSON.aiKey };
     return null;
   }
 }

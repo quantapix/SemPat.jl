@@ -69,9 +69,7 @@ export class GoImplementationProvider implements qv.ImplementationProvider {
           const addResults = (list: GuruImplementsRef[]) => {
             list.forEach((ref: GuruImplementsRef) => {
               const match = /^(.*):(\d+):(\d+)/.exec(ref.pos);
-              if (!match) {
-                return;
-              }
+              if (!match) return;
               const [, file, lineStartStr, colStartStr] = match;
               const referenceResource = qv.Uri.file(path.resolve(cwd, file));
               const range = new qv.Range(+lineStartStr - 1, +colStartStr - 1, +lineStartStr - 1, +colStartStr);

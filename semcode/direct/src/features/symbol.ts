@@ -404,12 +404,8 @@ function collectSymbolIndexData(
   if (!scope) return;
   const symbolTable = scope.symbolTable;
   symbolTable.forEach((symbol, name) => {
-    if (symbol.isIgnoredForProtocolMatch()) {
-      return;
-    }
-    if (options.indexingForAutoImportMode && !fileInfo.isStubFile && !fileInfo.isInPyTypedPackage && !symbol.isInDunderAll()) {
-      return;
-    }
+    if (symbol.isIgnoredForProtocolMatch()) return;
+    if (options.indexingForAutoImportMode && !fileInfo.isStubFile && !fileInfo.isInPyTypedPackage && !symbol.isInDunderAll()) return;
     let declaration = getLastTypedDeclaredForSymbol(symbol);
     if (!declaration && symbol.hasDeclarations()) {
       declaration = symbol.getDeclarations()[0];

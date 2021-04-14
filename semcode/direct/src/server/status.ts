@@ -49,9 +49,7 @@ class ProjectStatusCommand implements Command {
   }
   private getProjectItem(info: ProjectInfoState.State): QuickPickItem | undefined {
     const rootPath = info.type === ProjectInfoState.Type.Resolved ? this._client.getWorkspaceRootForResource(info.resource) : undefined;
-    if (!rootPath) {
-      return undefined;
-    }
+    if (!rootPath) return undefined;
     if (info.type === ProjectInfoState.Type.Resolved) {
       if (isImplicitProjectConfigFile(info.configFile)) {
         return {
@@ -67,11 +65,8 @@ class ProjectStatusCommand implements Command {
       label: 'projectQuickPick.version.goProjectConfig',
       description: info.type === ProjectInfoState.Type.Resolved ? qv.workspace.asRelativePath(info.configFile) : undefined,
       run: () => {
-        if (info.type === ProjectInfoState.Type.Resolved) {
-          openProjectConfigOrPromptToCreate(ProjectType.TypeScript, this._client, rootPath, info.configFile);
-        } else if (info.type === ProjectInfoState.Type.Pending) {
-          openProjectConfigForFile(ProjectType.TypeScript, this._client, info.resource);
-        }
+        if (info.type === ProjectInfoState.Type.Resolved) openProjectConfigOrPromptToCreate(ProjectType.TypeScript, this._client, rootPath, info.configFile);
+        else if (info.type === ProjectInfoState.Type.Pending) openProjectConfigForFile(ProjectType.TypeScript, this._client, info.resource);
       },
     };
   }
@@ -124,9 +119,7 @@ export default class VersionStatus extends Disposable {
       const file = this._client.toOpenedFilePath(doc, { suppressAlertOnFailure: true });
       if (file) {
         this._statusBarEntry.show();
-        if (!this._ready) {
-          return;
-        }
+        if (!this._ready) return;
         const pendingState = new ProjectInfoState.Pending(doc.uri);
         this.updateState(pendingState);
         const response = await this._client.execute('projectInfo', { file, needFileNameList: false }, pendingState.cancellation.token);
@@ -146,9 +139,7 @@ export default class VersionStatus extends Disposable {
     this.updateState(ProjectInfoState.None);
   }
   private updateState(newState: ProjectInfoState.State): void {
-    if (this._state === newState) {
-      return;
-    }
+    if (this._state === newState) return;
     if (this._state.type === ProjectInfoState.Type.Pending) {
       this._state.cancellation.cancel();
       this._state.cancellation.dispose();

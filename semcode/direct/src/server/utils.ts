@@ -27,9 +27,7 @@ export class RequestQueue {
     if (item.queueingType === RequestQueueType.Normal) {
       let index = this.queue.length - 1;
       while (index >= 0) {
-        if (this.queue[index].queueingType !== RequestQueueType.LowPriority) {
-          break;
-        }
+        if (this.queue[index].queueingType !== RequestQueueType.LowPriority) break;
         --index;
       }
       this.queue.splice(index + 1, 0, item);
@@ -100,9 +98,8 @@ export class CallbackMap<R extends qp.Response> {
     this._asyncCallbacks.clear();
   }
   public add(seq: number, cb: CallbackItem<ServerResponse.Response<R> | undefined>, isAsync: boolean) {
-    if (isAsync) {
-      this._asyncCallbacks.set(seq, cb);
-    } else {
+    if (isAsync) this._asyncCallbacks.set(seq, cb);
+    else {
       this._callbacks.set(seq, cb);
     }
   }
@@ -126,9 +123,7 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
   getNonDefaultWorkspaces(): WorkspaceServiceInstance[] {
     const workspaces: WorkspaceServiceInstance[] = [];
     this.forEach((workspace) => {
-      if (workspace.rootPath) {
-        workspaces.push(workspace);
-      }
+      if (workspace.rootPath) workspaces.push(workspace);
     });
     return workspaces;
   }
@@ -149,9 +144,7 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
       let defaultWorkspace = this.get(this._defaultWorkspacePath);
       if (!defaultWorkspace) {
         const workspaceNames = [...this.keys()];
-        if (workspaceNames.length === 1) {
-          return this.get(workspaceNames[0])!;
-        }
+        if (workspaceNames.length === 1) return this.get(workspaceNames[0])!;
         defaultWorkspace = {
           workspaceName: '',
           rootPath: '',

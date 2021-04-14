@@ -25,9 +25,8 @@ class ProtocolBuffer {
     } else {
       toAppend = Buffer.from(x, 'utf8');
     }
-    if (this.buffer.length - this.index >= toAppend.length) {
-      toAppend.copy(this.buffer, this.index, 0, toAppend.length);
-    } else {
+    if (this.buffer.length - this.index >= toAppend.length) toAppend.copy(this.buffer, this.index, 0, toAppend.length);
+    else {
       const newSize = (Math.ceil((this.index + toAppend.length) / defaultSize) + 1) * defaultSize;
       if (this.index === 0) {
         this.buffer = Buffer.allocUnsafe(newSize);
@@ -44,17 +43,13 @@ class ProtocolBuffer {
     while (current < this.index && (this.buffer[current] === blank || this.buffer[current] === backslashR || this.buffer[current] === backslashN)) {
       current++;
     }
-    if (this.index < current + contentLengthSize) {
-      return result;
-    }
+    if (this.index < current + contentLengthSize) return result;
     current += contentLengthSize;
     const start = current;
     while (current < this.index && this.buffer[current] !== backslashR) {
       current++;
     }
-    if (current + 3 >= this.index || this.buffer[current + 1] !== backslashN || this.buffer[current + 2] !== backslashR || this.buffer[current + 3] !== backslashN) {
-      return result;
-    }
+    if (current + 3 >= this.index || this.buffer[current + 1] !== backslashN || this.buffer[current + 2] !== backslashR || this.buffer[current + 3] !== backslashN) return result;
     const data = this.buffer.toString('utf8', start, current);
     result = parseInt(data);
     this.buffer = this.buffer.slice(current + 4);
@@ -62,9 +57,7 @@ class ProtocolBuffer {
     return result;
   }
   public tryReadContent(length: number): string | null {
-    if (this.index < length) {
-      return null;
-    }
+    if (this.index < length) return null;
     const result = this.buffer.toString('utf8', 0, length);
     let sourceStart = length;
     while (sourceStart < this.index && (this.buffer[sourceStart] === backslashR || this.buffer[sourceStart] === backslashN)) {
@@ -87,22 +80,16 @@ class Reader<T> extends Disposable {
   private readonly _onData = this._register(new qv.EventEmitter<T>());
   public readonly onData = this._onData.event;
   private onLengthData(data: Buffer | string): void {
-    if (this.isDisposed) {
-      return;
-    }
+    if (this.isDisposed) return;
     try {
       this.buffer.append(data);
       while (true) {
         if (this.nextMessageLength === -1) {
           this.nextMessageLength = this.buffer.tryReadContentLength();
-          if (this.nextMessageLength === -1) {
-            return;
-          }
+          if (this.nextMessageLength === -1) return;
         }
         const msg = this.buffer.tryReadContent(this.nextMessageLength);
-        if (msg === null) {
-          return;
-        }
+        if (msg === null) return;
         this.nextMessageLength = -1;
         const json = JSON.parse(msg);
         this._onData.fire(json);
@@ -142,21 +129,15 @@ export class ChildServerProc extends Disposable implements TSServerProc {
       const inspectFlag = ChildServerProc.getTssDebugBrk() ? '--inspect-brk' : '--inspect';
       args.push(`${inspectFlag}=${debugPort}`);
     }
-    if (configuration.maxTSServerMemory) {
-      args.push(`--max-old-space-size=${configuration.maxTSServerMemory}`);
-    }
+    if (configuration.maxTSServerMemory) args.push(`--max-old-space-size=${configuration.maxTSServerMemory}`);
     return args;
   }
   private static getDebugPort(kind: TSServerProcKind): number | undefined {
-    if (kind === TSServerProcKind.Syntax) {
-      return undefined;
-    }
+    if (kind === TSServerProcKind.Syntax) return undefined;
     const value = ChildServerProc.getTssDebugBrk() || ChildServerProc.getTssDebug();
     if (value) {
       const port = parseInt(value);
-      if (!isNaN(port)) {
-        return port;
-      }
+      if (!isNaN(port)) return port;
     }
     return undefined;
   }

@@ -419,9 +419,7 @@ export class CompletionProvider {
         return;
       }
       const decls = symbol.getDeclarations();
-      if (decls.length === 1 && decls.some((d) => d.node === enclosingFunc)) {
-        return;
-      }
+      if (decls.length === 1 && decls.some((d) => d.node === enclosingFunc)) return;
       if (StringUtils.isPatternInSymbol(partialName.value, name)) {
         const textEdit = this._createReplaceEdits(priorWord, partialName, decl.node.name.value);
         this._addSymbol(name, symbol, partialName.value, completionList, {
@@ -477,9 +475,7 @@ export class CompletionProvider {
           if (SymbolNameUtils.isDunderName(name)) {
             isProperty = false;
           }
-          if (!isFunction(declaredType) && !isProperty) {
-            return;
-          }
+          if (!isFunction(declaredType) && !isProperty) return;
           if (isProperty) {
             const typedDecls = symbol.getTypedDeclarations();
             if (typedDecls.length > 0 && typedDecls[0].type === DeclarationType.Function) decl = typedDecls[0];
@@ -515,9 +511,7 @@ export class CompletionProvider {
       .map((param, index) => {
         let paramString = '';
         if (param.category === ParameterCategory.VarArgList) paramString += '*';
-        else if (param.category === ParameterCategory.VarArgDictionary) {
-          paramString += '**';
-        }
+        else if (param.category === ParameterCategory.VarArgDictionary) paramString += '**';
         if (param.name) paramString += param.name.value;
         const paramTypeAnnotation = this._evaluator.getTypeAnnotationForParameter(node, index);
         if (paramTypeAnnotation) paramString += ': ' + ParseTreeUtils.printExpression(paramTypeAnnotation);
@@ -527,9 +521,7 @@ export class CompletionProvider {
       .join(', ');
     let methodSignature = node.name.value + '(' + paramList + ')';
     if (node.returnTypeAnnotation) methodSignature += ' -> ' + ParseTreeUtils.printExpression(node.returnTypeAnnotation);
-    else if (node.functionAnnotationComment) {
-      methodSignature += ' -> ' + ParseTreeUtils.printExpression(node.functionAnnotationComment.returnTypeAnnotation);
-    }
+    else if (node.functionAnnotationComment) methodSignature += ' -> ' + ParseTreeUtils.printExpression(node.functionAnnotationComment.returnTypeAnnotation);
     return methodSignature;
   }
   private _printOverriddenMethodBody(classType: ClassType, isStaticMethod: boolean, isProperty: boolean, decl: FunctionDeclaration) {
@@ -702,9 +694,7 @@ export class CompletionProvider {
         return undefined;
       }
       const classType = baseType.classType;
-      if (!ClassType.isTypedDictClass(classType)) {
-        return;
-      }
+      if (!ClassType.isTypedDictClass(classType)) return;
       const entries = this._evaluator.getTypedDictMembersForClass(classType, /* allowNarrowed */ true);
       const quoteValue = this._getQuoteValueFromPriorText(priorText);
       entries.forEach((_, key) => {
@@ -739,13 +729,9 @@ export class CompletionProvider {
   private _getIndexStringLiteral(parseNode: ErrorNode, completionList: CompletionList) {
     if (!parseNode.parent || parseNode.parent.nodeType !== ParseNodeType.Index) return;
     const baseType = this._evaluator.getType(parseNode.parent.baseExpression);
-    if (!baseType || !isObject(baseType)) {
-      return;
-    }
+    if (!baseType || !isObject(baseType)) return;
     const classType = baseType.classType;
-    if (!ClassType.isTypedDictClass(classType)) {
-      return;
-    }
+    if (!ClassType.isTypedDictClass(classType)) return;
     const entries = this._evaluator.getTypedDictMembersForClass(classType, /* allowNarrowed */ true);
     entries.forEach((_, key) => {
       this._addStringLiteralToCompletionList(key, undefined, undefined, this._parseResults.tokenizerOutput.predominantSingleQuoteCharacter, completionList);
@@ -854,9 +840,7 @@ export class CompletionProvider {
   private _findMatchingKeywords(keywordList: string[], partialMatch: string): string[] {
     return keywordList.filter((keyword) => {
       if (partialMatch) return StringUtils.isPatternInSymbol(partialMatch, keyword);
-      else {
-        return true;
-      }
+      else return true;
     });
   }
   private _addNamedParameters(signatureInfo: CallSignatureInfo, priorWord: string, completionList: CompletionList) {
@@ -1086,14 +1070,12 @@ export class CompletionProvider {
   private _getAutoImportText(importName: string, importFrom?: string, importAlias?: string) {
     let autoImportText: string | undefined;
     if (!importFrom) autoImportText = `import ${importName}`;
-    else {
-      autoImportText = `from ${importFrom} import ${importName}`;
-    }
+    else autoImportText = `from ${importFrom} import ${importName}`;
+
     if (importAlias) autoImportText = `${autoImportText} as ${importAlias}`;
     if (this._options.format === MarkupKind.Markdown) return `\`\`\`\n${autoImportText}\n\`\`\``;
-    else if (this._options.format === MarkupKind.PlainText) {
-      return autoImportText;
-    } else {
+    else if (this._options.format === MarkupKind.PlainText) return autoImportText;
+    else {
       fail(`Unsupported markup type: ${this._options.format}`);
     }
   }

@@ -320,9 +320,7 @@ async function executeFile(uri?: qv.Uri | string) {
     const readBytes = await qv.workspace.fs.readFile(uri);
     code = Buffer.from(readBytes).toString('utf8');
   } else {
-    if (!editor) {
-      return;
-    }
+    if (!editor) return;
     path = editor.document.fileName;
     code = editor.document.getText();
 
@@ -406,9 +404,7 @@ function validateMoveAndReveal(editor: qv.TextEditor, startpos: qv.Position, end
 
 async function moveCellDown() {
   const ed = qv.window.activeTextEditor;
-  if (ed === undefined) {
-    return;
-  }
+  if (ed === undefined) return;
   const currline = ed.selection.active.line;
   const newpos = new qv.Position(nextCellBorder(ed.document, currline + 1) + 1, 0);
   validateMoveAndReveal(ed, newpos, newpos);
@@ -416,9 +412,7 @@ async function moveCellDown() {
 
 async function moveCellUp() {
   const ed = qv.window.activeTextEditor;
-  if (ed === undefined) {
-    return;
-  }
+  if (ed === undefined) return;
   const currline = ed.selection.active.line;
   const newpos = new qv.Position(Math.max(0, prevCellBorder(ed.document, currline) - 1), 0);
   validateMoveAndReveal(ed, newpos, newpos);
@@ -436,9 +430,7 @@ function currentCellRange(editor: qv.TextEditor) {
 
 async function executeCell(shouldMove: boolean = false) {
   const ed = qv.window.activeTextEditor;
-  if (ed === undefined) {
-    return;
-  }
+  if (ed === undefined) return;
 
   const doc = ed.document;
   const selection = ed.selection;
@@ -459,9 +451,7 @@ async function executeCell(shouldMove: boolean = false) {
 
 async function evaluateBlockOrSelection(shouldMove: boolean = false) {
   const editor = qv.window.activeTextEditor;
-  if (editor === undefined) {
-    return;
-  }
+  if (editor === undefined) return;
 
   const selections = editor.selections.slice();
 
@@ -487,9 +477,7 @@ async function evaluateBlockOrSelection(shouldMove: boolean = false) {
       validateMoveAndReveal(editor, nextBlock, nextBlock);
     }
 
-    if (range.isEmpty) {
-      return;
-    }
+    if (range.isEmpty) return;
 
     const tempDecoration = qv.window.createTextEditorDecorationType({
       backgroundColor: new qv.ThemeColor('editor.hoverHighlightBackground'),
@@ -554,9 +542,7 @@ async function executeCodeCopyPaste(text: string, individualLine: boolean) {
 
 function executeSelectionCopyPaste() {
   const editor = qv.window.activeTextEditor;
-  if (!editor) {
-    return;
-  }
+  if (!editor) return;
   const selection = editor.selection;
   const text = selection.isEmpty ? editor.document.lineAt(selection.start.line).text : editor.document.getText(selection);
   if (selection.isEmpty) {

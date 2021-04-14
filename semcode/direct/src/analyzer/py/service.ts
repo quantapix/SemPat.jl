@@ -679,9 +679,7 @@ export class AnalyzerService {
   private _updateSourceFileWatchers() {
     this._removeSourceFileWatchers();
     this._backgroundAnalysisProgram.invalidateCache();
-    if (!this._watchForSourceChanges) {
-      return;
-    }
+    if (!this._watchForSourceChanges) return;
     if (this._configOptions.include.length > 0) {
       const fileList = this._configOptions.include.map((spec) => {
         return combinePaths(this._executionRootPath, spec.wildcardRoot);
@@ -695,16 +693,10 @@ export class AnalyzerService {
           if (this._verboseOutput) {
             this._console.info(`SourceFile: Received fs event '${event}' for path '${path}'`);
           }
-          if (isIgnored(path)) {
-            return;
-          }
-          if (path.endsWith('.tmp') || path.endsWith('.git')) {
-            return;
-          }
+          if (isIgnored(path)) return;
+          if (path.endsWith('.tmp') || path.endsWith('.git')) return;
           const stats = tryStat(this._fs, path);
-          if (stats && stats.isFile() && !path.endsWith('.py') && !path.endsWith('.pyi')) {
-            return;
-          }
+          if (stats && stats.isFile() && !path.endsWith('.py') && !path.endsWith('.pyi')) return;
           if (event === 'change' && stats) {
             this._backgroundAnalysisProgram.markFilesDirty([path], /* evenIfContentsAreSame */ false);
             this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
@@ -737,9 +729,7 @@ export class AnalyzerService {
   private _updateLibraryFileWatcher() {
     this._removeLibraryFileWatcher();
     this._backgroundAnalysisProgram.invalidateCache();
-    if (!this._watchForLibraryChanges) {
-      return;
-    }
+    if (!this._watchForLibraryChanges) return;
     const importFailureInfo: string[] = [];
     const watchList = findPythonSearchPaths(this._fs, this._backgroundAnalysisProgram.configOptions, importFailureInfo, true, this._executionRootPath);
     if (watchList && watchList.length > 0) {
@@ -752,9 +742,7 @@ export class AnalyzerService {
           if (this._verboseOutput) {
             this._console.info(`LibraryFile: Received fs event '${event}' for path '${path}'}'`);
           }
-          if (isIgnored(path)) {
-            return;
-          }
+          if (isIgnored(path)) return;
           this._scheduleLibraryAnalysis();
         });
       } catch {
@@ -770,9 +758,7 @@ export class AnalyzerService {
     }
   }
   private _scheduleLibraryAnalysis() {
-    if (this._disposed) {
-      return;
-    }
+    if (this._disposed) return;
     this._clearLibraryReanalysisTimer();
     this._libraryReanalysisTimer = setTimeout(() => {
       this._clearLibraryReanalysisTimer();
@@ -851,9 +837,7 @@ export class AnalyzerService {
     }
   }
   private _scheduleReanalysis(requireTrackedFileUpdate: boolean) {
-    if (this._disposed) {
-      return;
-    }
+    if (this._disposed) return;
     if (requireTrackedFileUpdate) {
       this._requireTrackedFileUpdate = true;
     }

@@ -443,9 +443,7 @@ export class Program {
     return this._evaluator;
   }
   private _parseFile(fileToParse: SourceFileInfo, content?: string) {
-    if (!this._isFileNeeded(fileToParse) || !fileToParse.sourceFile.isParseRequired()) {
-      return;
-    }
+    if (!this._isFileNeeded(fileToParse) || !fileToParse.sourceFile.isParseRequired()) return;
     if (fileToParse.sourceFile.parse(this._configOptions, this._importResolver, content)) {
       this._parsedFileCount++;
       this._updateSourceFileImports(fileToParse, this._configOptions);
@@ -458,9 +456,7 @@ export class Program {
     }
   }
   private _bindFile(fileToAnalyze: SourceFileInfo, content?: string): void {
-    if (!this._isFileNeeded(fileToAnalyze) || !fileToAnalyze.sourceFile.isBindingRequired()) {
-      return;
-    }
+    if (!this._isFileNeeded(fileToAnalyze) || !fileToAnalyze.sourceFile.isBindingRequired()) return;
     this._parseFile(fileToAnalyze, content);
     let builtinsScope: Scope | undefined;
     if (fileToAnalyze.builtinsImport) {
@@ -544,9 +540,7 @@ export class Program {
   }
   private _getImportsRecursive(file: SourceFileInfo, closureMap: Map<string, SourceFileInfo>, recursionCount: number) {
     const filePath = normalizePathCase(this._fs, file.sourceFile.getFilePath());
-    if (closureMap.has(filePath)) {
-      return;
-    }
+    if (closureMap.has(filePath)) return;
     if (recursionCount > _maxImportDepth) {
       file.sourceFile.setHitMaxImportDepth(_maxImportDepth);
       return;
@@ -557,18 +551,14 @@ export class Program {
     }
   }
   private _detectAndReportImportCycles(sourceFileInfo: SourceFileInfo, dependencyChain: SourceFileInfo[] = [], dependencyMap = new Map<string, boolean>()): void {
-    if (sourceFileInfo.sourceFile.isStubFile() || sourceFileInfo.isThirdPartyImport) {
-      return;
-    }
+    if (sourceFileInfo.sourceFile.isStubFile() || sourceFileInfo.isThirdPartyImport) return;
     const filePath = normalizePathCase(this._fs, sourceFileInfo.sourceFile.getFilePath());
     if (dependencyMap.has(filePath)) {
       if (dependencyChain.length > 1 && sourceFileInfo === dependencyChain[0]) {
         this._logImportCycle(dependencyChain);
       }
     } else {
-      if (dependencyMap.has(filePath)) {
-        return;
-      }
+      if (dependencyMap.has(filePath)) return;
       dependencyMap.set(filePath, true);
       dependencyChain.push(sourceFileInfo);
       for (const imp of sourceFileInfo.imports) {
@@ -718,16 +708,12 @@ export class Program {
   reportReferencesForPosition(filePath: string, position: Position, includeDeclaration: boolean, reporter: ReferenceCallback, token: CancellationToken) {
     this._runEvaluatorWithCancellationToken(token, () => {
       const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
-      if (!sourceFileInfo) {
-        return;
-      }
+      if (!sourceFileInfo) return;
       const invokedFromUserFile = this._isUserCode(sourceFileInfo);
       this._bindFile(sourceFileInfo);
       const execEnv = this._configOptions.findExecEnvironment(filePath);
       const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(this._createSourceMapper(execEnv), position, this._evaluator!, reporter, token);
-      if (!referencesResult) {
-        return;
-      }
+      if (!referencesResult) return;
       if (referencesResult.requiresGlobalSearch) {
         for (const curSourceFileInfo of this._sourceFileList) {
           throwIfCancellationRequested(token);
@@ -802,9 +788,7 @@ export class Program {
   }
   reportSymbolsForWorkspace(query: string, reporter: WorkspaceSymbolCallback, token: CancellationToken) {
     this._runEvaluatorWithCancellationToken(token, () => {
-      if (!query) {
-        return;
-      }
+      if (!query) return;
       for (const sourceFileInfo of this._sourceFileList) {
         if (!this._isUserCode(sourceFileInfo)) {
           continue;
@@ -917,9 +901,7 @@ export class Program {
   ) {
     return this._runEvaluatorWithCancellationToken(token, () => {
       const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
-      if (!sourceFileInfo) {
-        return;
-      }
+      if (!sourceFileInfo) return;
       this._bindFile(sourceFileInfo);
       const execEnv = this._configOptions.findExecEnvironment(filePath);
       sourceFileInfo.sourceFile.resolveCompletionItem(

@@ -656,12 +656,8 @@ export function specializeClassType(type: ClassType): ClassType {
   return applySolvedTypeVars(type, typeVarMap) as ClassType;
 }
 export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVarMap: TypeVarMap, recursionCount = 0) {
-  if (recursionCount > maxTypeRecursionCount) {
-    return;
-  }
-  if (typeVarMap.isLocked()) {
-    return;
-  }
+  if (recursionCount > maxTypeRecursionCount) return;
+  if (typeVarMap.isLocked()) return;
   switch (destType.category) {
     case TypeCategory.Union:
       doForEachSubtype(destType, (subtype) => {
@@ -1491,9 +1487,7 @@ export function getDeclaringModulesForType(type: Type): string[] {
   return moduleList;
 }
 function addDeclaringModuleNamesForType(type: Type, moduleList: string[], recursionCount = 0) {
-  if (recursionCount > maxTypeRecursionCount) {
-    return;
-  }
+  if (recursionCount > maxTypeRecursionCount) return;
   const addIfUnique = (moduleName: string) => {
     if (moduleName && !moduleList.some((n) => n === moduleName)) {
       moduleList.push(moduleName);

@@ -230,9 +230,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
   readonly onDidChangeCapabilities = this._onDidChangeCapabilities.event;
 
   private cancelInflightRequestsForResource(resource: qv.Uri): void {
-    if (this.serverState.type !== ServerState.Type.Running) {
-      return;
-    }
+    if (this.serverState.type !== ServerState.Type.Running) return;
 
     for (const request of this.serverState.toCancelOnResourceChange) {
       if (request.resource.toString() === resource.toString()) {
@@ -384,9 +382,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
     });
 
     handle.onError((err: Error) => {
-      if (this.token !== mytoken) {
-        return;
-      }
+      if (this.token !== mytoken) return;
 
       if (err) {
         qv.window.showErrorMessage('serverExitedWithError');
@@ -410,9 +406,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
     });
 
     handle.onExit((code: any) => {
-      if (this.token !== mytoken) {
-        return;
-      }
+      if (this.token !== mytoken) return;
 
       if (code === null || typeof code === 'undefined') {
         this.info('TSServer exited');

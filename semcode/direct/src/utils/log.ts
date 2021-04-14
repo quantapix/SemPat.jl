@@ -68,9 +68,7 @@ export class ConsoleWithLog implements Console {
   }
   set level(l: LogLevel) {
     let maxLevel = this._levelMap.get(l);
-    if (maxLevel === undefined) {
-      maxLevel = this._levelMap.get(LogLevel.Info)!;
-    }
+    if (maxLevel === undefined) maxLevel = this._levelMap.get(LogLevel.Info)!;
     this._maxLevel = maxLevel;
   }
   error(m: string) {
@@ -86,9 +84,7 @@ export class ConsoleWithLog implements Console {
     this._log(LogLevel.Log, m);
   }
   private _log(l: LogLevel, m: string): void {
-    if (this._getNumericalLevel(l) > this._maxLevel) {
-      return;
-    }
+    if (this._getNumericalLevel(l) > this._maxLevel) return;
     log(this._console, l, m);
   }
   private _getNumericalLevel(l: LogLevel): number {
@@ -122,28 +118,20 @@ export class Logger {
     return qv.window.createOutputChannel('channelName');
   }
   private data2String(data: any): string {
-    if (data instanceof Error) {
-      return data.stack || data.message;
-    }
-    if (data.success === false && data.message) {
-      return data.message;
-    }
+    if (data instanceof Error) return data.stack || data.message;
+    if (data.success === false && data.message) return data.message;
     return data.toString();
   }
   public info(message: string, data?: any): void {
     this.logLevel('Info', message, data);
   }
   public error(message: string, data?: any): void {
-    if (data && data.message === 'No content available.') {
-      return;
-    }
+    if (data && data.message === 'No content available.') return;
     this.logLevel('Error', message, data);
   }
   public logLevel(level: LogLevel, message: string, data?: any): void {
     this.output.appendLine(`[${level}  - ${this.now()}] ${message}`);
-    if (data) {
-      this.output.appendLine(this.data2String(data));
-    }
+    if (data) this.output.appendLine(this.data2String(data));
   }
   private now(): string {
     const now = new Date();
@@ -160,9 +148,7 @@ export class LogTracker {
   private _previousTitles: string[] = [];
   constructor(private _console: Console | undefined, private _prefix: string) {}
   log<T>(title: string, callback: (state: LogState) => T, minimalDuration = -1, logParsingPerf = false) {
-    if (this._console === undefined) {
-      return callback(this._dummyState);
-    }
+    if (this._console === undefined) return callback(this._dummyState);
     const level = (this._console as any).level;
     if (level === undefined || (level !== LogLevel.Log && level !== LogLevel.Info)) {
       return callback(this._dummyState);
@@ -181,21 +167,16 @@ export class LogTracker {
       } else {
         this._printPreviousTitles();
         let output = `[${this._prefix}] ${this._indentation}${title}${state.get()} (${msDuration}ms)`;
-        if (logParsingPerf && state.fileReadTotal + state.tokenizeTotal + state.parsingTotal + state.resolveImportsTotal + state.bindingTotal > 0) {
+        if (logParsingPerf && state.fileReadTotal + state.tokenizeTotal + state.parsingTotal + state.resolveImportsTotal + state.bindingTotal > 0)
           output += ` [f:${state.fileReadTotal}, t:${state.tokenizeTotal}, p:${state.parsingTotal}, i:${state.resolveImportsTotal}, b:${state.bindingTotal}]`;
-        }
         this._console.log(output);
-        if (msDuration >= durationThresholdForInfoInMs) {
-          this._console.info(`[${this._prefix}] Long operation: ${title} (${msDuration}ms)`);
-        }
+        if (msDuration >= durationThresholdForInfoInMs) this._console.info(`[${this._prefix}] Long operation: ${title} (${msDuration}ms)`);
       }
     }
   }
   private _printPreviousTitles() {
     this._previousTitles.pop();
-    if (this._previousTitles.length <= 0) {
-      return;
-    }
+    if (this._previousTitles.length <= 0) return;
     for (const previousTitle of this._previousTitles) {
       this._console!.log(`[${this._prefix}] ${previousTitle}`);
     }
@@ -234,14 +215,10 @@ class State {
     return timingStats.bindTime.totalTime - this._startBind;
   }
   add(addendum: string | undefined) {
-    if (addendum) {
-      this._addendum = addendum;
-    }
+    if (addendum) this._addendum = addendum;
   }
   get() {
-    if (this._addendum) {
-      return ` [${this._addendum}]`;
-    }
+    if (this._addendum) return ` [${this._addendum}]`;
     return '';
   }
   suppress() {

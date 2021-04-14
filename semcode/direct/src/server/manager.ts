@@ -15,15 +15,12 @@ export class TSVersionMgr extends Disposable {
     if (this.useWorkspaceTsdkSetting) {
       if (this.isWorkspaceTrusted) {
         const localVersion = this.versionProvider.localVersion;
-        if (localVersion) {
-          this._currentVersion = localVersion;
-        }
+        if (localVersion) this._currentVersion = localVersion;
       } else {
         setImmediate(() => {
           qv.workspace.requireWorkspaceTrust({ modal: false }).then((trustState) => {
-            if (trustState === qv.WorkspaceTrustState.Trusted && this.versionProvider.localVersion) {
-              this.updateActiveVersion(this.versionProvider.localVersion);
-            } else {
+            if (trustState === qv.WorkspaceTrustState.Trusted && this.versionProvider.localVersion) this.updateActiveVersion(this.versionProvider.localVersion);
+            else {
               this.updateActiveVersion(this.versionProvider.defaultVersion);
             }
           });
@@ -89,9 +86,7 @@ export class TSVersionMgr extends Disposable {
   }
   private async promptUseWorkspaceTsdk(): Promise<void> {
     const workspaceVersion = this.versionProvider.localVersion;
-    if (workspaceVersion === undefined) {
-      throw new Error('Could not prompt to use workspace TypeScript version because no workspace version is specified');
-    }
+    if (workspaceVersion === undefined) throw new Error('Could not prompt to use workspace TypeScript version because no workspace version is specified');
     const allowIt = 'allow';
     const dismissPrompt = 'dismiss';
     const suppressPrompt = 'suppress prompt';

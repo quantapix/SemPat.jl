@@ -177,9 +177,7 @@ class TsTask extends Disposable implements qv.TaskProvider {
     const label = this.getLabelForTasks(project);
     let task: qv.Task | undefined;
     if (definition.option === undefined) task = this.getBuildTask(project.workspaceFolder, label, command, args, definition);
-    else if (definition.option === 'watch') {
-      task = this.getWatchTask(project.workspaceFolder, label, command, args, definition);
-    }
+    else if (definition.option === 'watch') task = this.getWatchTask(project.workspaceFolder, label, command, args, definition);
     return task;
   }
   private async getBuildShellArgs(project: TSConfig): Promise<Array<string>> {

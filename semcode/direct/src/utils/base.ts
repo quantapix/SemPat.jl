@@ -241,14 +241,10 @@ export function computeCompletionSimilarity(typedValue: string, symbolName: stri
   let smallestEditDistance = Number.MAX_VALUE;
   while (symbolSubstrLength > 0) {
     const editDistance = leven(symbolLower.substr(0, symbolSubstrLength), typedLower);
-    if (editDistance < smallestEditDistance) {
-      smallestEditDistance = editDistance;
-    }
+    if (editDistance < smallestEditDistance) smallestEditDistance = editDistance;
     symbolSubstrLength--;
   }
-  if (smallestEditDistance >= typedValue.length) {
-    return 0;
-  }
+  if (smallestEditDistance >= typedValue.length) return 0;
   const similarity = (typedValue.length - smallestEditDistance) / typedValue.length;
   return 0.5 * similarity;
 }
@@ -260,9 +256,7 @@ export function isPatternInSymbol(typedValue: string, symbolName: string): boole
   let typedPos = 0;
   let symbolPos = 0;
   while (typedPos < typedLength && symbolPos < symbolLength) {
-    if (typedLower[typedPos] === symbolLower[symbolPos]) {
-      typedPos += 1;
-    }
+    if (typedLower[typedPos] === symbolLower[symbolPos]) typedPos += 1;
     symbolPos += 1;
   }
   return typedPos === typedLength;
@@ -292,9 +286,7 @@ export function equateStringsCaseSensitive(a: string, b: string) {
 export function getCharacterCount(value: string, ch: string) {
   let result = 0;
   for (let i = 0; i < value.length; i++) {
-    if (value[i] === ch) {
-      result++;
-    }
+    if (value[i] === ch) result++;
   }
   return result;
 }
@@ -407,11 +399,8 @@ export function generatePipeName(pid: string, n: string) {
 export function inferJuliaNumThreads(): string {
   const config: number | undefined = qv.workspace.getConfig('julia').get('NumThreads') ?? undefined;
   const env: string | undefined = process.env['JULIA_NUM_THREADS'];
-  if (config !== undefined) {
-    return config.toString();
-  } else if (env !== undefined) {
-    return env;
-  } else {
+  if (config !== undefined) return config.toString();
+  else if (env !== undefined) return env; else {
     return '';
   }
 }
@@ -639,10 +628,8 @@ export class Delayer<T> {
   public trigger(t: ITask<T>, d: number = this.defDelay): Promise<T | undefined> {
     this.task = t;
     if (d >= 0) this.cancelTimeout();
-    if (!this.prom) {
-      this.prom = new Promise<T | undefined>((resolve) => {
-        this.onSuccess = resolve;
-      }).then(() => {
+    if (!this.prom) this.prom = new Promise<T | undefined>((resolve) => {
+        this.onSuccess = resolve;).then(() => {
         this.prom = undefined;
         this.onSuccess = undefined;
         const y = this.task && this.task();
@@ -837,9 +824,7 @@ export function uniqueBasedOnHash<A extends Record<string, any>>(list: A[], elem
   const hashSet = new Set<string>();
   list.forEach((element) => {
     const hash = elementToHash(element);
-    if (hashSet.has(hash)) {
-      return;
-    }
+    if (hashSet.has(hash)) return;
     hashSet.add(hash);
     result.push(element);
   });
@@ -854,9 +839,7 @@ export function flattenObjectValues<T>(x: { [k: string]: T[] }): T[] {
 const SHEBANG_REGEXP = /^#!(.*)/;
 export function getShebang(fileContent: string): string | null {
   const match = SHEBANG_REGEXP.exec(fileContent);
-  if (!match || !match[1]) {
-    return null;
-  }
+  if (!match || !match[1]) return null;
   return match[1].replace('-', '').trim();
 }
 export function isBashShebang(shebang: string): boolean {

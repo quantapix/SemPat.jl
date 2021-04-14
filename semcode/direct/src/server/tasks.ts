@@ -105,20 +105,15 @@ export async function rustupUpdate(config: RustupConfig) {
   }
 }
 export async function ensureToolchain(config: RustupConfig) {
-  if (await hasToolchain(config)) {
-    return;
-  }
+  if (await hasToolchain(config)) return;
   const clicked = await window.showInformationMessage(`${config.channel} toolchain not installed. Install?`, 'Yes');
-  if (clicked) {
-    await tryToInstallToolchain(config);
-  } else {
+  if (clicked) await tryToInstallToolchain(config);
+  else {
     throw new Error();
   }
 }
 export async function ensureComponents(config: RustupConfig, components: string[]) {
-  if (await hasComponents(config, components)) {
-    return;
-  }
+  if (await hasComponents(config, components)) return;
   const clicked = await Promise.resolve(window.showInformationMessage('Some Rust components not installed. Install?', 'Yes'));
   if (clicked) {
     await installComponents(config, components);
@@ -194,26 +189,22 @@ export function parseActiveToolchain(rustupOutput: string): string {
     rustupOutput = rustupOutput.substr(activeToolchainsIndex);
     const matchActiveChannel = /^(\S*) \((?:default|overridden)/gm;
     const match = matchActiveChannel.exec(rustupOutput);
-    if (!match) {
-      throw new Error(`couldn't find active toolchain under 'active toolchains'`);
-    } else if (matchActiveChannel.exec(rustupOutput)) {
+    if (!match) throw new Error(`couldn't find active toolchain under 'active toolchains'`);
+    else if (matchActiveChannel.exec(rustupOutput)) {
       throw new Error(`multiple active toolchains found under 'active toolchains'`);
     }
     return match[1];
   }
   const match = /^(?:.*\r?\n){2}(\S*) \((?:default|overridden)/.exec(rustupOutput);
-  if (match) {
-    return match[1];
-  }
+  if (match) return match[1];
   throw new Error(`couldn't find active toolchains`);
 }
 export async function getVersion(config: RustupConfig): Promise<string> {
   const VERSION_REGEX = /rustup ([0-9]+\.[0-9]+\.[0-9]+)/;
   const output = await exec(`${config.path} --version`);
   const versionMatch = VERSION_REGEX.exec(output.stdout.toString());
-  if (versionMatch && versionMatch.length >= 2) {
-    return versionMatch[1];
-  } else {
+  if (versionMatch && versionMatch.length >= 2) return versionMatch[1];
+  else {
     throw new Error("Couldn't parse rustup version");
   }
 }

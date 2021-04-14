@@ -218,9 +218,7 @@ export class PyReference {
   }
   private static _addIfUnique(declarations: Declaration[], itemToAdd: Declaration) {
     for (const def of declarations) {
-      if (DeclarationUtils.areDeclarationsSame(def, itemToAdd)) {
-        return;
-      }
+      if (DeclarationUtils.areDeclarationsSame(def, itemToAdd)) return;
     }
     declarations.push(itemToAdd);
   }

@@ -29,9 +29,7 @@ export class PyrightFileSystem implements FileSystem {
       return !this._partialStubPackagePaths.has(dirPath);
     });
     const partialStubs = this._folderMap.get(ensureTrailingDirSeparator(path));
-    if (!partialStubs) {
-      return entries;
-    }
+    if (!partialStubs) return entries;
     return entries.concat(partialStubs.map((f) => new FakeFile(f)));
   }
   readdirSync(path: string): string[] {
@@ -40,9 +38,7 @@ export class PyrightFileSystem implements FileSystem {
       return !this._partialStubPackagePaths.has(dirPath);
     });
     const partialStubs = this._folderMap.get(ensureTrailingDirSeparator(path));
-    if (!partialStubs) {
-      return entries;
-    }
+    if (!partialStubs) return entries;
     return entries.concat(partialStubs);
   }
   readFileSync(path: string, encoding?: null): Buffer;
@@ -108,9 +104,7 @@ export class PyrightFileSystem implements FileSystem {
           continue;
         }
         const pyTypedInfo = getPyTypedInfo(this._realFS, partialStubPackagePath);
-        if (!pyTypedInfo || !pyTypedInfo.isPartiallyTyped) {
-          continue;
-        }
+        if (!pyTypedInfo || !pyTypedInfo.isPartiallyTyped) continue;
         this._partialStubPackagePaths.add(partialStubPackagePath);
         let partialStubs: string[] | undefined;
         const packageName = entry.name.substr(0, entry.name.length - stubsSuffix.length);
@@ -122,9 +116,7 @@ export class PyrightFileSystem implements FileSystem {
               continue;
             }
             const packagePyTyped = getPyTypedInfo(this._realFS, packagePath);
-            if (packagePyTyped && !packagePyTyped.isPartiallyTyped) {
-              continue;
-            }
+            if (packagePyTyped && !packagePyTyped.isPartiallyTyped) continue;
             partialStubs = partialStubs ?? this._getRelativePathPartialStubs(partialStubPackagePath);
             for (const partialStub of partialStubs) {
               const mappedPyiFile = combinePaths(packagePath, partialStub);
@@ -180,14 +172,10 @@ export class PyrightFileSystem implements FileSystem {
             isFile = stat.isFile();
           }
         }
-        if (isDir) {
-          searchAllStubs(filePath);
-        }
+        if (isDir) searchAllStubs(filePath);
         if (isFile && entry.name.endsWith('.pyi')) {
           const relative = filePath.substring(partialStubPathLength);
-          if (relative) {
-            paths.push(relative);
-          }
+          if (relative) paths.push(relative);
         }
       }
     };

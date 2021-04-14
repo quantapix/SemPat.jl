@@ -72,29 +72,22 @@ export interface FlowPostContextMgrLabel extends FlowLabel {
   isAsync: boolean;
 }
 export function isCodeFlowSupportedForReference(reference: ExpressionNode): boolean {
-  if (reference.nodeType === ParseNodeType.Name) {
-    return true;
-  }
-  if (reference.nodeType === ParseNodeType.MemberAccess) {
-    return isCodeFlowSupportedForReference(reference.leftExpression);
-  }
+  if (reference.nodeType === ParseNodeType.Name) return true;
+  if (reference.nodeType === ParseNodeType.MemberAccess) return isCodeFlowSupportedForReference(reference.leftExpression);
   if (reference.nodeType === ParseNodeType.Index) {
     if (reference.items.length !== 1 || reference.trailingComma || reference.items[0].name !== undefined || reference.items[0].argumentCategory !== ArgumentCategory.Simple) {
       return false;
     }
     const subscriptNode = reference.items[0].valueExpression;
-    if (subscriptNode.nodeType !== ParseNodeType.Number || subscriptNode.isImaginary || !subscriptNode.isInteger) {
-      return false;
-    }
+    if (subscriptNode.nodeType !== ParseNodeType.Number || subscriptNode.isImaginary || !subscriptNode.isInteger) return false;
     return isCodeFlowSupportedForReference(reference.baseExpression);
   }
   return false;
 }
 export function createKeyForReference(reference: CodeFlowReferenceExpressionNode): string {
   let key;
-  if (reference.nodeType === ParseNodeType.Name) {
-    key = reference.value;
-  } else if (reference.nodeType === ParseNodeType.MemberAccess) {
+  if (reference.nodeType === ParseNodeType.Name) key = reference.value;
+  else if (reference.nodeType === ParseNodeType.MemberAccess) {
     const leftKey = createKeyForReference(reference.leftExpression as CodeFlowReferenceExpressionNode);
     key = `${leftKey}.${reference.memberName.value}`;
   } else {

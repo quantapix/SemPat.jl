@@ -168,9 +168,7 @@ export class PyHover {
       }
       case DeclarationType.Class:
       case DeclarationType.SpecialBuiltInClass: {
-        if (this._addInitMethodInsteadIfCallNode(format, node, evaluator, parts, sourceMapper, resolvedDecl)) {
-          return;
-        }
+        if (this._addInitMethodInsteadIfCallNode(format, node, evaluator, parts, sourceMapper, resolvedDecl)) return;
         this._addResultsPart(parts, '(class) ' + node.value, true);
         this._addDocumentationPart(format, sourceMapper, parts, node, evaluator, resolvedDecl);
         break;

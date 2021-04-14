@@ -21,9 +21,7 @@ export default class TypingsStatus extends Disposable {
     return Object.keys(this._acquiringTypings).length > 0;
   }
   private onBeginInstallTypings(eventId: number): void {
-    if (this._acquiringTypings.has(eventId)) {
-      return;
-    }
+    if (this._acquiringTypings.has(eventId)) return;
     this._acquiringTypings.set(
       eventId,
       setTimeout(() => {
@@ -33,9 +31,7 @@ export default class TypingsStatus extends Disposable {
   }
   private onEndInstallTypings(eventId: number): void {
     const timer = this._acquiringTypings.get(eventId);
-    if (timer) {
-      clearTimeout(timer);
-    }
+    if (timer) clearTimeout(timer);
     this._acquiringTypings.delete(eventId);
   }
 }
@@ -81,9 +77,7 @@ export class AtaProgressReporter extends Disposable {
         title: 'typesInstallerInitializationFailed.doNotCheckAgain',
       };
       const selected = await qv.window.showWarningMessage('typesInstallerInitializationFailed.title', dontShowAgain);
-      if (selected === dontShowAgain) {
-        config.update('check.npmIsInstalled', false, true);
-      }
+      if (selected === dontShowAgain) config.update('check.npmIsInstalled', false, true);
     }
   }
 }

@@ -19,13 +19,9 @@ function parseProcesFromPsArray(processArray: string[]): AttachItem[] {
   const processEntries: AttachItem[] = [];
   for (let i = 1; i < processArray.length; i += 1) {
     const line = processArray[i];
-    if (!line) {
-      continue;
-    }
+    if (!line) continue;
     const processEntry = parseLineFromPs(line);
-    if (processEntry) {
-      processEntries.push(processEntry);
-    }
+    if (processEntry) processEntries.push(processEntry);
   }
   return processEntries;
 }
@@ -44,24 +40,16 @@ function parseLineFromPs(line: string): AttachItem | undefined {
       processName: executable,
       commandLine: cmdline,
     };
-    if (process.platform === 'linux') {
-      attachItem.executable = `/proc/${pid}/exe`;
-    }
+    if (process.platform === 'linux') attachItem.executable = `/proc/${pid}/exe`;
     return attachItem;
   }
 }
 export function killProcTree(p: ChildProc, logger?: (...args: any[]) => void): Promise<void> {
-  if (!logger) {
-    logger = console.log;
-  }
-  if (!p || !p.pid || p.exitCode !== null) {
-    return Promise.resolve();
-  }
+  if (!logger) logger = console.log;
+  if (!p || !p.pid || p.exitCode !== null) return Promise.resolve();
   return new Promise((resolve) => {
     kill(p.pid, (err) => {
-      if (err) {
-        logger(`Error killing process ${p.pid}: ${err}`);
-      }
+      if (err) logger(`Error killing process ${p.pid}: ${err}`);
       resolve();
     });
   });
@@ -96,9 +84,7 @@ export function parseWmicProces(processes: string): AttachItem[] {
   const processEntries: AttachItem[] = [];
   let entry = { ...defaultEmptyEntry };
   for (const line of lines) {
-    if (!line.length) {
-      continue;
-    }
+    if (!line.length) continue;
     parseLineFromWmic(line, entry);
     if (line.lastIndexOf(wmicPidTitle, 0) === 0) {
       processEntries.push(entry);
@@ -146,14 +132,10 @@ function parseProcesFromLsofArray(processArray: string[], includesEnv?: boolean)
   while (i < processArray.length) {
     const line = processArray[i];
     i++;
-    if (!line) {
-      continue;
-    }
+    if (!line) continue;
     const out = line[0];
     const val = line.substr(1);
-    if (out !== 'p') {
-      continue;
-    }
+    if (out !== 'p') continue;
     const processEntry: AttachItem = { id: val, label: '' };
     while (i < processArray.length && processArray[i].length > 0 && processArray[i][0] !== 'p') {
       if (!processEntry.executable) {
@@ -165,9 +147,7 @@ function parseProcesFromLsofArray(processArray: string[], includesEnv?: boolean)
       }
       i += 2;
     }
-    if (processEntry) {
-      processEntries.push(processEntry);
-    }
+    if (processEntry) processEntries.push(processEntry);
   }
   return processEntries;
 }
@@ -178,9 +158,7 @@ function parseFile(start: number, lines: string[]): { fd?: string; name?: string
   } = {};
   for (let j = start; j < start + 2; j++) {
     const line = lines[j];
-    if (!line) {
-      continue;
-    }
+    if (!line) continue;
     const out = line[0];
     const val = line.substr(1);
     switch (out) {
@@ -200,9 +178,8 @@ export function execShellScript(body: string, cmd = 'bash'): Promise<string> {
   return new Promise((resolve, reject) => {
     let output = '';
     const handleClose = (returnCode: number | Error) => {
-      if (returnCode === 0) {
-        resolve(output);
-      } else {
+      if (returnCode === 0) resolve(output);
+      else {
         reject(`Failed to execute ${body}`);
       }
     };
@@ -230,9 +207,7 @@ export async function getShellDocumentationWithoutCache({ word }: { word: string
       const documentation = await execShellScript(command);
       if (documentation) {
         let formattedDocumentation = documentation.trim();
-        if (type === 'man') {
-          formattedDocumentation = formatManOutput(formattedDocumentation);
-        }
+        if (type === 'man') formattedDocumentation = formatManOutput(formattedDocumentation);
         return formattedDocumentation;
       }
     } catch (error) {
@@ -244,9 +219,7 @@ export async function getShellDocumentationWithoutCache({ word }: { word: string
 export function formatManOutput(manOutput: string): string {
   const indexNameBlock = manOutput.indexOf('NAME');
   const indexBeforeFooter = manOutput.lastIndexOf('\n');
-  if (indexNameBlock < 0 || indexBeforeFooter < 0) {
-    return manOutput;
-  }
+  if (indexNameBlock < 0 || indexBeforeFooter < 0) return manOutput;
   const formattedManOutput = manOutput.slice(indexNameBlock, indexBeforeFooter);
   if (!formattedManOutput) {
     console.error(`formatManOutput failed`, {

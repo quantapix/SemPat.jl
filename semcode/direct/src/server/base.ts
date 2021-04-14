@@ -178,9 +178,7 @@ export abstract class LangServerBase implements LangServerInterface {
     this.console.info(`Server root directory: ${_serverOptions.rootDir}`);
     this.fs = new PyrightFileSystem(createFromRealFileSystem(this.console, this));
     const moduleDir = this.fs.getModulePath();
-    if (moduleDir) {
-      this.fs.chdir(moduleDir);
-    }
+    if (moduleDir) this.fs.chdir(moduleDir);
     this._workspaceMap = new WorkspaceMap(this);
     this.setupConnection(_serverOptions.supportedCommands ?? [], _serverOptions.supportedCodeActions ?? []);
     this._progressReporter = new ProgressReportTracker(this.createProgressReporter());
@@ -201,9 +199,7 @@ export abstract class LangServerBase implements LangServerInterface {
       };
       return this._connection.workspace.getConfig(item);
     }
-    if (this._defaultClientConfig) {
-      return getNestedProperty(this._defaultClientConfig, section);
-    }
+    if (this._defaultClientConfig) return getNestedProperty(this._defaultClientConfig, section);
     return undefined;
   }
   protected isOpenFilesOnly(diagnosticMode: string): boolean {
@@ -311,9 +307,7 @@ export abstract class LangServerBase implements LangServerInterface {
     this._connection.onInitialize((params) => this.initialize(params, supportedCommands, supportedCodeActions));
     this._connection.onDidChangeConfig((params) => {
       this.console.log(`Received updated settings`);
-      if (params?.settings) {
-        this._defaultClientConfig = params?.settings;
-      }
+      if (params?.settings) this._defaultClientConfig = params?.settings;
       this.updateSettingsForAllWorkspaces();
     });
     this._connection.onCodeAction((params, token) => this.executeCodeAction(params, token));
@@ -325,13 +319,9 @@ export abstract class LangServerBase implements LangServerInterface {
         character: params.position.character,
       };
       const workspace = await this.getWorkspaceForFile(filePath);
-      if (workspace.disableLangServices) {
-        return undefined;
-      }
+      if (workspace.disableLangServices) return undefined;
       const locations = workspace.serviceInstance.getDefinitionForPosition(filePath, position, filter, token);
-      if (!locations) {
-        return undefined;
-      }
+      if (!locations) return undefined;
       return locations.map((loc) => Location.create(convertPathToUri(this.fs, loc.path), loc.range));
     };
     this._connection.onDefinition((params, token) => getDefinitions(params, token, this.client.hasGoToDeclarationCapability ? DefinitionFilter.PreferSource : DefinitionFilter.All));
@@ -351,9 +341,7 @@ export abstract class LangServerBase implements LangServerInterface {
           character: params.position.character,
         };
         const workspace = await this.getWorkspaceForFile(filePath);
-        if (workspace.disableLangServices) {
-          return;
-        }
+        if (workspace.disableLangServices) return;
         const convert = (locs: DocumentRange[]): Location[] => {
           return locs.map((loc) => Location.create(convertPathToUri(this.fs, loc.path), loc.range));
         };
@@ -370,14 +358,10 @@ export abstract class LangServerBase implements LangServerInterface {
       this.recordUserInteractionTime();
       const filePath = convertUriToPath(this.fs, params.textDocument.uri);
       const workspace = await this.getWorkspaceForFile(filePath);
-      if (workspace.disableLangServices) {
-        return undefined;
-      }
+      if (workspace.disableLangServices) return undefined;
       const symbolList: DocumentSymbol[] = [];
       workspace.serviceInstance.addSymbolsForDocument(filePath, symbolList, token);
-      if (this.client.hasHierarchicalDocumentSymbolCapability) {
-        return symbolList;
-      }
+      if (this.client.hasHierarchicalDocumentSymbolCapability) return symbolList;
       return convertToFlatSymbols(params.textDocument.uri, symbolList);
     });
     this._connection.onWorkspaceSymbol(async (params, token, _, resultReporter) => {
@@ -385,9 +369,7 @@ export abstract class LangServerBase implements LangServerInterface {
       const reporter: WorkspaceSymbolCallback = resultReporter ? (symbols) => resultReporter.report(symbols) : (symbols) => symbolList.push(...symbols);
       for (const workspace of this._workspaceMap.values()) {
         await workspace.isInitialized.promise;
-        if (!workspace.disableLangServices) {
-          workspace.serviceInstance.reportSymbolsForWorkspace(params.query, reporter, token);
-        }
+        if (!workspace.disableLangServices) workspace.serviceInstance.reportSymbolsForWorkspace(params.query, reporter, token);
       }
       return symbolList;
     });
@@ -417,20 +399,15 @@ export abstract class LangServerBase implements LangServerInterface {
         character: params.position.character,
       };
       const workspace = await this.getWorkspaceForFile(filePath);
-      if (workspace.disableLangServices) {
-        return;
-      }
+      if (workspace.disableLangServices) return;
       const signatureHelpResults = workspace.serviceInstance.getSignatureHelpForPosition(filePath, position, this.client.signatureDocFormat, token);
-      if (!signatureHelpResults) {
-        return undefined;
-      }
+      if (!signatureHelpResults) return undefined;
       const signatures = signatureHelpResults.signatures.map((sig) => {
         let paramInfo: ParameterInformation[] = [];
-        if (sig.parameters) {
+        if (sig.parameters)
           paramInfo = sig.parameters.map((param) =>
             ParameterInformation.create(this.client.hasSignatureLabelOffsetCapability ? [param.startOffset, param.endOffset] : param.text, param.documentation)
           );
-        }
         const sigInfo = SignatureInformation.create(sig.label, undefined, ...paramInfo);
         sigInfo.documentation = sig.documentation;
         sigInfo.activeParameter = sig.activeParameter;
@@ -438,9 +415,7 @@ export abstract class LangServerBase implements LangServerInterface {
       });
       const isActive = (sig: SignatureInformation) => sig.activeParameter !== undefined || (!signatureHelpResults.callHasParameters && !sig.parameters?.length);
       let activeSignature: number | null = signatures.findIndex(isActive);
-      if (activeSignature === -1) {
-        activeSignature = null;
-      }
+      if (activeSignature === -1) activeSignature = null;
       let activeParameter = activeSignature !== null ? signatures[activeSignature].activeParameter! : null;
       if (params.context?.isRetrigger && params.context.triggerKind !== SignatureHelpTriggerKind.Invoked) {
         const prevActiveSignature = params.context.activeSignatureHelp?.activeSignature ?? null;
@@ -452,9 +427,7 @@ export abstract class LangServerBase implements LangServerInterface {
           }
         }
       }
-      if (this.client.hasActiveParameterCapability || activeSignature === null) {
-        activeParameter = -1;
-      }
+      if (this.client.hasActiveParameterCapability || activeSignature === null) activeParameter = -1;
       return { signatures, activeSignature, activeParameter };
     });
     this._connection.onCompletion((params, token) => this.onCompletion(params, token));
@@ -473,13 +446,9 @@ export abstract class LangServerBase implements LangServerInterface {
         character: params.position.character,
       };
       const workspace = await this.getWorkspaceForFile(filePath);
-      if (workspace.disableLangServices) {
-        return;
-      }
+      if (workspace.disableLangServices) return;
       const editActions = workspace.serviceInstance.renameSymbolAtPosition(filePath, position, params.newName, token);
-      if (!editActions) {
-        return undefined;
-      }
+      if (!editActions) return undefined;
       return convertWorkspaceEdits(this.fs, editActions);
     });
     this._connection.languages.callHierarchy.onPrepare(async (params, token) => {
@@ -489,13 +458,9 @@ export abstract class LangServerBase implements LangServerInterface {
         character: params.position.character,
       };
       const workspace = await this.getWorkspaceForFile(filePath);
-      if (workspace.disableLangServices) {
-        return null;
-      }
+      if (workspace.disableLangServices) return null;
       const callItem = workspace.serviceInstance.getCallForPosition(filePath, position, token) || null;
-      if (!callItem) {
-        return null;
-      }
+      if (!callItem) return null;
       callItem.uri = convertPathToUri(this.fs, callItem.uri);
       return [callItem];
     });
@@ -506,13 +471,9 @@ export abstract class LangServerBase implements LangServerInterface {
         character: params.item.range.start.character,
       };
       const workspace = await this.getWorkspaceForFile(filePath);
-      if (workspace.disableLangServices) {
-        return null;
-      }
+      if (workspace.disableLangServices) return null;
       const callItems = workspace.serviceInstance.getIncomingCallsForPosition(filePath, position, token) || null;
-      if (!callItems || callItems.length === 0) {
-        return null;
-      }
+      if (!callItems || callItems.length === 0) return null;
       callItems.forEach((item) => {
         item.from.uri = convertPathToUri(this.fs, item.from.uri);
       });
@@ -525,13 +486,9 @@ export abstract class LangServerBase implements LangServerInterface {
         character: params.item.range.start.character,
       };
       const workspace = await this.getWorkspaceForFile(filePath);
-      if (workspace.disableLangServices) {
-        return null;
-      }
+      if (workspace.disableLangServices) return null;
       const callItems = workspace.serviceInstance.getOutgoingCallsForPosition(filePath, position, token) || null;
-      if (!callItems || callItems.length === 0) {
-        return null;
-      }
+      if (!callItems || callItems.length === 0) return null;
       callItems.forEach((item) => {
         item.to.uri = convertPathToUri(this.fs, item.to.uri);
       });
@@ -765,19 +722,13 @@ export abstract class LangServerBase implements LangServerInterface {
       character: params.position.character,
     };
     const workspace = await this.getWorkspaceForFile(filePath);
-    if (workspace.disableLangServices) {
-      return;
-    }
+    if (workspace.disableLangServices) return;
     const completions = await this.getWorkspaceCompletionsForPosition(workspace, filePath, position, workspace.rootPath, token);
-    if (completions && completions.completionList) {
-      completions.completionList.isIncomplete = completionIncomplete;
-    }
+    if (completions && completions.completionList) completions.completionList.isIncomplete = completionIncomplete;
     return completions?.completionList;
   }
   protected convertLogLevel(logLevelValue?: string): LogLevel {
-    if (!logLevelValue) {
-      return LogLevel.Info;
-    }
+    if (!logLevelValue) return LogLevel.Info;
     switch (logLevelValue.toLowerCase()) {
       case 'error':
         return LogLevel.Error;
@@ -801,9 +752,7 @@ export abstract class LangServerBase implements LangServerInterface {
     return MarkupKind.PlainText;
   }
   private async _getProgressReporter(workDoneToken: string | number | undefined, clientReporter: WorkDoneProgressReporter, title: string) {
-    if (workDoneToken) {
-      return { reporter: clientReporter, token: CancellationToken.None };
-    }
+    if (workDoneToken) return { reporter: clientReporter, token: CancellationToken.None };
     const serverInitiatedReporter = await this._connection.window.createWorkDoneProgress();
     serverInitiatedReporter.begin(title, undefined, undefined, true);
     return {
@@ -823,17 +772,11 @@ export abstract class LangServerBase implements LangServerInterface {
       if (diag.category === DiagCategory.UnusedCode) {
         vsDiag.tags = [DiagTag.Unnecessary];
         vsDiag.severity = DiagSeverity.Hint;
-        if (!this.client.supportsUnnecessaryDiagTag) {
-          return;
-        }
+        if (!this.client.supportsUnnecessaryDiagTag) return;
       }
       if (rule) {
         const ruleDocUrl = this.getDocumentationUrlForDiagRule(rule);
-        if (ruleDocUrl) {
-          vsDiag.codeDescription = {
-            href: ruleDocUrl,
-          };
-        }
+        if (ruleDocUrl) vsDiag.codeDescription = { href: ruleDocUrl };
       }
       const relatedInfo = diag.getRelatedInfo();
       if (relatedInfo.length > 0) {
@@ -870,12 +813,8 @@ export abstract class LangServerBase implements LangServerInterface {
     const regexp = /\$\{(.*?)\}/g;
     return value.replace(regexp, (match: string, name: string) => {
       const trimmedName = name.trim();
-      if (trimmedName === 'workspaceFolder') {
-        return rootPath;
-      }
-      if (trimmedName === 'env:HOME' && process.env.HOME !== undefined) {
-        return process.env.HOME;
-      }
+      if (trimmedName === 'workspaceFolder') return rootPath;
+      if (trimmedName === 'env:HOME' && process.env.HOME !== undefined) return process.env.HOME;
       return match;
     });
   }

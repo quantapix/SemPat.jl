@@ -14,9 +14,7 @@ function processInlineTags(text: string): string {
   return replaceLinks(text);
 }
 function getTagBodyText(tag: qp.JSDocTagInfo): string | undefined {
-  if (!tag.text) {
-    return undefined;
-  }
+  if (!tag.text) return undefined;
   function makeCodeblock(text: string): string {
     if (text.match(/^\s*[~`]{3}/g)) {
       return text;
@@ -26,16 +24,14 @@ function getTagBodyText(tag: qp.JSDocTagInfo): string | undefined {
   switch (tag.name) {
     case 'example':
       const captionTagMatches = tag.text.match(/<caption>(.*?)<\/caption>\s*(\r\n|\n)/);
-      if (captionTagMatches && captionTagMatches.index === 0) {
-        return captionTagMatches[1] + '\n\n' + makeCodeblock(tag.text.substr(captionTagMatches[0].length));
-      } else {
+      if (captionTagMatches && captionTagMatches.index === 0) return captionTagMatches[1] + '\n\n' + makeCodeblock(tag.text.substr(captionTagMatches[0].length));
+      else {
         return makeCodeblock(tag.text);
       }
     case 'author':
       const emailMatch = tag.text.match(/(.+)\s<([-.\w]+@[-.\w]+)>/);
-      if (emailMatch === null) {
-        return tag.text;
-      } else {
+      if (emailMatch === null) return tag.text;
+      else {
         return `${emailMatch[1]} ${emailMatch[2]}`;
       }
     case 'default':
@@ -54,17 +50,13 @@ function getTagDocumentation(tag: qp.JSDocTagInfo): string | undefined {
         const param = body[1];
         const doc = body[2];
         const label = `*@${tag.name}* \`${param}\``;
-        if (!doc) {
-          return label;
-        }
+        if (!doc) return label;
         return label + (doc.match(/\r\n|\n/g) ? '  \n' + processInlineTags(doc) : ` — ${processInlineTags(doc)}`);
       }
   }
   const label = `*@${tag.name}*`;
   const text = getTagBodyText(tag);
-  if (!text) {
-    return label;
-  }
+  if (!text) return label;
   return label + (text.match(/\r\n|\n/g) ? '  \n' + text : ` — ${text}`);
 }
 export function plain(parts: qp.SymbolDisplayPart[] | string): string {
@@ -79,14 +71,10 @@ export function markdownDocumentation(documentation: qp.SymbolDisplayPart[] | st
   return out;
 }
 export function addMarkdownDocumentation(out: qv.MarkdownString, documentation: qp.SymbolDisplayPart[] | string | undefined, tags: qp.JSDocTagInfo[] | undefined): qv.MarkdownString {
-  if (documentation) {
-    out.appendMarkdown(plain(documentation));
-  }
+  if (documentation) out.appendMarkdown(plain(documentation));
   if (tags) {
     const tagsPreview = tagsMarkdownPreview(tags);
-    if (tagsPreview) {
-      out.appendMarkdown('\n\n' + tagsPreview);
-    }
+    if (tagsPreview) out.appendMarkdown('\n\n' + tagsPreview);
   }
   return out;
 }

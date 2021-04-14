@@ -121,16 +121,12 @@ export class TSServiceConfig {
   }
   private static extractGlobalTsdk(configuration: qv.WorkspaceConfig): string | null {
     const inspect = configuration.inspect('typescript.tsdk');
-    if (inspect && typeof inspect.globalValue === 'string') {
-      return this.fixPathPrefixes(inspect.globalValue);
-    }
+    if (inspect && typeof inspect.globalValue === 'string') return this.fixPathPrefixes(inspect.globalValue);
     return null;
   }
   private static extractLocalTsdk(configuration: qv.WorkspaceConfig): string | null {
     const inspect = configuration.inspect('typescript.tsdk');
-    if (inspect && typeof inspect.workspaceValue === 'string') {
-      return this.fixPathPrefixes(inspect.workspaceValue);
-    }
+    if (inspect && typeof inspect.workspaceValue === 'string') return this.fixPathPrefixes(inspect.workspaceValue);
     return null;
   }
   private static readTSServerLogLevel(configuration: qv.WorkspaceConfig): TSServerLogLevel {
@@ -151,9 +147,7 @@ export class TSServiceConfig {
   }
   private static readUseSeparateSyntaxServer(configuration: qv.WorkspaceConfig): SeparateSyntaxServerConfig {
     const value = configuration.get('typescript.tsserver.useSeparateSyntaxServer', true);
-    if (value === true) {
-      return SeparateSyntaxServerConfig.Enabled;
-    }
+    if (value === true) return SeparateSyntaxServerConfig.Enabled;
     return SeparateSyntaxServerConfig.Disabled;
   }
   private static readEnableProjectDiags(configuration: qv.WorkspaceConfig): boolean {
@@ -196,22 +190,12 @@ export function inferredProjectCompilerOptions(projectType: ProjectType, service
   };
   if (serviceConfig.implictProjectConfig.checkJs) {
     projectConfig.checkJs = true;
-    if (projectType === ProjectType.TypeScript) {
-      projectConfig.allowJs = true;
-    }
+    if (projectType === ProjectType.TypeScript) projectConfig.allowJs = true;
   }
-  if (serviceConfig.implictProjectConfig.experimentalDecorators) {
-    projectConfig.experimentalDecorators = true;
-  }
-  if (serviceConfig.implictProjectConfig.strictNullChecks) {
-    projectConfig.strictNullChecks = true;
-  }
-  if (serviceConfig.implictProjectConfig.strictFunctionTypes) {
-    projectConfig.strictFunctionTypes = true;
-  }
-  if (projectType === ProjectType.TypeScript) {
-    projectConfig.sourceMap = true;
-  }
+  if (serviceConfig.implictProjectConfig.experimentalDecorators) projectConfig.experimentalDecorators = true;
+  if (serviceConfig.implictProjectConfig.strictNullChecks) projectConfig.strictNullChecks = true;
+  if (serviceConfig.implictProjectConfig.strictFunctionTypes) projectConfig.strictFunctionTypes = true;
+  if (projectType === ProjectType.TypeScript) projectConfig.sourceMap = true;
   return projectConfig;
 }
 function inferredProjectConfigSnippet(projectType: ProjectType, config: TSServiceConfig) {

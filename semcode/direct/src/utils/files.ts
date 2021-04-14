@@ -124,9 +124,8 @@ class RealFileSystem implements FileSystem {
   readFile(path: string): Promise<Buffer> {
     const d = createDeferred<Buffer>();
     fs.readFile(path, (e, b) => {
-      if (e) {
-        d.reject(e);
-      } else {
+      if (e) d.reject(e);
+      else {
         d.resolve(b);
       }
     });
@@ -135,9 +134,8 @@ class RealFileSystem implements FileSystem {
   readFileText(path: string, encoding: BufferEncoding): Promise<string> {
     const d = createDeferred<string>();
     fs.readFile(path, { encoding }, (e, s) => {
-      if (e) {
-        d.reject(e);
-      } else {
+      if (e) d.reject(e);
+      else {
         d.resolve(s);
       }
     });
@@ -179,16 +177,12 @@ class ChokidarFileWatcherProvider implements FileWatcherProvider {
         pollInterval: 1000,
       },
     };
-    if (_isMacintosh) {
-      watcherOptions.usePolling = false;
-    }
+    if (_isMacintosh) watcherOptions.usePolling = false;
     const excludes: string[] = ['**/__pycache__/**'];
     if (_isMacintosh || _isLinux) {
       if (paths.some((path) => path === '' || path === '/')) {
         excludes.push('/dev/**');
-        if (_isLinux) {
-          excludes.push('/proc/**', '/sys/**');
-        }
+        if (_isLinux) excludes.push('/proc/**', '/sys/**');
       }
     }
     watcherOptions.ignored = excludes;
@@ -196,17 +190,14 @@ class ChokidarFileWatcherProvider implements FileWatcherProvider {
     watcher.on('error', (_) => {
       this._console.error('Error returned from file system watcher.');
     });
-    if (_isMacintosh && !watcher.options.useFsEvents) {
-      this._console.info('Watcher could not use native fsevents library. File system watcher disabled.');
-    }
+    if (_isMacintosh && !watcher.options.useFsEvents) this._console.info('Watcher could not use native fsevents library. File system watcher disabled.');
     return watcher;
   }
   readFile(path: string): Promise<Buffer> {
     const d = createDeferred<Buffer>();
     fs.readFile(path, (e, b) => {
-      if (e) {
-        d.reject(e);
-      } else {
+      if (e) d.reject(e);
+      else {
         d.resolve(b);
       }
     });
@@ -215,9 +206,8 @@ class ChokidarFileWatcherProvider implements FileWatcherProvider {
   readFileText(path: string, encoding: BufferEncoding): Promise<string> {
     const d = createDeferred<string>();
     fs.readFile(path, { encoding }, (e, s) => {
-      if (e) {
-        d.reject(e);
-      } else {
+      if (e) d.reject(e);
+      else {
         d.resolve(s);
       }
     });

@@ -27,13 +27,9 @@ export interface FileSystemEntries {
 export function forEachAncestorDir(directory: string, callback: (directory: string) => string | undefined): string | undefined {
   while (true) {
     const result = callback(directory);
-    if (result !== undefined) {
-      return result;
-    }
+    if (result !== undefined) return result;
     const parentPath = getDirPath(directory);
-    if (parentPath === directory) {
-      return undefined;
-    }
+    if (parentPath === directory) return undefined;
     directory = parentPath;
   }
 }
@@ -46,13 +42,9 @@ export function getRootLength(pathString: string): number {
       return 1;
     }
     const p1 = pathString.indexOf(path.sep, 2);
-    if (p1 < 0) {
-      return 2;
-    }
+    if (p1 < 0) return 2;
     const p2 = pathString.indexOf(path.sep, p1 + 1);
-    if (p2 < 0) {
-      return p1 + 1;
-    }
+    if (p2 < 0) return p1 + 1;
     return p2 + 1;
   }
   if (pathString.charAt(1) === ':') {
@@ -67,9 +59,7 @@ export function getPathComponents(pathString: string) {
   const rootLength = getRootLength(normalizedPath);
   const root = normalizedPath.substring(0, rootLength);
   const rest = normalizedPath.substring(rootLength).split(path.sep);
-  if (rest.length > 0 && !rest[rest.length - 1]) {
-    rest.pop();
-  }
+  if (rest.length > 0 && !rest[rest.length - 1]) rest.pop();
   return reducePathComponents([root, ...rest]);
 }
 export function reducePathComponents(components: readonly string[]) {
@@ -79,9 +69,7 @@ export function reducePathComponents(components: readonly string[]) {
   const reduced = [components[0]];
   for (let i = 1; i < components.length; i++) {
     const component = components[i];
-    if (!component || component === '.') {
-      continue;
-    }
+    if (!component || component === '.') continue;
     if (component === '..') {
       if (reduced.length > 1) {
         if (reduced[reduced.length - 1] !== '..') {
@@ -97,9 +85,7 @@ export function reducePathComponents(components: readonly string[]) {
   return reduced;
 }
 export function combinePathComponents(components: string[]): string {
-  if (components.length === 0) {
-    return '';
-  }
+  if (components.length === 0) return '';
   const root = components[0] && ensureTrailingDirSeparator(components[0]);
   return normalizeSlashes(root + components.slice(1).join(path.sep));
 }
@@ -116,9 +102,7 @@ export function getRelativePath(dirPath: string, relativeTo: string) {
   return relativePath;
 }
 export function makeDirectories(fs: FileSystem, dirPath: string, startingFromDirPath: string) {
-  if (!dirPath.startsWith(startingFromDirPath)) {
-    return;
-  }
+  if (!dirPath.startsWith(startingFromDirPath)) return;
   const pathComponents = getPathComponents(dirPath);
   const relativeToComponents = getPathComponents(startingFromDirPath);
   let curPath = startingFromDirPath;
@@ -150,13 +134,9 @@ export function resolvePaths(path: string, ...paths: (string | undefined)[]): st
   return normalizePath(some(paths) ? combinePaths(path, ...paths) : normalizeSlashes(path));
 }
 export function combinePaths(pathString: string, ...paths: (string | undefined)[]): string {
-  if (pathString) {
-    pathString = normalizeSlashes(pathString);
-  }
+  if (pathString) pathString = normalizeSlashes(pathString);
   for (let relativePath of paths) {
-    if (!relativePath) {
-      continue;
-    }
+    if (!relativePath) continue;
     relativePath = normalizeSlashes(relativePath);
     if (!pathString || getRootLength(relativePath) !== 0) {
       pathString = relativePath;
@@ -188,17 +168,11 @@ export function containsPath(parent: string, child: string, currentDir?: string 
   } else if (typeof currentDir === 'boolean') {
     ignoreCase = currentDir;
   }
-  if (parent === undefined || child === undefined) {
-    return false;
-  }
-  if (parent === child) {
-    return true;
-  }
+  if (parent === undefined || child === undefined) return false;
+  if (parent === child) return true;
   const parentComponents = getPathComponents(parent);
   const childComponents = getPathComponents(child);
-  if (childComponents.length < parentComponents.length) {
-    return false;
-  }
+  if (childComponents.length < parentComponents.length) return false;
   const componentEqualityComparer = ignoreCase ? equateStringsCaseInsensitive : equateStringsCaseSensitive;
   for (let i = 0; i < parentComponents.length; i++) {
     const equalityComparer = i === 0 ? equateStringsCaseInsensitive : componentEqualityComparer;
@@ -217,14 +191,10 @@ export function changeAnyExtension(path: string, ext: string, extensions?: strin
 export function getAnyExtensionFromPath(path: string): string;
 export function getAnyExtensionFromPath(path: string, extensions: string | readonly string[], ignoreCase: boolean): string;
 export function getAnyExtensionFromPath(path: string, extensions?: string | readonly string[], ignoreCase?: boolean): string {
-  if (extensions) {
-    return getAnyExtensionFromPathWorker(stripTrailingDirSeparator(path), extensions, ignoreCase ? equateStringsCaseInsensitive : equateStringsCaseSensitive);
-  }
+  if (extensions) return getAnyExtensionFromPathWorker(stripTrailingDirSeparator(path), extensions, ignoreCase ? equateStringsCaseInsensitive : equateStringsCaseSensitive);
   const baseFileName = getBaseFileName(path);
   const extensionIndex = baseFileName.lastIndexOf('.');
-  if (extensionIndex >= 0) {
-    return baseFileName.substring(extensionIndex);
-  }
+  if (extensionIndex >= 0) return baseFileName.substring(extensionIndex);
   return '';
 }
 export function getBaseFileName(pathString: string): string;
@@ -232,9 +202,7 @@ export function getBaseFileName(pathString: string, extensions: string | readonl
 export function getBaseFileName(pathString: string, extensions?: string | readonly string[], ignoreCase?: boolean) {
   pathString = normalizeSlashes(pathString);
   const rootLength = getRootLength(pathString);
-  if (rootLength === pathString.length) {
-    return '';
-  }
+  if (rootLength === pathString.length) return '';
   pathString = stripTrailingDirSeparator(pathString);
   const name = pathString.slice(Math.max(getRootLength(pathString), pathString.lastIndexOf(path.sep) + 1));
   const extension = extensions !== undefined && ignoreCase !== undefined ? getAnyExtensionFromPath(name, extensions, ignoreCase) : undefined;
@@ -266,9 +234,7 @@ export function ensureTrailingDirSeparator(pathString: string): string {
   return pathString;
 }
 export function hasTrailingDirSeparator(pathString: string) {
-  if (pathString.length === 0) {
-    return false;
-  }
+  if (pathString.length === 0) return false;
   const ch = pathString.charCodeAt(pathString.length - 1);
   return ch === Char.Slash || ch === Char.Backslash;
 }
@@ -279,9 +245,7 @@ export function stripTrailingDirSeparator(pathString: string) {
   return pathString.substr(0, pathString.length - 1);
 }
 export function getFileExtension(fileName: string, multiDotExtension = false) {
-  if (!multiDotExtension) {
-    return path.extname(fileName);
-  }
+  if (!multiDotExtension) return path.extname(fileName);
   fileName = getFileName(fileName);
   const firstDotIndex = fileName.indexOf('.');
   return fileName.substr(firstDotIndex);
@@ -318,20 +282,16 @@ export function getFileSystemEntries(fs: FileSystem, path: string): FileSystemEn
 }
 export function getFileSystemEntriesFromDirEntries(dirEntries: Dirent[], fs: FileSystem, path: string): FileSystemEntries {
   const entries = dirEntries.sort((a, b) => {
-    if (a.name < b.name) {
-      return -1;
-    } else if (a.name > b.name) {
-      return 1;
-    } else {
+    if (a.name < b.name) return -1;
+    else if (a.name > b.name) return 1;
+    else {
       return 0;
     }
   });
   const files: string[] = [];
   const directories: string[] = [];
   for (const entry of entries) {
-    if (entry.name === '.' || entry.name === '..') {
-      continue;
-    }
+    if (entry.name === '.' || entry.name === '..') continue;
     if (entry.isFile()) {
       files.push(entry.name);
     } else if (entry.isDir()) {
@@ -357,24 +317,17 @@ export function getWildcardRegexPattern(rootPath: string, fileSpec: string): str
   const escapedSeparator = getRegexEscapedSeparator();
   const doubleAsteriskRegexFragment = `(${escapedSeparator}[^${escapedSeparator}.][^${escapedSeparator}]*)*?`;
   const reservedCharacterPattern = new RegExp(`[^\\w\\s${escapedSeparator}]`, 'g');
-  if (pathComponents.length > 0) {
-    pathComponents[0] = stripTrailingDirSeparator(pathComponents[0]);
-  }
+  if (pathComponents.length > 0) pathComponents[0] = stripTrailingDirSeparator(pathComponents[0]);
   let regExPattern = '';
   let firstComponent = true;
   for (let component of pathComponents) {
-    if (component === '**') {
-      regExPattern += doubleAsteriskRegexFragment;
-    } else {
-      if (!firstComponent) {
-        component = escapedSeparator + component;
-      }
+    if (component === '**') regExPattern += doubleAsteriskRegexFragment;
+    else {
+      if (!firstComponent) component = escapedSeparator + component;
       regExPattern += component.replace(reservedCharacterPattern, (match) => {
-        if (match === '*') {
-          return `[^${escapedSeparator}]*`;
-        } else if (match === '?') {
-          return `[^${escapedSeparator}]`;
-        } else {
+        if (match === '*') return `[^${escapedSeparator}]*`;
+        else if (match === '?') return `[^${escapedSeparator}]`;
+        else {
           return '\\' + match;
         }
       });
@@ -389,21 +342,16 @@ export function getWildcardRoot(rootPath: string, fileSpec: string): string {
     absolutePath = ensureTrailingDirSeparator(absolutePath);
   }
   const pathComponents = getPathComponents(absolutePath);
-  if (pathComponents.length > 0) {
-    pathComponents[0] = stripTrailingDirSeparator(pathComponents[0]);
-  }
+  if (pathComponents.length > 0) pathComponents[0] = stripTrailingDirSeparator(pathComponents[0]);
   let wildcardRoot = '';
   let firstComponent = true;
   for (let component of pathComponents) {
-    if (component === '**') {
-      break;
-    } else {
+    if (component === '**') break;
+    else {
       if (component.match(/[*?]/)) {
         break;
       }
-      if (!firstComponent) {
-        component = path.sep + component;
-      }
+      if (!firstComponent) component = path.sep + component;
       wildcardRoot += component;
       firstComponent = false;
     }
@@ -432,21 +380,13 @@ export function isDiskPathRoot(path: string) {
   return rootLength > 0 && rootLength === path.length;
 }
 function comparePathsWorker(a: string, b: string, componentComparer: (a: string, b: string) => Comparison) {
-  if (a === b) {
-    return Comparison.EqualTo;
-  }
-  if (a === undefined) {
-    return Comparison.LessThan;
-  }
-  if (b === undefined) {
-    return Comparison.GreaterThan;
-  }
+  if (a === b) return Comparison.EqualTo;
+  if (a === undefined) return Comparison.LessThan;
+  if (b === undefined) return Comparison.GreaterThan;
   const aRoot = a.substring(0, getRootLength(a));
   const bRoot = b.substring(0, getRootLength(b));
   const result = compareStringsCaseInsensitive(aRoot, bRoot);
-  if (result !== Comparison.EqualTo) {
-    return result;
-  }
+  if (result !== Comparison.EqualTo) return result;
   const escapedSeparator = getRegexEscapedSeparator();
   const relativePathSegmentRegExp = new RegExp(`(^|${escapedSeparator}).{0,2}($|${escapedSeparator})`);
   const aRest = a.substring(aRoot.length);
@@ -459,21 +399,15 @@ function comparePathsWorker(a: string, b: string, componentComparer: (a: string,
   const sharedLength = Math.min(aComponents.length, bComponents.length);
   for (let i = 1; i < sharedLength; i++) {
     const result = componentComparer(aComponents[i], bComponents[i]);
-    if (result !== Comparison.EqualTo) {
-      return result;
-    }
+    if (result !== Comparison.EqualTo) return result;
   }
   return compareValues(aComponents.length, bComponents.length);
 }
 function getAnyExtensionFromPathWorker(path: string, extensions: string | readonly string[], stringEqualityComparer: (a: string, b: string) => boolean) {
-  if (typeof extensions === 'string') {
-    return tryGetExtensionFromPath(path, extensions, stringEqualityComparer) || '';
-  }
+  if (typeof extensions === 'string') return tryGetExtensionFromPath(path, extensions, stringEqualityComparer) || '';
   for (const extension of extensions) {
     const result = tryGetExtensionFromPath(path, extension, stringEqualityComparer);
-    if (result) {
-      return result;
-    }
+    if (result) return result;
   }
   return '';
 }
@@ -501,9 +435,7 @@ function getPathComponentsRelativeTo(from: string, to: string, stringEqualityCom
       break;
     }
   }
-  if (start === 0) {
-    return toComponents;
-  }
+  if (start === 0) return toComponents;
   const components = toComponents.slice(start);
   const relative: string[] = [];
   for (; start < fromComponents.length; start++) {
@@ -536,15 +468,11 @@ export function convertUriToPath(fs: FileSystem, uriString: string): string {
   if (convertedPath.match(/^\\[a-zA-Z]:\\/)) {
     convertedPath = convertedPath.substr(1);
   }
-  if (fs instanceof PyrightFileSystem) {
-    return fs.getMappedFilePath(convertedPath);
-  }
+  if (fs instanceof PyrightFileSystem) return fs.getMappedFilePath(convertedPath);
   return convertedPath;
 }
 export function convertPathToUri(fs: FileSystem, path: string): string {
-  if (fs instanceof PyrightFileSystem) {
-    path = fs.getOriginalFilePath(path);
-  }
+  if (fs instanceof PyrightFileSystem) path = fs.getOriginalFilePath(path);
   return URI.file(path).toString();
 }
 export function normalizePathCase(fs: FileSystem, path: string) {
@@ -554,9 +482,7 @@ export function normalizePathCase(fs: FileSystem, path: string) {
   return path.toLowerCase();
 }
 export function isFileSystemCaseSensitive(fs: FileSystem) {
-  if (_fsCaseSensitivity !== undefined) {
-    return _fsCaseSensitivity;
-  }
+  if (_fsCaseSensitivity !== undefined) return _fsCaseSensitivity;
   _fsCaseSensitivity = isFileSystemCaseSensitiveInternal(fs);
   return _fsCaseSensitivity;
 }
@@ -575,9 +501,7 @@ export function isFileSystemCaseSensitiveInternal(fs: FileSystem) {
   } catch (e) {
     return false;
   } finally {
-    if (filePath) {
-      fs.unlinkSync(filePath);
-    }
+    if (filePath) fs.unlinkSync(filePath);
   }
 }
 export function getLibraryPathWithoutExtension(libraryFilePath: string) {

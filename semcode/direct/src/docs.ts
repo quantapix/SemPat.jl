@@ -100,9 +100,7 @@ class DocumentationViewProvider implements qv.WebviewViewProvider {
 
   async showDocumentationFromWord(word: string) {
     const docAsMD = await this.getDocumentationFromWord(word);
-    if (!docAsMD) {
-      return;
-    }
+    if (!docAsMD) return;
 
     await this.showDocumentationPane();
     const html = this.createWebviewHTML(docAsMD);
@@ -123,14 +121,10 @@ class DocumentationViewProvider implements qv.WebviewViewProvider {
 
   async showDocumentation() {
     const editor = qv.window.activeTextEditor;
-    if (!editor) {
-      return;
-    }
+    if (!editor) return;
 
     const docAsMD = await this.getDocumentation(editor);
-    if (!docAsMD) {
-      return;
-    }
+    if (!docAsMD) return;
 
     this.forwardStack = [];
     await this.showDocumentationPane();
@@ -289,9 +283,7 @@ class DocumentationViewProvider implements qv.WebviewViewProvider {
   }
 
   browseBack() {
-    if (!this.isBrowseBackAvailable()) {
-      return;
-    }
+    if (!this.isBrowseBackAvailable()) return;
 
     const current = this.backStack.pop();
     this.forwardStack.push(current);
@@ -300,9 +292,7 @@ class DocumentationViewProvider implements qv.WebviewViewProvider {
   }
 
   browseForward() {
-    if (!this.isBrowseForwardAvailable()) {
-      return;
-    }
+    if (!this.isBrowseForwardAvailable()) return;
 
     this.setHTML(this.forwardStack.pop());
   }
