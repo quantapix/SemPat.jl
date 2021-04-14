@@ -28,20 +28,18 @@ export class TsCodeLens implements qv.CodeLensProvider {
       this._onDidChangeCodeLenses.fire();
     });
   }
-  public provideCodeLenses(document: qv.TextDocument, token: qv.CancellationToken): qv.CodeLens[] | Thenable<qv.CodeLens[]> {
+  public provideCodeLenses(d: qv.TextDocument, t: qv.CancellationToken): qv.CodeLens[] | Thenable<qv.CodeLens[]> {
     if (qv.workspace.getConfig('codelens-sample').get('enableCodeLens', true)) {
       this.codeLenses = [];
       const regex = new RegExp(this.regex);
-      const text = document.getText();
+      const text = d.getText();
       let matches;
       while ((matches = regex.exec(text)) !== null) {
-        const line = document.lineAt(document.positionAt(matches.index).line);
+        const line = d.lineAt(d.positionAt(matches.index).line);
         const indexOf = line.text.indexOf(matches[0]);
         const position = new qv.Position(line.lineNumber, indexOf);
-        const range = document.getWordRangeAtPosition(position, new RegExp(this.regex));
-        if (range) {
-          this.codeLenses.push(new qv.CodeLens(range));
-        }
+        const range = d.getWordRangeAtPosition(position, new RegExp(this.regex));
+        if (range) this.codeLenses.push(new qv.CodeLens(range));
       }
       return this.codeLenses;
     }
@@ -81,40 +79,33 @@ export abstract class TsBaseLens implements qv.CodeLensProvider<RefsCodeLens> {
   }
   async provideCodeLenses(document: qv.TextDocument, token: qv.CancellationToken): Promise<RefsCodeLens[]> {
     const filepath = this.client.toOpenedFilePath(document);
-    if (!filepath) {
-      return [];
-    }
+    if (!filepath) return [];
+
     const response = await this.cachedResponse.execute(document, () => this.client.execute('navtree', { file: filepath }, token));
-    if (response.type !== 'response') {
-      return [];
-    }
+    if (response.type !== 'response') return [];
+
     const tree = response.body;
     const referenceableSpans: qv.Range[] = [];
-    if (tree && tree.childItems) {
-      tree.childItems.forEach((item) => this.walkNavTree(document, item, null, referenceableSpans));
-    }
+    if (tree && tree.childItems) tree.childItems.forEach((item) => this.walkNavTree(document, item, null, referenceableSpans));
+
     return referenceableSpans.map((span) => new RefsCodeLens(document.uri, filepath, span));
   }
   protected abstract extractSymbol(document: qv.TextDocument, item: qp.NavigationTree, parent: qp.NavigationTree | null): qv.Range | null;
   private walkNavTree(document: qv.TextDocument, item: qp.NavigationTree, parent: qp.NavigationTree | null, results: qv.Range[]): void {
-    if (!item) {
-      return;
-    }
+    if (!item) return;
+
     const range = this.extractSymbol(document, item, parent);
-    if (range) {
-      results.push(range);
-    }
+    if (range) results.push(range);
+
     (item.childItems || []).forEach((child) => this.walkNavTree(document, child, item, results));
   }
 }
 export function getSymbolRange(document: qv.TextDocument, item: qp.NavigationTree): qv.Range | null {
-  if (item.nameSpan) {
-    return qu.Range.fromTextSpan(item.nameSpan);
-  }
+  if (item.nameSpan) return qu.Range.fromTextSpan(item.nameSpan);
+
   const span = item.spans && item.spans[0];
-  if (!span) {
-    return null;
-  }
+  if (!span) return null;
+
   const range = qu.Range.fromTextSpan(span);
   const text = document.getText(range);
   const identifierMatch = new RegExp(`^(.*?(\\b|\\W))${escapeRegExp(item.text || '')}(\\b|\\W)`, 'gm');
@@ -165,9 +156,8 @@ export default class TsImplsLens extends TsBaseLens {
       case PConst.Kind.memberVariable:
       case PConst.Kind.memberGetAccessor:
       case PConst.Kind.memberSetAccessor:
-        if (item.kindModifiers.match(/\babstract\b/g)) {
-          return getSymbolRange(document, item);
-        }
+        if (item.kindModifiers.match(/\babstract\b/g)) return getSymbolRange(document, item);
+
         break;
     }
     return null;
@@ -205,15 +195,13 @@ export class TsRefsLens extends TsBaseLens {
     return locations.length === 1 ? 'oneReferenceLabel' : 'manyReferenceLabel';
   }
   protected extractSymbol(document: qv.TextDocument, item: qp.NavigationTree, parent: qp.NavigationTree | null): qv.Range | null {
-    if (parent && parent.kind === PConst.Kind.enum) {
-      return getSymbolRange(document, item);
-    }
+    if (parent && parent.kind === PConst.Kind.enum) return getSymbolRange(document, item);
+
     switch (item.kind) {
       case PConst.Kind.function:
         const showOnAllFunctions = qv.workspace.getConfig(this.modeId).get<boolean>('referencesCodeLens.showOnAllFunctions');
-        if (showOnAllFunctions) {
-          return getSymbolRange(document, item);
-        }
+        if (showOnAllFunctions) return getSymbolRange(document, item);
+
       case PConst.Kind.const:
       case PConst.Kind.let:
       case PConst.Kind.variable:

@@ -51,33 +51,24 @@ export function register(s: qu.DocumentSelector, c: ServiceClient): qv.Disposabl
   });
 }
 export class GoHover implements qv.HoverProvider {
-  private goConfig: qv.WorkspaceConfiguration | undefined;
-  constructor(goConfig?: qv.WorkspaceConfiguration) {
-    this.goConfig = goConfig;
+  private config?: qv.WorkspaceConfiguration;
+  constructor(c?: qv.WorkspaceConfiguration) {
+    this.config = c;
   }
-  public provideHover(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): Thenable<qv.Hover> {
-    if (!this.goConfig) {
-      this.goConfig = getGoConfig(document.uri);
-    }
-    let goConfig = this.goConfig;
-    if (goConfig['docsTool'] === 'guru') {
-      goConfig = Object.assign({}, goConfig, { docsTool: 'godoc' });
-    }
-    return definitionLocation(document, position, goConfig, true, token).then(
-      (definitionInfo) => {
-        if (definitionInfo == null) {
-          return null;
-        }
-        const lines = definitionInfo.declarationlines.filter((line) => line !== '').map((line) => line.replace(/\t/g, '    '));
+  public provideHover(d: qv.TextDocument, p: qv.Position, t: qv.CancellationToken): Thenable<qv.Hover> {
+    if (!this.config) this.config = getGoConfig(d.uri);
+    let c = this.config;
+    if (c['docsTool'] === 'guru') c = Object.assign({}, c, { docsTool: 'godoc' });
+    return definitionLocation(d, p, c, true, t).then(
+      (x) => {
+        if (x == null) return null;
+        const ls = x.declarationlines.filter((l) => l !== '').map((l) => l.replace(/\t/g, '    '));
         let text;
-        text = lines.join('\n').replace(/\n+$/, '');
-        const hoverTexts = new qv.MarkdownString();
-        hoverTexts.appendCodeblock(text, 'go');
-        if (definitionInfo.doc != null) {
-          hoverTexts.appendMarkdown(definitionInfo.doc);
-        }
-        const hover = new qv.Hover(hoverTexts);
-        return hover;
+        text = ls.join('\n').replace(/\n+$/, '');
+        const h = new qv.MarkdownString();
+        h.appendCodeblock(text, 'go');
+        if (x.doc != null) h.appendMarkdown(x.doc);
+        return new qv.Hover(h);
       },
       () => {
         return null;
@@ -104,13 +95,9 @@ export class PyHover {
   ): PyHoverResults | undefined {
     throwIfCancellationRequested(token);
     const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
-    if (offset === undefined) {
-      return undefined;
-    }
+    if (offset === undefined) return undefined;
     const node = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset);
-    if (node === undefined) {
-      return undefined;
-    }
+    if (node === undefined) return undefined;
     const results: PyHoverResults = {
       parts: [],
       range: {
@@ -130,11 +117,8 @@ export class PyHover {
         if (results.parts.length === 0) {
           const type = evaluator.getType(node) || UnknownType.create();
           let typeText = '';
-          if (isModule(type)) {
-            typeText = '(module) ' + node.value;
-          } else {
-            typeText = node.value + ': ' + evaluator.printType(type, /* expandTypeAlias */ false);
-          }
+          if (isModule(type)) typeText = '(module) ' + node.value;
+          else typeText = node.value + ': ' + evaluator.printType(type, /* expandTypeAlias */ false);
           this._addResultsPart(results.parts, typeText, true);
           this._addDocumentationPart(format, sourceMapper, results.parts, node, evaluator, undefined);
         }
@@ -159,23 +143,17 @@ export class PyHover {
         let typeNode = node;
         if (declaration.node.nodeType === ParseNodeType.ImportAs || declaration.node.nodeType === ParseNodeType.ImportFromAs) {
           if (declaration.node.alias && node !== declaration.node.alias) {
-            if (resolvedDecl.node.nodeType === ParseNodeType.Name) {
-              typeNode = resolvedDecl.node;
-            }
+            if (resolvedDecl.node.nodeType === ParseNodeType.Name) typeNode = resolvedDecl.node;
           }
         } else if (node.parent?.nodeType === ParseNodeType.Argument && node.parent.name === node) {
-          if (declaration.node.nodeType === ParseNodeType.Name) {
-            typeNode = declaration.node;
-          }
+          if (declaration.node.nodeType === ParseNodeType.Name) typeNode = declaration.node;
         }
         const type = evaluator.getType(typeNode);
         let expandTypeAlias = false;
         if (type && TypeBase.isInstantiable(type)) {
           const typeAliasInfo = getTypeAliasInfo(type);
           if (typeAliasInfo) {
-            if (typeAliasInfo.name === typeNode.value) {
-              expandTypeAlias = true;
-            }
+            if (typeAliasInfo.name === typeNode.value) expandTypeAlias = true;
             label = 'type alias';
           }
         }
@@ -228,29 +206,19 @@ export class PyHover {
       return false;
     }
     const classType = evaluator.getType(node);
-    if (!classType || !isClass(classType)) {
-      return false;
-    }
+    if (!classType || !isClass(classType)) return false;
     const initMethodMember = lookUpClassMember(classType, '__init__', ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass);
-    if (!initMethodMember) {
-      return false;
-    }
+    if (!initMethodMember) return false;
     const instanceType = evaluator.getType(callLeftNode.parent);
     const functionType = evaluator.getTypeOfMember(initMethodMember);
-    if (!instanceType || !functionType || !isObject(instanceType) || !isFunction(functionType)) {
-      return false;
-    }
+    if (!instanceType || !functionType || !isObject(instanceType) || !isFunction(functionType)) return false;
     const initMethodType = evaluator.bindFunctionToClassOrObject(instanceType, functionType);
-    if (!initMethodType || !isFunction(initMethodType)) {
-      return false;
-    }
+    if (!initMethodType || !isFunction(initMethodType)) return false;
     const functionParts = evaluator.printFunctionParts(initMethodType);
     const classText = `${node.value}(${functionParts[0].join(', ')})`;
     this._addResultsPart(parts, '(class) ' + classText, true);
     const addedDoc = this._addDocumentationPartForType(format, sourceMapper, parts, initMethodType, declaration, evaluator);
-    if (!addedDoc) {
-      this._addDocumentationPartForType(format, sourceMapper, parts, classType, declaration, evaluator);
-    }
+    if (!addedDoc) this._addDocumentationPartForType(format, sourceMapper, parts, classType, declaration, evaluator);
     return true;
   }
   private static _getTypeText(node: NameNode, evaluator: TypeEvaluator, expandTypeAlias = false): string {
@@ -259,9 +227,7 @@ export class PyHover {
   }
   private static _addDocumentationPart(format: MarkupKind, sourceMapper: SourceMapper, parts: PyHoverTextPart[], node: NameNode, evaluator: TypeEvaluator, resolvedDecl: Declaration | undefined) {
     const type = evaluator.getType(node);
-    if (type) {
-      this._addDocumentationPartForType(format, sourceMapper, parts, type, resolvedDecl, evaluator);
-    }
+    if (type) this._addDocumentationPartForType(format, sourceMapper, parts, type, resolvedDecl, evaluator);
   }
   private static _addDocumentationPartForType(
     format: MarkupKind,
@@ -297,9 +263,7 @@ export class PyHover {
     } else if (resolvedDecl?.type === DeclarationType.Function) {
       const enclosingClass = resolvedDecl?.type === DeclarationType.Function ? ParseTreeUtils.getEnclosingClass((resolvedDecl as FunctionDeclaration).node.name, false) : undefined;
       const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
-      if (classResults) {
-        docStrings.push(getPropertyDocStringInherited(resolvedDecl, sourceMapper, evaluator, classResults.classType));
-      }
+      if (classResults) docStrings.push(getPropertyDocStringInherited(resolvedDecl, sourceMapper, evaluator, classResults.classType));
     }
     let addedDoc = false;
     for (const docString of docStrings) {
@@ -314,9 +278,7 @@ export class PyHover {
     if (docString) {
       if (format === MarkupKind.Markdown) {
         const markDown = convertDocStringToMarkdown(docString);
-        if (parts.length > 0 && markDown.length > 0) {
-          parts.push({ text: '---\n' });
-        }
+        if (parts.length > 0 && markDown.length > 0) parts.push({ text: '---\n' });
         this._addResultsPart(parts, markDown);
       } else if (format === MarkupKind.PlainText) {
         this._addResultsPart(parts, convertDocStringToPlainText(docString));
@@ -333,28 +295,19 @@ export class PyHover {
   }
 }
 export function convertHoverResults(format: MarkupKind, hoverResults: PyHoverResults | undefined): Hover | undefined {
-  if (!hoverResults) {
-    return undefined;
-  }
+  if (!hoverResults) return undefined;
   const markupString = hoverResults.parts
     .map((part) => {
       if (part.python) {
-        if (format === MarkupKind.Markdown) {
-          return '```python\n' + part.text + '\n```\n';
-        } else if (format === MarkupKind.PlainText) {
-          return part.text + '\n\n';
-        } else {
-          fail(`Unsupported markup type: ${format}`);
-        }
+        if (format === MarkupKind.Markdown) return '```python\n' + part.text + '\n```\n';
+        else if (format === MarkupKind.PlainText) return part.text + '\n\n';
+        else fail(`Unsupported markup type: ${format}`);
       }
       return part.text;
     })
     .join('');
   return {
-    contents: {
-      kind: format,
-      value: markupString,
-    },
+    contents: { kind: format, value: markupString },
     range: hoverResults.range,
   };
 }
@@ -368,9 +321,7 @@ export function getOverloadedFunctionTooltip(type: OverloadedFunctionType, evalu
     content += overloads[i];
     if (i < overloads.length - 1) {
       content += '\n';
-      if (overloads[i].length > columnThreshold) {
-        content += '\n';
-      }
+      if (overloads[i].length > columnThreshold) content += '\n';
     }
   }
   return content;

@@ -49,28 +49,20 @@ class HighlightSymbolTreeWalker extends ParseTreeWalker {
     this.walk(this._parseResults.parseTree);
   }
   walk(node: ParseNode) {
-    if (!isCodeUnreachable(node)) {
-      super.walk(node);
-    }
+    if (!isCodeUnreachable(node)) super.walk(node);
   }
   visitModuleName(node: ModuleNameNode): boolean {
     return false;
   }
   visitName(node: NameNode): boolean {
     throwIfCancellationRequested(this._cancellationToken);
-    if (node.value !== this._symbolName) {
-      return false;
-    }
+    if (node.value !== this._symbolName) return false;
     if (this._declarations.length > 0) {
       const declarations = this._evaluator.getDeclarationsForNameNode(node);
       if (declarations && declarations.length > 0) {
-        if (declarations.some((decl) => this._resultsContainsDeclaration(decl))) {
-          this._addResult(node);
-        }
+        if (declarations.some((decl) => this._resultsContainsDeclaration(decl))) this._addResult(node);
       }
-    } else {
-      this._addResult(node);
-    }
+    } else this._addResult(node);
     return true;
   }
   private _addResult(node: NameNode) {
@@ -87,53 +79,36 @@ class HighlightSymbolTreeWalker extends ParseTreeWalker {
     let curNode: ParseNode | undefined = prevNode.parent;
     while (curNode) {
       switch (curNode.nodeType) {
-        case ParseNodeType.Assignment: {
+        case ParseNodeType.Assignment:
           return prevNode === curNode.leftExpression;
-        }
-        case ParseNodeType.AugmentedAssignment: {
+        case ParseNodeType.AugmentedAssignment:
           return prevNode === curNode.leftExpression;
-        }
-        case ParseNodeType.AssignmentExpression: {
+        case ParseNodeType.AssignmentExpression:
           return prevNode === curNode.name;
-        }
-        case ParseNodeType.Del: {
+        case ParseNodeType.Del:
           return true;
-        }
-        case ParseNodeType.For: {
+        case ParseNodeType.For:
           return prevNode === curNode.targetExpression;
-        }
-        case ParseNodeType.ImportAs: {
+        case ParseNodeType.ImportAs:
           return prevNode === curNode.alias || (curNode.module.nameParts.length > 0 && prevNode === curNode.module.nameParts[0]);
-        }
-        case ParseNodeType.ImportFromAs: {
+        case ParseNodeType.ImportFromAs:
           return prevNode === curNode.alias || (!curNode.alias && prevNode === curNode.name);
-        }
-        case ParseNodeType.MemberAccess: {
-          if (prevNode !== curNode.memberName) {
-            return false;
-          }
+        case ParseNodeType.MemberAccess:
+          if (prevNode !== curNode.memberName) return false;
           break;
-        }
-        case ParseNodeType.Except: {
+        case ParseNodeType.Except:
           return prevNode === curNode.name;
-        }
-        case ParseNodeType.With: {
+        case ParseNodeType.With:
           return curNode.withItems.some((item) => item === prevNode);
-        }
-        case ParseNodeType.ListComprehensionFor: {
+        case ParseNodeType.ListComprehensionFor:
           return prevNode === curNode.targetExpression;
-        }
-        case ParseNodeType.TypeAnnotation: {
-          if (prevNode === curNode.typeAnnotation) {
-            return false;
-          }
+        case ParseNodeType.TypeAnnotation:
+          if (prevNode === curNode.typeAnnotation) return false;
           break;
-        }
         case ParseNodeType.Function:
         case ParseNodeType.Class:
-        case ParseNodeType.Module: {
+        case ParseNodeType.Module:
           return false;
-        }
       }
       prevNode = curNode;
       curNode = curNode.parent;
@@ -142,16 +117,10 @@ class HighlightSymbolTreeWalker extends ParseTreeWalker {
   }
   private _resultsContainsDeclaration(declaration: Declaration) {
     const resolvedDecl = this._evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ false);
-    if (!resolvedDecl) {
-      return false;
-    }
-    if (this._declarations.some((decl) => areDeclarationsSame(decl, resolvedDecl))) {
-      return true;
-    }
+    if (!resolvedDecl) return false;
+    if (this._declarations.some((decl) => areDeclarationsSame(decl, resolvedDecl))) return true;
     const resolvedDeclNonlocal = this._evaluator.resolveAliasDeclaration(resolvedDecl, /* resolveLocalNames */ true);
-    if (!resolvedDeclNonlocal || resolvedDeclNonlocal === resolvedDecl) {
-      return false;
-    }
+    if (!resolvedDeclNonlocal || resolvedDeclNonlocal === resolvedDecl) return false;
     return this._declarations.some((decl) => areDeclarationsSame(decl, resolvedDeclNonlocal));
   }
 }
@@ -159,22 +128,16 @@ export class PyHighlight {
   static getDocumentHighlight(parseResults: ParseResults, position: Position, evaluator: TypeEvaluator, token: qv.CancellationToken): DocumentHighlight[] | undefined {
     throwIfCancellationRequested(token);
     const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
-    if (offset === undefined) {
-      return undefined;
-    }
+    if (offset === undefined) return undefined;
     const node = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset);
-    if (node === undefined) {
-      return undefined;
-    }
+    if (node === undefined) return undefined;
     const results: DocumentHighlight[] = [];
     if (node.nodeType === ParseNodeType.Name) {
       const declarations = evaluator.getDeclarationsForNameNode(node) || [];
       const resolvedDeclarations: Declaration[] = [];
       declarations.forEach((decl) => {
         const resolvedDecl = evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
-        if (resolvedDecl) {
-          resolvedDeclarations.push(resolvedDecl);
-        }
+        if (resolvedDecl) resolvedDeclarations.push(resolvedDecl);
       });
       const walker = new HighlightSymbolTreeWalker(node.value, resolvedDeclarations, parseResults, results, evaluator, token);
       walker.findHighlights();
