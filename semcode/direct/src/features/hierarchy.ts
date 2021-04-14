@@ -1,11 +1,11 @@
 import { ClientCap, ServiceClient } from '../service';
 import { condRegistration, requireSomeCap, requireMinVer } from '../registration';
 import * as path from 'path';
-import * as PConst from '../protocol.const';
+import * as qk from '../utils/key';
 import * as qu from '../utils';
 import * as qv from 'vscode';
 import API from '../../old/ts/utils/api';
-import type * as qp from '../protocol';
+import type * as qp from '../server/proto';
 import { CancellationToken, SymbolKind } from 'vscode-languageserver';
 import { CallHierarchyIncomingCall, CallHierarchyItem, CallHierarchyOutgoingCall, Range } from 'vscode-languageserver-types';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
@@ -51,7 +51,7 @@ class TsCallHierarchy implements qv.CallHierarchyProvider {
   }
 }
 function isSourceFileItem(i: qp.CallHierarchyItem) {
-  return i.kind === PConst.Kind.script || (i.kind === PConst.Kind.module && i.selectionSpan.start.line === 1 && i.selectionSpan.start.offset === 1);
+  return i.kind === qk.Kind.script || (i.kind === qk.Kind.module && i.selectionSpan.start.line === 1 && i.selectionSpan.start.offset === 1);
 }
 function fromProtocolCallHierarchyItem(item: qp.CallHierarchyItem): qv.CallHierarchyItem {
   const useFileName = isSourceFileItem(item);
@@ -66,7 +66,7 @@ function fromProtocolCallHierarchyItem(item: qp.CallHierarchyItem): qv.CallHiera
     qu.Range.fromTextSpan(item.selectionSpan)
   );
   const kindModifiers = item.kindModifiers ? qu.parseKindModifier(item.kindModifiers) : undefined;
-  if (kindModifiers?.has(PConst.KindModifiers.depreacted)) result.tags = [qv.SymbolTag.Deprecated];
+  if (kindModifiers?.has(qk.KindModifiers.depreacted)) result.tags = [qv.SymbolTag.Deprecated];
   return result;
 }
 function fromProtocolCallHierarchyIncomingCall(c: qp.CallHierarchyIncomingCall): qv.CallHierarchyIncomingCall {

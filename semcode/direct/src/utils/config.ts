@@ -2,7 +2,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as qu from '../utils';
 import * as qv from 'vscode';
-import type * as qp from '../protocol';
+import type * as qp from '../server/proto';
 import { ServiceClient, ServerResponse } from '../service';
 import { nulToken } from '../utils';
 import { RevealOutputChannelOn } from 'vscode-languageclient';

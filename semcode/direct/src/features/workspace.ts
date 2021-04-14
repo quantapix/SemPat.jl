@@ -1,10 +1,10 @@
 import { doesResourceLookLikeAJavaScriptFile, doesResourceLookLikeATypeScriptFile } from '../../old/ts/utils/languageDescription';
 import { ServiceClient } from '../service';
-import * as PConst from '../protocol.const';
+import * as qk from '../utils/key';
 import * as qu from '../utils';
 import * as qv from 'vscode';
 import API from '../../old/ts/utils/api';
-import type * as qp from '../protocol';
+import type * as qp from '../server/proto';
 import cp = require('child_process');
 import { getGoConfig } from '../../../../old/go/config';
 import { toolExecutionEnvironment } from '../../../../old/go/goEnv';
@@ -54,7 +54,7 @@ class TsWorkspaceSymbol implements qv.WorkspaceSymbolProvider {
     const l = getLabel(i);
     const y = new qv.SymbolInformation(l, getSymbolKind(i), i.containerName || '', qu.Location.fromTextSpan(this.client.toResource(i.file), i));
     const ms = i.kindModifiers ? qu.parseKindModifier(i.kindModifiers) : undefined;
-    if (ms?.has(PConst.KindModifiers.depreacted)) y.tags = [qv.SymbolTag.Deprecated];
+    if (ms?.has(qk.KindModifiers.depreacted)) y.tags = [qv.SymbolTag.Deprecated];
     return y;
   }
   private getDocument(): qv.TextDocument | undefined {
@@ -78,27 +78,27 @@ function getLabel(i: qp.NavtoItem) {
 }
 function getSymbolKind(i: qp.NavtoItem): qv.SymbolKind {
   switch (i.kind) {
-    case PConst.Kind.method:
+    case qk.Kind.method:
       return qv.SymbolKind.Method;
-    case PConst.Kind.enum:
+    case qk.Kind.enum:
       return qv.SymbolKind.Enum;
-    case PConst.Kind.enumMember:
+    case qk.Kind.enumMember:
       return qv.SymbolKind.EnumMember;
-    case PConst.Kind.function:
+    case qk.Kind.function:
       return qv.SymbolKind.Function;
-    case PConst.Kind.class:
+    case qk.Kind.class:
       return qv.SymbolKind.Class;
-    case PConst.Kind.interface:
+    case qk.Kind.interface:
       return qv.SymbolKind.Interface;
-    case PConst.Kind.type:
+    case qk.Kind.type:
       return qv.SymbolKind.Class;
-    case PConst.Kind.memberVariable:
+    case qk.Kind.memberVariable:
       return qv.SymbolKind.Field;
-    case PConst.Kind.memberGetAccessor:
+    case qk.Kind.memberGetAccessor:
       return qv.SymbolKind.Field;
-    case PConst.Kind.memberSetAccessor:
+    case qk.Kind.memberSetAccessor:
       return qv.SymbolKind.Field;
-    case PConst.Kind.variable:
+    case qk.Kind.variable:
       return qv.SymbolKind.Variable;
     default:
       return qv.SymbolKind.Variable;

@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as qv from 'vscode';
 import { DiagKind, DiagsMgr } from '../old/ts/languageFeatures/diagnostics';
 import * as qp from './protocol';
-import { EventName } from './protocol.const';
+import { EventName } from './utils/key';
 import BufferSyncSupport from '../old/ts/tsServer/bufferSyncSupport';
 import { OngoingRequestCancelFact } from '../old/ts/tsServer/cancellation';
 import { LogDirProvider } from '../old/ts/tsServer/logDirProvider';

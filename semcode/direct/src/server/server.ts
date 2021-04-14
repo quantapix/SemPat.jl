@@ -1,6 +1,6 @@
 import * as qv from 'vscode';
-import type * as qp from '../protocol';
-import { EventName } from '../protocol.const';
+import type * as qp from './proto';
+import { EventName } from '../utils/key';
 import { CallbackMap } from './callback';
 import { RequestItem, RequestQueue, RequestQueueType } from './request';
 import { TSServerError } from './error';

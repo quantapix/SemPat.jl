@@ -1,7 +1,7 @@
 import * as qv from 'vscode';
 import { Command, CommandMgr } from '../commands/commandMgr';
-import type * as qp from '../protocol';
-import * as PConst from '../../../src/protocol.const';
+import type * as qp from '../server/proto';
+import * as qk from '../utils/key';
 import { ClientCap, ServiceClient, ServerResponse } from '../service';
 import API from '../utils/api';
 import { nulToken } from '../utils/cancellation';
@@ -70,19 +70,19 @@ class MyCompletionItem extends qv.CompletionItem {
     }
     if (tsEntry.kindModifiers) {
       const kindModifiers = parseKindModifier(tsEntry.kindModifiers);
-      if (kindModifiers.has(PConst.KindModifiers.optional)) {
+      if (kindModifiers.has(qk.KindModifiers.optional)) {
         if (!this.insertText) this.insertText = this.label;
         if (!this.filterText) this.filterText = this.label;
         this.label += '?';
       }
-      if (kindModifiers.has(PConst.KindModifiers.depreacted)) {
+      if (kindModifiers.has(qk.KindModifiers.depreacted)) {
         this.tags = [qv.CompletionItemTag.Deprecated];
       }
-      if (kindModifiers.has(PConst.KindModifiers.color)) {
+      if (kindModifiers.has(qk.KindModifiers.color)) {
         this.kind = qv.CompletionItemKind.Color;
       }
-      if (tsEntry.kind === PConst.Kind.script) {
-        for (const extModifier of PConst.KindModifiers.fileExtensionKindModifiers) {
+      if (tsEntry.kind === qk.Kind.script) {
+        for (const extModifier of qk.KindModifiers.fileExtensionKindModifiers) {
           if (kindModifiers.has(extModifier)) {
             if (tsEntry.name.toLowerCase().endsWith(extModifier)) this.detail = tsEntry.name;
             else this.detail = tsEntry.name + extModifier;
@@ -273,47 +273,47 @@ class MyCompletionItem extends qv.CompletionItem {
   }
   private static convertKind(kind: string): qv.CompletionItemKind {
     switch (kind) {
-      case PConst.Kind.primitiveType:
-      case PConst.Kind.keyword:
+      case qk.Kind.primitiveType:
+      case qk.Kind.keyword:
         return qv.CompletionItemKind.Keyword;
-      case PConst.Kind.const:
-      case PConst.Kind.let:
-      case PConst.Kind.variable:
-      case PConst.Kind.localVariable:
-      case PConst.Kind.alias:
-      case PConst.Kind.parameter:
+      case qk.Kind.const:
+      case qk.Kind.let:
+      case qk.Kind.variable:
+      case qk.Kind.localVariable:
+      case qk.Kind.alias:
+      case qk.Kind.parameter:
         return qv.CompletionItemKind.Variable;
-      case PConst.Kind.memberVariable:
-      case PConst.Kind.memberGetAccessor:
-      case PConst.Kind.memberSetAccessor:
+      case qk.Kind.memberVariable:
+      case qk.Kind.memberGetAccessor:
+      case qk.Kind.memberSetAccessor:
         return qv.CompletionItemKind.Field;
-      case PConst.Kind.function:
-      case PConst.Kind.localFunction:
+      case qk.Kind.function:
+      case qk.Kind.localFunction:
         return qv.CompletionItemKind.Function;
-      case PConst.Kind.method:
-      case PConst.Kind.constructSignature:
-      case PConst.Kind.callSignature:
-      case PConst.Kind.indexSignature:
+      case qk.Kind.method:
+      case qk.Kind.constructSignature:
+      case qk.Kind.callSignature:
+      case qk.Kind.indexSignature:
         return qv.CompletionItemKind.Method;
-      case PConst.Kind.enum:
+      case qk.Kind.enum:
         return qv.CompletionItemKind.Enum;
-      case PConst.Kind.enumMember:
+      case qk.Kind.enumMember:
         return qv.CompletionItemKind.EnumMember;
-      case PConst.Kind.module:
-      case PConst.Kind.externalModuleName:
+      case qk.Kind.module:
+      case qk.Kind.externalModuleName:
         return qv.CompletionItemKind.Module;
-      case PConst.Kind.class:
-      case PConst.Kind.type:
+      case qk.Kind.class:
+      case qk.Kind.type:
         return qv.CompletionItemKind.Class;
-      case PConst.Kind.interface:
+      case qk.Kind.interface:
         return qv.CompletionItemKind.Interface;
-      case PConst.Kind.warning:
+      case qk.Kind.warning:
         return qv.CompletionItemKind.Text;
-      case PConst.Kind.script:
+      case qk.Kind.script:
         return qv.CompletionItemKind.File;
-      case PConst.Kind.directory:
+      case qk.Kind.directory:
         return qv.CompletionItemKind.Folder;
-      case PConst.Kind.string:
+      case qk.Kind.string:
         return qv.CompletionItemKind.Constant;
       default:
         return qv.CompletionItemKind.Property;
@@ -323,27 +323,27 @@ class MyCompletionItem extends qv.CompletionItem {
     if (context.isNewIdentifierLocation || !context.isInValidCommitCharacterContext) return undefined;
     const commitCharacters: string[] = [];
     switch (entry.kind) {
-      case PConst.Kind.memberGetAccessor:
-      case PConst.Kind.memberSetAccessor:
-      case PConst.Kind.constructSignature:
-      case PConst.Kind.callSignature:
-      case PConst.Kind.indexSignature:
-      case PConst.Kind.enum:
-      case PConst.Kind.interface:
+      case qk.Kind.memberGetAccessor:
+      case qk.Kind.memberSetAccessor:
+      case qk.Kind.constructSignature:
+      case qk.Kind.callSignature:
+      case qk.Kind.indexSignature:
+      case qk.Kind.enum:
+      case qk.Kind.interface:
         commitCharacters.push('.', ';');
         break;
-      case PConst.Kind.module:
-      case PConst.Kind.alias:
-      case PConst.Kind.const:
-      case PConst.Kind.let:
-      case PConst.Kind.variable:
-      case PConst.Kind.localVariable:
-      case PConst.Kind.memberVariable:
-      case PConst.Kind.class:
-      case PConst.Kind.function:
-      case PConst.Kind.method:
-      case PConst.Kind.keyword:
-      case PConst.Kind.parameter:
+      case qk.Kind.module:
+      case qk.Kind.alias:
+      case qk.Kind.const:
+      case qk.Kind.let:
+      case qk.Kind.variable:
+      case qk.Kind.localVariable:
+      case qk.Kind.memberVariable:
+      case qk.Kind.class:
+      case qk.Kind.function:
+      case qk.Kind.method:
+      case qk.Kind.keyword:
+      case qk.Kind.parameter:
         commitCharacters.push('.', ',', ';');
         if (context.enableCallCompletions) commitCharacters.push('(');
         break;
@@ -631,8 +631,8 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
 }
 function shouldExcludeCompletionEntry(element: qp.CompletionEntry, completionConfig: CompletionConfig) {
   return (
-    (!completionConfig.nameSuggestions && element.kind === PConst.Kind.warning) ||
-    (!completionConfig.pathSuggestions && (element.kind === PConst.Kind.directory || element.kind === PConst.Kind.script || element.kind === PConst.Kind.externalModuleName)) ||
+    (!completionConfig.nameSuggestions && element.kind === qk.Kind.warning) ||
+    (!completionConfig.pathSuggestions && (element.kind === qk.Kind.directory || element.kind === qk.Kind.script || element.kind === qk.Kind.externalModuleName)) ||
     (!completionConfig.autoImportSuggestions && element.hasAction)
   );
 }

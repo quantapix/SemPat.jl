@@ -1,7 +1,7 @@
 import * as qv from 'vscode';
 import type * as qp from '../../protocol';
 import { escapeRegExp } from '../../utils/regexp';
-import * as PConst from '../protocol.const';
+import * as qk from '../utils/key';
 import { CachedResponse } from '../../old/ts/tsServer/cachedResponse';
 import { ClientCap, ServiceClient } from '../service';
 import { conditionalRegistration, requireSomeCap, requireConfig } from '../registration';
@@ -149,13 +149,13 @@ export default class TsImplsLens extends TsBaseLens {
   }
   protected extractSymbol(document: qv.TextDocument, item: qp.NavigationTree, _parent: qp.NavigationTree | null): qv.Range | null {
     switch (item.kind) {
-      case PConst.Kind.interface:
+      case qk.Kind.interface:
         return getSymbolRange(document, item);
-      case PConst.Kind.class:
-      case PConst.Kind.method:
-      case PConst.Kind.memberVariable:
-      case PConst.Kind.memberGetAccessor:
-      case PConst.Kind.memberSetAccessor:
+      case qk.Kind.class:
+      case qk.Kind.method:
+      case qk.Kind.memberVariable:
+      case qk.Kind.memberGetAccessor:
+      case qk.Kind.memberSetAccessor:
         if (item.kindModifiers.match(/\babstract\b/g)) return getSymbolRange(document, item);
 
         break;
@@ -195,39 +195,39 @@ export class TsRefsLens extends TsBaseLens {
     return locations.length === 1 ? 'oneReferenceLabel' : 'manyReferenceLabel';
   }
   protected extractSymbol(document: qv.TextDocument, item: qp.NavigationTree, parent: qp.NavigationTree | null): qv.Range | null {
-    if (parent && parent.kind === PConst.Kind.enum) return getSymbolRange(document, item);
+    if (parent && parent.kind === qk.Kind.enum) return getSymbolRange(document, item);
 
     switch (item.kind) {
-      case PConst.Kind.function:
+      case qk.Kind.function:
         const showOnAllFunctions = qv.workspace.getConfig(this.modeId).get<boolean>('referencesCodeLens.showOnAllFunctions');
         if (showOnAllFunctions) return getSymbolRange(document, item);
 
-      case PConst.Kind.const:
-      case PConst.Kind.let:
-      case PConst.Kind.variable:
+      case qk.Kind.const:
+      case qk.Kind.let:
+      case qk.Kind.variable:
         if (/\bexport\b/.test(item.kindModifiers)) {
           return getSymbolRange(document, item);
         }
         break;
-      case PConst.Kind.class:
+      case qk.Kind.class:
         if (item.text === '<class>') break;
         return getSymbolRange(document, item);
-      case PConst.Kind.interface:
-      case PConst.Kind.type:
-      case PConst.Kind.enum:
+      case qk.Kind.interface:
+      case qk.Kind.type:
+      case qk.Kind.enum:
         return getSymbolRange(document, item);
-      case PConst.Kind.method:
-      case PConst.Kind.memberGetAccessor:
-      case PConst.Kind.memberSetAccessor:
-      case PConst.Kind.constructorImplementation:
-      case PConst.Kind.memberVariable:
+      case qk.Kind.method:
+      case qk.Kind.memberGetAccessor:
+      case qk.Kind.memberSetAccessor:
+      case qk.Kind.constructorImplementation:
+      case qk.Kind.memberVariable:
         if (parent && qu.Position.fromLocation(parent.spans[0].start).isEqual(qu.Position.fromLocation(item.spans[0].start))) {
           return null;
         }
         switch (parent?.kind) {
-          case PConst.Kind.class:
-          case PConst.Kind.interface:
-          case PConst.Kind.type:
+          case qk.Kind.class:
+          case qk.Kind.interface:
+          case qk.Kind.type:
             return getSymbolRange(document, item);
         }
         break;

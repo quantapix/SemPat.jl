@@ -3,7 +3,7 @@ import { DiagKind } from './languageFeatures/diagnostics';
 import FileConfigMgr from './languageFeatures/fileConfigMgr';
 import LangProvider from './providers/language';
 import * as qp from './protocol';
-import * as PConst from './protocol.const';
+import * as qk from './utils/key';
 import { OngoingRequestCancelFact } from './tsServer/cancellation';
 import { LogDirProvider } from './tsServer/logDirProvider';
 import { TSServerProcFact } from './tsServer/server';
@@ -229,15 +229,15 @@ export default class ServiceClientHost extends qu.Disposable {
   }
 
   private getDiagSeverity(d: qp.Diag): qv.DiagSeverity {
-    if (this.reportStyleCheckAsWarnings && this.isStyleCheckDiag(d.code) && d.category === PConst.DiagCategory.error) {
+    if (this.reportStyleCheckAsWarnings && this.isStyleCheckDiag(d.code) && d.category === qk.DiagCategory.error) {
       return qv.DiagSeverity.Warning;
     }
     switch (d.category) {
-      case PConst.DiagCategory.error:
+      case qk.DiagCategory.error:
         return qv.DiagSeverity.Error;
-      case PConst.DiagCategory.warning:
+      case qk.DiagCategory.warning:
         return qv.DiagSeverity.Warning;
-      case PConst.DiagCategory.suggestion:
+      case qk.DiagCategory.suggestion:
         return qv.DiagSeverity.Hint;
       default:
         return qv.DiagSeverity.Error;

@@ -1,5 +1,5 @@
 import * as qv from 'vscode';
-import * as qp from '../protocol';
+import * as qp from './proto';
 import BufferSyncSupport from '../old/ts/tsServer/bufferSyncSupport';
 import { ExecTarget } from '../old/ts/tsServer/server';
 import { TSVersion } from '../old/ts/tsServer/versionProvider';
@@ -7,12 +7,10 @@ import API from '../old/ts/utils/api';
 import { TSServiceConfig } from '../old/ts/utils/configuration';
 import { PluginMgr } from '../old/ts/utils/plugins';
 import { TelemetryReporter } from '../old/ts/utils/telemetry';
-
 export enum ServerType {
   Syntax = 'syntax',
   Semantic = 'semantic',
 }
-
 export namespace ServerResponse {
   export class Cancelled {
     public readonly type = 'cancelled';
@@ -21,7 +19,6 @@ export namespace ServerResponse {
   export const NoContent = { type: 'noContent' } as const;
   export type Response<T extends qp.Response> = T | Cancelled | typeof NoContent;
 }
-
 interface StdRequests {
   applyCodeActionCommand: [qp.ApplyCodeActionCommandRequestArgs, qp.ApplyCodeActionCommandResponse];
   completionEntryDetails: [qp.CompletionDetailsRequestArgs, qp.CompletionDetailsResponse];
@@ -59,7 +56,6 @@ interface StdRequests {
   provideCallHierarchyOutgoingCalls: [qp.FileLocationRequestArgs, qp.ProvideCallHierarchyOutgoingCallsResponse];
   fileReferences: [qp.FileRequestArgs, qp.FileReferencesResponse];
 }
-
 interface NoResponseRequests {
   open: [qp.OpenRequestArgs, null];
   close: [qp.FileRequestArgs, null];
@@ -68,27 +64,22 @@ interface NoResponseRequests {
   reloadProjects: [null, null];
   configurePlugin: [qp.ConfigurePluginRequest, qp.ConfigurePluginResponse];
 }
-
 interface AsyncRequests {
   geterr: [qp.GeterrRequestArgs, qp.Response];
   geterrForProject: [qp.GeterrForProjectRequestArgs, qp.Response];
 }
-
 export type TSRequests = StdRequests & NoResponseRequests & AsyncRequests;
-
 export type ExecConfig = {
   readonly lowPriority?: boolean;
   readonly nonRecoverable?: boolean;
   readonly cancelOnResourceChange?: qv.Uri;
   readonly executionTarget?: ExecTarget;
 };
-
 export enum ClientCap {
   Syntax,
   EnhancedSyntax,
   Semantic,
 }
-
 export class ClientCaps {
   private readonly caps: ReadonlySet<ClientCap>;
   constructor(...cs: ClientCap[]) {
@@ -98,7 +89,6 @@ export class ClientCaps {
     return this.caps.has(c);
   }
 }
-
 export interface ServiceClient {
   normalizedPath(r: qv.Uri): string | undefined;
   toPath(r: qv.Uri): string | undefined;

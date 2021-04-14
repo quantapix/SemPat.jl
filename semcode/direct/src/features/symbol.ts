@@ -1,9 +1,9 @@
 import { CachedResponse } from '../../old/ts/tsServer/cachedResponse';
 import { ServiceClient } from '../service';
-import * as PConst from '../protocol.const';
+import * as qk from '../utils/key';
 import * as qu from '../utils';
 import * as qv from 'vscode';
-import type * as qp from '../protocol';
+import type * as qp from '../server/proto';
 import cp = require('child_process');
 import { getGoConfig } from '../config';
 import { toolExecutionEnvironment } from '../goEnv';
@@ -182,53 +182,53 @@ function convertSymbol(t: qp.NavigationTree, r: qv.Range): qv.DocumentSymbol {
   const selectionRange = t.nameSpan ? qu.Range.fromTextSpan(t.nameSpan) : r;
   let x = t.text;
   switch (t.kind) {
-    case PConst.Kind.memberGetAccessor:
+    case qk.Kind.memberGetAccessor:
       x = `(get) ${x}`;
       break;
-    case PConst.Kind.memberSetAccessor:
+    case qk.Kind.memberSetAccessor:
       x = `(set) ${x}`;
       break;
   }
   const y = new qv.DocumentSymbol(x, '', getSymbolKind(t.kind), r, r.contains(selectionRange) ? selectionRange : r);
   const ms = qu.parseKindModifier(t.kindModifiers);
-  if (ms.has(PConst.KindModifiers.depreacted)) y.tags = [qv.SymbolTag.Deprecated];
+  if (ms.has(qk.KindModifiers.depreacted)) y.tags = [qv.SymbolTag.Deprecated];
   return y;
 }
 function shouldIncludeEntry(t: qp.NavigationTree | qp.NavigationBarItem): boolean {
-  if (t.kind === PConst.Kind.alias) return false;
+  if (t.kind === qk.Kind.alias) return false;
   return !!(t.text && t.text !== '<function>' && t.text !== '<class>');
 }
 function getSymbolKind(k: string): qv.SymbolKind {
   switch (k) {
-    case PConst.Kind.module:
+    case qk.Kind.module:
       return qv.SymbolKind.Module;
-    case PConst.Kind.class:
+    case qk.Kind.class:
       return qv.SymbolKind.Class;
-    case PConst.Kind.enum:
+    case qk.Kind.enum:
       return qv.SymbolKind.Enum;
-    case PConst.Kind.interface:
+    case qk.Kind.interface:
       return qv.SymbolKind.Interface;
-    case PConst.Kind.method:
+    case qk.Kind.method:
       return qv.SymbolKind.Method;
-    case PConst.Kind.memberVariable:
+    case qk.Kind.memberVariable:
       return qv.SymbolKind.Property;
-    case PConst.Kind.memberGetAccessor:
+    case qk.Kind.memberGetAccessor:
       return qv.SymbolKind.Property;
-    case PConst.Kind.memberSetAccessor:
+    case qk.Kind.memberSetAccessor:
       return qv.SymbolKind.Property;
-    case PConst.Kind.variable:
+    case qk.Kind.variable:
       return qv.SymbolKind.Variable;
-    case PConst.Kind.const:
+    case qk.Kind.const:
       return qv.SymbolKind.Variable;
-    case PConst.Kind.localVariable:
+    case qk.Kind.localVariable:
       return qv.SymbolKind.Variable;
-    case PConst.Kind.function:
+    case qk.Kind.function:
       return qv.SymbolKind.Function;
-    case PConst.Kind.localFunction:
+    case qk.Kind.localFunction:
       return qv.SymbolKind.Function;
-    case PConst.Kind.constructSignature:
+    case qk.Kind.constructSignature:
       return qv.SymbolKind.Constructor;
-    case PConst.Kind.constructorImplementation:
+    case qk.Kind.constructorImplementation:
       return qv.SymbolKind.Constructor;
   }
   return qv.SymbolKind.Variable;

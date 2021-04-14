@@ -1,6 +1,5 @@
 import Proto from 'typescript/lib/protocol';
 export = Proto;
-
 declare enum ServerType {
   Syntax = 'syntax',
   Semantic = 'semantic',

@@ -5,6 +5,13 @@ import { homedir } from 'os';
 import * as path from 'path';
 import * as process from 'process';
 import * as semver from 'semver';
+import * as assert from 'assert';
+import * as fs from 'fs';
+import fetch from 'node-fetch';
+import * as stream from 'stream';
+import * as util from 'util';
+import * as qv from 'vscode';
+
 async function our_download(url: string, destination: string) {
   const dest_path = path.join(process.cwd(), path.dirname(destination));
   try {
@@ -17,12 +24,6 @@ async function our_download(url: string, destination: string) {
   await fs.rename(path.join(dest_path, path.basename(url)), path.join(dest_path, path.basename(destination)));
   return;
 }
-import * as assert from 'assert';
-import * as fs from 'fs';
-import fetch from 'node-fetch';
-import * as stream from 'stream';
-import * as util from 'util';
-import * as qv from 'vscode';
 const pipeline = util.promisify(stream.pipeline);
 const GITHUB_API_ENDPOINT_URL = 'https://api.github.com';
 export async function fetchRelease(owner: string, repository: string, releaseTag: string): Promise<GithubRelease> {

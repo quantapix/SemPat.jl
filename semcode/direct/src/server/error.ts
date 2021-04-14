@@ -1,4 +1,4 @@
-import type * as qp from '../protocol';
+import type * as qp from './proto';
 import { TSVersion } from './version';
 export class TSServerError extends Error {
   public static create(serverId: string, version: TSVersion, response: qp.Response): TSServerError {

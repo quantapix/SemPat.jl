@@ -7,44 +7,43 @@ interface PackageInfo {
   readonly aiKey: string;
 }
 export interface TelemetryProperties {
-  readonly [prop: string]: string | number | undefined;
+  readonly [k: string]: string | number | undefined;
 }
 export interface TelemetryReporter {
-  logTelemetry(eventName: string, properties?: TelemetryProperties): void;
+  logTelemetry(n: string, ps?: TelemetryProperties): void;
   dispose(): void;
 }
 export class VSCodeTelemetryReporter implements TelemetryReporter {
-  private _reporter: VsCodeTelemetryReporter | null = null;
+  private _reporter?: VsCodeTelemetryReporter;
   constructor(private readonly clientVersionDelegate: () => string) {}
-  public logTelemetry(eventName: string, properties: { [prop: string]: string } = {}) {
-    const reporter = this.reporter;
-    if (!reporter) return;
+  public logTelemetry(n: string, ps: { [k: string]: string } = {}) {
+    const r = this.reporter;
+    if (!r) return;
     /* __GDPR__FRAGMENT__
 			"TypeScriptCommonProperties" : {
 				"version" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 			}
 		*/
-    properties['version'] = this.clientVersionDelegate();
-    reporter.sendTelemetryEvent(eventName, properties);
+    ps['version'] = this.clientVersionDelegate();
+    r.sendTelemetryEvent(n, ps);
   }
   public dispose() {
     if (this._reporter) {
       this._reporter.dispose();
-      this._reporter = null;
+      this._reporter = undefined;
     }
   }
   @memoize
-  private get reporter(): VsCodeTelemetryReporter | null {
+  private get reporter(): VsCodeTelemetryReporter | undefined {
     if (this.packageInfo && this.packageInfo.aiKey) {
       this._reporter = new VsCodeTelemetryReporter(this.packageInfo.name, this.packageInfo.version, this.packageInfo.aiKey);
       return this._reporter;
     }
-    return null;
+    return;
   }
   @memoize
-  private get packageInfo(): PackageInfo | null {
+  private get packageInfo(): PackageInfo | undefined {
     const { packageJSON } = qv.extensions.getExtension('qv.typescript-language-features')!;
-    if (packageJSON) return { name: packageJSON.name, version: packageJSON.version, aiKey: packageJSON.aiKey };
-    return null;
+    return packageJSON ? { name: packageJSON.name, version: packageJSON.version, aiKey: packageJSON.aiKey } : undefined;
   }
 }

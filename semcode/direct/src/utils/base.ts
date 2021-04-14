@@ -3,10 +3,10 @@ import { uuid } from 'uuidv4';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import * as PConst from '../protocol.const';
+import * as qk from './key';
 import * as qv from 'vscode';
 import * as vslc from 'vscode-languageclient';
-import type * as qp from '../protocol';
+import type * as qp from '../server/proto';
 import leven from 'leven';
 export const enum Comparison {
   LessThan = -1,
@@ -507,49 +507,49 @@ export namespace WorkspaceEdit {
 export namespace SymbolKind {
   export function fromProtocolScriptElementKind(k: qp.ScriptElementKind) {
     switch (k) {
-      case PConst.Kind.module:
+      case qk.Kind.module:
         return qv.SymbolKind.Module;
-      case PConst.Kind.class:
+      case qk.Kind.class:
         return qv.SymbolKind.Class;
-      case PConst.Kind.enum:
+      case qk.Kind.enum:
         return qv.SymbolKind.Enum;
-      case PConst.Kind.enumMember:
+      case qk.Kind.enumMember:
         return qv.SymbolKind.EnumMember;
-      case PConst.Kind.interface:
+      case qk.Kind.interface:
         return qv.SymbolKind.Interface;
-      case PConst.Kind.indexSignature:
+      case qk.Kind.indexSignature:
         return qv.SymbolKind.Method;
-      case PConst.Kind.callSignature:
+      case qk.Kind.callSignature:
         return qv.SymbolKind.Method;
-      case PConst.Kind.method:
+      case qk.Kind.method:
         return qv.SymbolKind.Method;
-      case PConst.Kind.memberVariable:
+      case qk.Kind.memberVariable:
         return qv.SymbolKind.Property;
-      case PConst.Kind.memberGetAccessor:
+      case qk.Kind.memberGetAccessor:
         return qv.SymbolKind.Property;
-      case PConst.Kind.memberSetAccessor:
+      case qk.Kind.memberSetAccessor:
         return qv.SymbolKind.Property;
-      case PConst.Kind.variable:
+      case qk.Kind.variable:
         return qv.SymbolKind.Variable;
-      case PConst.Kind.let:
+      case qk.Kind.let:
         return qv.SymbolKind.Variable;
-      case PConst.Kind.const:
+      case qk.Kind.const:
         return qv.SymbolKind.Variable;
-      case PConst.Kind.localVariable:
+      case qk.Kind.localVariable:
         return qv.SymbolKind.Variable;
-      case PConst.Kind.alias:
+      case qk.Kind.alias:
         return qv.SymbolKind.Variable;
-      case PConst.Kind.function:
+      case qk.Kind.function:
         return qv.SymbolKind.Function;
-      case PConst.Kind.localFunction:
+      case qk.Kind.localFunction:
         return qv.SymbolKind.Function;
-      case PConst.Kind.constructSignature:
+      case qk.Kind.constructSignature:
         return qv.SymbolKind.Constructor;
-      case PConst.Kind.constructorImplementation:
+      case qk.Kind.constructorImplementation:
         return qv.SymbolKind.Constructor;
-      case PConst.Kind.typeParameter:
+      case qk.Kind.typeParameter:
         return qv.SymbolKind.TypeParameter;
-      case PConst.Kind.string:
+      case qk.Kind.string:
         return qv.SymbolKind.String;
       default:
         return qv.SymbolKind.Variable;

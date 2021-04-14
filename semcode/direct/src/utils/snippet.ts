@@ -1,6 +1,6 @@
 import * as qv from 'vscode';
 import type * as qp from '../protocol';
-import * as PConst from '../protocol.const';
+import * as qk from './key';
 
 export function snippetForFunctionCall(
   item: { insertText?: string | qv.SnippetString; label: string },
@@ -41,14 +41,14 @@ function getParameterListParts(displayParts: ReadonlyArray<qp.SymbolDisplayPart>
   outer: for (let i = 0; i < displayParts.length; ++i) {
     const part = displayParts[i];
     switch (part.kind) {
-      case PConst.DisplayPartKind.methodName:
-      case PConst.DisplayPartKind.functionName:
-      case PConst.DisplayPartKind.text:
-      case PConst.DisplayPartKind.propertyName:
+      case qk.DisplayPartKind.methodName:
+      case qk.DisplayPartKind.functionName:
+      case qk.DisplayPartKind.text:
+      case qk.DisplayPartKind.propertyName:
         if (parenCount === 0 && braceCount === 0) isInMethod = true;
         break;
 
-      case PConst.DisplayPartKind.parameterName:
+      case qk.DisplayPartKind.parameterName:
         if (parenCount === 1 && braceCount === 0 && isInMethod) {
           const next = displayParts[i + 1];
 
@@ -60,7 +60,7 @@ function getParameterListParts(displayParts: ReadonlyArray<qp.SymbolDisplayPart>
         }
         break;
 
-      case PConst.DisplayPartKind.punctuation:
+      case qk.DisplayPartKind.punctuation:
         if (part.text === '(') {
           ++parenCount;
         } else if (part.text === ')') {
