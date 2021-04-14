@@ -64,12 +64,8 @@ export class GoFormatting implements qv.DocumentFormattingEditProvider {
       formatFlags.splice(formatFlags.indexOf('-w'), 1);
     }
     const formatTool = getFormatTool(goConfig);
-    if (formatTool === 'goimports' || formatTool === 'goreturns' || formatTool === 'gofumports') {
-      formatFlags.push('-srcdir', filename);
-    }
-    if (formatTool === 'goformat' && formatFlags.length === 0 && options.insertSpaces) {
-      formatFlags.push('-style=indent=' + options.tabSize);
-    }
+    if (formatTool === 'goimports' || formatTool === 'goreturns' || formatTool === 'gofumports') formatFlags.push('-srcdir', filename);
+    if (formatTool === 'goformat' && formatFlags.length === 0 && options.insertSpaces) formatFlags.push('-style=indent=' + options.tabSize);
     return this.runFormatter(formatTool, formatFlags, document, token).then(
       (edits) => edits,
       (err) => {
@@ -107,17 +103,13 @@ export class GoFormatting implements qv.DocumentFormattingEditProvider {
         }
       });
       p.on('close', (code) => {
-        if (code !== 0) {
-          return reject(stderr);
-        }
+        if (code !== 0) return reject(stderr);
         const fileStart = new qv.Position(0, 0);
         const fileEnd = document.lineAt(document.lineCount - 1).range.end;
         const textEdits: qv.TextEdit[] = [new qv.TextEdit(new qv.Range(fileStart, fileEnd), stdout)];
         return resolve(textEdits);
       });
-      if (p.pid) {
-        p.stdin.end(document.getText());
-      }
+      if (p.pid) p.stdin.end(document.getText());
     });
   }
 }
@@ -139,8 +131,6 @@ export function usingCustomFormatTool(goConfig: { [key: string]: any }): boolean
   }
 }
 export function getFormatTool(goConfig: { [key: string]: any }): string {
-  if (goConfig['formatTool'] === 'default') {
-    return 'goimports';
-  }
+  if (goConfig['formatTool'] === 'default') return 'goimports';
   return goConfig['formatTool'];
 }

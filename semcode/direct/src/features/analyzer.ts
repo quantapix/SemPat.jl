@@ -25,23 +25,13 @@ function getEffectiveCommandLineOptions(languageServiceRootPath: string, workspa
     opts.watchForSourceChanges = serverSettings.watchForSourceChanges;
     opts.watchForLibraryChanges = serverSettings.watchForLibraryChanges;
   }
-  if (serverSettings.venvPath) {
-    opts.venvPath = combinePaths(workspaceRootPath || languageServiceRootPath, serverSettings.venvPath);
-  }
+  if (serverSettings.venvPath) opts.venvPath = combinePaths(workspaceRootPath || languageServiceRootPath, serverSettings.venvPath);
   if (serverSettings.pythonPath) {
-    if (!isPythonBinary(serverSettings.pythonPath)) {
-      opts.pythonPath = combinePaths(workspaceRootPath || languageServiceRootPath, serverSettings.pythonPath);
-    }
+    if (!isPythonBinary(serverSettings.pythonPath)) opts.pythonPath = combinePaths(workspaceRootPath || languageServiceRootPath, serverSettings.pythonPath);
   }
-  if (serverSettings.typeshedPath) {
-    opts.typeshedPath = serverSettings.typeshedPath;
-  }
-  if (serverSettings.stubPath) {
-    opts.stubPath = serverSettings.stubPath;
-  }
-  if (typeStubTargetImportName) {
-    opts.typeStubTargetImportName = typeStubTargetImportName;
-  }
+  if (serverSettings.typeshedPath) opts.typeshedPath = serverSettings.typeshedPath;
+  if (serverSettings.stubPath) opts.stubPath = serverSettings.stubPath;
+  if (typeStubTargetImportName) opts.typeStubTargetImportName = typeStubTargetImportName;
   opts.autoSearchPaths = serverSettings.autoSearchPaths;
   opts.extraPaths = serverSettings.extraPaths;
   opts.diagnosticSeverityOverrides = serverSettings.diagnosticSeverityOverrides;

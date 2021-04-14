@@ -14,9 +14,7 @@ class FileReferencesCommand implements Command {
       qv.window.showErrorMessage('error.unsupportedVersion');
       return;
     }
-    if (!resource) {
-      resource = qv.window.activeTextEditor?.document.uri;
-    }
+    if (!resource) resource = qv.window.activeTextEditor?.document.uri;
     if (!resource) {
       qv.window.showErrorMessage('error.noResource');
       return;
@@ -44,9 +42,7 @@ class FileReferencesCommand implements Command {
           },
           token
         );
-        if (response.type !== 'response' || !response.body) {
-          return;
-        }
+        if (response.type !== 'response' || !response.body) return;
         const locations: qv.Location[] = response.body.refs.map((reference) => qu.Location.fromTextSpan(this.client.toResource(reference.file), reference));
         const config = qv.workspace.getConfig('references');
         const existingSetting = config.inspect<string>('preferredLocation');

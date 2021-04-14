@@ -31,9 +31,7 @@ class DirectiveCommentCompletionProvider implements qv.CompletionItemProvider {
   constructor(private readonly client: ServiceClient) {}
   public provideCompletionItems(document: qv.TextDocument, position: qv.Position, _token: qv.CancellationToken): qv.CompletionItem[] {
     const file = this.client.toOpenedFilePath(document);
-    if (!file) {
-      return [];
-    }
+    if (!file) return [];
     const line = document.lineAt(position.line).text;
     const prefix = line.slice(0, position.character);
     const match = prefix.match(/^\s*\/\/+\s?(@[a-zA-Z\-]*)?$/);

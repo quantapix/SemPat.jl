@@ -108,13 +108,9 @@ export class PyDefinition {
   ): DocumentRange[] | undefined {
     throwIfCancellationRequested(token);
     const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
-    if (offset === undefined) {
-      return undefined;
-    }
+    if (offset === undefined) return undefined;
     const node = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset);
-    if (node === undefined) {
-      return undefined;
-    }
+    if (node === undefined) return undefined;
     const definitions: DocumentRange[] = [];
     if (node.nodeType === ParseNodeType.Name) {
       const declarations = evaluator.getDeclarationsForNameNode(node);
@@ -122,12 +118,10 @@ export class PyDefinition {
         declarations.forEach((decl) => {
           let resolvedDecl = evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
           if (resolvedDecl && resolvedDecl.path) {
-            if (resolvedDecl.type === DeclarationType.Alias && resolvedDecl.isUnresolved) {
-              return;
-            }
-            if (resolvedDecl.type === DeclarationType.Alias && resolvedDecl.symbolName && resolvedDecl.submoduleFallback && resolvedDecl.submoduleFallback.path) {
+            if (resolvedDecl.type === DeclarationType.Alias && resolvedDecl.isUnresolved) return;
+
+            if (resolvedDecl.type === DeclarationType.Alias && resolvedDecl.symbolName && resolvedDecl.submoduleFallback && resolvedDecl.submoduleFallback.path)
               resolvedDecl = resolvedDecl.submoduleFallback;
-            }
             this._addIfUnique(definitions, {
               path: resolvedDecl.path,
               range: resolvedDecl.range,
@@ -153,12 +147,7 @@ export class PyDefinition {
               } else {
                 const implDecls = sourceMapper.findDeclarations(resolvedDecl);
                 for (const implDecl of implDecls) {
-                  if (implDecl && implDecl.path) {
-                    this._addIfUnique(definitions, {
-                      path: implDecl.path,
-                      range: implDecl.range,
-                    });
-                  }
+                  if (implDecl && implDecl.path) this._addIfUnique(definitions, { path: implDecl.path, range: implDecl.range });
                 }
               }
             }
@@ -166,12 +155,8 @@ export class PyDefinition {
         });
       }
     }
-    if (definitions.length === 0) {
-      return undefined;
-    }
-    if (filter === DefinitionFilter.All) {
-      return definitions;
-    }
+    if (definitions.length === 0) return undefined;
+    if (filter === DefinitionFilter.All) return definitions;
     const preferStubs = filter === DefinitionFilter.PreferStubs;
     const wantedFile = (v: DocumentRange) => preferStubs === isStubFile(v.path);
     if (definitions.find(wantedFile)) {
@@ -235,14 +220,10 @@ export function definitionLocation(
   token: qv.CancellationToken
 ): Promise<GoDefinitionInformation> {
   const adjustedPos = adjustWordPosition(document, position);
-  if (!adjustedPos[0]) {
-    return Promise.resolve(null);
-  }
+  if (!adjustedPos[0]) return Promise.resolve(null);
   const word = adjustedPos[1];
   position = adjustedPos[2];
-  if (!goConfig) {
-    goConfig = getGoConfig(document.uri);
-  }
+  if (!goConfig) goConfig = getGoConfig(document.uri);
   const toolForDocs = goConfig['docsTool'] || 'godoc';
   return getModFolderPath(document.uri).then((modFolderPath) => {
     const input: GoDefinitionInput = {
@@ -253,9 +234,8 @@ export function definitionLocation(
       isMod: !!modFolderPath,
       cwd: modFolderPath && modFolderPath !== getModuleCache() ? modFolderPath : getWorkspaceFolderPath(document.uri) || path.dirname(document.fileName),
     };
-    if (toolForDocs === 'godoc') {
-      return definitionLocation_godef(input, token);
-    } else if (toolForDocs === 'guru') {
+    if (toolForDocs === 'godoc') return definitionLocation_godef(input, token);
+    else if (toolForDocs === 'guru') {
       return definitionLocation_guru(input, token);
     }
     return definitionLocation_gogetdoc(input, token, true);
@@ -284,9 +264,7 @@ function definitionLocation_godef(input: GoDefinitionInput, token: qv.Cancellati
   const env = toolExecutionEnvironment();
   env['GOROOT'] = getCurrentGoRoot();
   let p: cp.ChildProc;
-  if (token) {
-    token.onCancellationRequested(() => killProcTree(p));
-  }
+  if (token) token.onCancellationRequested(() => killProcTree(p));
   return new Promise<GoDefinitionInformation>((resolve, reject) => {
     const args = ['-t', '-i', '-f', input.document.fileName, '-o', offset.toString()];
     p = cp.execFile(godefPath, args, { env, cwd: input.cwd }, (err, stdout, stderr) => {
@@ -309,9 +287,7 @@ function definitionLocation_godef(input: GoDefinitionInput, token: qv.Cancellati
         const result = stdout.toString();
         const lines = result.split('\n');
         let match = /(.*):(\d+):(\d+)/.exec(lines[0]);
-        if (!match) {
-          return resolve(null);
-        }
+        if (!match) return resolve(null);
         const [, file, line, col] = match;
         const pkgPath = path.dirname(file);
         const definitionInformation: GoDefinitionInformation = {
@@ -329,9 +305,7 @@ function definitionLocation_godef(input: GoDefinitionInput, token: qv.Cancellati
         match = /^\w+ \(\*?(\w+)\)/.exec(lines[1]);
         runGodoc(input.cwd, pkgPath, match ? match[1] : '', input.word, token)
           .then((doc) => {
-            if (doc) {
-              definitionInformation.doc = doc;
-            }
+            if (doc) definitionInformation.doc = doc;
             resolve(definitionInformation);
           })
           .catch((runGoDocErr) => {
@@ -342,9 +316,7 @@ function definitionLocation_godef(input: GoDefinitionInput, token: qv.Cancellati
         reject(e);
       }
     });
-    if (p.pid) {
-      p.stdin.end(input.document.getText());
-    }
+    if (p.pid) p.stdin.end(input.document.getText());
   });
 }
 function definitionLocation_gogetdoc(input: GoDefinitionInput, token: qv.CancellationToken, useTags: boolean): Promise<GoDefinitionInformation> {
@@ -355,9 +327,7 @@ function definitionLocation_gogetdoc(input: GoDefinitionInput, token: qv.Cancell
   const offset = byteOffsetAt(input.document, input.position);
   const env = toolExecutionEnvironment();
   let p: cp.ChildProc;
-  if (token) {
-    token.onCancellationRequested(() => killProcTree(p));
-  }
+  if (token) token.onCancellationRequested(() => killProcTree(p));
   return new Promise<GoDefinitionInformation>((resolve, reject) => {
     const gogetdocFlagsWithoutTags = ['-u', '-json', '-modified', '-pos', input.document.fileName + ':#' + offset.toString()];
     const buildTags = getGoConfig(input.document.uri)['buildTags'];
@@ -389,9 +359,7 @@ function definitionLocation_gogetdoc(input: GoDefinitionInput, token: qv.Cancell
           doc: goGetDocOutput.doc,
           name: goGetDocOutput.name,
         };
-        if (!match) {
-          return resolve(definitionInfo);
-        }
+        if (!match) return resolve(definitionInfo);
         definitionInfo.file = match[1];
         definitionInfo.line = +match[2] - 1;
         definitionInfo.column = +match[3] - 1;
@@ -400,9 +368,7 @@ function definitionLocation_gogetdoc(input: GoDefinitionInput, token: qv.Cancell
         reject(e);
       }
     });
-    if (p.pid) {
-      p.stdin.end(getFileArchive(input.document));
-    }
+    if (p.pid) p.stdin.end(getFileArchive(input.document));
   });
 }
 function definitionLocation_guru(input: GoDefinitionInput, token: qv.CancellationToken): Promise<GoDefinitionInformation> {
@@ -413,18 +379,14 @@ function definitionLocation_guru(input: GoDefinitionInput, token: qv.Cancellatio
   const offset = byteOffsetAt(input.document, input.position);
   const env = toolExecutionEnvironment();
   let p: cp.ChildProc;
-  if (token) {
-    token.onCancellationRequested(() => killProcTree(p));
-  }
+  if (token) token.onCancellationRequested(() => killProcTree(p));
   return new Promise<GoDefinitionInformation>((resolve, reject) => {
     p = cp.execFile(guru, ['-json', '-modified', 'definition', input.document.fileName + ':#' + offset.toString()], { env }, (err, stdout, stderr) => {
       try {
         if (err && (<any>err).code === 'ENOENT') {
           return reject(missingToolMsg + 'guru');
         }
-        if (err) {
-          return reject(err.message || stderr);
-        }
+        if (err) return reject(err.message || stderr);
         const guruOutput = <GuruDefinitionOuput>JSON.parse(stdout.toString());
         const match = /(.*):(\d+):(\d+)/.exec(guruOutput.objpos);
         const definitionInfo: GoDefinitionInformation = {
@@ -436,9 +398,7 @@ function definitionLocation_guru(input: GoDefinitionInput, token: qv.Cancellatio
           doc: null,
           name: null,
         };
-        if (!match) {
-          return resolve(definitionInfo);
-        }
+        if (!match) return resolve(definitionInfo);
         definitionInfo.file = match[1];
         definitionInfo.line = +match[2] - 1;
         definitionInfo.column = +match[3] - 1;
@@ -447,16 +407,12 @@ function definitionLocation_guru(input: GoDefinitionInput, token: qv.Cancellatio
         reject(e);
       }
     });
-    if (p.pid) {
-      p.stdin.end(getFileArchive(input.document));
-    }
+    if (p.pid) p.stdin.end(getFileArchive(input.document));
   });
 }
 export function parseMissingError(err: any): [boolean, string] {
   if (err) {
-    if (typeof err === 'string' && err.startsWith(missingToolMsg)) {
-      return [true, err.substr(missingToolMsg.length)];
-    }
+    if (typeof err === 'string' && err.startsWith(missingToolMsg)) return [true, err.substr(missingToolMsg.length)];
   }
   return [false, null];
 }
@@ -468,18 +424,15 @@ export class GoDefinition implements qv.DefinitionProvider {
   public provideDefinition(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): Thenable<qv.Location> {
     return definitionLocation(document, position, this.goConfig, false, token).then(
       (definitionInfo) => {
-        if (definitionInfo === null || definitionInfo.file === null) {
-          return null;
-        }
+        if (definitionInfo === null || definitionInfo.file === null) return null;
         const definitionResource = qv.Uri.file(definitionInfo.file);
         const pos = new qv.Position(definitionInfo.line, definitionInfo.column);
         return new qv.Location(definitionResource, pos);
       },
       (err) => {
         const miss = parseMissingError(err);
-        if (miss[0]) {
-          promptForMissingTool(miss[1]);
-        } else if (err) {
+        if (miss[0]) promptForMissingTool(miss[1]);
+        else if (err) {
           return Promise.reject(err);
         }
         return Promise.resolve(null);
@@ -507,9 +460,7 @@ interface GuruDefinitionOutput {
 export class GoTypeDefinition implements qv.TypeDefinitionProvider {
   public provideTypeDefinition(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): qv.ProviderResult<qv.Definition> {
     const adjustedPos = adjustWordPosition(document, position);
-    if (!adjustedPos[0]) {
-      return Promise.resolve(null);
-    }
+    if (!adjustedPos[0]) return Promise.resolve(null);
     position = adjustedPos[2];
     return new Promise<qv.Definition>((resolve, reject) => {
       const goGuru = getBinPath('guru');
@@ -529,28 +480,23 @@ export class GoTypeDefinition implements qv.TypeDefinitionProvider {
             promptForMissingTool('guru');
             return resolve(null);
           }
-          if (guruErr) {
-            return reject(guruErr);
-          }
+          if (guruErr) return reject(guruErr);
           const guruOutput = <GuruDescribeOutput>JSON.parse(stdout.toString());
           if (!guruOutput.value || !guruOutput.value.typespos) {
-            if (guruOutput.value && guruOutput.value.type && !goBuiltinTypes.has(guruOutput.value.type) && guruOutput.value.type !== 'invalid type') {
+            if (guruOutput.value && guruOutput.value.type && !goBuiltinTypes.has(guruOutput.value.type) && guruOutput.value.type !== 'invalid type')
               console.log("no typespos from guru's output - try to update guru tool");
-            }
+
             return definitionLocation(document, position, null, false, token).then(
               (definitionInfo) => {
-                if (definitionInfo === null || definitionInfo.file === null) {
-                  return null;
-                }
+                if (definitionInfo === null || definitionInfo.file === null) return null;
                 const definitionResource = qv.Uri.file(definitionInfo.file);
                 const pos = new qv.Position(definitionInfo.line, definitionInfo.column);
                 resolve(new qv.Location(definitionResource, pos));
               },
               (err) => {
                 const miss = parseMissingError(err);
-                if (miss[0]) {
-                  promptForMissingTool(miss[1]);
-                } else if (err) {
+                if (miss[0]) promptForMissingTool(miss[1]);
+                else if (err) {
                   return Promise.reject(err);
                 }
                 return Promise.resolve(null);
@@ -560,9 +506,7 @@ export class GoTypeDefinition implements qv.TypeDefinitionProvider {
           const results: qv.Location[] = [];
           guruOutput.value.typespos.forEach((ref) => {
             const match = /^(.*):(\d+):(\d+)/.exec(ref.objpos);
-            if (!match) {
-              return;
-            }
+            if (!match) return;
             const [, file, line, col] = match;
             const referenceResource = qv.Uri.file(file);
             const pos = new qv.Position(parseInt(line, 10) - 1, parseInt(col, 10) - 1);
@@ -573,9 +517,7 @@ export class GoTypeDefinition implements qv.TypeDefinitionProvider {
           reject(e);
         }
       });
-      if (process.pid) {
-        process.stdin.end(getFileArchive(document));
-      }
+      if (process.pid) process.stdin.end(getFileArchive(document));
       token.onCancellationRequested(() => killProcTree(process));
     });
   }

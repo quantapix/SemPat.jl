@@ -37,9 +37,7 @@ class TsTask extends Disposable implements qv.TaskProvider {
   }
   public async provideTasks(token: qv.CancellationToken): Promise<qv.Task[]> {
     const folders = qv.workspace.workspaceFolders;
-    if (this.autoDetect === AutoDetect.off || !folders || !folders.length) {
-      return [];
-    }
+    if (this.autoDetect === AutoDetect.off || !folders || !folders.length) return [];
     const configPaths: Set<string> = new Set();
     const tasks: qv.Task[] = [];
     for (const project of await this.getAllTsConfigs(token)) {
@@ -57,12 +55,8 @@ class TsTask extends Disposable implements qv.TaskProvider {
       return undefined;
     }
     const tsconfigPath = definition.tsconfig;
-    if (!tsconfigPath) {
-      return undefined;
-    }
-    if (task.scope === undefined || task.scope === qv.TaskScope.Global || task.scope === qv.TaskScope.Workspace) {
-      return undefined;
-    }
+    if (!tsconfigPath) return undefined;
+    if (task.scope === undefined || task.scope === qv.TaskScope.Global || task.scope === qv.TaskScope.Workspace) return undefined;
     const tsconfigUri = task.scope.uri.with({ path: task.scope.uri.path + '/' + tsconfigPath });
     const tsconfig: TSConfig = {
       uri: tsconfigUri,
@@ -92,16 +86,12 @@ class TsTask extends Disposable implements qv.TaskProvider {
       }
     }
     const file = this.getActiveTypeScriptFile();
-    if (!file) {
-      return [];
-    }
+    if (!file) return [];
     const response = await Promise.race([
       this.client.value.execute('projectInfo', { file, needFileNameList: false }, token),
       new Promise<typeof ServerResponse.NoContent>((resolve) => setTimeout(() => resolve(ServerResponse.NoContent), this.projectInfoRequestTimeout)),
     ]);
-    if (response.type !== 'response' || !response.body) {
-      return [];
-    }
+    if (response.type !== 'response' || !response.body) return [];
     const { configFileName } = response.body;
     if (configFileName && !isImplicitProjectConfigFile(configFileName)) {
       const normalizedConfigPath = path.normalize(configFileName);
@@ -132,13 +122,9 @@ class TsTask extends Disposable implements qv.TaskProvider {
   private static async getCommand(project: TSConfig): Promise<string> {
     if (project.workspaceFolder) {
       const localTsc = await TsTask.getLocalTscAtPath(path.dirname(project.fsPath));
-      if (localTsc) {
-        return localTsc;
-      }
+      if (localTsc) return localTsc;
       const workspaceTsc = await TsTask.getLocalTscAtPath(project.workspaceFolder.uri.fsPath);
-      if (workspaceTsc) {
-        return workspaceTsc;
-      }
+      if (workspaceTsc) return workspaceTsc;
     }
     return 'tsc';
   }
@@ -179,12 +165,10 @@ class TsTask extends Disposable implements qv.TaskProvider {
     const args = await this.getBuildShellArgs(project);
     const label = this.getLabelForTasks(project);
     const tasks: qv.Task[] = [];
-    if (this.autoDetect === AutoDetect.build || this.autoDetect === AutoDetect.on) {
+    if (this.autoDetect === AutoDetect.build || this.autoDetect === AutoDetect.on)
       tasks.push(this.getBuildTask(project.workspaceFolder, label, command, args, { type: 'typescript', tsconfig: label }));
-    }
-    if (this.autoDetect === AutoDetect.watch || this.autoDetect === AutoDetect.on) {
+    if (this.autoDetect === AutoDetect.watch || this.autoDetect === AutoDetect.on)
       tasks.push(this.getWatchTask(project.workspaceFolder, label, command, args, { type: 'typescript', tsconfig: label, option: 'watch' }));
-    }
     return tasks;
   }
   private async getTasksForProjectAndDefinition(project: TSConfig, definition: TypeScriptTaskDefinition): Promise<qv.Task | undefined> {
@@ -192,9 +176,8 @@ class TsTask extends Disposable implements qv.TaskProvider {
     const args = await this.getBuildShellArgs(project);
     const label = this.getLabelForTasks(project);
     let task: qv.Task | undefined;
-    if (definition.option === undefined) {
-      task = this.getBuildTask(project.workspaceFolder, label, command, args, definition);
-    } else if (definition.option === 'watch') {
+    if (definition.option === undefined) task = this.getBuildTask(project.workspaceFolder, label, command, args, definition);
+    else if (definition.option === 'watch') {
       task = this.getWatchTask(project.workspaceFolder, label, command, args, definition);
     }
     return task;
@@ -205,9 +188,7 @@ class TsTask extends Disposable implements qv.TaskProvider {
       const bytes = await qv.workspace.fs.readFile(project.uri);
       const text = Buffer.from(bytes).toString('utf-8');
       const tsconfig = jsonc.parse(text);
-      if (tsconfig?.references) {
-        return ['-b', project.fsPath];
-      }
+      if (tsconfig?.references) return ['-b', project.fsPath];
     } catch {}
     return defaultArgs;
   }
@@ -233,9 +214,7 @@ class JlTask {
     const emptyTasks: qv.Task[] = [];
     const allTasks: qv.Task[] = [];
     const folders = qv.workspace.workspaceFolders;
-    if (!folders) {
-      return emptyTasks;
-    }
+    if (!folders) return emptyTasks;
     for (let i = 0; i < folders.length; i++) {
       const tasks = await this.provideJuliaTasksForFolder(folders[i]);
       allTasks.push(...tasks);
@@ -244,9 +223,7 @@ class JlTask {
   }
   async provideJuliaTasksForFolder(folder: qv.WorkspaceFolder) {
     const emptyTasks: qv.Task[] = [];
-    if (folder.uri.scheme !== 'file') {
-      return emptyTasks;
-    }
+    if (folder.uri.scheme !== 'file') return emptyTasks;
     const rootPath = folder.uri.fsPath;
     try {
       const result: qv.Task[] = [];

@@ -22,9 +22,7 @@ class JsDocCompletionProvider implements qv.CompletionItemProvider {
   constructor(private readonly client: ServiceClient, private readonly fileConfigMgr: FileConfigMgr) {}
   public async provideCompletionItems(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): Promise<qv.CompletionItem[] | undefined> {
     const file = this.client.toOpenedFilePath(document);
-    if (!file) {
-      return undefined;
-    }
+    if (!file) return undefined;
     if (!this.isPotentiallyValidDocCompletionPosition(document, position)) {
       return undefined;
     }
@@ -33,13 +31,10 @@ class JsDocCompletionProvider implements qv.CompletionItemProvider {
       const args = qu.Position.toFileLocationRequestArgs(file, position);
       return this.client.execute('docCommentTemplate', args, token);
     });
-    if (response.type !== 'response' || !response.body) {
-      return undefined;
-    }
+    if (response.type !== 'response' || !response.body) return undefined;
     const item = new JsDocCompletionItem(document, position);
-    if (response.body.newText === '/** */') {
-      item.insertText = defaultJsDoc;
-    } else {
+    if (response.body.newText === '/** */') item.insertText = defaultJsDoc;
+    else {
       item.insertText = templateToSnippet(response.body.newText);
     }
     return [item];
@@ -61,9 +56,8 @@ export function templateToSnippet(template: string): qv.SnippetString {
   template = template.replace(/^(\/\*\*\s*\*[ ]*)$/m, (x) => x + `\$0`);
   template = template.replace(/\* @param([ ]\{\S+\})?\s+(\S+)[ \t]*$/gm, (_param, type, post) => {
     let out = '* @param ';
-    if (type === ' {any}' || type === ' {*}') {
-      out += `{\$\{${snippetIndex++}:*\}} `;
-    } else if (type) {
+    if (type === ' {any}' || type === ' {*}') out += `{\$\{${snippetIndex++}:*\}} `;
+    else if (type) {
       out += type + ' ';
     }
     out += post + ` \${${snippetIndex++}}`;

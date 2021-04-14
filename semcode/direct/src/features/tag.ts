@@ -30,16 +30,10 @@ class TagClosing extends Disposable {
   }
   private onDidChangeTextDocument(document: qv.TextDocument, changes: readonly qv.TextDocumentContentChangeEvent[]) {
     const activeDocument = qv.window.activeTextEditor && qv.window.activeTextEditor.document;
-    if (document !== activeDocument || changes.length === 0) {
-      return;
-    }
+    if (document !== activeDocument || changes.length === 0) return;
     const filepath = this.client.toOpenedFilePath(document);
-    if (!filepath) {
-      return;
-    }
-    if (typeof this._timeout !== 'undefined') {
-      clearTimeout(this._timeout);
-    }
+    if (!filepath) return;
+    if (typeof this._timeout !== 'undefined') clearTimeout(this._timeout);
     if (this._cancel) {
       this._cancel.cancel();
       this._cancel.dispose();
@@ -51,15 +45,11 @@ class TagClosing extends Disposable {
       return;
     }
     const priorCharacter = lastChange.range.start.character > 0 ? document.getText(new qv.Range(lastChange.range.start.translate({ characterDelta: -1 }), lastChange.range.start)) : '';
-    if (priorCharacter === '>') {
-      return;
-    }
+    if (priorCharacter === '>') return;
     const version = document.version;
     this._timeout = setTimeout(async () => {
       this._timeout = undefined;
-      if (this._disposed) {
-        return;
-      }
+      if (this._disposed) return;
       const addedLines = lastChange.text.split(/\r\n|\n/g);
       const position =
         addedLines.length <= 1
@@ -68,21 +58,13 @@ class TagClosing extends Disposable {
       const args: qp.JsxClosingTagRequestArgs = qu.Position.toFileLocationRequestArgs(filepath, position);
       this._cancel = new qv.CancellationTokenSource();
       const response = await this.client.execute('jsxClosingTag', args, this._cancel.token);
-      if (response.type !== 'response' || !response.body) {
-        return;
-      }
-      if (this._disposed) {
-        return;
-      }
+      if (response.type !== 'response' || !response.body) return;
+      if (this._disposed) return;
       const activeEditor = qv.window.activeTextEditor;
-      if (!activeEditor) {
-        return;
-      }
+      if (!activeEditor) return;
       const insertion = response.body;
       const activeDocument = activeEditor.document;
-      if (document === activeDocument && activeDocument.version === version) {
-        activeEditor.insertSnippet(this.getTagSnippet(insertion), this.getInsertionPositions(activeEditor, position));
-      }
+      if (document === activeDocument && activeDocument.version === version) activeEditor.insertSnippet(this.getTagSnippet(insertion), this.getInsertionPositions(activeEditor, position));
     }, 100);
   }
   private getTagSnippet(closingTag: qp.TextInsertion): qv.SnippetString {

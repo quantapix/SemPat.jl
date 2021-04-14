@@ -34,9 +34,7 @@ export default class FileConfigMgr extends Disposable {
   }
   public async ensureConfigForDocument(document: qv.TextDocument, token: qv.CancellationToken): Promise<void> {
     const formattingOptions = this.getFormattingOptions(document);
-    if (formattingOptions) {
-      return this.ensureConfigOptions(document, formattingOptions, token);
-    }
+    if (formattingOptions) return this.ensureConfigOptions(document, formattingOptions, token);
   }
   private getFormattingOptions(document: qv.TextDocument): qv.FormattingOptions | undefined {
     const editor = qv.window.visibleTextEditors.find((editor) => editor.document.fileName === document.fileName);
@@ -49,9 +47,7 @@ export default class FileConfigMgr extends Disposable {
   }
   public async ensureConfigOptions(document: qv.TextDocument, options: qv.FormattingOptions, token: qv.CancellationToken): Promise<void> {
     const file = this.client.toOpenedFilePath(document);
-    if (!file) {
-      return;
-    }
+    if (!file) return;
     const currentOptions = this.getFileOptions(document, options);
     const cachedOptions = this.formatOptions.get(document.uri);
     if (cachedOptions) {
@@ -75,9 +71,7 @@ export default class FileConfigMgr extends Disposable {
   }
   public async setGlobalConfigFromDocument(document: qv.TextDocument, token: qv.CancellationToken): Promise<void> {
     const formattingOptions = this.getFormattingOptions(document);
-    if (!formattingOptions) {
-      return;
-    }
+    if (!formattingOptions) return;
     const args: qp.ConfigureRequestArguments = {
       file: undefined /*global*/,
       ...this.getFileOptions(document, formattingOptions),
@@ -257,20 +251,11 @@ export interface TSConfig {
 }
 export class TsConfig {
   public async getConfigsForWorkspace(token: qv.CancellationToken): Promise<Iterable<TSConfig>> {
-    if (!qv.workspace.workspaceFolders) {
-      return [];
-    }
+    if (!qv.workspace.workspaceFolders) return [];
     const configs = new Map<string, TSConfig>();
     for (const config of await this.findConfigFiles(token)) {
       const root = qv.workspace.getWorkspaceFolder(config);
-      if (root) {
-        configs.set(config.fsPath, {
-          uri: config,
-          fsPath: config.fsPath,
-          posixPath: config.path,
-          workspaceFolder: root,
-        });
-      }
+      if (root) configs.set(config.fsPath, { uri: config, fsPath: config.fsPath, posixPath: config.path, workspaceFolder: root });
     }
     return configs.values();
   }
@@ -284,9 +269,7 @@ function mapChildren<R>(node: jsonc.Node | undefined, f: (x: jsonc.Node) => R): 
 class TsconfigLinkProvider implements qv.DocumentLinkProvider {
   public provideDocumentLinks(document: qv.TextDocument, _token: qv.CancellationToken): qv.ProviderResult<qv.DocumentLink[]> {
     const root = jsonc.parseTree(document.getText());
-    if (!root) {
-      return null;
-    }
+    if (!root) return null;
     return coalesce([this.getExtendsLink(document, root), ...this.getFilesLinks(document, root), ...this.getReferencesLinks(document, root)]);
   }
   private getExtendsLink(document: qv.TextDocument, root: jsonc.Node): qv.DocumentLink | undefined {

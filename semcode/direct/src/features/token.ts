@@ -52,13 +52,10 @@ class SemanticTokens implements qv.DocumentSemanticTokensProvider, qv.DocumentRa
       const tsClassification = tokenSpan[i++];
       let tokenModifiers = 0;
       let tokenType = getTokenTypeFromClassification(tsClassification);
-      if (tokenType !== undefined) {
-        tokenModifiers = getTokenModifierFromClassification(tsClassification);
-      } else {
+      if (tokenType !== undefined) tokenModifiers = getTokenModifierFromClassification(tsClassification);
+      else {
         tokenType = tokenTypeMap[tsClassification];
-        if (tokenType === undefined) {
-          continue;
-        }
+        if (tokenType === undefined) continue;
       }
       const startPos = document.positionAt(offset);
       const endPos = document.positionAt(offset + length);
@@ -116,9 +113,7 @@ declare const enum VersionRequirement {
   minor = 7,
 }
 function getTokenTypeFromClassification(tsClassification: number): number | undefined {
-  if (tsClassification > TokenEncodingConsts.modifierMask) {
-    return (tsClassification >> TokenEncodingConsts.typeOffset) - 1;
-  }
+  if (tsClassification > TokenEncodingConsts.modifierMask) return (tsClassification >> TokenEncodingConsts.typeOffset) - 1;
   return undefined;
 }
 function getTokenModifierFromClassification(tsClassification: number) {

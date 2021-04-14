@@ -30,17 +30,11 @@ export class GoRename implements qv.RenameProvider {
       const gorename = getBinPath('gorename');
       const buildTags = getGoConfig(document.uri)['buildTags'];
       const gorenameArgs = ['-offset', filename + ':#' + offset, '-to', newName];
-      if (buildTags) {
-        gorenameArgs.push('-tags', buildTags);
-      }
+      if (buildTags) gorenameArgs.push('-tags', buildTags);
       const canRenameToolUseDiff = isDiffToolAvailable();
-      if (canRenameToolUseDiff) {
-        gorenameArgs.push('-d');
-      }
+      if (canRenameToolUseDiff) gorenameArgs.push('-d');
       let p: cp.ChildProc;
-      if (token) {
-        token.onCancellationRequested(() => killProcTree(p));
-      }
+      if (token) token.onCancellationRequested(() => killProcTree(p));
       p = cp.execFile(gorename, gorenameArgs, { env }, (err, stdout, stderr) => {
         try {
           if (err && (<any>err).code === 'ENOENT') {

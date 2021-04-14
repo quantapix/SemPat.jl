@@ -47,9 +47,7 @@ class MyCompletionItem extends qv.CompletionItem {
     if (tsEntry.source) {
       this.sortText = '\uffff' + tsEntry.sortText;
       const qualifierCandidate = qv.workspace.asRelativePath(tsEntry.source);
-      if (qualifierCandidate !== tsEntry.source) {
-        this.label2 = { name: tsEntry.name, qualifier: qualifierCandidate };
-      }
+      if (qualifierCandidate !== tsEntry.source) this.label2 = { name: tsEntry.name, qualifier: qualifierCandidate };
     } else {
       this.sortText = tsEntry.sortText;
     }
@@ -64,26 +62,17 @@ class MyCompletionItem extends qv.CompletionItem {
       this.filterText = completionContext.dotAccessorContext.text + (this.insertText || this.label);
       if (!this.range) {
         const replacementRange = this.getFuzzyWordRange();
-        if (replacementRange) {
-          this.range = {
-            inserting: completionContext.dotAccessorContext.range,
-            replacing: completionContext.dotAccessorContext.range.union(replacementRange),
-          };
-        } else {
-          this.range = completionContext.dotAccessorContext.range;
-        }
+        if (replacementRange) this.range = { inserting: completionContext.dotAccessorContext.range, replacing: completionContext.dotAccessorContext.range.union(replacementRange) };
+        else this.range = completionContext.dotAccessorContext.range;
+
         this.insertText = this.filterText;
       }
     }
     if (tsEntry.kindModifiers) {
       const kindModifiers = parseKindModifier(tsEntry.kindModifiers);
       if (kindModifiers.has(PConst.KindModifiers.optional)) {
-        if (!this.insertText) {
-          this.insertText = this.label;
-        }
-        if (!this.filterText) {
-          this.filterText = this.label;
-        }
+        if (!this.insertText) this.insertText = this.label;
+        if (!this.filterText) this.filterText = this.label;
         this.label += '?';
       }
       if (kindModifiers.has(PConst.KindModifiers.depreacted)) {
@@ -95,11 +84,9 @@ class MyCompletionItem extends qv.CompletionItem {
       if (tsEntry.kind === PConst.Kind.script) {
         for (const extModifier of PConst.KindModifiers.fileExtensionKindModifiers) {
           if (kindModifiers.has(extModifier)) {
-            if (tsEntry.name.toLowerCase().endsWith(extModifier)) {
-              this.detail = tsEntry.name;
-            } else {
-              this.detail = tsEntry.name + extModifier;
-            }
+            if (tsEntry.name.toLowerCase().endsWith(extModifier)) this.detail = tsEntry.name;
+            else this.detail = tsEntry.name + extModifier;
+
             break;
           }
         }
@@ -116,9 +103,7 @@ class MyCompletionItem extends qv.CompletionItem {
     token.onCancellationRequested(() => {
       if (this._resolvedPromise && --this._resolvedPromise.waiting <= 0) {
         setTimeout(() => {
-          if (this._resolvedPromise && this._resolvedPromise.waiting <= 0) {
-            this._resolvedPromise.requestToken.cancel();
-          }
+          if (this._resolvedPromise && this._resolvedPromise.waiting <= 0) this._resolvedPromise.requestToken.cancel();
         }, 300);
       }
     });
@@ -129,9 +114,7 @@ class MyCompletionItem extends qv.CompletionItem {
     const requestToken = new qv.CancellationTokenSource();
     const promise = (async (): Promise<ResolvedCompletionItem | undefined> => {
       const filepath = client.toOpenedFilePath(this.document);
-      if (!filepath) {
-        return undefined;
-      }
+      if (!filepath) return undefined;
       const args: qp.CompletionDetailsRequestArgs = {
         ...qu.Position.toFileLocationRequestArgs(filepath, this.position),
         entryNames: [
@@ -145,13 +128,9 @@ class MyCompletionItem extends qv.CompletionItem {
         ],
       };
       const response = await client.interruptGetErr(() => client.execute('completionEntryDetails', args, requestToken.token));
-      if (response.type !== 'response' || !response.body || !response.body.length) {
-        return undefined;
-      }
+      if (response.type !== 'response' || !response.body || !response.body.length) return undefined;
       const detail = response.body[0];
-      if (!this.detail && detail.displayParts.length) {
-        this.detail = Previewer.plain(detail.displayParts);
-      }
+      if (!this.detail && detail.displayParts.length) this.detail = Previewer.plain(detail.displayParts);
       this.documentation = this.getDocumentation(detail, this);
       const codeAction = this.getCodeActions(detail, filepath);
       const commands: qv.Command[] = [
@@ -161,9 +140,7 @@ class MyCompletionItem extends qv.CompletionItem {
           arguments: [this],
         },
       ];
-      if (codeAction.command) {
-        commands.push(codeAction.command);
-      }
+      if (codeAction.command) commands.push(codeAction.command);
       const additionalTextEdits = codeAction.additionalTextEdits;
       if (this.useCodeSnippet) {
         const shouldCompleteFunction = await this.isValidFunctionCompletionContext(client, filepath, this.position, this.document, token);
@@ -171,9 +148,7 @@ class MyCompletionItem extends qv.CompletionItem {
           const { snippet, parameterCount } = snippetForFunctionCall(this, detail.displayParts);
           this.insertText = snippet;
           if (parameterCount > 0) {
-            if (qv.workspace.getConfig('editor.parameterHints').get('enabled')) {
-              commands.push({ title: 'triggerParameterHints', command: 'editor.action.triggerParameterHints' });
-            }
+            if (qv.workspace.getConfig('editor.parameterHints').get('enabled')) commands.push({ title: 'triggerParameterHints', command: 'editor.action.triggerParameterHints' });
           }
         }
       }
@@ -214,22 +189,15 @@ class MyCompletionItem extends qv.CompletionItem {
     return after.match(/^[a-z_$0-9]*\s*\(/gi) === null;
   }
   private getCodeActions(detail: qp.CompletionEntryDetails, filepath: string): { command?: qv.Command; additionalTextEdits?: qv.TextEdit[] } {
-    if (!detail.codeActions || !detail.codeActions.length) {
-      return {};
-    }
+    if (!detail.codeActions || !detail.codeActions.length) return {};
     const additionalTextEdits: qv.TextEdit[] = [];
     let hasRemainingCommandsOrEdits = false;
     for (const tsAction of detail.codeActions) {
-      if (tsAction.commands) {
-        hasRemainingCommandsOrEdits = true;
-      }
+      if (tsAction.commands) hasRemainingCommandsOrEdits = true;
       if (tsAction.changes) {
         for (const change of tsAction.changes) {
-          if (change.fileName === filepath) {
-            additionalTextEdits.push(...change.textChanges.map(qu.TextEdit.fromCodeEdit));
-          } else {
-            hasRemainingCommandsOrEdits = true;
-          }
+          if (change.fileName === filepath) additionalTextEdits.push(...change.textChanges.map(qu.TextEdit.fromCodeEdit));
+          else hasRemainingCommandsOrEdits = true;
         }
       }
     }
@@ -256,13 +224,9 @@ class MyCompletionItem extends qv.CompletionItem {
     };
   }
   private getRangeFromReplacementSpan(tsEntry: qp.CompletionEntry, completionContext: CompletionContext) {
-    if (!tsEntry.replacementSpan) {
-      return;
-    }
+    if (!tsEntry.replacementSpan) return;
     let replaceRange = qu.Range.fromTextSpan(tsEntry.replacementSpan);
-    if (!replaceRange.isSingleLine) {
-      replaceRange = new qv.Range(replaceRange.start.line, replaceRange.start.character, replaceRange.start.line, completionContext.line.length);
-    }
+    if (!replaceRange.isSingleLine) replaceRange = new qv.Range(replaceRange.start.line, replaceRange.start.character, replaceRange.start.line, completionContext.line.length);
     return {
       inserting: replaceRange,
       replacing: replaceRange,
@@ -273,11 +237,8 @@ class MyCompletionItem extends qv.CompletionItem {
       const wordRange = this.completionContext.wordRange;
       const wordStart = wordRange ? line.charAt(wordRange.start.character) : undefined;
       if (insertText) {
-        if (insertText.startsWith('this.#')) {
-          return wordStart === '#' ? insertText : insertText.replace(/^this\.#/, '');
-        } else {
-          return insertText;
-        }
+        if (insertText.startsWith('this.#')) return wordStart === '#' ? insertText : insertText.replace(/^this\.#/, '');
+        else return insertText;
       } else {
         return wordStart === '#' ? undefined : this.tsEntry.name.replace(/^#/, '');
       }
@@ -290,16 +251,13 @@ class MyCompletionItem extends qv.CompletionItem {
     return insertText;
   }
   private resolveRange(): void {
-    if (this.range) {
-      return;
-    }
+    if (this.range) return;
     const replaceRange = this.getFuzzyWordRange();
-    if (replaceRange) {
+    if (replaceRange)
       this.range = {
         inserting: new qv.Range(replaceRange.start, this.position),
         replacing: replaceRange,
       };
-    }
   }
   private getFuzzyWordRange() {
     if (this.completionContext.useFuzzyWordRangeLogic) {
@@ -362,9 +320,7 @@ class MyCompletionItem extends qv.CompletionItem {
     }
   }
   private static getCommitCharacters(context: CompletionContext, entry: qp.CompletionEntry): string[] | undefined {
-    if (context.isNewIdentifierLocation || !context.isInValidCommitCharacterContext) {
-      return undefined;
-    }
+    if (context.isNewIdentifierLocation || !context.isInValidCommitCharacterContext) return undefined;
     const commitCharacters: string[] = [];
     switch (entry.kind) {
       case PConst.Kind.memberGetAccessor:
@@ -389,9 +345,7 @@ class MyCompletionItem extends qv.CompletionItem {
       case PConst.Kind.keyword:
       case PConst.Kind.parameter:
         commitCharacters.push('.', ',', ';');
-        if (context.enableCallCompletions) {
-          commitCharacters.push('(');
-        }
+        if (context.enableCallCompletions) commitCharacters.push('(');
         break;
     }
     return commitCharacters.length === 0 ? undefined : commitCharacters;
@@ -433,9 +387,7 @@ class ApplyCompletionCommand implements Command {
   public constructor(private readonly client: ServiceClient) {}
   public async execute(item: MyCompletionItem) {
     const resolved = await item.resolveCompletionItem(this.client, nulToken);
-    if (!resolved) {
-      return;
-    }
+    if (!resolved) return;
     const { edits, commands } = resolved;
     if (edits) {
       const workspaceEdit = new qv.WorkspaceEdit();
@@ -454,12 +406,8 @@ class ApplyCompletionCodeActionCommand implements Command {
   public readonly id = ApplyCompletionCodeActionCommand.ID;
   public constructor(private readonly client: ServiceClient) {}
   public async execute(_file: string, codeActions: qp.CodeAction[]): Promise<boolean> {
-    if (codeActions.length === 0) {
-      return true;
-    }
-    if (codeActions.length === 1) {
-      return applyCodeAction(this.client, codeActions[0], nulToken);
-    }
+    if (codeActions.length === 0) return true;
+    if (codeActions.length === 1) return applyCodeAction(this.client, codeActions[0], nulToken);
     const selection = await qv.window.showQuickPick(
       codeActions.map((action) => ({
         label: action.description,
@@ -470,9 +418,7 @@ class ApplyCompletionCodeActionCommand implements Command {
         placeHolder: 'selectCodeAction',
       }
     );
-    if (selection) {
-      return applyCodeAction(this.client, selection.action, nulToken);
-    }
+    if (selection) return applyCodeAction(this.client, selection.action, nulToken);
     return false;
   }
 }
@@ -526,9 +472,7 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
       });
     }
     const file = this.client.toOpenedFilePath(document);
-    if (!file) {
-      return undefined;
-    }
+    if (!file) return undefined;
     const line = document.lineAt(position.line);
     const completionConfig = CompletionConfig.getConfigForResource(this.modeId, document.uri);
     if (!this.shouldTrigger(context, line, position)) {
@@ -576,9 +520,7 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
       metadata = response.metadata;
     } else {
       const response = await this.client.interruptGetErr(() => this.client.execute('completions', args, token));
-      if (response.type !== 'response' || !response.body) {
-        return undefined;
-      }
+      if (response.type !== 'response' || !response.body) return undefined;
       entries = response.body;
       metadata = response.metadata;
     }
@@ -607,9 +549,7 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
         includesPackageJsonImport = !!entry.isPackageJsonImport;
       }
     }
-    if (duration !== undefined) {
-      this.logCompletionsTelemetry(duration, response, includesPackageJsonImport);
-    }
+    if (duration !== undefined) this.logCompletionsTelemetry(duration, response, includesPackageJsonImport);
     return new qv.CompletionList(items, isIncomplete);
   }
   private logCompletionsTelemetry(duration: number, response: ServerResponse.Response<qp.CompletionInfoResponse> | undefined, includesPackageJsonImport?: boolean) {
@@ -684,9 +624,7 @@ class TypeScriptCompletionItemProvider implements qv.CompletionItemProvider<MyCo
           return false;
         }
       }
-      if (context.triggerCharacter === '<') {
-        return false;
-      }
+      if (context.triggerCharacter === '<') return false;
     }
     return true;
   }

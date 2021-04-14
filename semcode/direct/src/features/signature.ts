@@ -19,30 +19,21 @@ import { Position  } from 'vscode';
 import { getGoConfig } from './config';
 import { definitionLocation } from './go/definition';
 import { getParametersAndReturnType, isPositionInComment, isPositionInString } from './util';
+
 export class GoSignatureHelp implements qv.SignatureHelpProvider {
   constructor(private goConfig?: qv.WorkspaceConfiguration) {}
   public async provideSignatureHelp(document: qv.TextDocument, position: Position, token: qv.CancellationToken): Promise<qv.SignatureHelp> {
     let goConfig = this.goConfig || getGoConfig(document.uri);
     const theCall = this.walkBackwardsToBeginningOfCall(document, position);
-    if (theCall == null) {
-      return Promise.resolve(null);
-    }
+    if (theCall == null) return Promise.resolve(null);
     const callerPos = this.previousTokenPosition(document, theCall.openParen);
-    if (goConfig['docsTool'] === 'guru') {
-      goConfig = Object.assign({}, goConfig, { docsTool: 'godoc' });
-    }
+    if (goConfig['docsTool'] === 'guru') goConfig = Object.assign({}, goConfig, { docsTool: 'godoc' });
     try {
       const res = await definitionLocation(document, callerPos, goConfig, true, token);
-      if (!res) {
-        return null;
-      }
-      if (res.line === callerPos.line) {
-        return null;
-      }
+      if (!res) return null;
+      if (res.line === callerPos.line) return null;
       let declarationText: string = (res.declarationlines || []).join(' ').trim();
-      if (!declarationText) {
-        return null;
-      }
+      if (!declarationText) return null;
       const result = new qv.SignatureHelp();
       let sig: string;
       let si: qv.SignatureInformation;
@@ -55,9 +46,7 @@ export class GoSignatureHelp implements qv.SignatureHelpProvider {
       } else if (res.toolUsed === 'gogetdoc') {
         declarationText = declarationText.substring(5);
         const funcNameStart = declarationText.indexOf(res.name + '(');
-        if (funcNameStart > 0) {
-          declarationText = declarationText.substring(funcNameStart);
-        }
+        if (funcNameStart > 0) declarationText = declarationText.substring(funcNameStart);
         si = new qv.SignatureInformation(declarationText, res.doc);
         sig = declarationText.substring(res.name.length);
       }
@@ -73,9 +62,7 @@ export class GoSignatureHelp implements qv.SignatureHelpProvider {
   private previousTokenPosition(document: qv.TextDocument, position: Position): Position {
     while (position.character > 0) {
       const word = document.getWordRangeAtPosition(position);
-      if (word) {
-        return word.start;
-      }
+      if (word) return word.start;
       position = position.translate(0, -1);
     }
     return null;
@@ -217,9 +204,7 @@ export class RsSignatureHelp implements qv.SignatureHelpProvider {
         return null;
       }
     } else {
-      if (context.isRetrigger === false) {
-        this.previousFunctionPosition = undefined;
-      }
+      if (context.isRetrigger === false) this.previousFunctionPosition = undefined;
       return null;
     }
   }
@@ -300,9 +285,7 @@ export class PySignatureHelp {
   static getSignatureHelpForPosition(parseResults: ParseResults, position: Position, evaluator: TypeEvaluator, format: MarkupKind, token: qv.CancellationToken): qv.SignatureHelpResults | undefined {
     throwIfCancellationRequested(token);
     const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
-    if (offset === undefined) {
-      return undefined;
-    }
+    if (offset === undefined) return undefined;
     let node = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset);
     const initialNode = node;
     const initialDepth = node ? ParseTreeUtils.getNodeDepth(node) : 0;
@@ -311,23 +294,17 @@ export class PySignatureHelp {
       curOffset--;
       const curNode = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, curOffset);
       if (curNode && curNode !== initialNode) {
-        if (ParseTreeUtils.getNodeDepth(curNode) > initialDepth) {
+        if (ParseTreeUtils.getNodeDepth(curNode) > initialDepth) 
           node = curNode;
-        }
+        
         break;
       }
     }
-    if (node === undefined) {
-      return undefined;
-    }
+    if (node === undefined) return undefined;
     const callInfo = getCallNodeAndActiveParameterIndex(node, offset, parseResults.tokenizerOutput.tokens);
-    if (!callInfo) {
-      return;
-    }
+    if (!callInfo) return;
     const callSignatureInfo = evaluator.getCallSignatureInfo(callInfo.callNode, callInfo.activeIndex, callInfo.activeOrFake);
-    if (!callSignatureInfo) {
-      return undefined;
-    }
+    if (!callSignatureInfo) return undefined;
     const signatures = callSignatureInfo.signatures.map((sig) => this._makeSignature(sig, evaluator, format));
     const callHasParameters = !!callSignatureInfo.callNode.arguments?.length;
     return {
@@ -344,9 +321,7 @@ export class PySignatureHelp {
     const params = functionType.details.parameters;
     stringParts[0].forEach((paramString: string, paramIndex) => {
       let paramName = '';
-      if (paramIndex < params.length) {
-        paramName = params[paramIndex].name || '';
-      } else if (params.length > 0) {
+      if (paramIndex < params.length) paramName = params[paramIndex].name || ''; else if (params.length > 0) {
         paramName = params[params.length - 1].name || '';
       }
       parameters.push({
@@ -356,17 +331,13 @@ export class PySignatureHelp {
         documentation: extractParameterDocumentation(functionDocString || '', paramName),
       });
       label += paramString;
-      if (paramIndex < stringParts[0].length - 1) {
-        label += ', ';
-      }
+      if (paramIndex < stringParts[0].length - 1) label += ', ';
     });
     label += ') -> ' + stringParts[1];
     let activeParameter: number | undefined;
     if (signature.activeParam) {
       activeParameter = params.indexOf(signature.activeParam);
-      if (activeParameter === -1) {
-        activeParameter = undefined;
-      }
+      if (activeParameter === -1) activeParameter = undefined;
     }
     const sigInfo: SignatureInfo = {
       label,

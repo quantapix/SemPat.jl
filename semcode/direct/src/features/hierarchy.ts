@@ -112,9 +112,8 @@ export class PyCallHierarchy {
   static getOutgoingCallsForDeclaration(declaration: Declaration, parseResults: ParseResults, evaluator: TypeEvaluator, token: CancellationToken): CallHierarchyOutgoingCall[] | undefined {
     throwIfCancellationRequested(token);
     let parseRoot: ParseNode | undefined;
-    if (declaration.type === DeclarationType.Function) {
-      parseRoot = declaration.node;
-    } else if (declaration.type === DeclarationType.Class) {
+    if (declaration.type === DeclarationType.Function) parseRoot = declaration.node;
+    else if (declaration.type === DeclarationType.Class) {
       const classType = evaluator.getTypeForDeclaration(declaration);
       if (classType && isClass(classType)) {
         const initMethodMember = lookUpClassMember(
@@ -128,17 +127,13 @@ export class PyCallHierarchy {
             const initDecls = initMethodMember.symbol.getDeclarations();
             if (initDecls && initDecls.length > 0) {
               const primaryInitDecl = initDecls[0];
-              if (primaryInitDecl.type === DeclarationType.Function) {
-                parseRoot = primaryInitDecl.node;
-              }
+              if (primaryInitDecl.type === DeclarationType.Function) parseRoot = primaryInitDecl.node;
             }
           }
         }
       }
     }
-    if (!parseRoot) {
-      return undefined;
-    }
+    if (!parseRoot) return undefined;
     const callFinder = new FindOutgoingCallTreeWalker(parseRoot, parseResults, evaluator, token);
     const outgoingCalls = callFinder.findCalls();
     return outgoingCalls.length > 0 ? outgoingCalls : undefined;
@@ -149,9 +144,7 @@ export class PyCallHierarchy {
       if (DeclarationUtils.hasTypeForDeclaration(decl) || !DeclarationUtils.hasTypeForDeclaration(targetDecl)) {
         if (decl.type === DeclarationType.Function || decl.type === DeclarationType.Class) {
           targetDecl = decl;
-          if (decl.node === node) {
-            break;
-          }
+          if (decl.node === node) break;
         }
       }
     }
@@ -170,9 +163,8 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
   visitCall(node: CallNode): boolean {
     throwIfCancellationRequested(this._cancellationToken);
     let nameNode: NameNode | undefined;
-    if (node.leftExpression.nodeType === ParseNodeType.Name) {
-      nameNode = node.leftExpression;
-    } else if (node.leftExpression.nodeType === ParseNodeType.MemberAccess) {
+    if (node.leftExpression.nodeType === ParseNodeType.Name) nameNode = node.leftExpression;
+    else if (node.leftExpression.nodeType === ParseNodeType.MemberAccess) {
       nameNode = node.leftExpression.memberName;
     }
     if (nameNode) {
@@ -196,14 +188,10 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
           return;
         }
         const memberInfo = lookUpObjectMember(baseType, node.memberName.value);
-        if (!memberInfo) {
-          return;
-        }
+        if (!memberInfo) return;
         const memberType = this._evaluator.getTypeOfMember(memberInfo);
         const propertyDecls = memberInfo.symbol.getDeclarations();
-        if (!memberType) {
-          return;
-        }
+        if (!memberType) return;
         if (isObject(memberType) && ClassType.isPropertyClass(memberType.classType)) {
           propertyDecls.forEach((decl) => {
             this._addOutgoingCallForDeclaration(node.memberName, decl);
@@ -215,12 +203,8 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
   }
   private _addOutgoingCallForDeclaration(nameNode: NameNode, declaration: Declaration) {
     const resolvedDecl = this._evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ true);
-    if (!resolvedDecl) {
-      return;
-    }
-    if (resolvedDecl.type !== DeclarationType.Function && resolvedDecl.type !== DeclarationType.Class) {
-      return;
-    }
+    if (!resolvedDecl) return;
+    if (resolvedDecl.type !== DeclarationType.Function && resolvedDecl.type !== DeclarationType.Class) return;
     const callDest: CallHierarchyItem = {
       name: nameNode.value,
       kind: getSymbolKind(resolvedDecl, this._evaluator),
@@ -259,9 +243,8 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
   visitCall(node: CallNode): boolean {
     throwIfCancellationRequested(this._cancellationToken);
     let nameNode: NameNode | undefined;
-    if (node.leftExpression.nodeType === ParseNodeType.Name) {
-      nameNode = node.leftExpression;
-    } else if (node.leftExpression.nodeType === ParseNodeType.MemberAccess) {
+    if (node.leftExpression.nodeType === ParseNodeType.Name) nameNode = node.leftExpression;
+    else if (node.leftExpression.nodeType === ParseNodeType.MemberAccess) {
       nameNode = node.leftExpression.memberName;
     }
     if (nameNode && nameNode.value === this._symbolName) {
@@ -291,14 +274,10 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
             return;
           }
           const memberInfo = lookUpObjectMember(baseType, node.memberName.value);
-          if (!memberInfo) {
-            return;
-          }
+          if (!memberInfo) return;
           const memberType = this._evaluator.getTypeOfMember(memberInfo);
           const propertyDecls = memberInfo.symbol.getDeclarations();
-          if (!memberType) {
-            return;
-          }
+          if (!memberType) return;
           if (propertyDecls.some((decl) => DeclarationUtils.areDeclarationsSame(decl!, this._declaration))) {
             this._addIncomingCallForDeclaration(node.memberName);
           }
@@ -309,9 +288,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
   }
   private _addIncomingCallForDeclaration(nameNode: NameNode) {
     const executionNode = ParseTreeUtils.getExecutionScopeNode(nameNode);
-    if (!executionNode) {
-      return;
-    }
+    if (!executionNode) return;
     let callSource: CallHierarchyItem;
     if (executionNode.nodeType === ParseNodeType.Module) {
       const moduleRange = convertOffsetsToRange(0, 0, this._parseResults.tokenizerOutput.lines);

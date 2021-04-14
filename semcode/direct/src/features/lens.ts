@@ -210,9 +210,7 @@ export class TsRefsLens extends TsBaseLens {
         }
         break;
       case PConst.Kind.class:
-        if (item.text === '<class>') {
-          break;
-        }
+        if (item.text === '<class>') break;
         return getSymbolRange(document, item);
       case PConst.Kind.interface:
       case PConst.Kind.type:
@@ -266,14 +264,10 @@ class RefsLens extends qv.CodeLens {
 }
 export class GoRefsLens extends GoBaseLens {
   public provideCodeLenses(document: qv.TextDocument, token: qv.CancellationToken): qv.CodeLens[] | Thenable<CodeLens[]> {
-    if (!this.enabled) {
-      return [];
-    }
+    if (!this.enabled) return [];
     const codeLensConfig = getGoConfig(document.uri).get<{ [key: string]: any }>('enableCodeLens');
     const codelensEnabled = codeLensConfig ? codeLensConfig['references'] : false;
-    if (!codelensEnabled) {
-      return Promise.resolve([]);
-    }
+    if (!codelensEnabled) return Promise.resolve([]);
     const goGuru = getBinPath('guru');
     if (!isAbsolute(goGuru)) {
       return Promise.resolve([]);
@@ -292,9 +286,7 @@ export class GoRefsLens extends GoBaseLens {
   }
   public resolveCodeLens?(inputCodeLens: qv.CodeLens, token: qv.CancellationToken): qv.CodeLens | Thenable<CodeLens> {
     const codeLens = inputCodeLens as RefsLens;
-    if (token.isCancellationRequested) {
-      return Promise.resolve(codeLens);
-    }
+    if (token.isCancellationRequested) return Promise.resolve(codeLens);
     const options = {
       includeDeclaration: false,
     };
@@ -323,9 +315,7 @@ export class GoRefsLens extends GoBaseLens {
     const isTestFile = document.fileName.endsWith('_test.go');
     const symbols = await symbolProvider.provideDocumentSymbols(document, token);
     return symbols[0].children.filter((symbol) => {
-      if (symbol.kind === qv.SymbolKind.Interface) {
-        return true;
-      }
+      if (symbol.kind === qv.SymbolKind.Interface) return true;
       if (symbol.kind === qv.SymbolKind.Function) {
         if (isTestFile && (symbol.name.startsWith('Test') || symbol.name.startsWith('Example') || symbol.name.startsWith('Benchmark'))) {
           return false;
@@ -339,9 +329,7 @@ export class GoRefsLens extends GoBaseLens {
 export class GoRunTestLens extends GoBaseLens {
   private readonly benchmarkRegex = /^Benchmark.+/;
   public async provideCodeLenses(document: qv.TextDocument, token: qv.CancellationToken): Promise<CodeLens[]> {
-    if (!this.enabled) {
-      return [];
-    }
+    if (!this.enabled) return [];
     const config = getGoConfig(document.uri);
     const codeLensConfig = config.get<{ [key: string]: any }>('enableCodeLens');
     const codelensEnabled = codeLensConfig ? codeLensConfig['runtest'] : false;
@@ -354,13 +342,9 @@ export class GoRunTestLens extends GoBaseLens {
   private async getCodeLensForPackage(document: qv.TextDocument, token: qv.CancellationToken): Promise<CodeLens[]> {
     const documentSymbolProvider = new GoSymbol();
     const symbols = await documentSymbolProvider.provideDocumentSymbols(document, token);
-    if (!symbols || symbols.length === 0) {
-      return [];
-    }
+    if (!symbols || symbols.length === 0) return [];
     const pkg = symbols[0];
-    if (!pkg) {
-      return [];
-    }
+    if (!pkg) return [];
     const range = pkg.range;
     const packageCodeLens = [
       new qv.CodeLens(range, {
@@ -389,9 +373,7 @@ export class GoRunTestLens extends GoBaseLens {
   private async getCodeLensForFunctions(document: qv.TextDocument, token: qv.CancellationToken): Promise<CodeLens[]> {
     const testPromise = async (): Promise<qv.CodeLens[]> => {
       const testFunctions = await getTestFunctions(document, token);
-      if (!testFunctions) {
-        return [];
-      }
+      if (!testFunctions) return [];
       const codelens: qv.CodeLens[] = [];
       for (const f of testFunctions) {
         codelens.push(
@@ -413,9 +395,7 @@ export class GoRunTestLens extends GoBaseLens {
     };
     const benchmarkPromise = async (): Promise<qv.CodeLens[]> => {
       const benchmarkFunctions = await getBenchmarkFunctions(document, token);
-      if (!benchmarkFunctions) {
-        return [];
-      }
+      if (!benchmarkFunctions) return [];
       const codelens: qv.CodeLens[] = [];
       for (const f of benchmarkFunctions) {
         codelens.push(

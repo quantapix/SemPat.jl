@@ -59,16 +59,10 @@ export function runGoOutline(options: GoOutlineOptions, token: qv.CancellationTo
   return new Promise<GoOutlineDeclaration[]>((resolve, reject) => {
     const gooutline = getBinPath('go-outline');
     const gooutlineFlags = ['-f', options.fileName];
-    if (options.importsOption === GoOutlineImportsOptions.Only) {
-      gooutlineFlags.push('-imports-only');
-    }
-    if (options.document) {
-      gooutlineFlags.push('-modified');
-    }
+    if (options.importsOption === GoOutlineImportsOptions.Only) gooutlineFlags.push('-imports-only');
+    if (options.document) gooutlineFlags.push('-modified');
     let p: cp.ChildProc;
-    if (token) {
-      token.onCancellationRequested(() => killProc(p));
-    }
+    if (token) token.onCancellationRequested(() => killProc(p));
     p = cp.execFile(gooutline, gooutlineFlags, { env: toolExecutionEnvironment() }, (err, stdout, stderr) => {
       try {
         if (err && (<any>err).code === 'ENOENT') {
@@ -87,9 +81,7 @@ export function runGoOutline(options: GoOutlineOptions, token: qv.CancellationTo
             return resolve(results);
           });
         }
-        if (err) {
-          return resolve(null);
-        }
+        if (err) return resolve(null);
         const result = stdout.toString();
         const decls = <GoOutlineDeclaration[]>JSON.parse(result);
         return resolve(decls);
@@ -97,9 +89,7 @@ export function runGoOutline(options: GoOutlineOptions, token: qv.CancellationTo
         reject(e);
       }
     });
-    if (options.document && p.pid) {
-      p.stdin.end(getFileArchive(options.document));
-    }
+    if (options.document && p.pid) p.stdin.end(getFileArchive(options.document));
   });
 }
 const goKindToCodeKind: { [key: string]: qv.SymbolKind } = {
@@ -115,12 +105,8 @@ const goKindToCodeKind: { [key: string]: qv.SymbolKind } = {
 function convertToCodeSymbols(document: qv.TextDocument, decls: GoOutlineDeclaration[], includeImports: boolean, byteOffsetToDocumentOffset: (byteOffset: number) => number): qv.DocumentSymbol[] {
   const symbols: qv.DocumentSymbol[] = [];
   (decls || []).forEach((decl) => {
-    if (!includeImports && decl.type === 'import') {
-      return;
-    }
-    if (decl.label === '_' && decl.type === 'variable') {
-      return;
-    }
+    if (!includeImports && decl.type === 'import') return;
+    if (decl.label === '_' && decl.type === 'variable') return;
     const label = decl.receiverType ? `(${decl.receiverType}).${decl.label}` : decl.label;
     const start = byteOffsetToDocumentOffset(decl.start - 1);
     const end = byteOffsetToDocumentOffset(decl.end - 1);
@@ -136,9 +122,7 @@ function convertToCodeSymbols(document: qv.TextDocument, decls: GoOutlineDeclara
     }
     const symbolInfo = new qv.DocumentSymbol(label, decl.type, goKindToCodeKind[decl.type], symbolRange, selectionRange);
     symbols.push(symbolInfo);
-    if (decl.children) {
-      symbolInfo.children = convertToCodeSymbols(document, decl.children, includeImports, byteOffsetToDocumentOffset);
-    }
+    if (decl.children) symbolInfo.children = convertToCodeSymbols(document, decl.children, includeImports, byteOffsetToDocumentOffset);
   });
   return symbols;
 }
@@ -273,14 +257,10 @@ export interface IndexOptions {
 }
 export type WorkspaceSymbolCallback = (symbols: SymbolInformation[]) => void;
 export function getIndexAliasData(importLookup: ImportLookup, declaration: AliasDeclaration): IndexAliasData | undefined {
-  if (!declaration.symbolName) {
-    return undefined;
-  }
+  if (!declaration.symbolName) return undefined;
   const resolved = resolveAliasDeclaration(importLookup, declaration, /* resolveLocalNames */ true);
   const nameValue = resolved ? getNameFromDeclaration(resolved) : undefined;
-  if (!nameValue || resolved!.path.length <= 0) {
-    return undefined;
-  }
+  if (!nameValue || resolved!.path.length <= 0) return undefined;
   return {
     originalName: nameValue,
     modulePath: resolved!.path,
@@ -304,9 +284,7 @@ export class PySymbol {
     token: CancellationToken
   ): SymbolInformation[] {
     const symbolList: SymbolInformation[] = [];
-    if (!indexResults && !parseResults) {
-      return symbolList;
-    }
+    if (!indexResults && !parseResults) return symbolList;
     const indexSymbolData = (indexResults?.symbols as IndexSymbolData[]) ?? PySymbol.indexSymbols(fileInfo!, parseResults!, { indexingForAutoImportMode: false }, token);
     appendWorkspaceSymbolsRecursive(indexSymbolData, filePath, query, '', symbolList, token);
     return symbolList;
@@ -318,9 +296,7 @@ export class PySymbol {
     symbolList: DocumentSymbol[],
     token: CancellationToken
   ) {
-    if (!indexResults && !parseResults) {
-      return;
-    }
+    if (!indexResults && !parseResults) return;
     const indexSymbolData = (indexResults?.symbols as IndexSymbolData[]) ?? PySymbol.indexSymbols(fileInfo!, parseResults!, { indexingForAutoImportMode: false }, token);
     appendDocumentSymbolsRecursive(indexSymbolData, symbolList, token);
   }
@@ -353,15 +329,11 @@ function getSymbolKind(name: string, declaration: Declaration, evaluator?: TypeE
       symbolKind = SymbolKind.Module;
       break;
     case DeclarationType.Parameter:
-      if (name === 'self' || name === 'cls' || name === '_') {
-        return;
-      }
+      if (name === 'self' || name === 'cls' || name === '_') return;
       symbolKind = SymbolKind.Variable;
       break;
     case DeclarationType.Variable:
-      if (name === '_') {
-        return;
-      }
+      if (name === '_') return;
       symbolKind = declaration.isConstant || declaration.isFinal ? SymbolKind.Constant : SymbolKind.Variable;
       break;
     default:
@@ -379,13 +351,9 @@ function appendWorkspaceSymbolsRecursive(
   token: CancellationToken
 ) {
   throwIfCancellationRequested(token);
-  if (!indexSymbolData) {
-    return;
-  }
+  if (!indexSymbolData) return;
   for (const symbolData of indexSymbolData) {
-    if (symbolData.alias) {
-      continue;
-    }
+    if (symbolData.alias) continue;
     if (StringUtils.isPatternInSymbol(query, symbolData.name)) {
       const location: Location = {
         uri: URI.file(filePath).toString(),
@@ -402,21 +370,15 @@ function appendWorkspaceSymbolsRecursive(
     appendWorkspaceSymbolsRecursive(symbolData.children, filePath, query, getContainerName(container, symbolData.name), symbolList, token);
   }
   function getContainerName(container: string, name: string) {
-    if (container.length > 0) {
-      return `${container}.${name}`;
-    }
+    if (container.length > 0) return `${container}.${name}`;
     return name;
   }
 }
 function appendDocumentSymbolsRecursive(indexSymbolData: IndexSymbolData[] | undefined, symbolList: DocumentSymbol[], token: CancellationToken) {
   throwIfCancellationRequested(token);
-  if (!indexSymbolData) {
-    return;
-  }
+  if (!indexSymbolData) return;
   for (const symbolData of indexSymbolData) {
-    if (symbolData.alias) {
-      continue;
-    }
+    if (symbolData.alias) continue;
     const children: DocumentSymbol[] = [];
     appendDocumentSymbolsRecursive(symbolData.children, children, token);
     const symbolInfo: DocumentSymbol = {
@@ -439,9 +401,7 @@ function collectSymbolIndexData(
 ) {
   throwIfCancellationRequested(token);
   const scope = AnalyzerNodeInfo.getScope(node);
-  if (!scope) {
-    return;
-  }
+  if (!scope) return;
   const symbolTable = scope.symbolTable;
   symbolTable.forEach((symbol, name) => {
     if (symbol.isIgnoredForProtocolMatch()) {
@@ -454,16 +414,11 @@ function collectSymbolIndexData(
     if (!declaration && symbol.hasDeclarations()) {
       declaration = symbol.getDeclarations()[0];
     }
-    if (!declaration) {
-      return;
-    }
+    if (!declaration) return;
     if (DeclarationType.Alias === declaration.type) {
-      if (!options.indexingForAutoImportMode) {
-        return;
-      }
-      if (declaration.path.length <= 0) {
-        return;
-      }
+      if (!options.indexingForAutoImportMode) return;
+
+      if (declaration.path.length <= 0) return;
     }
     collectSymbolIndexDataForName(fileInfo, parseResults, declaration, options, !symbol.isExternallyHidden(), name, indexSymbolData, token);
   });
@@ -478,20 +433,15 @@ function collectSymbolIndexDataForName(
   indexSymbolData: IndexSymbolData[],
   token: CancellationToken
 ) {
-  if (options.indexingForAutoImportMode && !externallyVisible) {
-    return;
-  }
+  if (options.indexingForAutoImportMode && !externallyVisible) return;
   const symbolKind = getSymbolKind(name, declaration);
-  if (symbolKind === undefined) {
-    return;
-  }
+  if (symbolKind === undefined) return;
   const selectionRange = declaration.range;
   let range = selectionRange;
   const children: IndexSymbolData[] = [];
   if (declaration.type === DeclarationType.Class || declaration.type === DeclarationType.Function) {
-    if (!options.indexingForAutoImportMode) {
-      collectSymbolIndexData(fileInfo, parseResults, declaration.node, options, children, token);
-    }
+    if (!options.indexingForAutoImportMode) collectSymbolIndexData(fileInfo, parseResults, declaration.node, options, children, token);
+
     range = convertOffsetsToRange(declaration.node.start, declaration.node.start + declaration.node.length, parseResults.tokenizerOutput.lines);
   }
   const data: IndexSymbolData = {

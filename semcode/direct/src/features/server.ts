@@ -92,23 +92,17 @@ export async function startLangServerWithFallback(ctx: qv.ExtensionContext, acti
   }
   const goConfig = getGoConfig();
   const cfg = buildLangServerConfig(goConfig);
-  if (activation) {
-    scheduleGoplsSuggestions();
-  }
+  if (activation) scheduleGoplsSuggestions();
   if (cfg.serverName === 'gopls') {
     const tool = getTool(cfg.serverName);
     if (tool) {
-      if (cfg.enabled && languageServerUsingDefault(goConfig)) {
-        suggestUpdateGopls(tool, cfg);
-      }
+      if (cfg.enabled && languageServerUsingDefault(goConfig)) suggestUpdateGopls(tool, cfg);
     }
   }
   const unlock = await languageServerStartMutex.lock();
   try {
     const started = await startLangServer(ctx, cfg);
-    if (!started && defaultLangProviders.length === 0) {
-      registerDefaultProviders(ctx);
-    }
+    if (!started && defaultLangProviders.length === 0) registerDefaultProviders(ctx);
     languageServerIsRunning = started;
     updateLangServerIconGoStatusBar(started, goConfig['useLangServer'] === true);
   } finally {
@@ -116,18 +110,14 @@ export async function startLangServerWithFallback(ctx: qv.ExtensionContext, acti
   }
 }
 function scheduleGoplsSuggestions() {
-  if (IsInCloudIDE) {
-    return;
-  }
+  if (IsInCloudIDE) return;
   const usingGopls = (cfg: LangServerConfig): boolean => {
     return cfg.enabled && cfg.serverName === 'gopls';
   };
   const installGopls = async (cfg: LangServerConfig) => {
     const tool = getTool('gopls');
     const versionToUpdate = await shouldUpdateLangServer(tool, cfg);
-    if (!versionToUpdate) {
-      return;
-    }
+    if (!versionToUpdate) return;
     const toolsManagementConfig = getGoConfig()['toolsManagement'];
     if (toolsManagementConfig && toolsManagementConfig['autoUpdate'] === true) {
       const goVersion = await getGoVersion();
@@ -141,14 +131,10 @@ function scheduleGoplsSuggestions() {
     setTimeout(update, timeDay);
     let cfg = buildLangServerConfig(getGoConfig());
     if (!usingGopls(cfg)) {
-      if (cfg.serverName !== '' && cfg.serverName !== 'gopls') {
-        return;
-      }
+      if (cfg.serverName !== '' && cfg.serverName !== 'gopls') return;
       await promptAboutGoplsOptOut(false);
       cfg = buildLangServerConfig(getGoConfig());
-      if (!cfg.enabled) {
-        return;
-      }
+      if (!cfg.enabled) return;
     }
     await installGopls(cfg);
   };
@@ -168,9 +154,7 @@ export async function promptAboutGoplsOptOut(surveyOnly: boolean) {
   const workspace = useLangServer.workspaceFolderValue === false || useLangServer.workspaceValue === false;
   let cfg = getGoplsOptOutConfig(workspace);
   const promptFn = async (): Promise<GoplsOptOutConfig> => {
-    if (cfg.prompt === false) {
-      return cfg;
-    }
+    if (cfg.prompt === false) return cfg;
     if (cfg.lastDatePrompted && daysBetween(new Date(), cfg.lastDatePrompted) < 30) {
       return cfg;
     }
@@ -191,9 +175,7 @@ Would you like to enable it now?`,
       { title: 'Not now' },
       { title: 'Never' }
     );
-    if (!selected) {
-      return cfg;
-    }
+    if (!selected) return cfg;
     switch (selected.title) {
       case 'Enable':
         {
@@ -223,19 +205,13 @@ Would you like to enable it now?`,
 }
 async function promptForGoplsOptOutSurvey(cfg: GoplsOptOutConfig, msg: string): Promise<GoplsOptOutConfig> {
   const s = await qv.window.showInformationMessage(msg, { title: 'Yes' }, { title: 'No' });
-  if (!s) {
-    return cfg;
-  }
+  if (!s) return cfg;
   let goplsVersion = await getLocalGoplsVersion(latestConfig);
-  if (!goplsVersion) {
-    goplsVersion = 'no gopls version found';
-  }
+  if (!goplsVersion) goplsVersion = 'no gopls version found';
   goplsVersion = `gopls/${goplsVersion}`;
   const goV = await getGoVersion();
   let goVersion = 'no go version found';
-  if (goV) {
-    goVersion = `go${goV.format(true)}`;
-  }
+  if (goV) goVersion = `go${goV.format(true)}`;
   const version = [goplsVersion, goVersion, process.platform].join(';');
   switch (s.title) {
     case 'Yes':
@@ -256,29 +232,22 @@ export const getGoplsOptOutConfig = (workspace: boolean): GoplsOptOutConfig => {
   return getStateConfig(goplsOptOutConfigKey, workspace) as GoplsOptOutConfig;
 };
 function flushGoplsOptOutConfig(cfg: GoplsOptOutConfig, workspace: boolean) {
-  if (workspace) {
-    updateWorkspaceState(goplsOptOutConfigKey, JSON.stringify(cfg));
-  }
+  if (workspace) updateWorkspaceState(goplsOptOutConfigKey, JSON.stringify(cfg));
   updateGlobalState(goplsOptOutConfigKey, JSON.stringify(cfg));
 }
 async function startLangServer(ctx: qv.ExtensionContext, config: LangServerConfig): Promise<boolean> {
   if (languageClient) {
-    if (languageClient.diagnostics) {
-      languageClient.diagnostics.clear();
-    }
+    if (languageClient.diagnostics) languageClient.diagnostics.clear();
+
     await languageClient.stop();
-    if (languageServerDisposable) {
-      languageServerDisposable.dispose();
-    }
+    if (languageServerDisposable) languageServerDisposable.dispose();
   }
   if (!deepEqual(latestConfig, config)) {
     latestConfig = config;
     languageClient = await buildLangClient(buildLangClientOption(config));
     crashCount = 0;
   }
-  if (!config.enabled) {
-    return false;
-  }
+  if (!config.enabled) return false;
   if (!restartCommand) {
     restartCommand = qv.commands.registerCommand('go.languageserver.restart', async () => {
       await suggestGoplsIssueReport("Looks like you're about to manually restart the language server.", errorKind.manualRestart);
@@ -300,12 +269,9 @@ export interface BuildLangClientOption extends LangServerConfig {
 }
 function buildLangClientOption(cfg: LangServerConfig): BuildLangClientOption {
   if (cfg.enabled) {
-    if (!serverOutputChannel) {
-      serverOutputChannel = qv.window.createOutputChannel(cfg.serverName + ' (server)');
-    }
-    if (!serverTraceChannel) {
-      serverTraceChannel = qv.window.createOutputChannel(cfg.serverName);
-    }
+    if (!serverOutputChannel) serverOutputChannel = qv.window.createOutputChannel(cfg.serverName + ' (server)');
+
+    if (!serverTraceChannel) serverTraceChannel = qv.window.createOutputChannel(cfg.serverName);
   }
   return Object.assign(
     {
@@ -353,17 +319,13 @@ export async function buildLangClient(cfg: BuildLangClientOption): Promise<LangC
       },
       errorHandler: {
         error: (error: Error, message: Message, count: number): ErrorAction => {
-          if (count < 5) {
-            return ErrorAction.Continue;
-          }
+          if (count < 5) return ErrorAction.Continue;
           qv.window.showErrorMessage(`Error communicating with the language server: ${error}: ${message}.`);
           return ErrorAction.Shutdown;
         },
         closed: (): CloseAction => {
           crashCount++;
-          if (crashCount < 5) {
-            return CloseAction.Restart;
-          }
+          if (crashCount < 5) return CloseAction.Restart;
           suggestGoplsIssueReport('The connection to gopls has been closed. The gopls server may have crashed.', errorKind.crash);
           return CloseAction.DoNotRestart;
         },
@@ -374,9 +336,7 @@ export async function buildLangClient(cfg: BuildLangClientOption): Promise<LangC
             return await next(command, args);
           } catch (e) {
             const answer = await qv.window.showErrorMessage(`Command '${command}' failed: ${e}.`, 'Show Trace');
-            if (answer === 'Show Trace') {
-              serverOutputChannel.show();
-            }
+            if (answer === 'Show Trace') serverOutputChannel.show();
             return null;
           }
         },
@@ -389,22 +349,16 @@ export async function buildLangClient(cfg: BuildLangClientOption): Promise<LangC
         },
         provideCodeLenses: async (doc: qv.TextDocument, token: qv.CancellationToken, next: ProvideCodeLensesSignature): Promise<qv.CodeLens[]> => {
           const codeLens = await next(doc, token);
-          if (!codeLens || codeLens.length === 0) {
-            return codeLens;
-          }
+          if (!codeLens || codeLens.length === 0) return codeLens;
           const goplsEnabledLens = (getGoConfig().get('overwriteGoplsMiddleware') as any)?.codelens ?? {};
           return codeLens.reduce((lenses: qv.CodeLens[], lens: qv.CodeLens) => {
             switch (lens.command.title) {
               case 'run test': {
-                if (goplsEnabledLens.test) {
-                  return [...lenses, lens];
-                }
+                if (goplsEnabledLens.test) return [...lenses, lens];
                 return [...lenses, ...createTestCodeLens(lens)];
               }
               case 'run benchmark': {
-                if (goplsEnabledLens.bench) {
-                  return [...lenses, lens];
-                }
+                if (goplsEnabledLens.bench) return [...lenses, lens];
                 return [...lenses, ...createBenchmarkCodeLens(lens)];
               }
               default: {
@@ -414,15 +368,11 @@ export async function buildLangClient(cfg: BuildLangClientOption): Promise<LangC
           }, []);
         },
         provideDocumentFormattingEdits: async (document: qv.TextDocument, options: qv.FormattingOptions, token: qv.CancellationToken, next: ProvideDocumentFormattingEditsSignature) => {
-          if (cfg.features.formatter) {
-            return cfg.features.formatter.provideDocumentFormattingEdits(document, options, token);
-          }
+          if (cfg.features.formatter) return cfg.features.formatter.provideDocumentFormattingEdits(document, options, token);
           return next(document, options, token);
         },
         handleDiags: (uri: qv.Uri, diagnostics: qv.Diag[], next: HandleDiagsSignature) => {
-          if (!cfg.features.diagnostics) {
-            return null;
-          }
+          if (!cfg.features.diagnostics) return null;
           removeDuplicateDiags(vetDiagCollection, uri, diagnostics);
           removeDuplicateDiags(buildDiagCollection, uri, diagnostics);
           removeDuplicateDiags(lintDiagCollection, uri, diagnostics);
@@ -430,15 +380,11 @@ export async function buildLangClient(cfg: BuildLangClientOption): Promise<LangC
         },
         provideCompletionItem: async (document: qv.TextDocument, position: qv.Position, context: qv.CompletionContext, token: qv.CancellationToken, next: ProvideCompletionItemsSignature) => {
           const list = await next(document, position, context, token);
-          if (!list) {
-            return list;
-          }
+          if (!list) return list;
           const items = Array.isArray(list) ? list : list.items;
           if (!Array.isArray(list) && list.isIncomplete && list.items.length > 1) {
             let hardcodedFilterText = items[0].filterText;
-            if (!hardcodedFilterText) {
-              hardcodedFilterText = items[0].label;
-            }
+            if (!hardcodedFilterText) hardcodedFilterText = items[0].label;
             for (const item of items) {
               item.filterText = hardcodedFilterText;
             }
@@ -446,9 +392,8 @@ export async function buildLangClient(cfg: BuildLangClientOption): Promise<LangC
           const editorParamHintsEnabled = qv.workspace.getConfig('editor.parameterHints', document.uri)['enabled'];
           const goParamHintsEnabled = qv.workspace.getConfig('[go]', document.uri)['editor.parameterHints.enabled'];
           let paramHintsEnabled = false;
-          if (typeof goParamHintsEnabled === 'undefined') {
-            paramHintsEnabled = editorParamHintsEnabled;
-          } else {
+          if (typeof goParamHintsEnabled === 'undefined') paramHintsEnabled = editorParamHintsEnabled;
+          else {
             paramHintsEnabled = goParamHintsEnabled;
           }
           if (paramHintsEnabled) {
@@ -505,15 +450,11 @@ export async function buildLangClient(cfg: BuildLangClientOption): Promise<LangC
   return c;
 }
 export function filterGoplsDefaultConfigValues(workspaceConfig: any, resource: qv.Uri): any {
-  if (!workspaceConfig) {
-    workspaceConfig = {};
-  }
+  if (!workspaceConfig) workspaceConfig = {};
   const cfg = getGoplsConfig(resource);
   const filtered = {} as { [key: string]: any };
   for (const [key, value] of Object.entries(workspaceConfig)) {
-    if (typeof value === 'function') {
-      continue;
-    }
+    if (typeof value === 'function') continue;
     const c = cfg.inspect(key);
     if (
       !c ||
@@ -531,47 +472,33 @@ export function filterGoplsDefaultConfigValues(workspaceConfig: any, resource: q
   return filtered;
 }
 export function passGoConfigToGoplsConfigValues(goplsWorkspaceConfiguration: any, goWorkspaceConfiguration: any): any {
-  if (!goplsWorkspaceConfiguration) {
-    goplsWorkspaceConfiguration = {};
-  }
+  if (!goplsWorkspaceConfiguration) goplsWorkspaceConfiguration = {};
   const buildFlags = [] as string[];
-  if (goWorkspaceConfiguration?.buildFlags) {
-    buildFlags.push(...goWorkspaceConfiguration?.buildFlags);
-  }
+  if (goWorkspaceConfiguration?.buildFlags) buildFlags.push(...goWorkspaceConfiguration?.buildFlags);
   if (goWorkspaceConfiguration?.buildTags && buildFlags.indexOf('-tags') === -1) {
     buildFlags.push('-tags', goWorkspaceConfiguration?.buildTags);
   }
-  if (buildFlags.length > 0 && goplsWorkspaceConfiguration['build.buildFlags'] === undefined) {
-    goplsWorkspaceConfiguration['build.buildFlags'] = buildFlags;
-  }
+  if (buildFlags.length > 0 && goplsWorkspaceConfiguration['build.buildFlags'] === undefined) goplsWorkspaceConfiguration['build.buildFlags'] = buildFlags;
   return goplsWorkspaceConfiguration;
 }
 async function adjustGoplsWorkspaceConfiguration(cfg: LangServerConfig, workspaceConfig: any, section: string, resource: qv.Uri): Promise<any> {
-  if (section !== 'gopls') {
-    return workspaceConfig;
-  }
+  if (section !== 'gopls') return workspaceConfig;
   workspaceConfig = filterGoplsDefaultConfigValues(workspaceConfig, resource);
   workspaceConfig = passGoConfigToGoplsConfigValues(workspaceConfig, getGoConfig(resource));
   if (!isInPreviewMode()) {
     return workspaceConfig;
   }
   const version = await getLocalGoplsVersion(cfg);
-  if (!version) {
-    return workspaceConfig;
-  }
+  if (!version) return workspaceConfig;
   const sv = semver.parse(version, true);
   if (!sv || semver.lt(sv, 'v0.5.2')) {
     return workspaceConfig;
   }
-  if (!workspaceConfig['allExperiments']) {
-    workspaceConfig['allExperiments'] = true;
-  }
+  if (!workspaceConfig['allExperiments']) workspaceConfig['allExperiments'] = true;
   return workspaceConfig;
 }
 function createTestCodeLens(lens: qv.CodeLens): qv.CodeLens[] {
-  if (lens.command.arguments.length < 2 || lens.command.arguments[1].length < 1) {
-    return [lens];
-  }
+  if (lens.command.arguments.length < 2 || lens.command.arguments[1].length < 1) return [lens];
   return [
     new qv.CodeLens(lens.range, {
       ...lens.command,
@@ -586,9 +513,7 @@ function createTestCodeLens(lens: qv.CodeLens): qv.CodeLens[] {
   ];
 }
 function createBenchmarkCodeLens(lens: qv.CodeLens): qv.CodeLens[] {
-  if (lens.command.arguments.length < 3 || lens.command.arguments[2].length < 1) {
-    return [lens];
-  }
+  if (lens.command.arguments.length < 3 || lens.command.arguments[2].length < 1) return [lens];
   return [
     new qv.CodeLens(lens.range, {
       ...lens.command,
@@ -672,9 +597,7 @@ export function buildLangServerConfig(goConfig: qv.WorkspaceConfiguration): Lang
   }
   cfg.path = languageServerPath;
   cfg.serverName = getToolFromToolPath(cfg.path);
-  if (!cfg.enabled) {
-    return cfg;
-  }
+  if (!cfg.enabled) return cfg;
   const stats = fs.statSync(languageServerPath);
   if (!stats) {
     qv.window.showErrorMessage(`Unable to stat path to language server binary: ${languageServerPath}.
@@ -709,9 +632,7 @@ Please install it and reload this VS Code window.`
   promptForMissingTool('gopls');
 }
 function allFoldersHaveSameGopath(): boolean {
-  if (!qv.workspace.workspaceFolders || qv.workspace.workspaceFolders.length <= 1) {
-    return true;
-  }
+  if (!qv.workspace.workspaceFolders || qv.workspace.workspaceFolders.length <= 1) return true;
   const tempGopath = getCurrentGoPath(qv.workspace.workspaceFolders[0].uri);
   return qv.workspace.workspaceFolders.find((x) => tempGopath !== getCurrentGoPath(x.uri)) ? false : true;
 }
@@ -719,26 +640,20 @@ export async function shouldUpdateLangServer(tool: Tool, cfg: LangServerConfig, 
   if (tool.name !== 'gopls' || (!mustCheck && (cfg.checkForUpdates === 'off' || IsInCloudIDE))) {
     return null;
   }
-  if (!cfg.enabled) {
-    return null;
-  }
+  if (!cfg.enabled) return null;
   const usersVersion = await getLocalGoplsVersion(cfg);
   if (usersVersion === '(devel)') {
     return null;
   }
   let latestVersion = cfg.checkForUpdates === 'local' ? tool.latestVersion : await latestToolVersion(tool, isInPreviewMode());
-  if (!latestVersion) {
-    latestVersion = tool.latestVersion;
-  }
+  if (!latestVersion) latestVersion = tool.latestVersion;
   if (!usersVersion || !semver.valid(usersVersion)) {
     return latestVersion;
   }
   const usersTime = parseTimestampFromPseudoversion(usersVersion);
   if (usersTime) {
     let latestTime = cfg.checkForUpdates ? await getTimestampForVersion(tool, latestVersion) : tool.latestVersionTimestamp;
-    if (!latestTime) {
-      latestTime = tool.latestVersionTimestamp;
-    }
+    if (!latestTime) latestTime = tool.latestVersionTimestamp;
     return usersTime.isBefore(latestTime) ? latestVersion : null;
   }
   const usersVersionSemver = semver.parse(usersVersion, {
@@ -750,14 +665,10 @@ export async function shouldUpdateLangServer(tool: Tool, cfg: LangServerConfig, 
 async function suggestUpdateGopls(tool: Tool, cfg: LangServerConfig): Promise<boolean> {
   const forceUpdatedGoplsKey = 'forceUpdateForGoplsOnDefault';
   const forceUpdated = getFromGlobalState(forceUpdatedGoplsKey, false);
-  if (forceUpdated) {
-    return false;
-  }
+  if (forceUpdated) return false;
   await updateGlobalState(forceUpdatedGoplsKey, tool.latestVersion);
   const latestVersion = await shouldUpdateLangServer(tool, cfg);
-  if (!latestVersion) {
-    return;
-  }
+  if (!latestVersion) return;
   const updateMsg =
     "'gopls' is now enabled by default and you are using an old version. Please [update 'gopls'](https://github.com/golang/tools/blob/master/gopls/README.md#installation) for the best experience.";
   promptForUpdatingTool(tool.name, latestVersion, false, updateMsg);
@@ -765,9 +676,7 @@ async function suggestUpdateGopls(tool: Tool, cfg: LangServerConfig): Promise<bo
 const pseudoVersionRE = /^v[0-9]+\.(0\.0-|\d+\.\d+-([^+]*\.)?0\.)\d{14}-[A-Za-z0-9]+(\+incompatible)?$/;
 function parseTimestampFromPseudoversion(version: string): moment.Moment {
   const split = version.split('-');
-  if (split.length < 2) {
-    return null;
-  }
+  if (split.length < 2) return null;
   if (!semver.valid(version)) {
     return null;
   }
@@ -775,44 +684,31 @@ function parseTimestampFromPseudoversion(version: string): moment.Moment {
     return null;
   }
   const sv = semver.coerce(version);
-  if (!sv) {
-    return null;
-  }
+  if (!sv) return null;
   const build = sv.build.join('.');
   const buildIndex = version.lastIndexOf(build);
-  if (buildIndex >= 0) {
-    version = version.substring(0, buildIndex);
-  }
+  if (buildIndex >= 0) version = version.substring(0, buildIndex);
   const lastDashIndex = version.lastIndexOf('-');
   version = version.substring(0, lastDashIndex);
   const firstDashIndex = version.lastIndexOf('-');
   const dotIndex = version.lastIndexOf('.');
   let timestamp: string;
-  if (dotIndex > firstDashIndex) {
-    timestamp = version.substring(dotIndex + 1);
-  } else {
+  if (dotIndex > firstDashIndex) timestamp = version.substring(dotIndex + 1);
+  else {
     timestamp = version.substring(firstDashIndex + 1);
   }
   return moment.utc(timestamp, 'YYYYMMDDHHmmss');
 }
 export const getTimestampForVersion = async (tool: Tool, version: semver.SemVer) => {
   const data = await goProxyRequest(tool, `v${version.format()}.info`);
-  if (!data) {
-    return null;
-  }
+  if (!data) return null;
   const time = moment(data['Time']);
   return time;
 };
 export const getLocalGoplsVersion = async (cfg: LangServerConfig) => {
-  if (!cfg) {
-    return null;
-  }
-  if (cfg.version !== '') {
-    return cfg.version;
-  }
-  if (cfg.path === '') {
-    return null;
-  }
+  if (!cfg) return null;
+  if (cfg.version !== '') return cfg.version;
+  if (cfg.path === '') return null;
   const execFile = util.promisify(cp.execFile);
   let output: any;
   try {
@@ -836,9 +732,7 @@ export const getLocalGoplsVersion = async (cfg: LangServerConfig) => {
   }
   const moduleVersion = lines[1].trim().split(' ')[0];
   const split = moduleVersion.trim().split('@');
-  if (split.length < 2) {
-    return null;
-  }
+  if (split.length < 2) return null;
   cfg.version = split[1];
   return cfg.version;
 };
@@ -849,9 +743,7 @@ async function goProxyRequest(tool: Tool, endpoint: string): Promise<any> {
   }
   const proxies = output.trim().split(/,|\|/);
   for (const proxy of proxies) {
-    if (proxy === 'direct') {
-      continue;
-    }
+    if (proxy === 'direct') continue;
     const url = `${proxy}/${tool.importPath}/@v/${endpoint}`;
     let data: string;
     try {
@@ -877,13 +769,9 @@ export interface SurveyConfig {
 function maybePromptForGoplsSurvey() {
   const now = new Date();
   let cfg = shouldPromptForGoplsSurvey(now, getSurveyConfig());
-  if (!cfg) {
-    return;
-  }
+  if (!cfg) return;
   flushSurveyConfig(cfg);
-  if (!cfg.dateToPromptThisMonth) {
-    return;
-  }
+  if (!cfg.dateToPromptThisMonth) return;
   const callback = async () => {
     const currentTime = new Date();
     if (minutesBetween(lastUserAction, currentTime) < 1) {
@@ -891,34 +779,22 @@ function maybePromptForGoplsSurvey() {
       return;
     }
     cfg = await promptForSurvey(cfg, now);
-    if (cfg) {
-      flushSurveyConfig(cfg);
-    }
+    if (cfg) flushSurveyConfig(cfg);
   };
   const ms = msBetween(now, cfg.dateToPromptThisMonth);
   setTimeout(callback, ms);
 }
 export function shouldPromptForGoplsSurvey(now: Date, cfg: SurveyConfig): SurveyConfig {
-  if (cfg.prompt === undefined) {
-    cfg.prompt = true;
-  }
-  if (!cfg.prompt) {
-    return;
-  }
+  if (cfg.prompt === undefined) cfg.prompt = true;
+  if (!cfg.prompt) return;
   if (cfg.lastDateAccepted) {
-    if (daysBetween(now, cfg.lastDateAccepted) < 365) {
-      return;
-    }
+    if (daysBetween(now, cfg.lastDateAccepted) < 365) return;
   }
   if (cfg.lastDatePrompted) {
-    if (daysBetween(now, cfg.lastDatePrompted) < 90) {
-      return;
-    }
+    if (daysBetween(now, cfg.lastDatePrompted) < 90) return;
   }
   if (cfg.dateComputedPromptThisMonth) {
-    if (daysBetween(now, cfg.dateComputedPromptThisMonth) < 30) {
-      return cfg;
-    }
+    if (daysBetween(now, cfg.dateComputedPromptThisMonth) < 30) return cfg;
   }
   let probability = 0.01; // lower probability for the regular extension
   if (isInPreviewMode()) {
@@ -975,22 +851,18 @@ export function resetSurveyConfig() {
   flushSurveyConfig(null);
 }
 function flushSurveyConfig(cfg: SurveyConfig) {
-  if (cfg) {
-    updateGlobalState(goplsSurveyConfig, JSON.stringify(cfg));
-  } else {
+  if (cfg) updateGlobalState(goplsSurveyConfig, JSON.stringify(cfg));
+  else {
     updateGlobalState(goplsSurveyConfig, null); // reset
   }
 }
 function getStateConfig(globalStateKey: string, workspace?: boolean): any {
   let saved: any;
-  if (workspace === true) {
-    saved = getFromWorkspaceState(globalStateKey);
-  } else {
+  if (workspace === true) saved = getFromWorkspaceState(globalStateKey);
+  else {
     saved = getFromGlobalState(globalStateKey);
   }
-  if (saved === undefined) {
-    return {};
-  }
+  if (saved === undefined) return {};
   try {
     const cfg = JSON.parse(saved, (key: string, value: any) => {
       if (key.toLowerCase().includes('date') || key.toLowerCase().includes('timestamp')) {
@@ -1026,9 +898,7 @@ enum errorKind {
   manualRestart,
 }
 async function suggestGoplsIssueReport(msg: string, reason: errorKind, initializationError?: WebRequest.ResponseError<InitializeError>) {
-  if (reason === errorKind.manualRestart) {
-    return;
-  }
+  if (reason === errorKind.manualRestart) return;
   const tool = getTool('gopls');
   if (tool) {
     const versionToUpdate = await shouldUpdateLangServer(tool, latestConfig, true);
@@ -1038,9 +908,7 @@ async function suggestGoplsIssueReport(msg: string, reason: errorKind, initializ
     }
   }
   serverOutputChannel.show();
-  if (latestConfig.serverName !== 'gopls') {
-    return;
-  }
+  if (latestConfig.serverName !== 'gopls') return;
   const promptForIssueOnGoplsRestartKey = 'promptForIssueOnGoplsRestart';
   let saved: any;
   try {
@@ -1175,16 +1043,12 @@ export function showServerOutputChannel() {
       if (contents.indexOf('[Info  - ') === -1) {
         continue;
       }
-      if (found !== undefined) {
-        qv.window.showInformationMessage('multiple docs named extension-output-...');
-      }
+      if (found !== undefined) qv.window.showInformationMessage('multiple docs named extension-output-...');
       found = doc;
       qv.workspace.openTextDocument({ language: 'log', content: contents });
     }
   }
-  if (found === undefined) {
-    qv.window.showErrorMessage('make sure "gopls (server)" output is showing');
-  }
+  if (found === undefined) qv.window.showErrorMessage('make sure "gopls (server)" output is showing');
 }
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -1194,21 +1058,14 @@ async function collectGoplsLog(): Promise<{ sanitizedLog?: string; failureReason
   let logs: string;
   for (let i = 0; i < 10; i++) {
     for (const doc of qv.workspace.textDocuments) {
-      if (doc.languageId !== 'Log') {
-        continue;
-      }
-      if (doc.isDirty || doc.isClosed) {
-        continue;
-      }
-      if (doc.fileName.indexOf('extension-output-') === -1) {
-        continue;
-      }
+      if (doc.languageId !== 'Log') continue;
+      if (doc.isDirty || doc.isClosed) continue;
+      if (doc.fileName.indexOf('extension-output-') === -1) continue;
+
       logs = doc.getText();
       break;
     }
-    if (logs) {
-      break;
-    }
+    if (logs) break;
     await sleep((i + 1) * 100);
   }
   return sanitizeGoplsTrace(logs);
@@ -1221,9 +1078,7 @@ enum GoplsFailureModes {
   UNRECOGNIZED_CRASH_PATTERN = 'unrecognized crash pattern',
 }
 export function sanitizeGoplsTrace(logs?: string): { sanitizedLog?: string; failureReason?: string } {
-  if (!logs) {
-    return { failureReason: GoplsFailureModes.NO_GOPLS_LOG };
-  }
+  if (!logs) return { failureReason: GoplsFailureModes.NO_GOPLS_LOG };
   const panicMsgBegin = logs.lastIndexOf('panic: ');
   if (panicMsgBegin > -1) {
     const panicMsgEnd = logs.indexOf('Connection to server got closed.', panicMsgBegin);
@@ -1234,17 +1089,13 @@ export function sanitizeGoplsTrace(logs?: string): { sanitizedLog?: string; fail
         .split('\n')
         .map((line: string) => {
           const m = line.match(filePattern);
-          if (!m) {
-            return line;
-          }
+          if (!m) return line;
           const filePath = m[1];
           const fileBase = path.basename(filePath);
           return line.replace(filePath, '  ' + fileBase);
         })
         .join('\n');
-      if (sanitized) {
-        return { sanitizedLog: sanitized };
-      }
+      if (sanitized) return { sanitizedLog: sanitized };
       return { failureReason: GoplsFailureModes.EMPTY_PANIC_TRACE };
     }
     return { failureReason: GoplsFailureModes.INCOMPLETE_PANIC_TRACE };

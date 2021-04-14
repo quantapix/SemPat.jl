@@ -30,9 +30,7 @@ export class GoReference implements qv.ReferenceProvider {
   private doFindReferences(document: qv.TextDocument, position: qv.Position, options: { includeDeclaration: boolean }, token: qv.CancellationToken): Thenable<qv.Location[]> {
     return new Promise<qv.Location[]>((resolve, reject) => {
       const wordRange = document.getWordRangeAtPosition(position);
-      if (!wordRange) {
-        return resolve([]);
-      }
+      if (!wordRange) return resolve([]);
       const goGuru = getBinPath('guru');
       if (!path.isAbsolute(goGuru)) {
         promptForMissingTool('guru');
@@ -58,9 +56,7 @@ export class GoReference implements qv.ReferenceProvider {
           const results: qv.Location[] = [];
           for (const line of lines) {
             const match = /^(.*):(\d+)\.(\d+)-(\d+)\.(\d+):/.exec(line);
-            if (!match) {
-              continue;
-            }
+            if (!match) continue;
             const [, file, lineStartStr, colStartStr, lineEndStr, colEndStr] = match;
             const referenceResource = qv.Uri.file(path.resolve(cwd, file));
             if (!options.includeDeclaration) {
@@ -76,9 +72,7 @@ export class GoReference implements qv.ReferenceProvider {
           reject(e);
         }
       });
-      if (process.pid) {
-        process.stdin.end(getFileArchive(document));
-      }
+      if (process.pid) process.stdin.end(getFileArchive(document));
       token.onCancellationRequested(() => killProcTree(process));
     });
   }
@@ -121,12 +115,8 @@ export class ReferencesResult {
     return this._locations;
   }
   addLocations(...locs: DocumentRange[]) {
-    if (locs.length === 0) {
-      return;
-    }
-    if (this._reporter) {
-      this._reporter(locs);
-    }
+    if (locs.length === 0) return;
+    if (this._reporter) this._reporter(locs);
     this._locations.push(...locs);
   }
 }
@@ -156,9 +146,7 @@ export class FindReferencesTreeWalker extends ParseTreeWalker {
   }
   visitName(node: NameNode): boolean {
     throwIfCancellationRequested(this._cancellationToken);
-    if (node.value !== this._referencesResult.symbolName) {
-      return false;
-    }
+    if (node.value !== this._referencesResult.symbolName) return false;
     const declarations = this._evaluator.getDeclarationsForNameNode(node);
     if (declarations && declarations.length > 0) {
       if (declarations.some((decl) => this._resultsContainsDeclaration(decl))) {
@@ -177,16 +165,12 @@ export class FindReferencesTreeWalker extends ParseTreeWalker {
   }
   private _resultsContainsDeclaration(declaration: Declaration) {
     const resolvedDecl = this._evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ false);
-    if (!resolvedDecl) {
-      return false;
-    }
+    if (!resolvedDecl) return false;
     if (this._referencesResult.declarations.some((decl) => DeclarationUtils.areDeclarationsSame(decl, resolvedDecl))) {
       return true;
     }
     const resolvedDeclNonlocal = this._evaluator.resolveAliasDeclaration(resolvedDecl, /* resolveLocalNames */ true);
-    if (!resolvedDeclNonlocal || resolvedDeclNonlocal === resolvedDecl) {
-      return false;
-    }
+    if (!resolvedDeclNonlocal || resolvedDeclNonlocal === resolvedDecl) return false;
     return this._referencesResult.declarations.some((decl) => DeclarationUtils.areDeclarationsSame(decl, resolvedDeclNonlocal));
   }
 }
@@ -202,23 +186,13 @@ export class PyReference {
   ): ReferencesResult | undefined {
     throwIfCancellationRequested(token);
     const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
-    if (offset === undefined) {
-      return undefined;
-    }
+    if (offset === undefined) return undefined;
     const node = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset);
-    if (node === undefined) {
-      return undefined;
-    }
-    if (node.nodeType !== ParseNodeType.Name) {
-      return undefined;
-    }
-    if (node.parent?.nodeType === ParseNodeType.ModuleName) {
-      return undefined;
-    }
+    if (node === undefined) return undefined;
+    if (node.nodeType !== ParseNodeType.Name) return undefined;
+    if (node.parent?.nodeType === ParseNodeType.ModuleName) return undefined;
     const declarations = evaluator.getDeclarationsForNameNode(node);
-    if (!declarations) {
-      return undefined;
-    }
+    if (!declarations) return undefined;
     const resolvedDeclarations: Declaration[] = [];
     declarations.forEach((decl) => {
       const resolvedDecl = evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ false);
@@ -227,27 +201,17 @@ export class PyReference {
         if (isStubFile(resolvedDecl.path)) {
           const implDecls = sourceMapper.findDeclarations(resolvedDecl);
           for (const implDecl of implDecls) {
-            if (implDecl && implDecl.path) {
-              this._addIfUnique(resolvedDeclarations, implDecl);
-            }
+            if (implDecl && implDecl.path) this._addIfUnique(resolvedDeclarations, implDecl);
           }
         }
       }
     });
-    if (resolvedDeclarations.length === 0) {
-      return undefined;
-    }
+    if (resolvedDeclarations.length === 0) return undefined;
     const requiresGlobalSearch = resolvedDeclarations.some((decl) => {
-      if (decl.path !== filePath) {
-        return true;
-      }
+      if (decl.path !== filePath) return true;
       const evalScope = ParseTreeUtils.getEvaluationScopeNode(decl.node);
-      if (evalScope.nodeType === ParseNodeType.Module || evalScope.nodeType === ParseNodeType.Class) {
-        return true;
-      }
-      if (decl.node?.parent?.nodeType === ParseNodeType.MemberAccess && decl.node === decl.node.parent.memberName) {
-        return true;
-      }
+      if (evalScope.nodeType === ParseNodeType.Module || evalScope.nodeType === ParseNodeType.Class) return true;
+      if (decl.node?.parent?.nodeType === ParseNodeType.MemberAccess && decl.node === decl.node.parent.memberName) return true;
       return false;
     });
     return new ReferencesResult(requiresGlobalSearch, node, node.value, resolvedDeclarations, reporter);

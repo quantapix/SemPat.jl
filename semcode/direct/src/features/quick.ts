@@ -58,9 +58,7 @@ class ApplyFixAllCodeAction implements Command {
     this.telemetryReporter.logTelemetry('quickFixAll.execute', {
       fixName: args.action.tsAction.fixName,
     });
-    if (args.action.combinedResponse) {
-      await qu.applyCodeActionCommands(this.client, args.action.combinedResponse.body.commands, qu.nulToken);
-    }
+    if (args.action.combinedResponse) await qu.applyCodeActionCommands(this.client, args.action.combinedResponse.body.commands, qu.nulToken);
   }
 }
 class DiagsSet {
@@ -291,18 +289,12 @@ function _addMissingOptionalToParam(parseResults: ParseResults, offset: number, 
   throwIfCancellationRequested(token);
   let node: ParseNode | undefined = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset);
   while (node) {
-    if (node.nodeType === ParseNodeType.Parameter) {
-      break;
-    }
+    if (node.nodeType === ParseNodeType.Parameter) break;
     node = node.parent;
   }
-  if (!node) {
-    return [];
-  }
+  if (!node) return [];
   const typeAnnotation = node.typeAnnotation || node.typeAnnotationComment;
-  if (!typeAnnotation) {
-    return [];
-  }
+  if (!typeAnnotation) return [];
   const editActions: TextEditAction[] = [];
   const startPos = convertOffsetToPosition(typeAnnotation.start, parseResults.tokenizerOutput.lines);
   const endPos = convertOffsetToPosition(TextRange.getEnd(typeAnnotation), parseResults.tokenizerOutput.lines);

@@ -41,18 +41,12 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
       qv.workspace.onDidRenameFiles(async (e) => {
         const [{ newUri, oldUri }] = e.files;
         const newFilePath = this.client.toPath(newUri);
-        if (!newFilePath) {
-          return;
-        }
+        if (!newFilePath) return;
         const oldFilePath = this.client.toPath(oldUri);
-        if (!oldFilePath) {
-          return;
-        }
+        if (!oldFilePath) return;
         const config = this.getConfig(newUri);
         const setting = config.get<UpdateImportsOnFileMoveSetting>(updateImportsOnFileMoveName);
-        if (setting === UpdateImportsOnFileMoveSetting.Never) {
-          return;
-        }
+        if (setting === UpdateImportsOnFileMoveSetting.Never) return;
         const jsTsFileThatIsBeingMoved = await this.getJsTsFileBeingMoved(newUri);
         if (!jsTsFileThatIsBeingMoved || !this.client.toPath(jsTsFileThatIsBeingMoved)) {
           return;
@@ -85,16 +79,12 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
         }
       }
       if (edits.size) {
-        if (await this.confirmActionWithUser(resourcesBeingRenamed)) {
-          await qv.workspace.applyEdit(edits);
-        }
+        if (await this.confirmActionWithUser(resourcesBeingRenamed)) await qv.workspace.applyEdit(edits);
       }
     }
   }
   private async confirmActionWithUser(newResources: readonly qv.Uri[]): Promise<boolean> {
-    if (!newResources.length) {
-      return false;
-    }
+    if (!newResources.length) return false;
     const config = this.getConfig(newResources[0]);
     const setting = config.get<UpdateImportsOnFileMoveSetting>(updateImportsOnFileMoveName);
     switch (setting) {
@@ -111,9 +101,7 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
     return qv.workspace.getConfig(doesResourceLookLikeATypeScriptFile(resource) ? 'typescript' : 'javascript', resource);
   }
   private async promptUser(newResources: readonly qv.Uri[]): Promise<boolean> {
-    if (!newResources.length) {
-      return false;
-    }
+    if (!newResources.length) return false;
     const enum Choice {
       None = 0,
       Accept = 1,
@@ -147,9 +135,7 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
         choice: Choice.Never,
       }
     );
-    if (!response) {
-      return false;
-    }
+    if (!response) return false;
     switch (response.choice) {
       case Choice.Accept: {
         return true;
@@ -171,9 +157,7 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
     return false;
   }
   private async getJsTsFileBeingMoved(resource: qv.Uri): Promise<qv.Uri | undefined> {
-    if (resource.scheme !== fileSchemes.file) {
-      return undefined;
-    }
+    if (resource.scheme !== fileSchemes.file) return undefined;
     if (await isDir(resource)) {
       const files = await qv.workspace.findFiles(
         {
@@ -196,9 +180,7 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
       };
       return this.client.execute('getEditsForFileRename', args, nulToken);
     });
-    if (response.type !== 'response' || !response.body.length) {
-      return false;
-    }
+    if (response.type !== 'response' || !response.body.length) return false;
     qu.WorkspaceEdit.withFileCodeEdits(edits, this.client, response.body);
     return true;
   }
@@ -206,9 +188,8 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
     const groups = new Map<string, Set<RenameAction>>();
     for (const rename of renames) {
       const key = `${this.client.getWorkspaceRootForResource(rename.jsTsFileThatIsBeingMoved)}@@@${doesResourceLookLikeATypeScriptFile(rename.jsTsFileThatIsBeingMoved)}`;
-      if (!groups.has(key)) {
-        groups.set(key, new Set());
-      }
+      if (!groups.has(key)) groups.set(key, new Set());
+
       groups.get(key)!.add(rename);
     }
     return groups.values();
@@ -219,11 +200,8 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
     paths.push('');
     paths.push(...resourcesToConfirm.slice(0, MAX_CONFIRM_FILES).map((r) => path.basename(r.fsPath)));
     if (resourcesToConfirm.length > MAX_CONFIRM_FILES) {
-      if (resourcesToConfirm.length - MAX_CONFIRM_FILES === 1) {
-        paths.push('moreFile');
-      } else {
-        paths.push('moreFiles');
-      }
+      if (resourcesToConfirm.length - MAX_CONFIRM_FILES === 1) paths.push('moreFile');
+      else paths.push('moreFiles');
     }
     paths.push('');
     return paths.join('\n');

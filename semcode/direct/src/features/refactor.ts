@@ -159,9 +159,7 @@ class InlinedCodeAction extends qv.CodeAction {
     const workspaceEdit = new qv.WorkspaceEdit();
     for (const edit of body.edits) {
       const resource = client.toResource(edit.fileName);
-      if (resource.scheme === qu.file) {
-        workspaceEdit.createFile(resource, { ignoreIfExists: true });
-      }
+      if (resource.scheme === qu.file) workspaceEdit.createFile(resource, { ignoreIfExists: true });
     }
     qu.WorkspaceEdit.withFileCodeEdits(workspaceEdit, client, body.edits);
     return workspaceEdit;
@@ -343,9 +341,7 @@ export function register(s: qu.DocumentSelector, c: ServiceClient, formattingOpt
 
 export class GoRefactor implements qv.CodeActionProvider {
   public provideCodeActions(document: qv.TextDocument, range: qv.Range, context: qv.CodeActionContext, token: qv.CancellationToken): qv.ProviderResult<qv.CodeAction[]> {
-    if (range.isEmpty) {
-      return [];
-    }
+    if (range.isEmpty) return [];
     const extractFunction = new qv.CodeAction('Extract to function in package scope', qv.CodeActionKind.RefactorExtract);
     const extractVar = new qv.CodeAction('Extract to variable in local scope', qv.CodeActionKind.RefactorExtract);
     extractFunction.command = {

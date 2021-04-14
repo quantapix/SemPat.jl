@@ -66,9 +66,7 @@ export class GoDebugConfigProvider implements qv.DebugConfigProvider {
             placeHolder: 'MyTestFunction',
             prompt: 'Name of the function to test',
           });
-          if (testFunc) {
-            config.args = ['-test.run', testFunc];
-          }
+          if (testFunc) config.args = ['-test.run', testFunc];
         },
       },
       {
@@ -99,9 +97,7 @@ export class GoDebugConfigProvider implements qv.DebugConfigProvider {
             prompt: 'Enter hostname',
             value: '127.0.0.1',
           });
-          if (host) {
-            config.host = host;
-          }
+          if (host) config.host = host;
           const port = Number(
             await qv.window.showInputBox({
               prompt: 'Enter port',
@@ -114,29 +110,22 @@ export class GoDebugConfigProvider implements qv.DebugConfigProvider {
               },
             })
           );
-          if (port) {
-            config.port = port;
-          }
+          if (port) config.port = port;
         },
       },
     ];
     const choice = await qv.window.showQuickPick(debugConfigs, {
       placeHolder: 'Choose debug configuration',
     });
-    if (!choice) {
-      return [];
-    }
-    if (choice.fill) {
-      await choice.fill(choice.config);
-    }
+    if (!choice) return [];
+    if (choice.fill) await choice.fill(choice.config);
     return [choice.config];
   }
   public async resolveDebugConfig(folder: qv.WorkspaceFolder | undefined, debugConfig: qv.DebugConfig, token?: qv.CancellationToken): Promise<qv.DebugConfig> {
     const activeEditor = qv.window.activeTextEditor;
     if (!debugConfig || !debugConfig.request) {
-      if (!activeEditor || activeEditor.document.languageId !== 'go') {
-        return;
-      }
+      if (!activeEditor || activeEditor.document.languageId !== 'go') return;
+
       debugConfig = Object.assign(debugConfig || {}, {
         name: 'Launch',
         type: this.defaultDebugAdapterType,
@@ -145,36 +134,25 @@ export class GoDebugConfigProvider implements qv.DebugConfigProvider {
         program: path.dirname(activeEditor.document.fileName), // matches ${fileDirname}
       });
     }
-    if (!debugConfig.type) {
-      debugConfig['type'] = this.defaultDebugAdapterType;
-    }
+    if (!debugConfig.type) debugConfig['type'] = this.defaultDebugAdapterType;
     debugConfig['packagePathToGoModPathMap'] = packagePathToGoModPathMap;
     const goConfig = getGoConfig(folder && folder.uri);
     const dlvConfig = goConfig['delveConfig'];
     let useApiV1 = false;
-    if (debugConfig.hasOwnProperty('useApiV1')) {
-      useApiV1 = debugConfig['useApiV1'] === true;
-    } else if (dlvConfig.hasOwnProperty('useApiV1')) {
-      useApiV1 = dlvConfig['useApiV1'] === true;
-    }
-    if (useApiV1) {
-      debugConfig['apiVersion'] = 1;
-    }
-    if (!debugConfig.hasOwnProperty('apiVersion') && dlvConfig.hasOwnProperty('apiVersion')) {
-      debugConfig['apiVersion'] = dlvConfig['apiVersion'];
-    }
-    if (!debugConfig.hasOwnProperty('dlvLoadConfig') && dlvConfig.hasOwnProperty('dlvLoadConfig')) {
-      debugConfig['dlvLoadConfig'] = dlvConfig['dlvLoadConfig'];
-    }
-    if (!debugConfig.hasOwnProperty('showGlobalVariables') && dlvConfig.hasOwnProperty('showGlobalVariables')) {
-      debugConfig['showGlobalVariables'] = dlvConfig['showGlobalVariables'];
-    }
-    if (debugConfig.request === 'attach' && !debugConfig['cwd']) {
-      debugConfig['cwd'] = '${workspaceFolder}';
-    }
-    if (debugConfig['cwd']) {
-      debugConfig['cwd'] = resolvePath(debugConfig['cwd']);
-    }
+    if (debugConfig.hasOwnProperty('useApiV1')) useApiV1 = debugConfig['useApiV1'] === true;
+    else if (dlvConfig.hasOwnProperty('useApiV1')) useApiV1 = dlvConfig['useApiV1'] === true;
+
+    if (useApiV1) debugConfig['apiVersion'] = 1;
+    if (!debugConfig.hasOwnProperty('apiVersion') && dlvConfig.hasOwnProperty('apiVersion')) debugConfig['apiVersion'] = dlvConfig['apiVersion'];
+
+    if (!debugConfig.hasOwnProperty('dlvLoadConfig') && dlvConfig.hasOwnProperty('dlvLoadConfig')) debugConfig['dlvLoadConfig'] = dlvConfig['dlvLoadConfig'];
+
+    if (!debugConfig.hasOwnProperty('showGlobalVariables') && dlvConfig.hasOwnProperty('showGlobalVariables')) debugConfig['showGlobalVariables'] = dlvConfig['showGlobalVariables'];
+
+    if (debugConfig.request === 'attach' && !debugConfig['cwd']) debugConfig['cwd'] = '${workspaceFolder}';
+
+    if (debugConfig['cwd']) debugConfig['cwd'] = resolvePath(debugConfig['cwd']);
+
     if (debugConfig['buildFlags']) {
       const resp = this.removeGcflags(debugConfig['buildFlags']);
       if (resp.removed) {
@@ -210,21 +188,14 @@ export class GoDebugConfigProvider implements qv.DebugConfigProvider {
       }
       dlvDAPVersionCurrent = true;
     }
-    if (debugConfig['mode'] === 'auto') {
-      debugConfig['mode'] = activeEditor && activeEditor.document.fileName.endsWith('_test.go') ? 'test' : 'debug';
-    }
-    if (debugConfig.request === 'launch' && debugConfig['mode'] === 'remote') {
+    if (debugConfig['mode'] === 'auto') debugConfig['mode'] = activeEditor && activeEditor.document.fileName.endsWith('_test.go') ? 'test' : 'debug';
+    if (debugConfig.request === 'launch' && debugConfig['mode'] === 'remote')
       this.showWarning('ignoreDebugLaunchRemoteWarning', "Request type of 'launch' with mode 'remote' is deprecated, please use request type 'attach' with mode 'remote' instead.");
-    }
-    if (debugConfig.request === 'attach' && debugConfig['mode'] === 'remote' && debugConfig['program']) {
+    if (debugConfig.request === 'attach' && debugConfig['mode'] === 'remote' && debugConfig['program'])
       this.showWarning('ignoreUsingRemotePathAndProgramWarning', "Request type of 'attach' with mode 'remote' does not work with 'program' attribute, please use 'cwd' attribute instead.");
-    }
     if (debugConfig.request === 'attach' && debugConfig['mode'] === 'local') {
-      if (!debugConfig['processId'] || debugConfig['processId'] === 0) {
-        debugConfig['processId'] = parseInt(await pickProc(), 10);
-      } else if (typeof debugConfig['processId'] === 'string') {
-        debugConfig['processId'] = parseInt(await pickProcByName(debugConfig['processId']), 10);
-      }
+      if (!debugConfig['processId'] || debugConfig['processId'] === 0) debugConfig['processId'] = parseInt(await pickProc(), 10);
+      else if (typeof debugConfig['processId'] === 'string') debugConfig['processId'] = parseInt(await pickProcByName(debugConfig['processId']), 10);
     }
     return debugConfig;
   }
@@ -247,14 +218,10 @@ export class GoDebugConfigProvider implements qv.DebugConfigProvider {
   }
   private showWarning(ignoreWarningKey: string, warningMessage: string) {
     const ignoreWarning = getFromGlobalState(ignoreWarningKey);
-    if (ignoreWarning) {
-      return;
-    }
+    if (ignoreWarning) return;
     const neverAgain = { title: "Don't Show Again" };
     qv.window.showWarningMessage(warningMessage, neverAgain).then((result) => {
-      if (result === neverAgain) {
-        updateGlobalState(ignoreWarningKey, true);
-      }
+      if (result === neverAgain) updateGlobalState(ignoreWarningKey, true);
     });
   }
 }

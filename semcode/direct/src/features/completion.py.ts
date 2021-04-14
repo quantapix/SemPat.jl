@@ -202,9 +202,7 @@ export class CompletionProvider {
   ) {}
   getCompletionsForPosition(): CompletionResults | undefined {
     const offset = convertPositionToOffset(this._position, this._parseResults.tokenizerOutput.lines);
-    if (offset === undefined) {
-      return undefined;
-    }
+    if (offset === undefined) return undefined;
     let node = ParseTreeUtils.findNodeByOffset(this._parseResults.parseTree, offset);
     const initialNode = node;
     const initialDepth = node ? ParseTreeUtils.getNodeDepth(node) : 0;
@@ -218,16 +216,13 @@ export class CompletionProvider {
         }
         const curNode = ParseTreeUtils.findNodeByOffset(this._parseResults.parseTree, curOffset);
         if (curNode && curNode !== initialNode) {
-          if (ParseTreeUtils.getNodeDepth(curNode) > initialDepth) {
-            node = curNode;
-          }
+          if (ParseTreeUtils.getNodeDepth(curNode) > initialDepth) node = curNode;
+
           break;
         }
       }
     }
-    if (node === undefined) {
-      return undefined;
-    }
+    if (node === undefined) return undefined;
     const lineTextRange = this._parseResults.tokenizerOutput.lines.getItemAt(this._position.line);
     const textOnLine = this._fileContents.substr(lineTextRange.start, lineTextRange.length);
     const priorText = textOnLine.substr(0, this._position.character);
@@ -239,38 +234,22 @@ export class CompletionProvider {
     }
     let errorNode: ParseNode | undefined = node;
     while (errorNode) {
-      if (errorNode.nodeType === ParseNodeType.Error) {
-        break;
-      }
+      if (errorNode.nodeType === ParseNodeType.Error) break;
       errorNode = errorNode.parent;
     }
     let curNode = errorNode || node;
     while (true) {
       throwIfCancellationRequested(this._cancellationToken);
-      if (curNode.nodeType === ParseNodeType.String) {
-        return this._getStringLiteralCompletions(curNode, priorWord, priorText, postText);
-      }
-      if (curNode.nodeType === ParseNodeType.StringList) {
-        return undefined;
-      }
-      if (curNode.nodeType === ParseNodeType.ModuleName) {
-        return this._getImportModuleCompletions(curNode);
-      }
-      if (curNode.nodeType === ParseNodeType.Error) {
-        return this._getExpressionErrorCompletions(curNode, priorWord, priorText, postText);
-      }
-      if (curNode.nodeType === ParseNodeType.MemberAccess) {
-        return this._getMemberAccessCompletions(curNode.leftExpression, priorWord);
-      }
+      if (curNode.nodeType === ParseNodeType.String) return this._getStringLiteralCompletions(curNode, priorWord, priorText, postText);
+      if (curNode.nodeType === ParseNodeType.StringList) return undefined;
+      if (curNode.nodeType === ParseNodeType.ModuleName) return this._getImportModuleCompletions(curNode);
+      if (curNode.nodeType === ParseNodeType.Error) return this._getExpressionErrorCompletions(curNode, priorWord, priorText, postText);
+      if (curNode.nodeType === ParseNodeType.MemberAccess) return this._getMemberAccessCompletions(curNode.leftExpression, priorWord);
       if (curNode.nodeType === ParseNodeType.Name) {
         const result = this._tryGetNameCompletions(curNode, offset, priorWord);
-        if (result || result === undefined) {
-          return result;
-        }
+        if (result || result === undefined) return result;
       }
-      if (curNode.nodeType === ParseNodeType.ImportFrom) {
-        return this._getImportFromCompletions(curNode, priorWord);
-      }
+      if (curNode.nodeType === ParseNodeType.ImportFrom) return this._getImportFromCompletions(curNode, priorWord);
       if (isExpressionNode(curNode)) {
         return this._getExpressionCompletions(curNode, priorWord, priorText, postText);
       }
@@ -296,15 +275,9 @@ export class CompletionProvider {
         }
         return this._getStatementCompletions(curNode, priorWord, priorText, postText);
       }
-      if (curNode.nodeType === ParseNodeType.Module) {
-        return this._getStatementCompletions(curNode, priorWord, priorText, postText);
-      }
-      if (curNode.nodeType === ParseNodeType.Parameter && curNode.length === 0 && curNode.parent && curNode.parent.nodeType === ParseNodeType.Lambda) {
-        return undefined;
-      }
-      if (!curNode.parent) {
-        break;
-      }
+      if (curNode.nodeType === ParseNodeType.Module) return this._getStatementCompletions(curNode, priorWord, priorText, postText);
+      if (curNode.nodeType === ParseNodeType.Parameter && curNode.length === 0 && curNode.parent && curNode.parent.nodeType === ParseNodeType.Lambda) return undefined;
+      if (!curNode.parent) break;
       curNode = curNode.parent;
     }
     return undefined;
@@ -314,24 +287,15 @@ export class CompletionProvider {
     const completionItemData = completionItem.data as CompletionItemData;
     const label = completionItem.label;
     let autoImportText = '';
-    if (completionItemData.autoImportText) {
-      autoImportText = completionItemData.autoImportText;
-    }
+    if (completionItemData.autoImportText) autoImportText = completionItemData.autoImportText;
     const curIndex = CompletionProvider._mostRecentCompletions.findIndex((item) => item.label === label && item.autoImportText === autoImportText);
-    if (curIndex > 0) {
-      CompletionProvider._mostRecentCompletions = CompletionProvider._mostRecentCompletions.splice(curIndex, 1);
-    }
-    if (curIndex !== 0) {
-      CompletionProvider._mostRecentCompletions.unshift({ label, autoImportText });
-    }
-    if (CompletionProvider._mostRecentCompletions.length > maxRecentCompletions) {
-      CompletionProvider._mostRecentCompletions.pop();
-    }
+    if (curIndex > 0) CompletionProvider._mostRecentCompletions = CompletionProvider._mostRecentCompletions.splice(curIndex, 1);
+    if (curIndex !== 0) CompletionProvider._mostRecentCompletions.unshift({ label, autoImportText });
+    if (CompletionProvider._mostRecentCompletions.length > maxRecentCompletions) CompletionProvider._mostRecentCompletions.pop();
     if (completionItemData.symbolLabel) {
       this._itemToResolve = completionItem;
-      if (!completionItemData.autoImportText) {
-        this.getCompletionsForPosition();
-      } else if (!completionItem.additionalTextEdits) {
+      if (!completionItemData.autoImportText) this.getCompletionsForPosition();
+      else if (!completionItem.additionalTextEdits) {
         const completionList = CompletionList.create();
         const completionResults = { completionList };
         this._getAutoImportCompletions(completionItemData.symbolLabel, /* similarityLimit */ 1, /* lazyEdit */ false, completionResults);
@@ -339,12 +303,8 @@ export class CompletionProvider {
     }
   }
   private _tryGetNameCompletions(curNode: NameNode, offset: number, priorWord: string) {
-    if (!curNode.parent) {
-      return false;
-    }
-    if (curNode.parent.nodeType === ParseNodeType.ImportAs && curNode.parent.alias === curNode) {
-      return undefined;
-    }
+    if (!curNode.parent) return false;
+    if (curNode.parent.nodeType === ParseNodeType.ImportAs && curNode.parent.alias === curNode) return undefined;
     if (curNode.parent.nodeType === ParseNodeType.ModuleName) {
       if (curNode.parent.parent && curNode.parent.parent.nodeType === ParseNodeType.ImportAs && !curNode.parent.parent.alias && TextRange.getEnd(curNode.parent.parent) < offset) {
         return undefined;
@@ -352,39 +312,26 @@ export class CompletionProvider {
       return this._getImportModuleCompletions(curNode.parent);
     }
     if (curNode.parent.nodeType === ParseNodeType.ImportFromAs) {
-      if (curNode.parent.alias === curNode) {
-        return undefined;
-      }
+      if (curNode.parent.alias === curNode) return undefined;
+
       const parentNode = curNode.parent.parent;
       if (parentNode && parentNode.nodeType === ParseNodeType.ImportFrom) {
-        if (!curNode.parent.alias && TextRange.getEnd(curNode.parent) < offset) {
-          return undefined;
-        }
-        if (curNode.parent.name === curNode) {
-          return this._getImportFromCompletions(parentNode, priorWord);
-        }
+        if (!curNode.parent.alias && TextRange.getEnd(curNode.parent) < offset) return undefined;
+
+        if (curNode.parent.name === curNode) return this._getImportFromCompletions(parentNode, priorWord);
         return this._getImportFromCompletions(parentNode, '');
       }
       return false;
     }
-    if (curNode.parent.nodeType === ParseNodeType.MemberAccess && curNode === curNode.parent.memberName) {
-      return this._getMemberAccessCompletions(curNode.parent.leftExpression, priorWord);
-    }
-    if (curNode.parent.nodeType === ParseNodeType.Except && curNode === curNode.parent.name) {
-      return undefined;
-    }
+    if (curNode.parent.nodeType === ParseNodeType.MemberAccess && curNode === curNode.parent.memberName) return this._getMemberAccessCompletions(curNode.parent.leftExpression, priorWord);
+    if (curNode.parent.nodeType === ParseNodeType.Except && curNode === curNode.parent.name) return undefined;
     if (curNode.parent.nodeType === ParseNodeType.Function && curNode === curNode.parent.name) {
-      if (curNode.parent.decorators?.some((d) => this._isOverload(d))) {
-        return this._getMethodOverloadsCompletions(priorWord, curNode);
-      }
+      if (curNode.parent.decorators?.some((d) => this._isOverload(d))) return this._getMethodOverloadsCompletions(priorWord, curNode);
+
       return undefined;
     }
-    if (curNode.parent.nodeType === ParseNodeType.Parameter && curNode === curNode.parent.name) {
-      return undefined;
-    }
-    if (curNode.parent.nodeType === ParseNodeType.Class && curNode === curNode.parent.name) {
-      return undefined;
-    }
+    if (curNode.parent.nodeType === ParseNodeType.Parameter && curNode === curNode.parent.name) return undefined;
+    if (curNode.parent.nodeType === ParseNodeType.Class && curNode === curNode.parent.name) return undefined;
     if (curNode.parent.nodeType === ParseNodeType.For && TextRange.contains(curNode.parent.targetExpression, curNode.start)) {
       return undefined;
     }
@@ -395,29 +342,19 @@ export class CompletionProvider {
   }
   private _isWithinComment(offset: number): boolean {
     const token = getTokenAfter(offset, this._parseResults.tokenizerOutput.tokens);
-    if (!token) {
-      return false;
-    }
+    if (!token) return false;
     return token.comments?.some((c) => TextRange.overlaps(c, offset)) ?? false;
     function getTokenAfter(offset: number, tokens: TextRangeCollection<Token>) {
       const tokenIndex = tokens.getItemAtPosition(offset);
-      if (tokenIndex < 0) {
-        return undefined;
-      }
+      if (tokenIndex < 0) return undefined;
       let token = tokens.getItemAt(tokenIndex);
-      if (offset > token.start && offset < token.start + token.length) {
-        return undefined;
-      }
+      if (offset > token.start && offset < token.start + token.length) return undefined;
       for (let i = tokenIndex - 1; i >= 0; i--) {
         const prevToken = tokens.getItemAt(i);
-        if (token.start !== prevToken.start) {
-          break;
-        }
+        if (token.start !== prevToken.start) break;
         token = prevToken;
       }
-      if (offset <= token.start) {
-        return token;
-      }
+      if (offset <= token.start) return token;
       debug.assert(tokenIndex + 1 < tokens.length);
       return tokens.getItemAt(tokenIndex + 1);
     }
@@ -436,9 +373,7 @@ export class CompletionProvider {
       }
       case ErrorExpressionCategory.MissingIndexOrSlice: {
         let completionResults = this._getStringLiteralCompletions(node, priorWord, priorText, postText);
-        if (!completionResults || !completionResults.completionList) {
-          completionResults = this._getExpressionCompletions(node, priorWord, priorText, postText);
-        }
+        if (!completionResults || !completionResults.completionList) completionResults = this._getExpressionCompletions(node, priorWord, priorText, postText);
         return completionResults;
       }
       case ErrorExpressionCategory.MissingMemberAccessName: {
@@ -449,9 +384,8 @@ export class CompletionProvider {
       }
       case ErrorExpressionCategory.MissingFunctionParameterList: {
         if (node.child && node.child.nodeType === ParseNodeType.Name) {
-          if (node.decorators?.some((d) => this._isOverload(d))) {
-            return this._getMethodOverloadsCompletions(priorWord, node.child);
-          }
+          if (node.decorators?.some((d) => this._isOverload(d))) return this._getMethodOverloadsCompletions(priorWord, node.child);
+
           return this._getMethodOverrideCompletions(priorWord, node.child, node.decorators);
         }
         break;
@@ -474,17 +408,13 @@ export class CompletionProvider {
   }
   private _getMethodOverloadsCompletions(priorWord: string, partialName: NameNode): CompletionResults | undefined {
     const symbolTable = getSymbolTable(this._evaluator, partialName);
-    if (!symbolTable) {
-      return undefined;
-    }
+    if (!symbolTable) return undefined;
     const funcParensDisabled = partialName.parent?.nodeType === ParseNodeType.Function ? true : undefined;
     const completionList = CompletionList.create();
     const enclosingFunc = ParseTreeUtils.getEnclosingFunction(partialName);
     symbolTable.forEach((symbol, name) => {
       const decl = getLastTypedDeclaredForSymbol(symbol);
-      if (!decl || decl.type !== DeclarationType.Function) {
-        return;
-      }
+      if (!decl || decl.type !== DeclarationType.Function) return;
       if (!decl.node.decorators.some((d) => this._isOverload(d))) {
         return;
       }
@@ -505,9 +435,7 @@ export class CompletionProvider {
       const enclosingClass = ParseTreeUtils.getEnclosingClass(partialName, false);
       if (enclosingClass) {
         const classResults = evaluator.getTypeOfClass(enclosingClass);
-        if (!classResults) {
-          return undefined;
-        }
+        if (!classResults) return undefined;
         const symbolTable = new Map<string, Symbol>();
         for (const mroClass of classResults.classType.details.mro) {
           if (isClass(mroClass)) {
@@ -526,13 +454,9 @@ export class CompletionProvider {
   }
   private _getMethodOverrideCompletions(priorWord: string, partialName: NameNode, decorators?: DecoratorNode[]): CompletionResults | undefined {
     const enclosingClass = ParseTreeUtils.getEnclosingClass(partialName, true);
-    if (!enclosingClass) {
-      return undefined;
-    }
+    if (!enclosingClass) return undefined;
     const classResults = this._evaluator.getTypeOfClass(enclosingClass);
-    if (!classResults) {
-      return undefined;
-    }
+    if (!classResults) return undefined;
     const symbolTable = new Map<string, Symbol>();
     for (let i = 1; i < classResults.classType.details.mro.length; i++) {
       const mroClass = classResults.classType.details.mro[i];
@@ -548,9 +472,7 @@ export class CompletionProvider {
       if (decl && decl.type === DeclarationType.Function) {
         if (StringUtils.isPatternInSymbol(partialName.value, name)) {
           const declaredType = this._evaluator.getTypeForDeclaration(decl);
-          if (!declaredType) {
-            return;
-          }
+          if (!declaredType) return;
           let isProperty = isObject(declaredType) && ClassType.isPropertyClass(declaredType.classType);
           if (SymbolNameUtils.isDunderName(name)) {
             isProperty = false;
@@ -560,15 +482,11 @@ export class CompletionProvider {
           }
           if (isProperty) {
             const typedDecls = symbol.getTypedDeclarations();
-            if (typedDecls.length > 0 && typedDecls[0].type === DeclarationType.Function) {
-              decl = typedDecls[0];
-            }
+            if (typedDecls.length > 0 && typedDecls[0].type === DeclarationType.Function) decl = typedDecls[0];
           }
           const isDeclaredStaticMethod = isFunction(declaredType) && FunctionType.isStaticMethod(declaredType);
           const isDeclaredClassMethod = isFunction(declaredType) && FunctionType.isClassMethod(declaredType) && name !== '__init_subclass__';
-          if (staticmethod !== isDeclaredStaticMethod || classmethod !== isDeclaredClassMethod) {
-            return;
-          }
+          if (staticmethod !== isDeclaredStaticMethod || classmethod !== isDeclaredClassMethod) return;
           const methodSignature = this._printMethodSignature(decl.node) + ':';
           const methodBody = this._printOverriddenMethodBody(classResults.classType, isDeclaredStaticMethod, isProperty, decl);
           const textEdit = this._createReplaceEdits(priorWord, partialName, `${methodSignature}\n${methodBody}`);
@@ -596,28 +514,20 @@ export class CompletionProvider {
     const paramList = node.parameters
       .map((param, index) => {
         let paramString = '';
-        if (param.category === ParameterCategory.VarArgList) {
-          paramString += '*';
-        } else if (param.category === ParameterCategory.VarArgDictionary) {
+        if (param.category === ParameterCategory.VarArgList) paramString += '*';
+        else if (param.category === ParameterCategory.VarArgDictionary) {
           paramString += '**';
         }
-        if (param.name) {
-          paramString += param.name.value;
-        }
+        if (param.name) paramString += param.name.value;
         const paramTypeAnnotation = this._evaluator.getTypeAnnotationForParameter(node, index);
-        if (paramTypeAnnotation) {
-          paramString += ': ' + ParseTreeUtils.printExpression(paramTypeAnnotation);
-        }
-        if (!paramString && !param.name && param.category === ParameterCategory.Simple) {
-          return '/';
-        }
+        if (paramTypeAnnotation) paramString += ': ' + ParseTreeUtils.printExpression(paramTypeAnnotation);
+        if (!paramString && !param.name && param.category === ParameterCategory.Simple) return '/';
         return paramString;
       })
       .join(', ');
     let methodSignature = node.name.value + '(' + paramList + ')';
-    if (node.returnTypeAnnotation) {
-      methodSignature += ' -> ' + ParseTreeUtils.printExpression(node.returnTypeAnnotation);
-    } else if (node.functionAnnotationComment) {
+    if (node.returnTypeAnnotation) methodSignature += ' -> ' + ParseTreeUtils.printExpression(node.returnTypeAnnotation);
+    else if (node.functionAnnotationComment) {
       methodSignature += ' -> ' + ParseTreeUtils.printExpression(node.functionAnnotationComment.returnTypeAnnotation);
     }
     return methodSignature;
@@ -633,27 +543,17 @@ export class CompletionProvider {
       return sb;
     }
     const parameters = getParameters();
-    if (decl.node.name.value !== '__init__') {
-      sb += 'return ';
-    }
-    if (isProperty) {
-      return sb + `super().${decl.node.name.value}`;
-    }
+    if (decl.node.name.value !== '__init__') sb += 'return ';
+    if (isProperty) return sb + `super().${decl.node.name.value}`;
     return sb + `super().${decl.node.name.value}(${parameters.map(convertToString).join(', ')})`;
     function getParameters() {
-      if (isStaticMethod) {
-        return decl.node.parameters.filter((p) => p.name);
-      }
+      if (isStaticMethod) return decl.node.parameters.filter((p) => p.name);
       return decl.node.parameters.slice(1).filter((p) => p.name);
     }
     function convertToString(parameter: ParameterNode) {
       const name = parameter.name?.value;
-      if (parameter.category === ParameterCategory.VarArgList) {
-        return `*${name}`;
-      }
-      if (parameter.category === ParameterCategory.VarArgDictionary) {
-        return `**${name}`;
-      }
+      if (parameter.category === ParameterCategory.VarArgList) return `*${name}`;
+      if (parameter.category === ParameterCategory.VarArgDictionary) return `**${name}`;
       return parameter.defaultValue ? `${name}=${name}` : name;
     }
   }
@@ -699,9 +599,7 @@ export class CompletionProvider {
     while (curNode) {
       if (curNode.nodeType === ParseNodeType.Call || curNode.nodeType === ParseNodeType.MemberAccess) {
         curNode = curNode.leftExpression;
-        if (unknownMemberName === undefined) {
-          unknownMemberName = curNode.nodeType === ParseNodeType.MemberAccess ? curNode?.memberName.value ?? '' : '';
-        }
+        if (unknownMemberName === undefined) unknownMemberName = curNode.nodeType === ParseNodeType.MemberAccess ? curNode?.memberName.value ?? '' : '';
       } else {
         curNode = undefined;
       }
@@ -716,9 +614,8 @@ export class CompletionProvider {
     if (curType && !isUnknown(curType) && !isUnbound(curType) && curNode) {
       const moduleNamesForType = getDeclaringModulesForType(curType);
       memberAccessInfo.lastKnownModule = moduleNamesForType.find((n) => n !== 'typing');
-      if (curNode.nodeType === ParseNodeType.MemberAccess) {
-        memberAccessInfo.lastKnownMemberName = curNode.memberName.value;
-      } else if (curNode.nodeType === ParseNodeType.Name && isClass(curType)) {
+      if (curNode.nodeType === ParseNodeType.MemberAccess) memberAccessInfo.lastKnownMemberName = curNode.memberName.value;
+      else if (curNode.nodeType === ParseNodeType.Name && isClass(curType)) {
         memberAccessInfo.lastKnownMemberName = curType.details.name;
       } else if (curNode.nodeType === ParseNodeType.Name && isObject(curType)) {
         memberAccessInfo.lastKnownMemberName = curType.classType.details.name;
@@ -731,12 +628,8 @@ export class CompletionProvider {
     return this._getExpressionCompletions(parseNode, priorWord, priorText, postText);
   }
   private _getExpressionCompletions(parseNode: ParseNode, priorWord: string, priorText: string, postText: string): CompletionResults | undefined {
-    if (parseNode.nodeType === ParseNodeType.Number) {
-      return undefined;
-    }
-    if (parseNode.parent?.nodeType === ParseNodeType.WithItem && parseNode.parent === parseNode.parent.target?.parent) {
-      return undefined;
-    }
+    if (parseNode.nodeType === ParseNodeType.Number) return undefined;
+    if (parseNode.parent?.nodeType === ParseNodeType.WithItem && parseNode.parent === parseNode.parent.target?.parent) return undefined;
     const completionList = CompletionList.create();
     const completionResults = { completionList };
     this._addCallArgumentCompletions(parseNode, priorWord, priorText, postText, completionList);
@@ -751,14 +644,11 @@ export class CompletionProvider {
       this._getAutoImportCompletions(priorWord, similarityLimit, this._options.lazyEdit, completionResults);
     }
     if (parseNode.nodeType === ParseNodeType.Error) {
-      if (parseNode.category === ErrorExpressionCategory.MissingIndexOrSlice) {
-        this._getIndexStringLiteral(parseNode, completionList);
-      } else if (parseNode.category === ErrorExpressionCategory.MissingExpression) {
+      if (parseNode.category === ErrorExpressionCategory.MissingIndexOrSlice) this._getIndexStringLiteral(parseNode, completionList);
+      else if (parseNode.category === ErrorExpressionCategory.MissingExpression) {
         if (parseNode.parent && parseNode.parent.nodeType === ParseNodeType.Assignment) {
           const declaredTypeOfTarget = this._evaluator.getDeclaredTypeForExpression(parseNode.parent.leftExpression);
-          if (declaredTypeOfTarget) {
-            this._addLiteralValuesForTargetType(declaredTypeOfTarget, priorText, postText, completionList);
-          }
+          if (declaredTypeOfTarget) this._addLiteralValuesForTargetType(declaredTypeOfTarget, priorText, postText, completionList);
         }
       }
     }
@@ -767,9 +657,7 @@ export class CompletionProvider {
   private _addCallArgumentCompletions(parseNode: ParseNode, priorWord: string, priorText: string, postText: string, completionList: CompletionList) {
     const offset = convertPositionToOffset(this._position, this._parseResults.tokenizerOutput.lines)!;
     const callInfo = getCallNodeAndActiveParameterIndex(parseNode, offset, this._parseResults.tokenizerOutput.tokens);
-    if (!callInfo) {
-      return;
-    }
+    if (!callInfo) return;
     const signatureInfo = this._evaluator.getCallSignatureInfo(callInfo.callNode, callInfo.activeIndex, callInfo.activeOrFake);
     if (signatureInfo) {
       const callNameEnd = convertOffsetToPosition(signatureInfo.callNode.leftExpression.start + signatureInfo.callNode.leftExpression.length, this._parseResults.tokenizerOutput.lines);
@@ -781,14 +669,10 @@ export class CompletionProvider {
   }
   private _addLiteralValuesForArgument(signatureInfo: CallSignatureInfo, priorText: string, postText: string, completionList: CompletionList) {
     signatureInfo.signatures.forEach((signature) => {
-      if (!signature.activeParam) {
-        return undefined;
-      }
+      if (!signature.activeParam) return undefined;
       const type = signature.type;
       const paramIndex = type.details.parameters.indexOf(signature.activeParam);
-      if (paramIndex < 0) {
-        return undefined;
-      }
+      if (paramIndex < 0) return undefined;
       const paramType = type.details.parameters[paramIndex].type;
       this._addLiteralValuesForTargetType(paramType, priorText, postText, completionList);
       return undefined;
@@ -804,17 +688,12 @@ export class CompletionProvider {
   }
   private _getStringLiteralCompletions(parseNode: StringNode | ErrorNode, priorWord: string, priorText: string, postText: string): CompletionResults | undefined {
     let parentNode: ParseNode | undefined = parseNode.parent;
-    if (!parentNode) {
-      return undefined;
-    }
+    if (!parentNode) return undefined;
     if (parentNode.nodeType !== ParseNodeType.Argument) {
-      if (parentNode.nodeType !== ParseNodeType.StringList || parentNode.strings.length > 1) {
-        return undefined;
-      }
+      if (parentNode.nodeType !== ParseNodeType.StringList || parentNode.strings.length > 1) return undefined;
+
       parentNode = parentNode.parent;
-      if (!parentNode) {
-        return undefined;
-      }
+      if (!parentNode) return undefined;
     }
     const completionList = CompletionList.create();
     if (parentNode.nodeType === ParseNodeType.Argument && parentNode.parent?.nodeType === ParseNodeType.Index) {
@@ -833,9 +712,7 @@ export class CompletionProvider {
       });
     } else if (parentNode.nodeType === ParseNodeType.Assignment) {
       const declaredTypeOfTarget = this._evaluator.getDeclaredTypeForExpression(parentNode.leftExpression);
-      if (declaredTypeOfTarget) {
-        this._addLiteralValuesForTargetType(declaredTypeOfTarget, priorText, postText, completionList);
-      }
+      if (declaredTypeOfTarget) this._addLiteralValuesForTargetType(declaredTypeOfTarget, priorText, postText, completionList);
     } else {
       debug.assert(parseNode.nodeType === ParseNodeType.String);
       const offset = convertPositionToOffset(this._position, this._parseResults.tokenizerOutput.lines)!;
@@ -860,9 +737,7 @@ export class CompletionProvider {
     return { stringValue, quoteCharacter };
   }
   private _getIndexStringLiteral(parseNode: ErrorNode, completionList: CompletionList) {
-    if (!parseNode.parent || parseNode.parent.nodeType !== ParseNodeType.Index) {
-      return;
-    }
+    if (!parseNode.parent || parseNode.parent.nodeType !== ParseNodeType.Index) return;
     const baseType = this._evaluator.getType(parseNode.parent.baseExpression);
     if (!baseType || !isObject(baseType)) {
       return;
@@ -883,14 +758,10 @@ export class CompletionProvider {
       completionItem.kind = CompletionItemKind.Constant;
       completionItem.sortText = this._makeSortText(SortCategory.LiteralValue, valueWithQuotes);
       let rangeStartCol = this._position.character;
-      if (priorString !== undefined) {
-        rangeStartCol -= priorString.length + 1;
-      }
+      if (priorString !== undefined) rangeStartCol -= priorString.length + 1;
       let rangeEndCol = this._position.character;
       if (postText !== undefined) {
-        if (postText.startsWith(quoteCharacter)) {
-          rangeEndCol++;
-        }
+        if (postText.startsWith(quoteCharacter)) rangeEndCol++;
       }
       const range: Range = {
         start: { line: this._position.line, character: rangeStartCol },
@@ -901,13 +772,9 @@ export class CompletionProvider {
     }
   }
   private _getAutoImportCompletions(priorWord: string, similarityLimit: number, lazyEdit: boolean, completionResults: CompletionResults) {
-    if (!this._autoImportMaps) {
-      return;
-    }
+    if (!this._autoImportMaps) return;
     const completionList = completionResults.completionList;
-    if (!completionList) {
-      return;
-    }
+    if (!completionList) return;
     const moduleSymbolMap = this._autoImportMaps.getModuleSymbolsMap();
     const excludes = new Set(completionList.items.filter((i) => !i.data?.autoImport).map((i) => i.label));
     const autoImporter = new AutoImporter(this._configOptions.findExecEnvironment(this._filePath), this._importResolver, this._parseResults, this._position, excludes, moduleSymbolMap, {
@@ -959,13 +826,9 @@ export class CompletionProvider {
     };
   }
   private _getImportFromCompletions(importFromNode: ImportFromNode, priorWord: string): CompletionResults | undefined {
-    if (importFromNode.isWildcardImport) {
-      return undefined;
-    }
+    if (importFromNode.isWildcardImport) return undefined;
     const importInfo = AnalyzerNodeInfo.getImportInfo(importFromNode.module);
-    if (!importInfo) {
-      return undefined;
-    }
+    if (!importInfo) return undefined;
     const completionList = CompletionList.create();
     const resolvedPath = importInfo.resolvedPaths.length > 0 ? importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1] : '';
     const lookupResults = this._importLookup(resolvedPath);
@@ -990,9 +853,8 @@ export class CompletionProvider {
   }
   private _findMatchingKeywords(keywordList: string[], partialMatch: string): string[] {
     return keywordList.filter((keyword) => {
-      if (partialMatch) {
-        return StringUtils.isPatternInSymbol(partialMatch, keyword);
-      } else {
+      if (partialMatch) return StringUtils.isPatternInSymbol(partialMatch, keyword);
+      else {
         return true;
       }
     });
@@ -1003,9 +865,7 @@ export class CompletionProvider {
       this._addNamedParametersToMap(signature.type, argNameMap);
     });
     signatureInfo.callNode.arguments!.forEach((arg) => {
-      if (arg.name) {
-        argNameMap.delete(arg.name.value);
-      }
+      if (arg.name) argNameMap.delete(arg.name.value);
     });
     argNameMap.forEach((argName) => {
       if (StringUtils.isPatternInSymbol(priorWord, argName)) {
@@ -1025,9 +885,7 @@ export class CompletionProvider {
   private _addNamedParametersToMap(type: FunctionType, paramMap: Map<string, string>) {
     type.details.parameters.forEach((param) => {
       if (param.name && !param.isNameSynthesized) {
-        if (!SymbolNameUtils.isPrivateOrProtectedName(param.name)) {
-          paramMap.set(param.name, param.name);
-        }
+        if (!SymbolNameUtils.isPrivateOrProtectedName(param.name)) paramMap.set(param.name, param.name);
       }
     });
   }
@@ -1104,9 +962,7 @@ export class CompletionProvider {
     let primaryDecl = getLastTypedDeclaredForSymbol(symbol);
     if (!primaryDecl) {
       const declarations = symbol.getDeclarations();
-      if (declarations.length > 0) {
-        primaryDecl = declarations[declarations.length - 1];
-      }
+      if (declarations.length > 0) primaryDecl = declarations[declarations.length - 1];
     }
     if (primaryDecl) {
       let itemKind: CompletionItemKind = CompletionItemKind.Variable;
@@ -1128,9 +984,7 @@ export class CompletionProvider {
                   if (type && TypeBase.isInstantiable(type)) {
                     const typeAliasInfo = getTypeAliasInfo(type);
                     if (typeAliasInfo) {
-                      if (typeAliasInfo.name === name) {
-                        expandTypeAlias = true;
-                      }
+                      if (typeAliasInfo.name === name) expandTypeAlias = true;
                     }
                   }
                   typeDetail = name + ': ' + this._evaluator.printType(type, expandTypeAlias);
@@ -1159,9 +1013,7 @@ export class CompletionProvider {
                   typeDetail = name;
                   if (primaryDecl.path) {
                     const lookupResults = this._importLookup(primaryDecl.path);
-                    if (lookupResults) {
-                      documentation = lookupResults.docString;
-                    }
+                    if (lookupResults) documentation = lookupResults.docString;
                   }
                   break;
                 }
@@ -1185,9 +1037,7 @@ export class CompletionProvider {
               } else if (primaryDecl?.type === DeclarationType.Function) {
                 const enclosingClass = isFunctionDeclaration(primaryDecl) ? ParseTreeUtils.getEnclosingClass(primaryDecl.node.name, false) : undefined;
                 const classResults = enclosingClass ? this._evaluator.getTypeOfClass(enclosingClass) : undefined;
-                if (classResults) {
-                  documentation = getPropertyDocStringInherited(primaryDecl, this._sourceMapper, this._evaluator, classResults?.classType);
-                }
+                if (classResults) documentation = getPropertyDocStringInherited(primaryDecl, this._sourceMapper, this._evaluator, classResults?.classType);
               }
               if (this._options.format === MarkupKind.Markdown) {
                 let markdownString = '```python\n' + typeDetail + '\n```\n';
@@ -1235,17 +1085,13 @@ export class CompletionProvider {
   }
   private _getAutoImportText(importName: string, importFrom?: string, importAlias?: string) {
     let autoImportText: string | undefined;
-    if (!importFrom) {
-      autoImportText = `import ${importName}`;
-    } else {
+    if (!importFrom) autoImportText = `import ${importName}`;
+    else {
       autoImportText = `from ${importFrom} import ${importName}`;
     }
-    if (importAlias) {
-      autoImportText = `${autoImportText} as ${importAlias}`;
-    }
-    if (this._options.format === MarkupKind.Markdown) {
-      return `\`\`\`\n${autoImportText}\n\`\`\``;
-    } else if (this._options.format === MarkupKind.PlainText) {
+    if (importAlias) autoImportText = `${autoImportText} as ${importAlias}`;
+    if (this._options.format === MarkupKind.Markdown) return `\`\`\`\n${autoImportText}\n\`\`\``;
+    else if (this._options.format === MarkupKind.PlainText) {
       return autoImportText;
     } else {
       fail(`Unsupported markup type: ${this._options.format}`);
@@ -1253,9 +1099,7 @@ export class CompletionProvider {
   }
   private _addNameToCompletionList(name: string, itemKind: CompletionItemKind, filter: string, completionList: CompletionList, detail?: CompletionDetail) {
     const similarity = detail?.autoImportText ? true : StringUtils.isPatternInSymbol(filter, name);
-    if (!similarity) {
-      return;
-    }
+    if (!similarity) return;
     const completionItem = CompletionItem.create(name);
     completionItem.kind = itemKind;
     const completionItemData: CompletionItemData = {
@@ -1263,9 +1107,7 @@ export class CompletionProvider {
       filePath: this._filePath,
       position: this._position,
     };
-    if (detail?.funcParensDisabled) {
-      completionItemData.funcParensDisabled = true;
-    }
+    if (detail?.funcParensDisabled) completionItemData.funcParensDisabled = true;
     completionItem.data = completionItemData;
     if (detail?.autoImportText) {
       completionItem.sortText = this._makeSortText(SortCategory.AutoImport, name, detail.autoImportText);
@@ -1281,50 +1123,26 @@ export class CompletionProvider {
     completionItemData.symbolLabel = name;
     if (this._options.format === MarkupKind.Markdown) {
       let markdownString = '';
-      if (detail?.autoImportText) {
-        markdownString += detail.autoImportText + '\n\n';
-      }
-      if (detail?.typeDetail) {
-        markdownString += '```python\n' + detail.typeDetail + '\n```\n';
-      }
+      if (detail?.autoImportText) markdownString += detail.autoImportText + '\n\n';
+      if (detail?.typeDetail) markdownString += '```python\n' + detail.typeDetail + '\n```\n';
       if (detail?.documentation) {
         markdownString += '---\n';
         markdownString += convertDocStringToMarkdown(detail.documentation);
       }
       markdownString = markdownString.trimEnd();
-      if (markdownString) {
-        completionItem.documentation = {
-          kind: MarkupKind.Markdown,
-          value: markdownString,
-        };
-      }
+      if (markdownString) completionItem.documentation = { kind: MarkupKind.Markdown, value: markdownString };
     } else if (this._options.format === MarkupKind.PlainText) {
       let plainTextString = '';
-      if (detail?.autoImportText) {
-        plainTextString += detail.autoImportText + '\n\n';
-      }
-      if (detail?.typeDetail) {
-        plainTextString += detail.typeDetail + '\n';
-      }
-      if (detail?.documentation) {
-        plainTextString += '\n' + convertDocStringToPlainText(detail.documentation);
-      }
+      if (detail?.autoImportText) plainTextString += detail.autoImportText + '\n\n';
+      if (detail?.typeDetail) plainTextString += detail.typeDetail + '\n';
+      if (detail?.documentation) plainTextString += '\n' + convertDocStringToPlainText(detail.documentation);
       plainTextString = plainTextString.trimEnd();
-      if (plainTextString) {
-        completionItem.documentation = {
-          kind: MarkupKind.PlainText,
-          value: plainTextString,
-        };
-      }
+      if (plainTextString) completionItem.documentation = { kind: MarkupKind.PlainText, value: plainTextString };
     } else {
       fail(`Unsupported markup type: ${this._options.format}`);
     }
-    if (detail?.edits?.format) {
-      completionItem.insertTextFormat = detail.edits.format;
-    }
-    if (detail?.edits?.textEdit) {
-      completionItem.textEdit = detail.edits.textEdit;
-    }
+    if (detail?.edits?.format) completionItem.insertTextFormat = detail.edits.format;
+    if (detail?.edits?.textEdit) completionItem.textEdit = detail.edits.textEdit;
     if (detail?.edits?.additionalTextEdits) {
       completionItem.additionalTextEdits = detail.edits.additionalTextEdits.map((te) => {
         const textEdit: TextEdit = {
@@ -1338,9 +1156,7 @@ export class CompletionProvider {
       });
       if (this._itemToResolve) {
         const data = this._itemToResolve.data as CompletionItemData;
-        if (data.autoImportText === completionItemData.autoImportText) {
-          this._itemToResolve.additionalTextEdits = completionItem.additionalTextEdits;
-        }
+        if (data.autoImportText === completionItemData.autoImportText) this._itemToResolve.additionalTextEdits = completionItem.additionalTextEdits;
       }
     }
     completionList.items.push(completionItem);
@@ -1348,27 +1164,21 @@ export class CompletionProvider {
   private _getRecentListIndex(name: string, autoImportText: string) {
     return CompletionProvider._mostRecentCompletions.findIndex((item) => item.label === name && item.autoImportText === autoImportText);
   }
-  private _makeSortText(sortCategory: SortCategory, name: string, autoImportText = ''): string {
+  private _makeSortText(c: SortCategory, name: string, autoImportText = ''): string {
     const recentListIndex = this._getRecentListIndex(name, autoImportText);
     if (recentListIndex >= 0) {
-      if (sortCategory === SortCategory.AutoImport) {
-        sortCategory = SortCategory.RecentAutoImport;
-      } else if (sortCategory === SortCategory.ImportModuleName) {
-        sortCategory = SortCategory.RecentImportModuleName;
-      } else if (sortCategory === SortCategory.Keyword || sortCategory === SortCategory.NormalSymbol || sortCategory === SortCategory.PrivateSymbol || sortCategory === SortCategory.DunderSymbol) {
-        sortCategory = SortCategory.RecentKeywordOrSymbol;
-      }
+      if (c === SortCategory.AutoImport) c = SortCategory.RecentAutoImport;
+      else if (c === SortCategory.ImportModuleName) c = SortCategory.RecentImportModuleName;
+      else if (c === SortCategory.Keyword || c === SortCategory.NormalSymbol || c === SortCategory.PrivateSymbol || c === SortCategory.DunderSymbol) c = SortCategory.RecentKeywordOrSymbol;
     }
-    return this._formatInteger(sortCategory, 2) + '.' + this._formatInteger(recentListIndex, 4) + '.' + name;
+    return this._formatInteger(c, 2) + '.' + this._formatInteger(recentListIndex, 4) + '.' + name;
   }
   private _formatInteger(val: number, digits: number): string {
     const charCodeZero = '0'.charCodeAt(0);
     let result = '';
     for (let i = 0; i < digits; i++) {
       let digit = Math.floor(val % 10);
-      if (digit < 0) {
-        digit = 9;
-      }
+      if (digit < 0) digit = 9;
       result = String.fromCharCode(digit + charCodeZero) + result;
       val = Math.floor(val / 10);
     }
@@ -1376,9 +1186,7 @@ export class CompletionProvider {
   }
   private _convertDeclarationTypeToItemKind(declaration: Declaration): CompletionItemKind {
     const resolvedDeclaration = this._evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ true);
-    if (!resolvedDeclaration) {
-      return CompletionItemKind.Variable;
-    }
+    if (!resolvedDeclaration) return CompletionItemKind.Variable;
     switch (resolvedDeclaration.type) {
       case DeclarationType.Intrinsic:
         return resolvedDeclaration.intrinsicType === 'class' ? CompletionItemKind.Class : CompletionItemKind.Variable;

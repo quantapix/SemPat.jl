@@ -4,9 +4,7 @@ import { DiagLang } from '../utils/languageDescription';
 import * as arrays from '../utils/arrays';
 import { Disposable } from '../utils';
 function diagnosticsEquals(a: qv.Diag, b: qv.Diag): boolean {
-  if (a === b) {
-    return true;
-  }
+  if (a === b) return true;
   return (
     a.code === b.code &&
     a.message === b.message &&
@@ -48,9 +46,7 @@ class FileDiags {
   private getSuggestionDiags(settings: DiagSettings) {
     const enableSuggestions = settings.getEnableSuggestions(this.language);
     return this.get(DiagKind.Suggestion).filter((x) => {
-      if (!enableSuggestions) {
-        return x.tags && (x.tags.includes(qv.DiagTag.Unnecessary) || x.tags.includes(qv.DiagTag.Deprecated));
-      }
+      if (!enableSuggestions) return x.tags && (x.tags.includes(qv.DiagTag.Unnecessary) || x.tags.includes(qv.DiagTag.Deprecated));
       return true;
     });
   }
@@ -124,30 +120,23 @@ export class DiagsMgr extends Disposable {
   }
   public setValidate(language: DiagLang, value: boolean) {
     const didUpdate = this._settings.setValidate(language, value);
-    if (didUpdate) {
-      this.rebuild();
-    }
+    if (didUpdate) this.rebuild();
   }
   public setEnableSuggestions(language: DiagLang, value: boolean) {
     const didUpdate = this._settings.setEnableSuggestions(language, value);
-    if (didUpdate) {
-      this.rebuild();
-    }
+    if (didUpdate) this.rebuild();
   }
   public updateDiags(file: qv.Uri, language: DiagLang, kind: DiagKind, diagnostics: ReadonlyArray<qv.Diag>): void {
     let didUpdate = false;
     const entry = this._diagnostics.get(file);
-    if (entry) {
-      didUpdate = entry.updateDiags(language, kind, diagnostics);
-    } else if (diagnostics.length) {
+    if (entry) didUpdate = entry.updateDiags(language, kind, diagnostics);
+    else if (diagnostics.length) {
       const fileDiags = new FileDiags(file, language);
       fileDiags.updateDiags(language, kind, diagnostics);
       this._diagnostics.set(file, fileDiags);
       didUpdate = true;
     }
-    if (didUpdate) {
-      this.scheduleDiagsUpdate(file);
-    }
+    if (didUpdate) this.scheduleDiagsUpdate(file);
   }
   public configFileDiagsReceived(file: qv.Uri, diagnostics: ReadonlyArray<qv.Diag>): void {
     this._currentDiags.set(file, diagnostics);

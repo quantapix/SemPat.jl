@@ -20,9 +20,7 @@ async function buildIndividualFixes(
 ): Promise<void> {
   for (const diagnostic of diagnostics) {
     for (const { codes, fixName } of fixes) {
-      if (token.isCancellationRequested) {
-        return;
-      }
+      if (token.isCancellationRequested) return;
       if (!codes.has(diagnostic.code as number)) {
         continue;
       }
@@ -31,9 +29,7 @@ async function buildIndividualFixes(
         errorCodes: [+diagnostic.code!],
       };
       const response = await client.execute('getCodeFixes', args, token);
-      if (response.type !== 'response') {
-        continue;
-      }
+      if (response.type !== 'response') continue;
       const fix = response.body?.find((fix) => fix.fixName === fixName);
       if (fix) {
         qu.WorkspaceEdit.withFileCodeEdits(edit, client, fix.changes);
@@ -45,9 +41,7 @@ async function buildIndividualFixes(
 async function buildCombinedFix(fixes: readonly AutoFix[], edit: qv.WorkspaceEdit, client: ServiceClient, file: string, diagnostics: readonly qv.Diag[], token: qv.CancellationToken): Promise<void> {
   for (const diagnostic of diagnostics) {
     for (const { codes, fixName } of fixes) {
-      if (token.isCancellationRequested) {
-        return;
-      }
+      if (token.isCancellationRequested) return;
       if (!codes.has(diagnostic.code as number)) {
         continue;
       }
@@ -56,13 +50,9 @@ async function buildCombinedFix(fixes: readonly AutoFix[], edit: qv.WorkspaceEdi
         errorCodes: [+diagnostic.code!],
       };
       const response = await client.execute('getCodeFixes', args, token);
-      if (response.type !== 'response' || !response.body?.length) {
-        continue;
-      }
+      if (response.type !== 'response' || !response.body?.length) continue;
       const fix = response.body?.find((fix) => fix.fixName === fixName);
-      if (!fix) {
-        continue;
-      }
+      if (!fix) continue;
       if (!fix.fixId) {
         qu.WorkspaceEdit.withFileCodeEdits(edit, client, fix.changes);
         return;
@@ -75,9 +65,7 @@ async function buildCombinedFix(fixes: readonly AutoFix[], edit: qv.WorkspaceEdi
         fixId: fix.fixId,
       };
       const combinedResponse = await client.execute('getCombinedCodeFix', combinedArgs, token);
-      if (combinedResponse.type !== 'response' || !combinedResponse.body) {
-        return;
-      }
+      if (combinedResponse.type !== 'response' || !combinedResponse.body) return;
       qu.WorkspaceEdit.withFileCodeEdits(edit, client, combinedResponse.body.changes);
       return;
     }
@@ -140,21 +128,15 @@ class TsAutoFix implements qv.CodeActionProvider {
       return undefined;
     }
     const file = this.client.toOpenedFilePath(document);
-    if (!file) {
-      return undefined;
-    }
+    if (!file) return undefined;
     const actions = this.getFixAllActions(context.only);
     if (this.client.bufferSyncSupport.hasPendingDiags(document.uri)) {
       return actions;
     }
     const diagnostics = this.diagnosticsMgr.getDiags(document.uri);
-    if (!diagnostics.length) {
-      return actions;
-    }
+    if (!diagnostics.length) return actions;
     await this.fileConfigMgr.ensureConfigForDocument(document, token);
-    if (token.isCancellationRequested) {
-      return undefined;
-    }
+    if (token.isCancellationRequested) return undefined;
     await Promise.all(actions.map((action) => action.build(this.client, file, diagnostics, token)));
     return actions;
   }
