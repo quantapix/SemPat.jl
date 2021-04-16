@@ -6,8 +6,8 @@ import * as path from 'path';
 import * as vslc from 'vscode-languageclient';
 import type * as qp from '../server/proto';
 import leven from 'leven';
+import * as qv from 'vscode';
 
-export type GetCanonicalFileName = (name: string) => string;
 export function isDebugMode() {
   const x = process.execArgv.join();
   return x.includes('inspect') || x.includes('debug');
