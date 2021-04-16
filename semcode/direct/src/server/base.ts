@@ -66,6 +66,22 @@ import { ReferenceCallback } from './languageService/referencesProvider';
 import { Localizer } from './localization/localize';
 import { PyrightFileSystem } from './files';
 import { WorkspaceMap } from './utils';
+import * as qv from 'vscode';
+import { ServiceClient, ClientCap } from './service';
+import API from '../utils/env';
+import { Condition, CondRegistration } from '../utils/base';
+export function requireMinVer(c: ServiceClient, minVer: API) {
+  return new Condition(() => c.apiVersion.gte(minVer), c.onTSServerStarted);
+}
+export function requireConfig(lang: string, cfg: string) {
+  return new Condition(() => {
+    const c = qv.workspace.getConfig(lang, null);
+    return !!c.get<boolean>(cfg);
+  }, qv.workspace.onDidChangeConfig);
+}
+export function requireSomeCap(c: ServiceClient, ...cs: readonly ClientCap[]) {
+  return new Condition(() => cs.some((x) => c.capabilities.has(x)), c.onDidChangeCapabilities);
+}
 export interface ServerSettings {
   venvPath?: string;
   pythonPath?: string;

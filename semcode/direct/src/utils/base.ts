@@ -363,6 +363,72 @@ export abstract class Disposable {
     return this._done;
   }
 }
+export interface Command {
+  readonly id: string | string[];
+  execute(...xs: any[]): void;
+}
+export class CommandMgr {
+  private readonly cmds = new Map<string, qv.Disposable>();
+  public dispose() {
+    for (const r of this.cmds.values()) {
+      r.dispose();
+    }
+    this.cmds.clear();
+  }
+  public register<T extends Command>(c: T): T {
+    for (const i of Array.isArray(c.id) ? c.id : [c.id]) {
+      this.registerCommand(i, c.execute, c);
+    }
+    return c;
+  }
+  private registerCommand(id: string, impl: (...xs: any[]) => void, thisArg?: any) {
+    if (this.cmds.has(id)) return;
+    this.cmds.set(id, qv.commands.registerCommand(id, impl, thisArg));
+  }
+}
+export class Condition extends Disposable {
+  private _val: boolean;
+  constructor(private readonly getValue: () => boolean, onUpdate: (handler: () => void) => void) {
+    super();
+    this._val = this.getValue();
+    onUpdate(() => {
+      const v = this.getValue();
+      if (v !== this._val) {
+        this._val = v;
+        this._onDidChange.fire();
+      }
+    });
+  }
+  public get value(): boolean {
+    return this._val;
+  }
+  private readonly _onDidChange = this._register(new qv.EventEmitter<void>());
+  public readonly onDidChange = this._onDidChange.event;
+}
+export class CondRegistration {
+  private _reg?: qv.Disposable;
+  public constructor(private readonly conds: readonly Condition[], private readonly reg: () => qv.Disposable) {
+    for (const c of conds) {
+      c.onDidChange(() => this.update());
+    }
+    this.update();
+  }
+  public dispose() {
+    this._reg?.dispose();
+    this._reg = undefined;
+  }
+  private update() {
+    if (this.conds.every((x) => x.value)) {
+      if (!this._reg) this._reg = this.reg();
+    } else if (this._reg) {
+      this._reg.dispose();
+      this._reg = undefined;
+    }
+  }
+}
+export function condRegistration(cs: readonly Condition[], reg: () => qv.Disposable): qv.Disposable {
+  return new CondRegistration(cs, reg);
+}
 export function memoize(_: any, key: string, x: any) {
   let k: string | undefined;
   let f: Function | undefined;
