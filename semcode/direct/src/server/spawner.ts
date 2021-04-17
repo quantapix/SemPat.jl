@@ -11,7 +11,7 @@ import { PluginMgr } from '../utils/plugins';
 import { TelemetryReporter } from '../utils/telemetry';
 import Tracer from '../utils/tracer';
 import { LogDirProvider } from './log';
-import { GetErrRoutingTSServer, ITypeScriptServer, ProcBasedTSServer, SyntaxRoutingTSServer, TSServerDelegate, TSServerProcFact, TSServerProcKind } from './server';
+import { GetErrRoutingTSServer, ITsServer, ProcBasedTSServer, SyntaxRoutingTSServer, TSServerDelegate, TSServerProcFact, TSServerProcKind } from './server';
 import { TSVersionMgr } from './manager';
 import { TSVersionProvider, TSVersion } from './version';
 const enum CompositeServerType {
@@ -31,15 +31,8 @@ export class TSServerSpawner {
     private readonly _tracer: Tracer,
     private readonly _factory: TSServerProcFact
   ) {}
-  public spawn(
-    version: TSVersion,
-    capabilities: ClientCaps,
-    configuration: TSServiceConfig,
-    pluginMgr: PluginMgr,
-    cancellerFact: OngoingRequestCancelFact,
-    delegate: TSServerDelegate
-  ): ITypeScriptServer {
-    let primaryServer: ITypeScriptServer;
+  public spawn(version: TSVersion, capabilities: ClientCaps, configuration: TSServiceConfig, pluginMgr: PluginMgr, cancellerFact: OngoingRequestCancelFact, delegate: TSServerDelegate): ITsServer {
+    let primaryServer: ITsServer;
     const serverType = this.getCompositeServerType(version, capabilities, configuration);
     switch (serverType) {
       case CompositeServerType.SeparateSyntax:
@@ -92,7 +85,7 @@ export class TSServerSpawner {
   private shouldUseSeparateDiagsServer(configuration: TSServiceConfig): boolean {
     return configuration.enableProjectDiags;
   }
-  private spawnTSServer(kind: TSServerProcKind, version: TSVersion, configuration: TSServiceConfig, pluginMgr: PluginMgr, cancellerFact: OngoingRequestCancelFact): ITypeScriptServer {
+  private spawnTSServer(kind: TSServerProcKind, version: TSVersion, configuration: TSServiceConfig, pluginMgr: PluginMgr, cancellerFact: OngoingRequestCancelFact): ITsServer {
     const apiVersion = version.apiVersion || API.defaultVersion;
     const canceller = cancellerFact.create(kind, this._tracer);
     const { args, tsServerLogFile, tsServerTraceDir } = this.getTSServerArgs(kind, configuration, version, apiVersion, pluginMgr, canceller.cancellationPipeName);

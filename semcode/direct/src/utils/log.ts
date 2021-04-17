@@ -7,6 +7,7 @@ export enum LogLevel {
   Info = 'info',
   Log = 'log',
 }
+//type LogLevel = 'Trace' | 'Info' | 'Error';
 export interface Console {
   error: (m: string) => void;
   warn: (m: string) => void;
@@ -110,31 +111,30 @@ export function log(c: Console, l: LogLevel, m: string) {
       debug.fail(`${l} is not expected`);
   }
 }
-type LogLevel = 'Trace' | 'Info' | 'Error';
 export class Logger {
   @memoize
   private get output(): qv.OutputChannel {
     return qv.window.createOutputChannel('channelName');
   }
-  private data2String(data: any): string {
-    if (data instanceof Error) return data.stack || data.message;
-    if (data.success === false && data.message) return data.message;
-    return data.toString();
+  private data2String(x: any): string {
+    if (x instanceof Error) return x.stack || x.message;
+    if (x.success === false && x.message) return x.message;
+    return x.toString();
   }
-  public info(message: string, data?: any): void {
-    this.logLevel('Info', message, data);
+  public info(m: string, x?: any): void {
+    this.logLevel('Info', m, x);
   }
-  public error(message: string, data?: any): void {
-    if (data && data.message === 'No content available.') return;
-    this.logLevel('Error', message, data);
+  public error(m: string, x?: any): void {
+    if (x && x.message === 'No content available.') return;
+    this.logLevel('Error', m, x);
   }
-  public logLevel(level: LogLevel, message: string, data?: any): void {
-    this.output.appendLine(`[${level}  - ${this.now()}] ${message}`);
-    if (data) this.output.appendLine(this.data2String(data));
+  public logLevel(l: LogLevel, m: string, x?: any): void {
+    this.output.appendLine(`[${l}  - ${this.now()}] ${m}`);
+    if (x) this.output.appendLine(this.data2String(x));
   }
   private now(): string {
-    const now = new Date();
-    return padLeft(now.getUTCHours() + '', 2, '0') + ':' + padLeft(now.getMinutes() + '', 2, '0') + ':' + padLeft(now.getUTCSeconds() + '', 2, '0') + '.' + now.getMilliseconds();
+    const d = new Date();
+    return padLeft(d.getUTCHours() + '', 2, '0') + ':' + padLeft(d.getMinutes() + '', 2, '0') + ':' + padLeft(d.getUTCSeconds() + '', 2, '0') + '.' + d.getMilliseconds();
   }
 }
 function padLeft(s: string, n: number, pad = ' ') {
@@ -142,44 +142,41 @@ function padLeft(s: string, n: number, pad = ' ') {
 }
 const durationThresholdForInfoInMs = 2000;
 export class LogTracker {
-  private _dummyState = new State();
-  private _indentation = '';
-  private _previousTitles: string[] = [];
+  private _dummy = new State();
+  private _indent = '';
+  private _prevs: string[] = [];
   constructor(private _console: Console | undefined, private _prefix: string) {}
-  log<T>(title: string, callback: (state: LogState) => T, minimalDuration = -1, logParsingPerf = false) {
-    if (this._console === undefined) return callback(this._dummyState);
-    const level = (this._console as any).level;
-    if (level === undefined || (level !== LogLevel.Log && level !== LogLevel.Info)) {
-      return callback(this._dummyState);
-    }
-    const current = this._indentation;
-    this._previousTitles.push(`${current}${title} ...`);
-    this._indentation += '  ';
-    const state = new State();
+  log<T>(title: string, f: (s: LogState) => T, minDuration = -1, perf = false) {
+    if (this._console === undefined) return f(this._dummy);
+    const l = (this._console as any).level;
+    if (l === undefined || (l !== LogLevel.Log && l !== LogLevel.Info)) return f(this._dummy);
+    const i = this._indent;
+    this._prevs.push(`${i}${title} ...`);
+    this._indent += '  ';
+    const s = new State();
     try {
-      return callback(state);
+      return f(s);
     } finally {
-      const msDuration = state.duration;
-      this._indentation = current;
-      if (this._previousTitles.length > 0 && (state.isSuppressed() || msDuration <= minimalDuration)) {
-        this._previousTitles.pop();
-      } else {
+      const d = s.duration;
+      this._indent = i;
+      if (this._prevs.length > 0 && (s.isSuppressed() || d <= minDuration)) this._prevs.pop();
+      else {
         this._printPreviousTitles();
-        let output = `[${this._prefix}] ${this._indentation}${title}${state.get()} (${msDuration}ms)`;
-        if (logParsingPerf && state.fileReadTotal + state.tokenizeTotal + state.parsingTotal + state.resolveImportsTotal + state.bindingTotal > 0)
-          output += ` [f:${state.fileReadTotal}, t:${state.tokenizeTotal}, p:${state.parsingTotal}, i:${state.resolveImportsTotal}, b:${state.bindingTotal}]`;
-        this._console.log(output);
-        if (msDuration >= durationThresholdForInfoInMs) this._console.info(`[${this._prefix}] Long operation: ${title} (${msDuration}ms)`);
+        let y = `[${this._prefix}] ${this._indent}${title}${s.get()} (${d}ms)`;
+        if (perf && s.fileReadTotal + s.tokenizeTotal + s.parsingTotal + s.resolveImportsTotal + s.bindingTotal > 0)
+          y += ` [f:${s.fileReadTotal}, t:${s.tokenizeTotal}, p:${s.parsingTotal}, i:${s.resolveImportsTotal}, b:${s.bindingTotal}]`;
+        this._console.log(y);
+        if (d >= durationThresholdForInfoInMs) this._console.info(`[${this._prefix}] Long operation: ${title} (${d}ms)`);
       }
     }
   }
   private _printPreviousTitles() {
-    this._previousTitles.pop();
-    if (this._previousTitles.length <= 0) return;
-    for (const previousTitle of this._previousTitles) {
+    this._prevs.pop();
+    if (this._prevs.length <= 0) return;
+    for (const previousTitle of this._prevs) {
       this._console!.log(`[${this._prefix}] ${previousTitle}`);
     }
-    this._previousTitles.length = 0;
+    this._prevs.length = 0;
   }
 }
 export interface LogState {

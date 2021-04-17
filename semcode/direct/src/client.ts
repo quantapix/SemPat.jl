@@ -6,7 +6,7 @@ import { EventName } from './utils/key';
 import BufferSyncSupport from '../old/ts/tsServer/bufferSyncSupport';
 import { OngoingRequestCancelFact } from '../old/ts/tsServer/cancellation';
 import { LogDirProvider } from '../old/ts/tsServer/logDirProvider';
-import { ITypeScriptServer, TSServerProcFact } from '../old/ts/tsServer/server';
+import { ITsServer, TSServerProcFact } from '../old/ts/tsServer/server';
 import { TSServerError } from '../old/ts/tsServer/serverError';
 import { TSServerSpawner } from '../old/ts/tsServer/spawner';
 import { TSVersionMgr } from '../old/ts/tsServer/versionMgr';
@@ -40,7 +40,7 @@ namespace ServerState {
   export const None = { type: Type.None } as const;
   export class Running {
     readonly type = Type.Running;
-    constructor(public readonly server: ITypeScriptServer, public readonly apiVersion: API, public tsserverVersion: string | undefined, public languageServiceEnabled: boolean) {}
+    constructor(public readonly server: ITsServer, public readonly apiVersion: API, public tsserverVersion: string | undefined, public languageServiceEnabled: boolean) {}
     public readonly toCancelOnResourceChange = new Set<ToCancelOnResourceChanged>();
     updateTsserverVersion(tsserverVersion: string) {
       this.tsserverVersion = tsserverVersion;

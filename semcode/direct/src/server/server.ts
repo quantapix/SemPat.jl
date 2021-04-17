@@ -44,7 +44,7 @@ export enum ExecTarget {
   Semantic,
   Syntax,
 }
-export interface ITypeScriptServer {
+export interface ITsServer {
   readonly onEvent: qv.Event<qp.Event>;
   readonly onExit: qv.Event<any>;
   readonly onError: qv.Event<any>;
@@ -86,7 +86,7 @@ export interface TSServerProc {
   onError(handler: (error: Error) => void): void;
   kill(): void;
 }
-export class ProcBasedTSServer extends Disposable implements ITypeScriptServer {
+export class ProcBasedTSServer extends Disposable implements ITsServer {
   private readonly _requestQueue = new RequestQueue();
   private readonly _callbacks = new CallbackMap<qp.Response>();
   private readonly _pendingResponses = new Set<number>();
@@ -294,7 +294,7 @@ class RequestRouter {
   private static readonly sharedCommands = new Set<keyof TSRequests>(['change', 'close', 'open', 'updateOpen', 'configure']);
   constructor(
     private readonly servers: ReadonlyArray<{
-      readonly server: ITypeScriptServer;
+      readonly server: ITsServer;
       canRun?(command: keyof TSRequests, executeInfo: ExecInfo): void;
     }>,
     private readonly delegate: TSServerDelegate
@@ -344,12 +344,12 @@ class RequestRouter {
     throw new Error(`Could not find server for command: '${command}'`);
   }
 }
-export class GetErrRoutingTSServer extends Disposable implements ITypeScriptServer {
+export class GetErrRoutingTSServer extends Disposable implements ITsServer {
   private static readonly diagnosticEvents = new Set<string>([EventName.configFileDiag, EventName.syntaxDiag, EventName.semanticDiag, EventName.suggestionDiag]);
-  private readonly getErrServer: ITypeScriptServer;
-  private readonly mainServer: ITypeScriptServer;
+  private readonly getErrServer: ITsServer;
+  private readonly mainServer: ITsServer;
   private readonly router: RequestRouter;
-  public constructor(servers: { getErr: ITypeScriptServer; primary: ITypeScriptServer }, delegate: TSServerDelegate) {
+  public constructor(servers: { getErr: ITsServer; primary: ITsServer }, delegate: TSServerDelegate) {
     super();
     this.getErrServer = servers.getErr;
     this.mainServer = servers.primary;
@@ -414,7 +414,7 @@ export class GetErrRoutingTSServer extends Disposable implements ITypeScriptServ
     return this.router.execute(command, args, executeInfo);
   }
 }
-export class SyntaxRoutingTSServer extends Disposable implements ITypeScriptServer {
+export class SyntaxRoutingTSServer extends Disposable implements ITsServer {
   private static readonly syntaxAlwaysCommands = new Set<keyof TSRequests>(['navtree', 'getOutliningSpans', 'jsxClosingTag', 'selectionRange', 'format', 'formatonkey', 'docCommentTemplate']);
   private static readonly semanticCommands = new Set<keyof TSRequests>(['geterr', 'geterrForProject', 'projectInfo', 'configurePlugin']);
   private static readonly syntaxAllowedCommands = new Set<keyof TSRequests>([
@@ -431,11 +431,11 @@ export class SyntaxRoutingTSServer extends Disposable implements ITypeScriptServ
     'rename',
     'signatureHelp',
   ]);
-  private readonly syntaxServer: ITypeScriptServer;
-  private readonly semanticServer: ITypeScriptServer;
+  private readonly syntaxServer: ITsServer;
+  private readonly semanticServer: ITsServer;
   private readonly router: RequestRouter;
   private _projectLoading = true;
-  public constructor(servers: { syntax: ITypeScriptServer; semantic: ITypeScriptServer }, delegate: TSServerDelegate, enableDynamicRouting: boolean) {
+  public constructor(servers: { syntax: ITsServer; semantic: ITsServer }, delegate: TSServerDelegate, enableDynamicRouting: boolean) {
     super();
     this.syntaxServer = servers.syntax;
     this.semanticServer = servers.semantic;

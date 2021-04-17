@@ -1,6 +1,7 @@
-import * as ChildProc from 'child_process';
-import kill = require('tree-kill');
+import { ChildProcess } from 'child_process';
+import { kill } from 'tree-kill';
 import { AttachItem, ProcListCommand } from '../pickProc';
+
 const secondColumnCharacters = 50;
 const commColumnTitle = ''.padStart(secondColumnCharacters, 'a');
 export const psLinuxCommand: ProcListCommand = {
@@ -11,50 +12,42 @@ export const psDarwinCommand: ProcListCommand = {
   command: 'ps',
   args: ['axww', '-o', `pid=,comm=${commColumnTitle},args=`, '-c'],
 };
-export function parsePsProces(processes: string): AttachItem[] {
-  const lines: string[] = processes.split('\n');
-  return parseProcesFromPsArray(lines);
+export function parsePsProces(x: string): AttachItem[] {
+  return parseProcesFromPsArray(x.split('\n'));
 }
-function parseProcesFromPsArray(processArray: string[]): AttachItem[] {
-  const processEntries: AttachItem[] = [];
-  for (let i = 1; i < processArray.length; i += 1) {
-    const line = processArray[i];
-    if (!line) continue;
-    const processEntry = parseLineFromPs(line);
-    if (processEntry) processEntries.push(processEntry);
+function parseProcesFromPsArray(xs: string[]): AttachItem[] {
+  const ys: AttachItem[] = [];
+  for (let i = 1; i < xs.length; i += 1) {
+    const x = xs[i];
+    if (!x) continue;
+    const y = parseLineFromPs(x);
+    if (y) ys.push(y);
   }
-  return processEntries;
+  return ys;
 }
-function parseLineFromPs(line: string): AttachItem | undefined {
+function parseLineFromPs(x: string): AttachItem | undefined {
   const psEntry = new RegExp(`^\\s*([0-9]+)\\s+(.{${secondColumnCharacters - 1}})\\s+(.*)$`);
-  const matches = psEntry.exec(line);
-  if (matches?.length === 4) {
-    const pid = matches[1].trim();
-    const executable = matches[2].trim();
-    const cmdline = matches[3].trim();
-    const attachItem: AttachItem = {
-      label: executable,
-      description: pid,
-      detail: cmdline,
-      id: pid,
-      processName: executable,
-      commandLine: cmdline,
-    };
-    if (process.platform === 'linux') attachItem.executable = `/proc/${pid}/exe`;
-    return attachItem;
+  const ms = psEntry.exec(x);
+  if (ms?.length === 4) {
+    const id = ms[1].trim();
+    const exe = ms[2].trim();
+    const cmd = ms[3].trim();
+    const y: AttachItem = { label: exe, description: id, detail: cmd, id: id, processName: exe, commandLine: cmd };
+    if (process.platform === 'linux') y.executable = `/proc/${id}/exe`;
+    return y;
   }
 }
-export function killProcTree(p: ChildProc, logger?: (...args: any[]) => void): Promise<void> {
-  if (!logger) logger = console.log;
+export function killProcTree(p: ChildProcess, log?: (...xs: any[]) => void): Promise<void> {
+  if (!log) log = console.log;
   if (!p || !p.pid || p.exitCode !== null) return Promise.resolve();
-  return new Promise((resolve) => {
+  return new Promise((res) => {
     kill(p.pid, (err) => {
-      if (err) logger(`Error killing process ${p.pid}: ${err}`);
-      resolve();
+      if (err) log(`Error killing process ${p.pid}: ${err}`);
+      res();
     });
   });
 }
-export function killProc(p: ChildProc) {
+export function killProc(p: ChildProcess) {
   if (p && p.pid && p.exitCode === null) {
     try {
       p.kill();
@@ -67,31 +60,21 @@ const wmicNameTitle = 'Name';
 const wmicCommandLineTitle = 'CommandLine';
 const wmicPidTitle = 'ProcId';
 const wmicExecutableTitle = 'ExecutablePath';
-const defaultEmptyEntry: AttachItem = {
-  label: '',
-  description: '',
-  detail: '',
-  id: '',
-  processName: '',
-  commandLine: '',
-};
-export const wmicCommand: ProcListCommand = {
-  command: 'wmic',
-  args: ['process', 'get', 'Name,ProcId,CommandLine,ExecutablePath', '/FORMAT:list'],
-};
-export function parseWmicProces(processes: string): AttachItem[] {
-  const lines: string[] = processes.split('\r\n');
-  const processEntries: AttachItem[] = [];
-  let entry = { ...defaultEmptyEntry };
-  for (const line of lines) {
-    if (!line.length) continue;
-    parseLineFromWmic(line, entry);
-    if (line.lastIndexOf(wmicPidTitle, 0) === 0) {
-      processEntries.push(entry);
-      entry = { ...defaultEmptyEntry };
+const empty: AttachItem = { label: '', description: '', detail: '', id: '', processName: '', commandLine: '' };
+export const wmicCommand: ProcListCommand = { command: 'wmic', args: ['process', 'get', 'Name,ProcId,CommandLine,ExecutablePath', '/FORMAT:list'] };
+export function parseWmicProces(x: string): AttachItem[] {
+  const ls: string[] = x.split('\r\n');
+  const ys: AttachItem[] = [];
+  let y = { ...empty };
+  for (const l of ls) {
+    if (!l.length) continue;
+    parseLineFromWmic(l, y);
+    if (l.lastIndexOf(wmicPidTitle, 0) === 0) {
+      ys.push(y);
+      y = { ...empty };
     }
   }
-  return processEntries;
+  return ys;
 }
 function parseLineFromWmic(line: string, item: AttachItem): AttachItem {
   const splitter = line.indexOf('=');
@@ -118,73 +101,59 @@ function parseLineFromWmic(line: string, item: AttachItem): AttachItem {
   }
   return currentItem;
 }
-export const lsofDarwinCommand: ProcListCommand = {
-  command: 'lsof',
-  args: ['-Pnl', '-F', 'pn', '-d', 'txt'],
-};
-export function parseLsofProces(processes: string): AttachItem[] {
-  const lines: string[] = processes.split('\n');
-  return parseProcesFromLsofArray(lines);
+export const lsofDarwinCommand: ProcListCommand = { command: 'lsof', args: ['-Pnl', '-F', 'pn', '-d', 'txt'] };
+export function parseLsofProces(x: string): AttachItem[] {
+  return parseProcesFromLsofArray(x.split('\n'));
 }
-function parseProcesFromLsofArray(processArray: string[], includesEnv?: boolean): AttachItem[] {
-  const processEntries: AttachItem[] = [];
+function parseProcesFromLsofArray(xs: string[], _env?: boolean): AttachItem[] {
+  const ys: AttachItem[] = [];
   let i = 0;
-  while (i < processArray.length) {
-    const line = processArray[i];
+  while (i < xs.length) {
+    const x = xs[i];
     i++;
-    if (!line) continue;
-    const out = line[0];
-    const val = line.substr(1);
-    if (out !== 'p') continue;
-    const processEntry: AttachItem = { id: val, label: '' };
-    while (i < processArray.length && processArray[i].length > 0 && processArray[i][0] !== 'p') {
-      if (!processEntry.executable) {
-        const file: {
-          fd?: string;
-          name?: string;
-        } = parseFile(i, processArray);
-        processEntry.executable = file.name;
+    if (!x) continue;
+    if (x[0] !== 'p') continue;
+    const y: AttachItem = { id: x.substr(1), label: '' };
+    while (i < xs.length && xs[i].length > 0 && xs[i][0] !== 'p') {
+      if (!y.executable) {
+        const file: { fd?: string; name?: string } = parseFile(i, xs);
+        y.executable = file.name;
       }
       i += 2;
     }
-    if (processEntry) processEntries.push(processEntry);
+    if (y) ys.push(y);
   }
-  return processEntries;
+  return ys;
 }
-function parseFile(start: number, lines: string[]): { fd?: string; name?: string } {
-  const file: {
-    fd?: string;
-    name?: string;
-  } = {};
-  for (let j = start; j < start + 2; j++) {
-    const line = lines[j];
-    if (!line) continue;
-    const out = line[0];
-    const val = line.substr(1);
-    switch (out) {
+function parseFile(start: number, xs: string[]): { fd?: string; name?: string } {
+  const y: { fd?: string; name?: string } = {};
+  for (let i = start; i < start + 2; i++) {
+    const x = xs[i];
+    if (!x) continue;
+    const c = x[0];
+    const n = x.substr(1);
+    switch (c) {
       case 'f':
-        file.fd = val;
+        y.fd = n;
         break;
       case 'n':
-        file.name = val;
+        y.name = n;
         break;
     }
   }
-  return file;
+  return y;
 }
-export function execShellScript(body: string, cmd = 'bash'): Promise<string> {
-  const args = ['-c', body];
-  const process = ChildProc.spawn(cmd, args);
+export function execShellScript(x: string, cmd = 'bash'): Promise<string> {
+  const args = ['-c', x];
+  const process = ChildProcess.spawn(cmd, args);
   return new Promise((resolve, reject) => {
-    let output = '';
-    const handleClose = (returnCode: number | Error) => {
-      if (returnCode === 0) resolve(output);
-      else {
-        reject(`Failed to execute ${body}`);
-      }
+    let y = '';
+    const handleClose = (e: number | Error) => {
+      if (e === 0) resolve(y);
+      else reject(`Failed to execute ${x}`);
     };
-    process.stdout.on('data', (buffer) => {
-      output += buffer;
+    process.stdout.on('data', (x) => {
+      y += x;
     });
     process.on('close', handleClose);
     process.on('error', handleClose);
@@ -192,23 +161,19 @@ export function execShellScript(body: string, cmd = 'bash'): Promise<string> {
 }
 const WORDS_WITHOUT_DOCUMENTATION = new Set(['else', 'fi', 'then', 'esac', 'elif', 'done']);
 export async function getShellDocumentationWithoutCache({ word }: { word: string }): Promise<string | null> {
-  if (word.split(' ').length > 1) {
-    throw new Error(`lookupDocumentation should be given a word, received "${word}"`);
-  }
-  if (WORDS_WITHOUT_DOCUMENTATION.has(word)) {
-    return null;
-  }
+  if (word.split(' ').length > 1) throw new Error(`lookupDocumentation should be given a word, received "${word}"`);
+  if (WORDS_WITHOUT_DOCUMENTATION.has(word)) return null;
   const DOCUMENTATION_COMMANDS = [
     { type: 'help', command: `help ${word} | col -bx` },
     { type: 'man', command: `man ${word} | col -bx` },
   ];
   for (const { type, command } of DOCUMENTATION_COMMANDS) {
     try {
-      const documentation = await execShellScript(command);
-      if (documentation) {
-        let formattedDocumentation = documentation.trim();
-        if (type === 'man') formattedDocumentation = formatManOutput(formattedDocumentation);
-        return formattedDocumentation;
+      const d = await execShellScript(command);
+      if (d) {
+        let y = d.trim();
+        if (type === 'man') y = formatManOutput(y);
+        return y;
       }
     } catch (error) {
       console.error(`getShellDocumentation failed for "${word}"`, { error });
@@ -216,30 +181,26 @@ export async function getShellDocumentationWithoutCache({ word }: { word: string
   }
   return null;
 }
-export function formatManOutput(manOutput: string): string {
-  const indexNameBlock = manOutput.indexOf('NAME');
-  const indexBeforeFooter = manOutput.lastIndexOf('\n');
-  if (indexNameBlock < 0 || indexBeforeFooter < 0) return manOutput;
-  const formattedManOutput = manOutput.slice(indexNameBlock, indexBeforeFooter);
-  if (!formattedManOutput) {
-    console.error(`formatManOutput failed`, {
-      manOutput,
-    });
-    return manOutput;
+export function formatManOutput(x: string): string {
+  const i = x.indexOf('NAME');
+  const j = x.lastIndexOf('\n');
+  if (i < 0 || j < 0) return x;
+  const y = x.slice(i, j);
+  if (!y) {
+    console.error(`formatManOutput failed`, { manOutput: x });
+    return x;
   }
-  return formattedManOutput;
+  return y;
 }
-export function memorize<T extends Function>(func: T): T {
-  const cache = new Map();
-  const returnFunc = async function (arg: any) {
-    const cacheKey = JSON.stringify(arg);
-    if (cache.has(cacheKey)) {
-      return cache.get(cacheKey);
-    }
-    const result = await func(arg);
-    cache.set(cacheKey, result);
-    return result;
+export function memorize<F extends Function>(f: F): F {
+  const m = new Map();
+  const y = async function (x: any) {
+    const k = JSON.stringify(x);
+    if (m.has(k)) return m.get(k);
+    const y = await f(x);
+    m.set(k, y);
+    return y;
   };
-  return returnFunc as any;
+  return y as any;
 }
 export const getShellDocumentation = memorize(getShellDocumentationWithoutCache);
