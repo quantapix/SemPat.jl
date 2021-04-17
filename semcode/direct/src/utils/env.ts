@@ -35,84 +35,77 @@ function stripBOM(s: string): string {
   if (s && s[0] === '\uFEFF') s = s.substr(1);
   return s;
 }
-export function parseEnvFile(envFilePath: string): { [key: string]: string } {
-  const env: { [key: string]: string } = {};
-  if (!envFilePath) return env;
+export function parseEnvFile(p: string): { [k: string]: string } {
+  const y: { [k: string]: string } = {};
+  if (!p) return y;
   try {
-    const buffer = stripBOM(fs.readFileSync(envFilePath, 'utf8'));
-    buffer.split('\n').forEach((line) => {
-      const r = line.match(/^\s*([\w\.\-]+)\s*=\s*(.*)?\s*$/);
+    const x = stripBOM(fs.readFileSync(p, 'utf8'));
+    x.split('\n').forEach((l) => {
+      const r = l.match(/^\s*([\w\.\-]+)\s*=\s*(.*)?\s*$/);
       if (r !== null) {
-        let value = r[2] || '';
-        if (value.length > 0 && value.charAt(0) === '"' && value.charAt(value.length - 1) === '"') {
-          value = value.replace(/\\n/gm, '\n');
-        }
-        env[r[1]] = value.replace(/(^['"]|['"]$)/g, '');
+        let v = r[2] || '';
+        if (v.length > 0 && v.charAt(0) === '"' && v.charAt(v.length - 1) === '"') v = v.replace(/\\n/gm, '\n');
+        y[r[1]] = v.replace(/(^['"]|['"]$)/g, '');
       }
     });
-    return env;
+    return y;
   } catch (e) {
-    throw new Error(`Cannot load environment variables from file ${envFilePath}`);
+    throw new Error(`Cannot load environment variables from file ${p}`);
   }
 }
-export function parseEnvFiles(envFiles: string[] | string): { [key: string]: string } {
-  const fileEnvs = [];
-  if (typeof envFiles === 'string') fileEnvs.push(parseEnvFile(envFiles));
-  if (Array.isArray(envFiles)) {
-    envFiles.forEach((envFile) => {
-      fileEnvs.push(parseEnvFile(envFile));
+export function parseEnvFiles(ps: string[] | string): { [k: string]: string } {
+  const ys = [];
+  if (typeof ps === 'string') ys.push(parseEnvFile(ps));
+  if (Array.isArray(ps)) {
+    ps.forEach((p) => {
+      ys.push(parseEnvFile(p));
     });
   }
-  return Object.assign({}, ...fileEnvs);
+  return Object.assign({}, ...ys);
 }
-function makeRandomHexString(length: number): string {
-  const chars = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'];
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    const idx = Math.floor(chars.length * Math.random());
-    result += chars[idx];
+function makeRandomHexString(len: number): string {
+  const cs = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'];
+  let y = '';
+  for (let i = 0; i < len; i++) {
+    y += cs[Math.floor(cs.length * Math.random())];
   }
-  return result;
+  return y;
 }
 const getRootTempDir = (() => {
-  let dir: string | undefined;
+  let y: string | undefined;
   return () => {
-    if (!dir) {
-      const filename = `vscode-typescript${process.platform !== 'win32' && process.getuid ? process.getuid() : ''}`;
-      dir = path.join(os.tmpdir(), filename);
+    if (!y) {
+      const n = `vscode-typescript${process.platform !== 'win32' && process.getuid ? process.getuid() : ''}`;
+      y = path.join(os.tmpdir(), n);
     }
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir);
-    }
-    return dir;
+    if (!fs.existsSync(y)) fs.mkdirSync(y);
+    return y;
   };
 })();
 export const getInstanceTempDir = (() => {
-  let dir: string | undefined;
+  let y: string | undefined;
   return () => {
-    if (!dir) dir = path.join(getRootTempDir(), makeRandomHexString(20));
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir);
-    }
-    return dir;
+    if (!y) y = path.join(getRootTempDir(), makeRandomHexString(20));
+    if (!fs.existsSync(y)) fs.mkdirSync(y);
+    return y;
   };
 })();
-export function getTempFile(prefix: string): string {
-  return path.join(getInstanceTempDir(), `${prefix}-${makeRandomHexString(20)}.tmp`);
+export function getTempFile(pre: string): string {
+  return path.join(getInstanceTempDir(), `${pre}-${makeRandomHexString(20)}.tmp`);
 }
 export const onCaseInsenitiveFileSystem = (() => {
-  let value: boolean | undefined;
+  let y: boolean | undefined;
   return (): boolean => {
-    if (typeof value === 'undefined') {
-      if (process.platform === 'win32') value = true;
-      else if (process.platform !== 'darwin') value = false;
+    if (typeof y === 'undefined') {
+      if (process.platform === 'win32') y = true;
+      else if (process.platform !== 'darwin') y = false;
       else {
-        const temp = getTempFile('typescript-case-check');
-        fs.writeFileSync(temp, '');
-        value = fs.existsSync(temp.toUpperCase());
+        const t = getTempFile('typescript-case-check');
+        fs.writeFileSync(t, '');
+        y = fs.existsSync(t.toUpperCase());
       }
     }
-    return value;
+    return y;
   };
 })();
 export enum PythonVersion {
@@ -130,46 +123,42 @@ export enum PythonVersion {
 }
 export const latestStablePythonVersion = PythonVersion.V3_9;
 export const latestPythonVersion = PythonVersion.V3_9;
-export function versionToString(version: PythonVersion): string {
-  const majorVersion = (version >> 8) & 0xff;
-  const minorVersion = version & 0xff;
-  return `${majorVersion}.${minorVersion}`;
+export function versionToString(v: PythonVersion): string {
+  const maj = (v >> 8) & 0xff;
+  const min = v & 0xff;
+  return `${maj}.${min}`;
 }
-export function versionFromString(verString: string): PythonVersion | undefined {
-  const split = verString.split('.');
-  if (split.length < 2) return undefined;
-  const majorVersion = parseInt(split[0], 10);
-  const minorVersion = parseInt(split[1], 10);
-  return versionFromMajorMinor(majorVersion, minorVersion);
+export function versionFromString(x: string): PythonVersion | undefined {
+  const y = x.split('.');
+  if (y.length < 2) return undefined;
+  const maj = parseInt(y[0], 10);
+  const min = parseInt(y[1], 10);
+  return versionFromMajorMinor(maj, min);
 }
-export function versionFromMajorMinor(major: number, minor: number): PythonVersion | undefined {
-  if (isNaN(major) || isNaN(minor)) {
-    return undefined;
-  }
-  if (major > 255 || minor > 255) return undefined;
-  const value = major * 256 + minor;
-  if (PythonVersion[value] === undefined) return undefined;
-  if (!is3x(value)) {
-    return undefined;
-  }
-  return value;
+export function versionFromMajorMinor(maj: number, min: number): PythonVersion | undefined {
+  if (isNaN(maj) || isNaN(min)) return undefined;
+  if (maj > 255 || min > 255) return undefined;
+  const y = maj * 256 + min;
+  if (PythonVersion[y] === undefined) return undefined;
+  if (!is3x(y)) return undefined;
+  return y;
 }
-export function is3x(version: PythonVersion): boolean {
-  return version >> 8 === 3;
+export function is3x(v: PythonVersion): boolean {
+  return v >> 8 === 3;
 }
 class ApiV0 {
   public constructor(public readonly onCompletionAccepted: qv.Event<qv.CompletionItem & { metadata?: any }>, private readonly _pluginMgr: PluginMgr) {}
-  configurePlugin(pluginId: string, configuration: {}): void {
-    this._pluginMgr.setConfig(pluginId, configuration);
+  configurePlugin(id: string, cfg: {}): void {
+    this._pluginMgr.setConfig(id, cfg);
   }
 }
 export interface Api {
-  getAPI(version: 0): ApiV0 | undefined;
+  getAPI(v: 0): ApiV0 | undefined;
 }
-export function getExtensionApi(onCompletionAccepted: qv.Event<qv.CompletionItem>, pluginMgr: PluginMgr): Api {
+export function getExtensionApi(onCompletionAccepted: qv.Event<qv.CompletionItem>, m: PluginMgr): Api {
   return {
-    getAPI(version) {
-      if (version === 0) return new ApiV0(onCompletionAccepted, pluginMgr);
+    getAPI(v) {
+      if (v === 0) return new ApiV0(onCompletionAccepted, m);
       return undefined;
     },
   };

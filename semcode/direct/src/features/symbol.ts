@@ -102,7 +102,7 @@ const goKindToCodeKind: { [key: string]: qv.SymbolKind } = {
   struct: qv.SymbolKind.Struct,
   interface: qv.SymbolKind.Interface,
 };
-function convertToCodeSymbols(document: qv.TextDocument, decls: GoOutlineDeclaration[], includeImports: boolean, byteOffsetToDocumentOffset: (byteOffset: number) => number): qv.DocumentSymbol[] {
+function convertToCodeSymbols(d: qv.TextDocument, decls: GoOutlineDeclaration[], includeImports: boolean, byteOffsetToDocumentOffset: (o: number) => number): qv.DocumentSymbol[] {
   const symbols: qv.DocumentSymbol[] = [];
   (decls || []).forEach((decl) => {
     if (!includeImports && decl.type === 'import') return;
@@ -110,19 +110,19 @@ function convertToCodeSymbols(document: qv.TextDocument, decls: GoOutlineDeclara
     const label = decl.receiverType ? `(${decl.receiverType}).${decl.label}` : decl.label;
     const start = byteOffsetToDocumentOffset(decl.start - 1);
     const end = byteOffsetToDocumentOffset(decl.end - 1);
-    const startPosition = document.positionAt(start);
-    const endPosition = document.positionAt(end);
+    const startPosition = d.positionAt(start);
+    const endPosition = d.positionAt(end);
     const symbolRange = new qv.Range(startPosition, endPosition);
-    const selectionRange = startPosition.line === endPosition.line ? symbolRange : new qv.Range(startPosition, document.lineAt(startPosition.line).range.end);
+    const selectionRange = startPosition.line === endPosition.line ? symbolRange : new qv.Range(startPosition, d.lineAt(startPosition.line).range.end);
     if (decl.type === 'type') {
-      const line = document.lineAt(document.positionAt(start));
+      const line = d.lineAt(d.positionAt(start));
       const regexStruct = new RegExp(`^\\s*type\\s+${decl.label}\\s+struct\\b`);
       const regexInterface = new RegExp(`^\\s*type\\s+${decl.label}\\s+interface\\b`);
       decl.type = regexStruct.test(line.text) ? 'struct' : regexInterface.test(line.text) ? 'interface' : 'type';
     }
     const symbolInfo = new qv.DocumentSymbol(label, decl.type, goKindToCodeKind[decl.type], symbolRange, selectionRange);
     symbols.push(symbolInfo);
-    if (decl.children) symbolInfo.children = convertToCodeSymbols(document, decl.children, includeImports, byteOffsetToDocumentOffset);
+    if (decl.children) symbolInfo.children = convertToCodeSymbols(d, decl.children, includeImports, byteOffsetToDocumentOffset);
   });
   return symbols;
 }

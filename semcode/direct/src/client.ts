@@ -1,27 +1,29 @@
 import * as path from 'path';
 import * as qv from 'vscode';
+/*
 import { DiagKind, DiagsMgr } from '../old/ts/languageFeatures/diagnostics';
-import * as qp from './protocol';
+import * as qp from './server/proto';
 import { EventName } from './utils/key';
 import BufferSyncSupport from '../old/ts/tsServer/bufferSyncSupport';
 import { OngoingRequestCancelFact } from '../old/ts/tsServer/cancellation';
 import { LogDirProvider } from '../old/ts/tsServer/logDirProvider';
-import { ITsServer, TSServerProcFact } from '../old/ts/tsServer/server';
-import { TSServerError } from '../old/ts/tsServer/serverError';
-import { TSServerSpawner } from '../old/ts/tsServer/spawner';
-import { TSVersionMgr } from '../old/ts/tsServer/versionMgr';
-import { TSVersionProvider, TSVersion } from '../old/ts/tsServer/versionProvider';
+import { ITsServer, TsServerProcFact } from '../old/ts/tsServer/server';
+import { TsServerError } from '../old/ts/tsServer/serverError';
+import { TsServerSpawner } from '../old/ts/tsServer/spawner';
+import { TsVersionMgr } from '../old/ts/tsServer/versionMgr';
+import { TsVersionProvider, TsVersion } from '../old/ts/tsServer/versionProvider';
 import { ClientCaps, ClientCap, ExecConfig, ServiceClient, ServerResponse, TSRequests } from './service';
-import API from '../old/ts/utils/api';
-import { TSServerLogLevel, TSServiceConfig } from '../old/ts/utils/configuration';
+import API from './utils/env';
+import { TsServerLogLevel, TSServiceConfig } from './utils/config';
 import * as fileSchemes from '../old/ts/utils/fileSchemes';
-import { Logger } from '../old/ts/utils/logger';
-import * as qu from './utils';
-import { TSPluginPathsProvider } from '../old/ts/utils/pluginPathsProvider';
-import { PluginMgr } from '../old/ts/utils/plugins';
-import { TelemetryProperties, TelemetryReporter, VSCodeTelemetryReporter } from '../old/ts/utils/telemetry';
-import Tracer from '../old/ts/utils/tracer';
-import { inferredProjectCompilerOptions, ProjectType } from '../old/ts/utils/tsconfig';
+import { Logger } from './utils/log';
+import * as qu from './utils/base';
+import { TsPluginPathsProvider } from './utils/path';
+import { PluginMgr } from './utils/plugins';
+import { TelemetryProperties, TelemetryReporter, VSCodeTelemetryReporter } from './utils/telemetry';
+import Tracer from './utils/tracer';
+import { inferredProjectCompilerOptions, ProjectType } from './utils/config';
+*/
 export interface TsDiags {
   readonly kind: DiagKind;
   readonly resource: qv.Uri;
@@ -61,11 +63,11 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
   private readonly workspaceState: qv.Memento;
   private _onReady?: { promise: Promise<void>; resolve: () => void; reject: () => void };
   private _configuration: TSServiceConfig;
-  private pluginPathsProvider: TSPluginPathsProvider;
-  private readonly _versionMgr: TSVersionMgr;
+  private pluginPathsProvider: TsPluginPathsProvider;
+  private readonly _versionMgr: TsVersionMgr;
   private readonly logger = new Logger();
   private readonly tracer = new Tracer(this.logger);
-  private readonly TSServerSpawner: TSServerSpawner;
+  private readonly TsServerSpawner: TsServerSpawner;
   private serverState: ServerState.State = ServerState.None;
   private lastStart: number;
   private numberRestarts: number;
@@ -79,8 +81,8 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
   public readonly pluginMgr: PluginMgr;
   private readonly logDirProvider: LogDirProvider;
   private readonly cancellerFact: OngoingRequestCancelFact;
-  private readonly versionProvider: TSVersionProvider;
-  private readonly processFact: TSServerProcFact;
+  private readonly versionProvider: TsVersionProvider;
+  private readonly processFact: TsServerProcFact;
   constructor(
     private readonly context: qv.ExtensionContext,
     onCaseInsenitiveFileSystem: boolean,
@@ -88,8 +90,8 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
       pluginMgr: PluginMgr;
       logDirProvider: LogDirProvider;
       cancellerFact: OngoingRequestCancelFact;
-      versionProvider: TSVersionProvider;
-      processFact: TSServerProcFact;
+      versionProvider: TsVersionProvider;
+      processFact: TsServerProcFact;
     },
     allModeIds: readonly string[]
   ) {
@@ -112,11 +114,11 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
     this.numberRestarts = 0;
     this._configuration = TSServiceConfig.loadFromWorkspace();
     this.versionProvider.updateConfig(this._configuration);
-    this.pluginPathsProvider = new TSPluginPathsProvider(this._configuration);
-    this._versionMgr = this._register(new TSVersionMgr(this._configuration, this.versionProvider, this.workspaceState));
+    this.pluginPathsProvider = new TsPluginPathsProvider(this._configuration);
+    this._versionMgr = this._register(new TsVersionMgr(this._configuration, this.versionProvider, this.workspaceState));
     this._register(
       this._versionMgr.onDidPickNewVersion(() => {
-        this.restartTSServer();
+        this.restartTsServer();
       })
     );
     this.bufferSyncSupport = new BufferSyncSupport(this, allModeIds, onCaseInsenitiveFileSystem);
@@ -146,12 +148,12 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
         if (this.serverState.type === ServerState.Type.Running) {
           if (!this._configuration.implictProjectConfig.isEqualTo(oldConfig.implictProjectConfig)) this.setCompilerOptionsForInferredProjects(this._configuration);
           if (!this._configuration.isEqualTo(oldConfig)) {
-            this.restartTSServer();
+            this.restartTsServer();
           }
         }
       },
       this,
-      this._disposables
+      this._ds
     );
     this.telemetryReporter = this._register(
       new VSCodeTelemetryReporter(() => {
@@ -161,7 +163,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
         return this.apiVersion.fullVersionString;
       })
     );
-    this.TSServerSpawner = new TSServerSpawner(
+    this.TsServerSpawner = new TsServerSpawner(
       this.versionProvider,
       this._versionMgr,
       this.logDirProvider,
@@ -178,7 +180,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
     );
     this._register(
       this.pluginMgr.onDidChangePlugins(() => {
-        this.restartTSServer();
+        this.restartTsServer();
       })
     );
   }
@@ -206,7 +208,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
     if (this.serverState.type === ServerState.Type.Running) this.serverState.server.kill();
     this.loadingIndicator.reset();
   }
-  public restartTSServer(): void {
+  public restartTsServer(): void {
     if (this.serverState.type === ServerState.Type.Running) {
       this.info('Killing TS Server');
       this.isRestarting = true;
@@ -214,8 +216,8 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
     }
     this.serverState = this.startService(true);
   }
-  private readonly _onTSServerStarted = this._register(new qv.EventEmitter<{ version: TSVersion; usedApiVersion: API }>());
-  public readonly onTSServerStarted = this._onTSServerStarted.event;
+  private readonly _onTsServerStarted = this._register(new qv.EventEmitter<{ version: TsVersion; usedApiVersion: API }>());
+  public readonly onTsServerStarted = this._onTsServerStarted.event;
   private readonly _onDiagsReceived = this._register(new qv.EventEmitter<TsDiags>());
   public readonly onDiagsReceived = this._onDiagsReceived.event;
   private readonly _onConfigDiagsReceived = this._register(new qv.EventEmitter<qp.ConfigFileDiagEvent>());
@@ -278,7 +280,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
     this.info(`Using tsserver from: ${version.path}`);
     const apiVersion = version.apiVersion || API.defaultVersion;
     const mytoken = ++this.token;
-    const handle = this.TSServerSpawner.spawn(version, this.capabilities, this.configuration, this.pluginMgr, this.cancellerFact, {
+    const handle = this.TsServerSpawner.spawn(version, this.capabilities, this.configuration, this.pluginMgr, this.cancellerFact, {
       onFatalError: (command, err) => this.fatalError(command, err),
     });
     this.serverState = new ServerState.Running(handle, apiVersion, undefined, true);
@@ -288,20 +290,20 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
 				"${include}": [
 					"${TypeScriptCommonProperties}"
 				],
-				"localTSVersion": { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"localTsVersion": { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
 				"VersionSource": { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 			}
 		*/
     this.logTelemetry('tsserver.spawned', {
-      localTSVersion: this.versionProvider.localVersion ? this.versionProvider.localVersion.displayName : '',
+      localTsVersion: this.versionProvider.localVersion ? this.versionProvider.localVersion.displayName : '',
       VersionSource: version.source,
     });
     handle.onError((err: Error) => {
       if (this.token !== mytoken) return;
       if (err) qv.window.showErrorMessage('serverExitedWithError');
       this.serverState = new ServerState.Errored(err, handle.tsServerLogFile);
-      this.error('TSServer errored with error.', err);
-      if (handle.tsServerLogFile) this.error(`TSServer log file: ${handle.tsServerLogFile}`);
+      this.error('TsServer errored with error.', err);
+      if (handle.tsServerLogFile) this.error(`TsServer log file: ${handle.tsServerLogFile}`);
       /* __GDPR__
 				"tsserver.error" : {
 					"${include}": [
@@ -314,9 +316,9 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
     });
     handle.onExit((code: any) => {
       if (this.token !== mytoken) return;
-      if (code === null || typeof code === 'undefined') this.info('TSServer exited');
+      if (code === null || typeof code === 'undefined') this.info('TsServer exited');
       else {
-        this.error(`TSServer exited with code: ${code}`);
+        this.error(`TsServer exited with code: ${code}`);
         /* __GDPR__
 					"tsserver.exitWithCode" : {
 						"code" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" },
@@ -327,7 +329,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
 				*/
         this.logTelemetry('tsserver.exitWithCode', { code: code });
       }
-      if (handle.tsServerLogFile) this.info(`TSServer log file: ${handle.tsServerLogFile}`);
+      if (handle.tsServerLogFile) this.info(`TsServer log file: ${handle.tsServerLogFile}`);
       this.serviceExited(!this.isRestarting);
       this.isRestarting = false;
     });
@@ -337,18 +339,18 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
     }
     this.serviceStarted(resendModels);
     this._onReady!.resolve();
-    this._onTSServerStarted.fire({ version: version, usedApiVersion: apiVersion });
+    this._onTsServerStarted.fire({ version: version, usedApiVersion: apiVersion });
     this._onDidChangeCapabilities.fire();
     return this.serverState;
   }
   public async showVersionPicker(): Promise<void> {
     this._versionMgr.promptUserForVersion();
   }
-  public async openTSServerLogFile(): Promise<boolean> {
-    if (this._configuration.tsServerLogLevel === TSServerLogLevel.Off) {
+  public async openTsServerLogFile(): Promise<boolean> {
+    if (this._configuration.tsServerLogLevel === TsServerLogLevel.Off) {
       qv.window
-        .showErrorMessage<qv.MessageItem>('typescript.openTSServerLog.loggingNotEnabled', {
-          title: 'typescript.openTSServerLog.enableAndReloadOption',
+        .showErrorMessage<qv.MessageItem>('typescript.openTsServerLog.loggingNotEnabled', {
+          title: 'typescript.openTsServerLog.enableAndReloadOption',
         })
         .then((selection) => {
           if (selection) {
@@ -356,7 +358,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
               .getConfig()
               .update('typescript.tsserver.log', 'verbose', true)
               .then(() => {
-                this.restartTSServer();
+                this.restartTsServer();
               });
           }
           return undefined;
@@ -364,7 +366,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
       return false;
     }
     if (this.serverState.type !== ServerState.Type.Running || !this.serverState.server.tsServerLogFile) {
-      qv.window.showWarningMessage('typescript.openTSServerLog.noLogFile');
+      qv.window.showWarningMessage('typescript.openTsServerLog.noLogFile');
       return false;
     }
     try {
@@ -376,7 +378,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
       await qv.commands.executeCommand('revealFileInOS', qv.Uri.file(this.serverState.server.tsServerLogFile));
       return true;
     } catch {
-      qv.window.showWarningMessage('openTSServerLog.openFileFailedFailed');
+      qv.window.showWarningMessage('openTsServerLog.openFileFailedFailed');
       return false;
     }
   }
@@ -450,7 +452,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
           prompt = qv.window.showWarningMessage('serverDied', reportIssueItem);
         }
       } else if (['vscode-insiders', 'code-oss'].includes(qv.env.uriScheme)) {
-        if (!this._isPromptingAfterCrash && previousState.type === ServerState.Type.Errored && previousState.error instanceof TSServerError) {
+        if (!this._isPromptingAfterCrash && previousState.type === ServerState.Type.Errored && previousState.error instanceof TsServerError) {
           this.numberRestarts = 0;
           this._isPromptingAfterCrash = true;
           prompt = qv.window.showWarningMessage('serverDiedOnce', reportIssueItem);
@@ -460,7 +462,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
         this._isPromptingAfterCrash = false;
         if (item === reportIssueItem) {
           const args =
-            previousState.type === ServerState.Type.Errored && previousState.error instanceof TSServerError
+            previousState.type === ServerState.Type.Errored && previousState.error instanceof TsServerError
               ? getReportIssueArgsForError(previousState.error, previousState.tsServerLogFile)
               : undefined;
           qv.commands.executeCommand('workbench.action.openIssueReporter', args);
@@ -608,14 +610,14 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
 				"command" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 			}
 		*/
-    this.logTelemetry('fatalError', { ...(error instanceof TSServerError ? error.telemetry : { command }) });
+    this.logTelemetry('fatalError', { ...(error instanceof TsServerError ? error.telemetry : { command }) });
     console.error(`A non-recoverable error occured while executing tsserver command: ${command}`);
-    if (error instanceof TSServerError && error.serverErrorText) console.error(error.serverErrorText);
+    if (error instanceof TsServerError && error.serverErrorText) console.error(error.serverErrorText);
     if (this.serverState.type === ServerState.Type.Running) {
       this.info('Killing TS Server');
       const logfile = this.serverState.server.tsServerLogFile;
       this.serverState.server.kill();
-      if (error instanceof TSServerError) this.serverState = new ServerState.Errored(error, logfile);
+      if (error instanceof TsServerError) this.serverState = new ServerState.Errored(error, logfile);
     }
   }
   private dispatchEvent(event: qp.Event) {
@@ -709,7 +711,7 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
     }
   }
 }
-function getReportIssueArgsForError(error: TSServerError, logPath: string | undefined): { extensionId: string; issueTitle: string; issueBody: string } | undefined {
+function getReportIssueArgsForError(error: TsServerError, logPath: string | undefined): { extensionId: string; issueTitle: string; issueBody: string } | undefined {
   if (!error.serverStack || !error.serverMessage) return undefined;
   const sections = [
     `❗️❗️❗️ Please fill in the sections below to help us diagnose the issue ❗️❗️❗️`,

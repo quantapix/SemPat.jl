@@ -4,7 +4,7 @@ import { ActiveJsTsEditorTracker } from '../utils/tracker';
 import { coalesce, Command, CommandMgr, Disposable } from '../utils/base';
 import { isTypeScriptDocument } from '../utils/lang';
 import { isImplicitProjectConfigFile, openOrCreateConfig, openProjectConfigForFile, openProjectConfigOrPromptToCreate, ProjectType } from '../utils/config';
-import { TSVersion } from './version';
+import { TsVersion } from './version';
 
 const typingsInstallTimeout = 30 * 1000;
 export class TypingsStatus extends Disposable {
@@ -163,9 +163,9 @@ export class VersionStatus extends Disposable {
       this._ready = true;
       this.updateStatus();
     });
-    this._register(this._client.onTSServerStarted(({ version }) => this.onDidChangeTSVersion(version)));
+    this._register(this._client.onTsServerStarted(({ version }) => this.onDidChangeTsVersion(version)));
   }
-  private onDidChangeTSVersion(v: TSVersion) {
+  private onDidChangeTsVersion(v: TsVersion) {
     this._statusBarEntry.text = v.displayName;
     this._statusBarEntry.tooltip = v.path;
     this.updateStatus();

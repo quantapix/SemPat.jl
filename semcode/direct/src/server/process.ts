@@ -6,8 +6,8 @@ import * as qv from 'vscode';
 import type * as qp from '../protocol';
 import { TSServiceConfig } from '../utils/configuration';
 import { Disposable } from '../utils';
-import { TSServerProc, TSServerProcKind } from './server';
-import { TSVersionMgr } from './manager';
+import { TsServerProc, TsServerProcKind } from './server';
+import { TsVersionMgr } from './manager';
 import { memoize } from '../utils';
 const defaultSize: number = 8192;
 const contentLength: string = 'Content-Length: ';
@@ -99,9 +99,9 @@ class Reader<T> extends Disposable {
     }
   }
 }
-export class ChildServerProc extends Disposable implements TSServerProc {
+export class ChildServerProc extends Disposable implements TsServerProc {
   private readonly _reader: Reader<qp.Response>;
-  public static fork(tsServerPath: string, args: readonly string[], kind: TSServerProcKind, configuration: TSServiceConfig, versionMgr: TSVersionMgr): ChildServerProc {
+  public static fork(tsServerPath: string, args: readonly string[], kind: TsServerProcKind, configuration: TSServiceConfig, versionMgr: TsVersionMgr): ChildServerProc {
     if (!fs.existsSync(tsServerPath)) {
       qv.window.showWarningMessage('noServerFound');
       versionMgr.reset();
@@ -122,18 +122,18 @@ export class ChildServerProc extends Disposable implements TSServerProc {
     newEnv['PATH'] = newEnv['PATH'] || process.env.PATH;
     return newEnv;
   }
-  private static getExecArgv(kind: TSServerProcKind, configuration: TSServiceConfig): string[] {
+  private static getExecArgv(kind: TsServerProcKind, configuration: TSServiceConfig): string[] {
     const args: string[] = [];
     const debugPort = this.getDebugPort(kind);
     if (debugPort) {
       const inspectFlag = ChildServerProc.getTssDebugBrk() ? '--inspect-brk' : '--inspect';
       args.push(`${inspectFlag}=${debugPort}`);
     }
-    if (configuration.maxTSServerMemory) args.push(`--max-old-space-size=${configuration.maxTSServerMemory}`);
+    if (configuration.maxTsServerMemory) args.push(`--max-old-space-size=${configuration.maxTsServerMemory}`);
     return args;
   }
-  private static getDebugPort(kind: TSServerProcKind): number | undefined {
-    if (kind === TSServerProcKind.Syntax) return undefined;
+  private static getDebugPort(kind: TsServerProcKind): number | undefined {
+    if (kind === TsServerProcKind.Syntax) return undefined;
     const value = ChildServerProc.getTssDebugBrk() || ChildServerProc.getTssDebug();
     if (value) {
       const port = parseInt(value);
@@ -171,8 +171,8 @@ export class ChildServerProc extends Disposable implements TSServerProc {
 }
 declare const Worker: any;
 declare type Worker = any;
-export class WorkerServerProc implements TSServerProc {
-  public static fork(tsServerPath: string, args: readonly string[], _kind: TSServerProcKind, _configuration: TSServiceConfig) {
+export class WorkerServerProc implements TsServerProc {
+  public static fork(tsServerPath: string, args: readonly string[], _kind: TsServerProcKind, _configuration: TSServiceConfig) {
     const worker = new Worker(tsServerPath);
     return new WorkerServerProc(worker, [...args, '--executingFilePath', tsServerPath]);
   }

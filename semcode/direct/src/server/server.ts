@@ -3,15 +3,15 @@ import type * as qp from './proto';
 import { EventName } from '../utils/key';
 import { CallbackMap } from './callback';
 import { RequestItem, RequestQueue, RequestQueueType } from './request';
-import { TSServerError } from './error';
+import { TsServerError } from './error';
 import { ServerResponse, ServerType, TSRequests } from '../service';
 import { TSServiceConfig } from '../utils/config';
 import { Disposable } from '../utils/base';
 import { TelemetryReporter } from '../utils/telemetry';
 import Tracer from '../utils/tracer';
 import { OngoingRequestCancel } from './cancel';
-import { TSVersionMgr } from './manager';
-import { TSVersion } from './version';
+import { TsVersionMgr } from './manager';
+import { TsVersion } from './version';
 import { CancellationToken, CodeAction, CodeActionKind, CodeActionParams, Command, ExecuteCommandParams, WorkDoneProgressServerReporter } from 'vscode-languageserver/node';
 import { isMainThread } from 'worker_threads';
 import { AnalysisResults } from './analyzer/analysis';
@@ -67,36 +67,36 @@ export interface ITsServer {
   ): Promise<ServerResponse.Response<qp.Response>> | undefined;
   dispose(): void;
 }
-export interface TSServerDelegate {
+export interface TsServerDelegate {
   onFatalError(command: string, error: Error): void;
 }
-export const enum TSServerProcKind {
+export const enum TsServerProcKind {
   Main = 'main',
   Syntax = 'syntax',
   Semantic = 'semantic',
   Diags = 'diagnostics',
 }
-export interface TSServerProcFact {
-  fork(tsServerPath: string, args: readonly string[], kind: TSServerProcKind, configuration: TSServiceConfig, versionMgr: TSVersionMgr): TSServerProc;
+export interface TsServerProcFact {
+  fork(tsServerPath: string, args: readonly string[], kind: TsServerProcKind, configuration: TSServiceConfig, versionMgr: TsVersionMgr): TsServerProc;
 }
-export interface TSServerProc {
+export interface TsServerProc {
   write(serverRequest: qp.Request): void;
   onData(handler: (data: qp.Response) => void): void;
   onExit(handler: (code: number | null) => void): void;
   onError(handler: (error: Error) => void): void;
   kill(): void;
 }
-export class ProcBasedTSServer extends Disposable implements ITsServer {
+export class ProcBasedTsServer extends Disposable implements ITsServer {
   private readonly _requestQueue = new RequestQueue();
   private readonly _callbacks = new CallbackMap<qp.Response>();
   private readonly _pendingResponses = new Set<number>();
   constructor(
     private readonly _serverId: string,
     private readonly _serverSource: ServerType,
-    private readonly _process: TSServerProc,
+    private readonly _process: TsServerProc,
     private readonly _tsServerLogFile: string | undefined,
     private readonly _requestCancel: OngoingRequestCancel,
-    private readonly _version: TSVersion,
+    private readonly _version: TsVersion,
     private readonly _telemetryReporter: TelemetryReporter,
     private readonly _tracer: Tracer
   ) {
@@ -190,7 +190,7 @@ export class ProcBasedTSServer extends Disposable implements ITsServer {
     if (response.success) callback.onSuccess(response);
     else if (response.message === 'No content available.') callback.onSuccess(ServerResponse.NoContent);
     else {
-      callback.onError(TSServerError.create(this._serverId, this._version, response));
+      callback.onError(TsServerError.create(this._serverId, this._version, response));
     }
   }
   public executeImpl(
@@ -213,7 +213,7 @@ export class ProcBasedTSServer extends Disposable implements ITsServer {
       request,
       expectsResponse: executeInfo.expectsResult,
       isAsync: executeInfo.isAsync,
-      queueingType: ProcBasedTSServer.getQueueingType(command, executeInfo.lowPriority),
+      queueingType: ProcBasedTsServer.getQueueingType(command, executeInfo.lowPriority),
     };
     let result: Promise<ServerResponse.Response<qp.Response>> | undefined;
     if (executeInfo.expectsResult) {
@@ -229,7 +229,7 @@ export class ProcBasedTSServer extends Disposable implements ITsServer {
           });
         }
       }).catch((err: Error) => {
-        if (err instanceof TSServerError) {
+        if (err instanceof TsServerError) {
           if (!executeInfo.token || !executeInfo.token.isCancellationRequested) {
             /* __GDPR__
 							"languageServiceErrorResponse" : {
@@ -277,7 +277,7 @@ export class ProcBasedTSServer extends Disposable implements ITsServer {
   }
   private static readonly fenceCommands = new Set(['change', 'close', 'open', 'updateOpen']);
   private static getQueueingType(command: string, lowPriority?: boolean): RequestQueueType {
-    if (ProcBasedTSServer.fenceCommands.has(command)) {
+    if (ProcBasedTsServer.fenceCommands.has(command)) {
       return RequestQueueType.Fence;
     }
     return lowPriority ? RequestQueueType.LowPriority : RequestQueueType.Normal;
@@ -297,7 +297,7 @@ class RequestRouter {
       readonly server: ITsServer;
       canRun?(command: keyof TSRequests, executeInfo: ExecInfo): void;
     }>,
-    private readonly delegate: TSServerDelegate
+    private readonly delegate: TsServerDelegate
   ) {}
   public execute(command: keyof TSRequests, args: any, executeInfo: ExecInfo): Promise<ServerResponse.Response<qp.Response>> | undefined {
     if (RequestRouter.sharedCommands.has(command) && typeof executeInfo.executionTarget === 'undefined') {
@@ -344,12 +344,12 @@ class RequestRouter {
     throw new Error(`Could not find server for command: '${command}'`);
   }
 }
-export class GetErrRoutingTSServer extends Disposable implements ITsServer {
+export class GetErrRoutingTsServer extends Disposable implements ITsServer {
   private static readonly diagnosticEvents = new Set<string>([EventName.configFileDiag, EventName.syntaxDiag, EventName.semanticDiag, EventName.suggestionDiag]);
   private readonly getErrServer: ITsServer;
   private readonly mainServer: ITsServer;
   private readonly router: RequestRouter;
-  public constructor(servers: { getErr: ITsServer; primary: ITsServer }, delegate: TSServerDelegate) {
+  public constructor(servers: { getErr: ITsServer; primary: ITsServer }, delegate: TsServerDelegate) {
     super();
     this.getErrServer = servers.getErr;
     this.mainServer = servers.primary;
@@ -362,14 +362,14 @@ export class GetErrRoutingTSServer extends Disposable implements ITsServer {
     );
     this._register(
       this.getErrServer.onEvent((e) => {
-        if (GetErrRoutingTSServer.diagnosticEvents.has(e.event)) {
+        if (GetErrRoutingTsServer.diagnosticEvents.has(e.event)) {
           this._onEvent.fire(e);
         }
       })
     );
     this._register(
       this.mainServer.onEvent((e) => {
-        if (!GetErrRoutingTSServer.diagnosticEvents.has(e.event)) {
+        if (!GetErrRoutingTsServer.diagnosticEvents.has(e.event)) {
           this._onEvent.fire(e);
         }
       })
@@ -414,7 +414,7 @@ export class GetErrRoutingTSServer extends Disposable implements ITsServer {
     return this.router.execute(command, args, executeInfo);
   }
 }
-export class SyntaxRoutingTSServer extends Disposable implements ITsServer {
+export class SyntaxRoutingTsServer extends Disposable implements ITsServer {
   private static readonly syntaxAlwaysCommands = new Set<keyof TSRequests>(['navtree', 'getOutliningSpans', 'jsxClosingTag', 'selectionRange', 'format', 'formatonkey', 'docCommentTemplate']);
   private static readonly semanticCommands = new Set<keyof TSRequests>(['geterr', 'geterrForProject', 'projectInfo', 'configurePlugin']);
   private static readonly syntaxAllowedCommands = new Set<keyof TSRequests>([
@@ -435,7 +435,7 @@ export class SyntaxRoutingTSServer extends Disposable implements ITsServer {
   private readonly semanticServer: ITsServer;
   private readonly router: RequestRouter;
   private _projectLoading = true;
-  public constructor(servers: { syntax: ITsServer; semantic: ITsServer }, delegate: TSServerDelegate, enableDynamicRouting: boolean) {
+  public constructor(servers: { syntax: ITsServer; semantic: ITsServer }, delegate: TsServerDelegate, enableDynamicRouting: boolean) {
     super();
     this.syntaxServer = servers.syntax;
     this.semanticServer = servers.semantic;
@@ -450,13 +450,13 @@ export class SyntaxRoutingTSServer extends Disposable implements ITsServer {
               case ExecTarget.Syntax:
                 return true;
             }
-            if (SyntaxRoutingTSServer.syntaxAlwaysCommands.has(command)) {
+            if (SyntaxRoutingTsServer.syntaxAlwaysCommands.has(command)) {
               return true;
             }
-            if (SyntaxRoutingTSServer.semanticCommands.has(command)) {
+            if (SyntaxRoutingTsServer.semanticCommands.has(command)) {
               return false;
             }
-            if (enableDynamicRouting && this.projectLoading && SyntaxRoutingTSServer.syntaxAllowedCommands.has(command)) {
+            if (enableDynamicRouting && this.projectLoading && SyntaxRoutingTsServer.syntaxAllowedCommands.has(command)) {
               return true;
             }
             return false;

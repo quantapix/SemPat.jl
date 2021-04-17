@@ -6,8 +6,8 @@ import * as qp from './proto';
 import * as qk from '../utils/key';
 import { OngoingRequestCancelFact } from './tsServer/cancellation';
 import { LogDirProvider } from './tsServer/logDirProvider';
-import { TSServerProcFact } from './server';
-import { TSVersionProvider } from './version';
+import { TsServerProcFact } from './server';
+import { TsVersionProvider } from './version';
 import { VersionStatus } from './status';
 import ServiceClient from '../client';
 import {  } from './command';
@@ -47,8 +47,8 @@ export default class ServiceClientHost extends Disposable {
       commandMgr: CommandMgr;
       logDirProvider: LogDirProvider;
       cancellerFact: OngoingRequestCancelFact;
-      versionProvider: TSVersionProvider;
-      processFact: TSServerProcFact;
+      versionProvider: TsVersionProvider;
+      processFact: TsServerProcFact;
       activeJsTsEditorTracker: ActiveJsTsEditorTracker;
     },
     onCompletionAccepted: (item: qv.CompletionItem) => void
@@ -115,7 +115,7 @@ export default class ServiceClientHost extends Disposable {
         );
       }
     });
-    this.client.onTSServerStarted(() => {
+    this.client.onTsServerStarted(() => {
       this.triggerAllDiags();
     });
     qv.workspace.onDidChangeConfig(this.configurationChanged, this, this._ds);
@@ -241,8 +241,8 @@ export function createLazyClientHost(
     commandMgr: CommandMgr;
     logDirProvider: LogDirProvider;
     cancellerFact: OngoingRequestCancelFact;
-    versionProvider: TSVersionProvider;
-    processFact: TSServerProcFact;
+    versionProvider: TsVersionProvider;
+    processFact: TsServerProcFact;
     activeJsTsEditorTracker: ActiveJsTsEditorTracker;
   },
   onCompletionAccepted: (item: qv.CompletionItem) => void

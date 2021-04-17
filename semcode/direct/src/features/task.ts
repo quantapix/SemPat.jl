@@ -20,7 +20,7 @@ enum AutoDetect {
   build = 'build',
   watch = 'watch',
 }
-interface TypeScriptTaskDefinition extends qv.TaskDefinition {
+interface TsTaskDefinition extends qv.TaskDefinition {
   tsconfig: string;
   option?: string;
 }
@@ -35,167 +35,142 @@ class TsTask extends Disposable implements qv.TaskProvider {
     this._register(qv.workspace.onDidChangeConfig(this.onConfigChanged, this));
     this.onConfigChanged();
   }
-  public async provideTasks(token: qv.CancellationToken): Promise<qv.Task[]> {
-    const folders = qv.workspace.workspaceFolders;
-    if (this.autoDetect === AutoDetect.off || !folders || !folders.length) return [];
-    const configPaths: Set<string> = new Set();
-    const tasks: qv.Task[] = [];
-    for (const project of await this.getAllTsConfigs(token)) {
-      if (!configPaths.has(project.fsPath)) {
-        configPaths.add(project.fsPath);
-        tasks.push(...(await this.getTasksForProject(project)));
+  public async provideTasks(t: qv.CancellationToken): Promise<qv.Task[]> {
+    const fs = qv.workspace.workspaceFolders;
+    if (this.autoDetect === AutoDetect.off || !fs || !fs.length) return [];
+    const ps: Set<string> = new Set();
+    const ys: qv.Task[] = [];
+    for (const p of await this.getAllTsConfigs(t)) {
+      if (!ps.has(p.fsPath)) {
+        ps.add(p.fsPath);
+        ys.push(...(await this.getTasksForProject(p)));
       }
     }
-    return tasks;
+    return ys;
   }
-  public async resolveTask(task: qv.Task): Promise<qv.Task | undefined> {
-    const definition = <TypeScriptTaskDefinition>task.definition;
-    if (/\\tsconfig.*\.json/.test(definition.tsconfig)) {
+  public async resolveTask(t: qv.Task): Promise<qv.Task | undefined> {
+    const d = <TsTaskDefinition>t.definition;
+    if (/\\tsconfig.*\.json/.test(d.tsconfig)) {
       qv.window.showWarningMessage('badTsConfig');
       return undefined;
     }
-    const tsconfigPath = definition.tsconfig;
-    if (!tsconfigPath) return undefined;
-    if (task.scope === undefined || task.scope === qv.TaskScope.Global || task.scope === qv.TaskScope.Workspace) return undefined;
-    const tsconfigUri = task.scope.uri.with({ path: task.scope.uri.path + '/' + tsconfigPath });
-    const tsconfig: TSConfig = {
-      uri: tsconfigUri,
-      fsPath: tsconfigUri.fsPath,
-      posixPath: tsconfigUri.path,
-      workspaceFolder: task.scope,
-    };
-    return this.getTasksForProjectAndDefinition(tsconfig, definition);
+    const p = d.tsconfig;
+    if (!p) return undefined;
+    if (t.scope === undefined || t.scope === qv.TaskScope.Global || t.scope === qv.TaskScope.Workspace) return undefined;
+    const r = t.scope.uri.with({ path: t.scope.uri.path + '/' + p });
+    const c: TSConfig = { uri: r, fsPath: r.fsPath, posixPath: r.path, workspaceFolder: t.scope };
+    return this.getTasksForProjectAndDefinition(c, d);
   }
-  private async getAllTsConfigs(token: qv.CancellationToken): Promise<TSConfig[]> {
-    const configs = flatten(await Promise.all([this.getTsConfigForActiveFile(token), this.getTsConfigsInWorkspace(token)]));
-    return Promise.all(configs.map(async (config) => ((await exists(config.uri)) ? config : undefined))).then(coalesce);
+  private async getAllTsConfigs(t: qv.CancellationToken): Promise<TSConfig[]> {
+    const cs = flatten(await Promise.all([this.getTsConfigForActiveFile(t), this.getTsConfigsInWorkspace(t)]));
+    return Promise.all(cs.map(async (c) => ((await exists(c.uri)) ? c : undefined))).then(coalesce);
   }
-  private async getTsConfigForActiveFile(token: qv.CancellationToken): Promise<TSConfig[]> {
-    const editor = qv.window.activeTextEditor;
-    if (editor) {
-      if (isTsConfigFileName(editor.document.fileName)) {
-        const uri = editor.document.uri;
-        return [
-          {
-            uri,
-            fsPath: uri.fsPath,
-            posixPath: uri.path,
-            workspaceFolder: qv.workspace.getWorkspaceFolder(uri),
-          },
-        ];
+  private async getTsConfigForActiveFile(t: qv.CancellationToken): Promise<TSConfig[]> {
+    const e = qv.window.activeTextEditor;
+    if (e) {
+      if (isTsConfigFileName(e.document.fileName)) {
+        const r = e.document.uri;
+        return [{ uri: r, fsPath: r.fsPath, posixPath: r.path, workspaceFolder: qv.workspace.getWorkspaceFolder(r) }];
       }
     }
     const file = this.getActiveTypeScriptFile();
     if (!file) return [];
-    const response = await Promise.race([
-      this.client.value.execute('projectInfo', { file, needFileNameList: false }, token),
-      new Promise<typeof ServerResponse.NoContent>((resolve) => setTimeout(() => resolve(ServerResponse.NoContent), this.projectInfoRequestTimeout)),
+    const x = await Promise.race([
+      this.client.value.execute('projectInfo', { file, needFileNameList: false }, t),
+      new Promise<typeof ServerResponse.NoContent>((res) => setTimeout(() => res(ServerResponse.NoContent), this.projectInfoRequestTimeout)),
     ]);
-    if (response.type !== 'response' || !response.body) return [];
-    const { configFileName } = response.body;
+    if (x.type !== 'response' || !x.body) return [];
+    const { configFileName } = x.body;
     if (configFileName && !isImplicitProjectConfigFile(configFileName)) {
-      const normalizedConfigPath = path.normalize(configFileName);
-      const uri = qv.Uri.file(normalizedConfigPath);
-      const folder = qv.workspace.getWorkspaceFolder(uri);
-      return [
-        {
-          uri,
-          fsPath: normalizedConfigPath,
-          posixPath: uri.path,
-          workspaceFolder: folder,
-        },
-      ];
+      const p = path.normalize(configFileName);
+      const r = qv.Uri.file(p);
+      const f = qv.workspace.getWorkspaceFolder(r);
+      return [{ uri: r, fsPath: p, posixPath: r.path, workspaceFolder: f }];
     }
     return [];
   }
-  private async getTsConfigsInWorkspace(token: qv.CancellationToken): Promise<TSConfig[]> {
-    const getConfigsTimeout = new qv.CancellationTokenSource();
-    token.onCancellationRequested(() => getConfigsTimeout.cancel());
+  private async getTsConfigsInWorkspace(t: qv.CancellationToken): Promise<TSConfig[]> {
+    const time = new qv.CancellationTokenSource();
+    t.onCancellationRequested(() => time.cancel());
     return Promise.race([
-      this.tsconfigProvider.getConfigsForWorkspace(getConfigsTimeout.token).then((x) => Array.from(x)),
+      this.tsconfigProvider.getConfigsForWorkspace(time.token).then((x) => Array.from(x)),
       wait(this.findConfigFilesTimeout).then(() => {
-        getConfigsTimeout.cancel();
+        time.cancel();
         return [];
       }),
     ]);
   }
-  private static async getCommand(project: TSConfig): Promise<string> {
-    if (project.workspaceFolder) {
-      const localTsc = await TsTask.getLocalTscAtPath(path.dirname(project.fsPath));
-      if (localTsc) return localTsc;
-      const workspaceTsc = await TsTask.getLocalTscAtPath(project.workspaceFolder.uri.fsPath);
-      if (workspaceTsc) return workspaceTsc;
+  private static async getCommand(c: TSConfig): Promise<string> {
+    if (c.workspaceFolder) {
+      const l = await TsTask.getLocalTscAtPath(path.dirname(c.fsPath));
+      if (l) return l;
+      const w = await TsTask.getLocalTscAtPath(c.workspaceFolder.uri.fsPath);
+      if (w) return w;
     }
     return 'tsc';
   }
-  private static async getLocalTscAtPath(folderPath: string): Promise<string | undefined> {
-    const platform = process.platform;
-    const bin = path.join(folderPath, 'node_modules', '.bin');
-    if (platform === 'win32' && (await exists(qv.Uri.file(path.join(bin, 'tsc.cmd'))))) {
-      return path.join(bin, 'tsc.cmd');
-    } else if ((platform === 'linux' || platform === 'darwin') && (await exists(qv.Uri.file(path.join(bin, 'tsc'))))) {
-      return path.join(bin, 'tsc');
-    }
+  private static async getLocalTscAtPath(x: string): Promise<string | undefined> {
+    const p = process.platform;
+    const bin = path.join(x, 'node_modules', '.bin');
+    if (p === 'win32' && (await exists(qv.Uri.file(path.join(bin, 'tsc.cmd'))))) return path.join(bin, 'tsc.cmd');
+    else if ((p === 'linux' || p === 'darwin') && (await exists(qv.Uri.file(path.join(bin, 'tsc'))))) return path.join(bin, 'tsc');
     return undefined;
   }
   private getActiveTypeScriptFile(): string | undefined {
-    const editor = qv.window.activeTextEditor;
-    if (editor) {
-      const document = editor.document;
-      if (document && (document.languageId === 'typescript' || document.languageId === 'typescriptreact')) {
-        return this.client.value.toPath(document.uri);
-      }
+    const e = qv.window.activeTextEditor;
+    if (e) {
+      const d = e.document;
+      if (d && (d.languageId === 'typescript' || d.languageId === 'typescriptreact')) return this.client.value.toPath(d.uri);
     }
     return undefined;
   }
-  private getBuildTask(workspaceFolder: qv.WorkspaceFolder | undefined, label: string, command: string, args: string[], buildTaskidentifier: TypeScriptTaskDefinition): qv.Task {
+  private getBuildTask(workspaceFolder: qv.WorkspaceFolder | undefined, label: string, command: string, args: string[], buildTaskidentifier: TsTaskDefinition): qv.Task {
     const buildTask = new qv.Task(buildTaskidentifier, workspaceFolder || qv.TaskScope.Workspace, 'buildTscLabel', 'tsc', new qv.ShellExecution(command, args), '$tsc');
     buildTask.group = qv.TaskGroup.Build;
     buildTask.isBackground = false;
     return buildTask;
   }
-  private getWatchTask(workspaceFolder: qv.WorkspaceFolder | undefined, label: string, command: string, args: string[], watchTaskidentifier: TypeScriptTaskDefinition) {
+  private getWatchTask(workspaceFolder: qv.WorkspaceFolder | undefined, label: string, command: string, args: string[], watchTaskidentifier: TsTaskDefinition) {
     const watchTask = new qv.Task(watchTaskidentifier, workspaceFolder || qv.TaskScope.Workspace, 'buildAndWatchTscLabel', 'tsc', new qv.ShellExecution(command, [...args, '--watch']), '$tsc-watch');
     watchTask.group = qv.TaskGroup.Build;
     watchTask.isBackground = true;
     return watchTask;
   }
-  private async getTasksForProject(project: TSConfig): Promise<qv.Task[]> {
-    const command = await TsTask.getCommand(project);
-    const args = await this.getBuildShellArgs(project);
-    const label = this.getLabelForTasks(project);
+  private async getTasksForProject(c: TSConfig): Promise<qv.Task[]> {
+    const command = await TsTask.getCommand(c);
+    const args = await this.getBuildShellArgs(c);
+    const label = this.getLabelForTasks(c);
     const tasks: qv.Task[] = [];
-    if (this.autoDetect === AutoDetect.build || this.autoDetect === AutoDetect.on)
-      tasks.push(this.getBuildTask(project.workspaceFolder, label, command, args, { type: 'typescript', tsconfig: label }));
+    if (this.autoDetect === AutoDetect.build || this.autoDetect === AutoDetect.on) tasks.push(this.getBuildTask(c.workspaceFolder, label, command, args, { type: 'typescript', tsconfig: label }));
     if (this.autoDetect === AutoDetect.watch || this.autoDetect === AutoDetect.on)
-      tasks.push(this.getWatchTask(project.workspaceFolder, label, command, args, { type: 'typescript', tsconfig: label, option: 'watch' }));
+      tasks.push(this.getWatchTask(c.workspaceFolder, label, command, args, { type: 'typescript', tsconfig: label, option: 'watch' }));
     return tasks;
   }
-  private async getTasksForProjectAndDefinition(project: TSConfig, definition: TypeScriptTaskDefinition): Promise<qv.Task | undefined> {
-    const command = await TsTask.getCommand(project);
-    const args = await this.getBuildShellArgs(project);
-    const label = this.getLabelForTasks(project);
+  private async getTasksForProjectAndDefinition(c: TSConfig, d: TsTaskDefinition): Promise<qv.Task | undefined> {
+    const cmd = await TsTask.getCommand(c);
+    const args = await this.getBuildShellArgs(c);
+    const label = this.getLabelForTasks(c);
     let task: qv.Task | undefined;
-    if (definition.option === undefined) task = this.getBuildTask(project.workspaceFolder, label, command, args, definition);
-    else if (definition.option === 'watch') task = this.getWatchTask(project.workspaceFolder, label, command, args, definition);
+    if (d.option === undefined) task = this.getBuildTask(c.workspaceFolder, label, cmd, args, d);
+    else if (d.option === 'watch') task = this.getWatchTask(c.workspaceFolder, label, cmd, args, d);
     return task;
   }
-  private async getBuildShellArgs(project: TSConfig): Promise<Array<string>> {
-    const defaultArgs = ['-p', project.fsPath];
+  private async getBuildShellArgs(c: TSConfig): Promise<Array<string>> {
+    const defaultArgs = ['-p', c.fsPath];
     try {
-      const bytes = await qv.workspace.fs.readFile(project.uri);
+      const bytes = await qv.workspace.fs.readFile(c.uri);
       const text = Buffer.from(bytes).toString('utf-8');
       const tsconfig = jsonc.parse(text);
-      if (tsconfig?.references) return ['-b', project.fsPath];
+      if (tsconfig?.references) return ['-b', c.fsPath];
     } catch {}
     return defaultArgs;
   }
-  private getLabelForTasks(project: TSConfig): string {
-    if (project.workspaceFolder) {
-      const workspaceNormalizedUri = qv.Uri.file(path.normalize(project.workspaceFolder.uri.fsPath)); // Make sure the drive letter is lowercase
-      return path.posix.relative(workspaceNormalizedUri.path, project.posixPath);
+  private getLabelForTasks(c: TSConfig): string {
+    if (c.workspaceFolder) {
+      const w = qv.Uri.file(path.normalize(c.workspaceFolder.uri.fsPath)); // Make sure the drive letter is lowercase
+      return path.posix.relative(w.path, c.posixPath);
     }
-    return project.posixPath;
+    return c.posixPath;
   }
   private onConfigChanged(): void {
     const type = qv.workspace.getConfig('typescript.tsc').get<AutoDetect>('autoDetect');

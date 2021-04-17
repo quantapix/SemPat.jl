@@ -71,7 +71,7 @@ import { ServiceClient, ClientCap } from './service';
 import API from '../utils/env';
 import { Condition, CondRegistration } from '../utils/base';
 export function requireMinVer(c: ServiceClient, minVer: API) {
-  return new Condition(() => c.apiVersion.gte(minVer), c.onTSServerStarted);
+  return new Condition(() => c.apiVersion.gte(minVer), c.onTsServerStarted);
 }
 export function requireConfig(lang: string, cfg: string) {
   return new Condition(() => {

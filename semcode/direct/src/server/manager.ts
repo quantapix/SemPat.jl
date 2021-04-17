@@ -1,15 +1,15 @@
 import * as qv from 'vscode';
 import { TSServiceConfig } from '../utils/configuration';
 import { Disposable } from '../utils';
-import { TSVersionProvider, TSVersion } from './version';
+import { TsVersionProvider, TsVersion } from './version';
 const useWorkspaceTsdkStorageKey = 'typescript.useWorkspaceTsdk';
 const suppressPromptWorkspaceTsdkStorageKey = 'typescript.suppressPromptWorkspaceTsdk';
 interface QuickPickItem extends qv.QuickPickItem {
   run(): void;
 }
-export class TSVersionMgr extends Disposable {
-  private _currentVersion: TSVersion;
-  public constructor(private configuration: TSServiceConfig, private readonly versionProvider: TSVersionProvider, private readonly workspaceState: qv.Memento) {
+export class TsVersionMgr extends Disposable {
+  private _currentVersion: TsVersion;
+  public constructor(private configuration: TSServiceConfig, private readonly versionProvider: TsVersionProvider, private readonly workspaceState: qv.Memento) {
     super();
     this._currentVersion = this.versionProvider.defaultVersion;
     if (this.useWorkspaceTsdkSetting) {
@@ -42,7 +42,7 @@ export class TSVersionMgr extends Disposable {
       this.promptUseWorkspaceTsdk();
     }
   }
-  public get currentVersion(): TSVersion {
+  public get currentVersion(): TsVersion {
     return this._currentVersion;
   }
   public reset(): void {
@@ -98,7 +98,7 @@ export class TSVersionMgr extends Disposable {
       await this.workspaceState.update(suppressPromptWorkspaceTsdkStorageKey, true);
     }
   }
-  private updateActiveVersion(v: TSVersion) {
+  private updateActiveVersion(v: TsVersion) {
     const oldVersion = this.currentVersion;
     this._currentVersion = v;
     if (!oldVersion.eq(v)) {

@@ -2,7 +2,7 @@ import * as qv from 'vscode';
 import * as qp from './proto';
 import BufferSyncSupport from '../old/ts/tsServer/bufferSyncSupport';
 import { ExecTarget } from '../old/ts/tsServer/server';
-import { TSVersion } from '../old/ts/tsServer/versionProvider';
+import { TsVersion } from '../old/ts/tsServer/versionProvider';
 import API from '../old/ts/utils/api';
 import { TSServiceConfig } from '../old/ts/utils/configuration';
 import { PluginMgr } from '../old/ts/utils/plugins';
@@ -96,7 +96,7 @@ export interface ServiceClient {
   toOpenedFilePath(d: qv.TextDocument, opts?: { suppressAlertOnFailure?: boolean }): string | undefined;
   hasCapabilityForResource(r: qv.Uri, c: ClientCap): boolean;
   getWorkspaceRootForResource(r: qv.Uri): string | undefined;
-  readonly onTSServerStarted: qv.Event<{ version: TSVersion; usedApiVersion: API }>;
+  readonly onTsServerStarted: qv.Event<{ version: TsVersion; usedApiVersion: API }>;
   readonly onProjectLangServiceStateChanged: qv.Event<qp.ProjectLangServiceStateEventBody>;
   readonly onDidBeginInstallTypings: qv.Event<qp.BeginInstallTypesEventBody>;
   readonly onDidEndInstallTypings: qv.Event<qp.EndInstallTypesEventBody>;

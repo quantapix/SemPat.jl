@@ -6,13 +6,13 @@ import { ConfigOptions } from './option';
 export interface TsServerPlugin {
   readonly path: string;
   readonly name: string;
-  readonly enableForWorkspaceTSVersions: boolean;
+  readonly enableForWorkspaceTsVersions: boolean;
   readonly languages: ReadonlyArray<string>;
   readonly configNamespace?: string;
 }
 namespace TsServerPlugin {
   export function equals(a: TsServerPlugin, b: TsServerPlugin): boolean {
-    return a.path === b.path && a.name === b.name && a.enableForWorkspaceTSVersions === b.enableForWorkspaceTSVersions && qu.equals(a.languages, b.languages);
+    return a.path === b.path && a.name === b.name && a.enableForWorkspaceTsVersions === b.enableForWorkspaceTsVersions && qu.equals(a.languages, b.languages);
   }
 }
 export class PluginMgr extends qu.Disposable {
@@ -57,7 +57,7 @@ export class PluginMgr extends qu.Disposable {
         for (const p of j.contributes.typescriptServerPlugins) {
           ps.push({
             name: p.name,
-            enableForWorkspaceTSVersions: !!p.enableForWorkspaceTSVersions,
+            enableForWorkspaceTsVersions: !!p.enableForWorkspaceTsVersions,
             path: e.extensionPath,
             languages: Array.isArray(p.languages) ? p.languages : [],
             configNamespace: p.configNamespace,

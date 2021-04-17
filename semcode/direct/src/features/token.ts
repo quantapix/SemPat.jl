@@ -1,13 +1,14 @@
-import { ClientCap, ExecConfig, ServiceClient, ServerResponse } from '../service';
+import { ClientCap, ExecConfig, ServiceClient, ServerResponse } from '../server/service';
 import { condRegistration, requireSomeCap, requireMinVer } from '../registration';
-import * as qp from '../protocol';
+import * as qp from '../server/proto';
 import * as qv from 'vscode';
-import * as qu from '../utils';
-import API from '../../old/ts/utils/api';
-const minTSVersion = API.fromVersionString(`${VersionRequirement.major}.${VersionRequirement.minor}`);
+import * as qu from '../utils/base';
+import API from '../utils/env';
+
+const minTsVersion = API.fromVersionString(`${VersionRequirement.major}.${VersionRequirement.minor}`);
 const CONTENT_LENGTH_LIMIT = 100000;
 export function register(s: qu.DocumentSelector, c: ServiceClient) {
-  return condRegistration([requireMinVer(c, minTSVersion), requireSomeCap(c, ClientCap.Semantic)], () => {
+  return condRegistration([requireMinVer(c, minTsVersion), requireSomeCap(c, ClientCap.Semantic)], () => {
     const p = new SemanticTokens(c);
     return qv.Disposable.from(qv.languages.registerDocumentRangeSemanticTokensProvider(s.semantic, p, p.getLegend()));
   });
@@ -17,34 +18,34 @@ class SemanticTokens implements qv.DocumentSemanticTokensProvider, qv.DocumentRa
   getLegend(): qv.SemanticTokensLegend {
     return new qv.SemanticTokensLegend(tokenTypes, tokenModifiers);
   }
-  async provideDocumentSemanticTokens(document: qv.TextDocument, token: qv.CancellationToken): Promise<qv.SemanticTokens | null> {
-    const file = this.client.toOpenedFilePath(document);
-    if (!file || document.getText().length > CONTENT_LENGTH_LIMIT) return null;
-    return this._provideSemanticTokens(document, { file, start: 0, length: document.getText().length }, token);
+  async provideDocumentSemanticTokens(d: qv.TextDocument, t: qv.CancellationToken): Promise<qv.SemanticTokens | null> {
+    const file = this.client.toOpenedFilePath(d);
+    if (!file || d.getText().length > CONTENT_LENGTH_LIMIT) return null;
+    return this._provideSemanticTokens(d, { file, start: 0, length: d.getText().length }, t);
   }
-  async provideDocumentRangeSemanticTokens(document: qv.TextDocument, range: qv.Range, token: qv.CancellationToken): Promise<qv.SemanticTokens | null> {
-    const file = this.client.toOpenedFilePath(document);
-    if (!file || document.offsetAt(range.end) - document.offsetAt(range.start) > CONTENT_LENGTH_LIMIT) return null;
-    const start = document.offsetAt(range.start);
-    const length = document.offsetAt(range.end) - start;
-    return this._provideSemanticTokens(document, { file, start, length }, token);
+  async provideDocumentRangeSemanticTokens(d: qv.TextDocument, r: qv.Range, t: qv.CancellationToken): Promise<qv.SemanticTokens | null> {
+    const file = this.client.toOpenedFilePath(d);
+    if (!file || d.offsetAt(r.end) - d.offsetAt(r.start) > CONTENT_LENGTH_LIMIT) return null;
+    const start = d.offsetAt(r.start);
+    const length = d.offsetAt(r.end) - start;
+    return this._provideSemanticTokens(d, { file, start, length }, t);
   }
-  async _provideSemanticTokens(document: qv.TextDocument, requestArg: qp.EncodedSemanticClassificationsRequestArgs, token: qv.CancellationToken): Promise<qv.SemanticTokens | null> {
-    const file = this.client.toOpenedFilePath(document);
+  async _provideSemanticTokens(d: qv.TextDocument, requestArg: qp.EncodedSemanticClassificationsRequestArgs, t: qv.CancellationToken): Promise<qv.SemanticTokens | null> {
+    const file = this.client.toOpenedFilePath(d);
     if (!file) return null;
-    const versionBeforeRequest = document.version;
+    const versionBeforeRequest = d.version;
     requestArg.format = '2020';
-    const response = await (this.client as ExperimentalProtocol.IExtendedTypeScriptServiceClient).execute('encodedSemanticClassifications-full', requestArg, token, {
-      cancelOnResourceChange: document.uri,
+    const response = await (this.client as ExperimentalProtocol.IExtendedTypeScriptServiceClient).execute('encodedSemanticClassifications-full', requestArg, t, {
+      cancelOnResourceChange: d.uri,
     });
     if (response.type !== 'response' || !response.body) return null;
-    const versionAfterRequest = document.version;
+    const versionAfterRequest = d.version;
     if (versionBeforeRequest !== versionAfterRequest) {
-      await waitForDocumentChangesToEnd(document);
+      await waitForDocumentChangesToEnd(d);
       throw new qv.CancellationError();
     }
     const tokenSpan = response.body.spans;
-    const builder = new qv.SemanticTokensBuilder();
+    const b = new qv.SemanticTokensBuilder();
     let i = 0;
     while (i < tokenSpan.length) {
       const offset = tokenSpan[i++];
@@ -57,26 +58,26 @@ class SemanticTokens implements qv.DocumentSemanticTokensProvider, qv.DocumentRa
         tokenType = tokenTypeMap[tsClassification];
         if (tokenType === undefined) continue;
       }
-      const startPos = document.positionAt(offset);
-      const endPos = document.positionAt(offset + length);
+      const startPos = d.positionAt(offset);
+      const endPos = d.positionAt(offset + length);
       for (let line = startPos.line; line <= endPos.line; line++) {
         const startCharacter = line === startPos.line ? startPos.character : 0;
-        const endCharacter = line === endPos.line ? endPos.character : document.lineAt(line).text.length;
-        builder.push(line, startCharacter, endCharacter - startCharacter, tokenType, tokenModifiers);
+        const endCharacter = line === endPos.line ? endPos.character : d.lineAt(line).text.length;
+        b.push(line, startCharacter, endCharacter - startCharacter, tokenType, tokenModifiers);
       }
     }
-    return builder.build();
+    return b.build();
   }
 }
-function waitForDocumentChangesToEnd(document: qv.TextDocument) {
-  let version = document.version;
+function waitForDocumentChangesToEnd(d: qv.TextDocument) {
+  let v = d.version;
   return new Promise<void>((s) => {
-    const iv = setInterval((_) => {
-      if (document.version === version) {
-        clearInterval(iv);
+    const i = setInterval((_) => {
+      if (d.version === v) {
+        clearInterval(i);
         s();
       }
-      version = document.version;
+      v = d.version;
     }, 400);
   });
 }
@@ -112,12 +113,12 @@ declare const enum VersionRequirement {
   major = 3,
   minor = 7,
 }
-function getTokenTypeFromClassification(tsClassification: number): number | undefined {
-  if (tsClassification > TokenEncodingConsts.modifierMask) return (tsClassification >> TokenEncodingConsts.typeOffset) - 1;
+function getTokenTypeFromClassification(c: number): number | undefined {
+  if (c > TokenEncodingConsts.modifierMask) return (c >> TokenEncodingConsts.typeOffset) - 1;
   return undefined;
 }
-function getTokenModifierFromClassification(tsClassification: number) {
-  return tsClassification & TokenEncodingConsts.modifierMask;
+function getTokenModifierFromClassification(c: number) {
+  return c & TokenEncodingConsts.modifierMask;
 }
 const tokenTypes: string[] = [];
 tokenTypes[TokenType.class] = 'class';
@@ -149,12 +150,12 @@ tokenTypeMap[ExperimentalProtocol.ClassificationType.typeAliasName] = TokenType.
 tokenTypeMap[ExperimentalProtocol.ClassificationType.parameterName] = TokenType.parameter;
 namespace ExperimentalProtocol {
   export interface IExtendedTypeScriptServiceClient {
-    execute<K extends keyof ExperimentalProtocol.ExtendedTSServerRequests>(
+    execute<K extends keyof ExperimentalProtocol.ExtendedTsServerRequests>(
       command: K,
-      args: ExperimentalProtocol.ExtendedTSServerRequests[K][0],
+      args: ExperimentalProtocol.ExtendedTsServerRequests[K][0],
       token: qv.CancellationToken,
       config?: ExecConfig
-    ): Promise<ServerResponse.Response<ExperimentalProtocol.ExtendedTSServerRequests[K][1]>>;
+    ): Promise<ServerResponse.Response<ExperimentalProtocol.ExtendedTsServerRequests[K][1]>>;
   }
   export interface EncodedSemanticClassificationsRequest extends qp.FileRequest {
     arguments: EncodedSemanticClassificationsRequestArgs;
@@ -200,12 +201,9 @@ namespace ExperimentalProtocol {
     bigintLiteral = 25,
   }
   export interface EncodedSemanticClassificationsResponse extends qp.Response {
-    body?: {
-      endOfLineState: EndOfLineState;
-      spans: number[];
-    };
+    body?: { endOfLineState: EndOfLineState; spans: number[] };
   }
-  export interface ExtendedTSServerRequests {
+  export interface ExtendedTsServerRequests {
     'encodedSemanticClassifications-full': [ExperimentalProtocol.EncodedSemanticClassificationsRequestArgs, ExperimentalProtocol.EncodedSemanticClassificationsResponse];
   }
 }
@@ -234,13 +232,13 @@ const legend = (function () {
     'property',
     'label',
   ];
-  tokenTypesLegend.forEach((tokenType, index) => tokenTypes.set(tokenType, index));
+  tokenTypesLegend.forEach((t, i) => tokenTypes.set(t, i));
   const tokenModifiersLegend = ['declaration', 'documentation', 'readonly', 'static', 'abstract', 'deprecated', 'modification', 'async'];
-  tokenModifiersLegend.forEach((tokenModifier, index) => tokenModifiers.set(tokenModifier, index));
+  tokenModifiersLegend.forEach((m, i) => tokenModifiers.set(m, i));
   return new qv.SemanticTokensLegend(tokenTypesLegend, tokenModifiersLegend);
 })();
-export function activate(context: qv.ExtensionContext) {
-  context.subscriptions.push(qv.languages.registerDocumentSemanticTokensProvider({ language: 'semanticLang' }, new DocumentSemanticTokensProvider(), legend));
+export function activate(c: qv.ExtensionContext) {
+  c.subscriptions.push(qv.languages.registerDocumentSemanticTokensProvider({ language: 'semanticLang' }, new DocumentSemanticTokensProvider(), legend));
 }
 interface IParsedToken {
   line: number;
@@ -250,63 +248,48 @@ interface IParsedToken {
   tokenModifiers: string[];
 }
 class DocumentSemanticTokensProvider implements qv.DocumentSemanticTokensProvider {
-  async provideDocumentSemanticTokens(document: qv.TextDocument, token: qv.CancellationToken): Promise<qv.SemanticTokens> {
-    const allTokens = this._parseText(document.getText());
-    const builder = new qv.SemanticTokensBuilder();
-    allTokens.forEach((token) => {
-      builder.push(token.line, token.startCharacter, token.length, this._encodeTokenType(token.tokenType), this._encodeTokenModifiers(token.tokenModifiers));
+  async provideDocumentSemanticTokens(d: qv.TextDocument, _: qv.CancellationToken): Promise<qv.SemanticTokens> {
+    const ts = this._parseText(d.getText());
+    const b = new qv.SemanticTokensBuilder();
+    ts.forEach((t) => {
+      b.push(t.line, t.startCharacter, t.length, this._encodeTokenType(t.tokenType), this._encodeTokenModifiers(t.tokenModifiers));
     });
-    return builder.build();
+    return b.build();
   }
-  private _encodeTokenType(tokenType: string): number {
-    if (tokenTypes.has(tokenType)) {
-      return tokenTypes.get(tokenType)!;
-    } else if (tokenType === 'notInLegend') {
-      return tokenTypes.size + 2;
-    }
+  private _encodeTokenType(x: string): number {
+    if (tokenTypes.has(x)) return tokenTypes.get(x)!;
+    else if (x === 'notInLegend') return tokenTypes.size + 2;
     return 0;
   }
-  private _encodeTokenModifiers(strTokenModifiers: string[]): number {
-    let result = 0;
-    for (let i = 0; i < strTokenModifiers.length; i++) {
-      const tokenModifier = strTokenModifiers[i];
-      if (tokenModifiers.has(tokenModifier)) {
-        result = result | (1 << tokenModifiers.get(tokenModifier)!);
-      } else if (tokenModifier === 'notInLegend') {
-        result = result | (1 << (tokenModifiers.size + 2));
-      }
+  private _encodeTokenModifiers(xs: string[]): number {
+    let y = 0;
+    for (let i = 0; i < xs.length; i++) {
+      const x = xs[i];
+      if (tokenModifiers.has(x)) y = y | (1 << tokenModifiers.get(x)!);
+      else if (x === 'notInLegend') y = y | (1 << (tokenModifiers.size + 2));
     }
-    return result;
+    return y;
   }
-  private _parseText(text: string): IParsedToken[] {
-    const r: IParsedToken[] = [];
-    const lines = text.split(/\r\n|\r|\n/);
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      let currentOffset = 0;
+  private _parseText(x: string): IParsedToken[] {
+    const ys: IParsedToken[] = [];
+    const ls = x.split(/\r\n|\r|\n/);
+    for (let i = 0; i < ls.length; i++) {
+      const l = ls[i];
+      let off = 0;
       do {
-        const openOffset = line.indexOf('[', currentOffset);
-        if (openOffset === -1) break;
-        const closeOffset = line.indexOf(']', openOffset);
-        if (closeOffset === -1) break;
-        const tokenData = this._parseTextToken(line.substring(openOffset + 1, closeOffset));
-        r.push({
-          line: i,
-          startCharacter: openOffset + 1,
-          length: closeOffset - openOffset - 1,
-          tokenType: tokenData.tokenType,
-          tokenModifiers: tokenData.tokenModifiers,
-        });
-        currentOffset = closeOffset;
+        const open = l.indexOf('[', off);
+        if (open === -1) break;
+        const close = l.indexOf(']', open);
+        if (close === -1) break;
+        const y = this._parseTextToken(l.substring(open + 1, close));
+        ys.push({ line: i, startCharacter: open + 1, length: close - open - 1, tokenType: y.tokenType, tokenModifiers: y.tokenModifiers });
+        off = close;
       } while (true);
     }
-    return r;
+    return ys;
   }
-  private _parseTextToken(text: string): { tokenType: string; tokenModifiers: string[] } {
-    const parts = text.split('.');
-    return {
-      tokenType: parts[0],
-      tokenModifiers: parts.slice(1),
-    };
+  private _parseTextToken(x: string): { tokenType: string; tokenModifiers: string[] } {
+    const xs = x.split('.');
+    return { tokenType: xs[0], tokenModifiers: xs.slice(1) };
   }
 }

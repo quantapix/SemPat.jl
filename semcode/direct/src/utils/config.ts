@@ -8,35 +8,35 @@ import { nulToken } from '../utils';
 import { RevealOutputChannelOn } from 'vscode-languageclient';
 import { getActiveChannel, RustupConfig } from './rs/rustup';
 
-export enum TSServerLogLevel {
+export enum TsServerLogLevel {
   Off,
   Normal,
   Terse,
   Verbose,
 }
-export namespace TSServerLogLevel {
-  export function fromString(value: string): TSServerLogLevel {
+export namespace TsServerLogLevel {
+  export function fromString(value: string): TsServerLogLevel {
     switch (value && value.toLowerCase()) {
       case 'normal':
-        return TSServerLogLevel.Normal;
+        return TsServerLogLevel.Normal;
       case 'terse':
-        return TSServerLogLevel.Terse;
+        return TsServerLogLevel.Terse;
       case 'verbose':
-        return TSServerLogLevel.Verbose;
+        return TsServerLogLevel.Verbose;
       case 'off':
       default:
-        return TSServerLogLevel.Off;
+        return TsServerLogLevel.Off;
     }
   }
-  export function toString(value: TSServerLogLevel): string {
+  export function toString(value: TsServerLogLevel): string {
     switch (value) {
-      case TSServerLogLevel.Normal:
+      case TsServerLogLevel.Normal:
         return 'normal';
-      case TSServerLogLevel.Terse:
+      case TsServerLogLevel.Terse:
         return 'terse';
-      case TSServerLogLevel.Verbose:
+      case TsServerLogLevel.Verbose:
         return 'verbose';
-      case TSServerLogLevel.Off:
+      case TsServerLogLevel.Off:
       default:
         return 'off';
     }
@@ -78,17 +78,17 @@ export class TSServiceConfig {
   public readonly globalTsdk: string | null;
   public readonly localTsdk: string | null;
   public readonly npmLocation: string | null;
-  public readonly tsServerLogLevel: TSServerLogLevel = TSServerLogLevel.Off;
+  public readonly tsServerLogLevel: TsServerLogLevel = TsServerLogLevel.Off;
   public readonly tsServerPluginPaths: readonly string[];
   public readonly implictProjectConfig: ImplicitProjectConfig;
   public readonly disableAutomaticTypeAcquisition: boolean;
   public readonly separateSyntaxServer: SeparateSyntaxServerConfig;
   public readonly enableProjectDiags: boolean;
-  public readonly maxTSServerMemory: number;
+  public readonly maxTsServerMemory: number;
   public readonly enablePromptUseWorkspaceTsdk: boolean;
   public readonly watchOptions: protocol.WatchOptions | undefined;
   public readonly includePackageJsonAutoImports: 'auto' | 'on' | 'off' | undefined;
-  public readonly enableTSServerTracing: boolean;
+  public readonly enableTsServerTracing: boolean;
   public static loadFromWorkspace(): TSServiceConfig {
     return new TSServiceConfig();
   }
@@ -98,17 +98,17 @@ export class TSServiceConfig {
     this.globalTsdk = TSServiceConfig.extractGlobalTsdk(configuration);
     this.localTsdk = TSServiceConfig.extractLocalTsdk(configuration);
     this.npmLocation = TSServiceConfig.readNpmLocation(configuration);
-    this.tsServerLogLevel = TSServiceConfig.readTSServerLogLevel(configuration);
-    this.tsServerPluginPaths = TSServiceConfig.readTSServerPluginPaths(configuration);
+    this.tsServerLogLevel = TSServiceConfig.readTsServerLogLevel(configuration);
+    this.tsServerPluginPaths = TSServiceConfig.readTsServerPluginPaths(configuration);
     this.implictProjectConfig = new ImplicitProjectConfig(configuration);
     this.disableAutomaticTypeAcquisition = TSServiceConfig.readDisableAutomaticTypeAcquisition(configuration);
     this.separateSyntaxServer = TSServiceConfig.readUseSeparateSyntaxServer(configuration);
     this.enableProjectDiags = TSServiceConfig.readEnableProjectDiags(configuration);
-    this.maxTSServerMemory = TSServiceConfig.readMaxTSServerMemory(configuration);
+    this.maxTsServerMemory = TSServiceConfig.readMaxTsServerMemory(configuration);
     this.enablePromptUseWorkspaceTsdk = TSServiceConfig.readEnablePromptUseWorkspaceTsdk(configuration);
     this.watchOptions = TSServiceConfig.readWatchOptions(configuration);
     this.includePackageJsonAutoImports = TSServiceConfig.readIncludePackageJsonAutoImports(configuration);
-    this.enableTSServerTracing = TSServiceConfig.readEnableTSServerTracing(configuration);
+    this.enableTsServerTracing = TSServiceConfig.readEnableTsServerTracing(configuration);
   }
   public isEqualTo(other: TSServiceConfig): boolean {
     return qu.equals(this, other);
@@ -132,11 +132,11 @@ export class TSServiceConfig {
     if (inspect && typeof inspect.workspaceValue === 'string') return this.fixPathPrefixes(inspect.workspaceValue);
     return null;
   }
-  private static readTSServerLogLevel(configuration: qv.WorkspaceConfiguration): TSServerLogLevel {
+  private static readTsServerLogLevel(configuration: qv.WorkspaceConfiguration): TsServerLogLevel {
     const setting = configuration.get<string>('typescript.tsserver.log', 'off');
-    return TSServerLogLevel.fromString(setting);
+    return TsServerLogLevel.fromString(setting);
   }
-  private static readTSServerPluginPaths(configuration: qv.WorkspaceConfiguration): string[] {
+  private static readTsServerPluginPaths(configuration: qv.WorkspaceConfiguration): string[] {
     return configuration.get<string[]>('typescript.tsserver.pluginPaths', []);
   }
   private static readNpmLocation(configuration: qv.WorkspaceConfiguration): string | null {
@@ -162,10 +162,10 @@ export class TSServiceConfig {
   private static readIncludePackageJsonAutoImports(configuration: qv.WorkspaceConfiguration): 'auto' | 'on' | 'off' | undefined {
     return configuration.get<'auto' | 'on' | 'off'>('typescript.preferences.includePackageJsonAutoImports');
   }
-  private static readMaxTSServerMemory(configuration: qv.WorkspaceConfiguration): number {
+  private static readMaxTsServerMemory(configuration: qv.WorkspaceConfiguration): number {
     const defaultMaxMemory = 3072;
     const minimumMaxMemory = 128;
-    const memoryInMB = configuration.get<number>('typescript.tsserver.maxTSServerMemory', defaultMaxMemory);
+    const memoryInMB = configuration.get<number>('typescript.tsserver.maxTsServerMemory', defaultMaxMemory);
     if (!Number.isSafeInteger(memoryInMB)) {
       return defaultMaxMemory;
     }
@@ -174,7 +174,7 @@ export class TSServiceConfig {
   private static readEnablePromptUseWorkspaceTsdk(configuration: qv.WorkspaceConfiguration): boolean {
     return configuration.get<boolean>('typescript.enablePromptUseWorkspaceTsdk', false);
   }
-  private static readEnableTSServerTracing(configuration: qv.WorkspaceConfiguration): boolean {
+  private static readEnableTsServerTracing(configuration: qv.WorkspaceConfiguration): boolean {
     return configuration.get<boolean>('typescript.tsserver.enableTracing', false);
   }
 }

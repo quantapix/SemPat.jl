@@ -62,5 +62,5 @@ export function register(client: ServiceClient, commandMgr: CommandMgr) {
   }
   updateContext();
   commandMgr.register(new FileReferencesCommand(client));
-  return client.onTSServerStarted(() => updateContext());
+  return client.onTsServerStarted(() => updateContext());
 }

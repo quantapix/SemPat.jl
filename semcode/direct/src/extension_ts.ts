@@ -4,8 +4,8 @@ import { Api, getExtensionApi } from './api';
 import { ChildServerProc } from './tsServer/serverProc.electron';
 import { CommandMgr } from './commands/commandMgr';
 import { createLazyClientHost, lazilyActivateClient } from './lazyClientHost';
-import { DiskTSVersionProvider } from './tsServer/versionProvider.electron';
-import { TSVersionProvider, TSVersion } from './tsServer/versionProvider';
+import { DiskTsVersionProvider } from './tsServer/versionProvider.electron';
+import { TsVersionProvider, TsVersion } from './tsServer/versionProvider';
 import { LangConfigMgr } from './languageFeatures/languageConfig';
 import { NodeLogDirProvider } from './tsServer/logDirProvider.electron';
 import { nodeRequestCancelFact } from './tsServer/cancellation.electron';
@@ -50,7 +50,7 @@ export function activate(ctx: qv.ExtensionContext): Api {
   const onCompletionAccepted = new qv.EventEmitter<qv.CompletionItem>();
   ctx.subscriptions.push(onCompletionAccepted);
   const logDirProvider = new NodeLogDirProvider(ctx);
-  const versionProvider = new DiskTSVersionProvider();
+  const versionProvider = new DiskTsVersionProvider();
   ctx.subscriptions.push(new LangConfigMgr());
   const activeJsTsEditorTracker = new ActiveJsTsEditorTracker();
   ctx.subscriptions.push(activeJsTsEditorTracker);
@@ -121,8 +121,8 @@ async function showSampleText(ctx: qv.ExtensionContext): Promise<void> {
 	qv.window.showTextDocument(d);
 }
 
-class StaticVersionProvider implements TSVersionProvider {
-  constructor(private readonly _version: TSVersion) {}
+class StaticVersionProvider implements TsVersionProvider {
+  constructor(private readonly _version: TsVersion) {}
   updateConfig(_configuration: TSServiceConfig): void {
 
   }

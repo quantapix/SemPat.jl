@@ -1,13 +1,13 @@
 import type * as qp from './proto';
-import { TSVersion } from './version';
-export class TSServerError extends Error {
-  public static create(serverId: string, version: TSVersion, response: qp.Response): TSServerError {
-    const parsedResult = TSServerError.parseErrorText(response);
-    return new TSServerError(serverId, version, response, parsedResult?.message, parsedResult?.stack, parsedResult?.sanitizedStack);
+import { TsVersion } from './version';
+export class TsServerError extends Error {
+  public static create(serverId: string, version: TsVersion, response: qp.Response): TsServerError {
+    const parsedResult = TsServerError.parseErrorText(response);
+    return new TsServerError(serverId, version, response, parsedResult?.message, parsedResult?.stack, parsedResult?.sanitizedStack);
   }
   private constructor(
     public readonly serverId: string,
-    public readonly version: TSVersion,
+    public readonly version: TsVersion,
     private readonly response: qp.Response,
     public readonly serverMessage: string | undefined,
     public readonly serverStack: string | undefined,
@@ -40,7 +40,7 @@ export class TSServerError extends Error {
           return {
             message: prefixFreeErrorText.substring(0, newlineIndex),
             stack,
-            sanitizedStack: TSServerError.sanitizeStack(stack),
+            sanitizedStack: TsServerError.sanitizeStack(stack),
           };
         }
       }

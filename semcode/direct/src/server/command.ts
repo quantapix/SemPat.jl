@@ -46,11 +46,11 @@ class LearnMoreAboutRefactoringsCommand implements Command {
     qv.env.openExternal(qv.Uri.parse(u));
   }
 }
-class OpenTSServerLogCommand implements Command {
-  public readonly id = 'typescript.openTSServerLog';
+class OpenTsServerLogCommand implements Command {
+  public readonly id = 'typescript.openTsServerLog';
   public constructor(private readonly host: Lazy<ServiceClientHost>) {}
   public execute() {
-    this.host.value.serviceClient.openTSServerLogFile();
+    this.host.value.serviceClient.openTsServerLogFile();
   }
 }
 class ReloadTypeScriptProjectsCommand implements Command {
@@ -67,15 +67,15 @@ class ReloadJavaScriptProjectsCommand implements Command {
     this.host.value.reloadProjects();
   }
 }
-class RestartTSServerCommand implements Command {
-  public readonly id = 'typescript.restartTSServer';
+class RestartTsServerCommand implements Command {
+  public readonly id = 'typescript.restartTsServer';
   public constructor(private readonly host: Lazy<ServiceClientHost>) {}
   public execute() {
-    this.host.value.serviceClient.restartTSServer();
+    this.host.value.serviceClient.restartTsServer();
   }
 }
-class SelectTSVersionCommand implements Command {
-  public readonly id = 'typescript.selectTSVersion';
+class SelectTsVersionCommand implements Command {
+  public readonly id = 'typescript.selectTsVersion';
   public constructor(private readonly host: Lazy<ServiceClientHost>) {}
   public execute() {
     this.host.value.serviceClient.showVersionPicker();
@@ -84,9 +84,9 @@ class SelectTSVersionCommand implements Command {
 export function registerBaseCommands(m: CommandMgr, h: Lazy<ServiceClientHost>, p: PluginMgr, t: ActiveJsTsEditorTracker): void {
   m.register(new ReloadTypeScriptProjectsCommand(h));
   m.register(new ReloadJavaScriptProjectsCommand(h));
-  m.register(new SelectTSVersionCommand(h));
-  m.register(new OpenTSServerLogCommand(h));
-  m.register(new RestartTSServerCommand(h));
+  m.register(new SelectTsVersionCommand(h));
+  m.register(new OpenTsServerLogCommand(h));
+  m.register(new RestartTsServerCommand(h));
   m.register(new TypeScriptGoToProjectConfigCommand(t, h));
   m.register(new JavaScriptGoToProjectConfigCommand(t, h));
   m.register(new ConfigurePluginCommand(p));

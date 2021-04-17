@@ -624,7 +624,7 @@ export function expandFilePathInOutput(output: string, cwd: string): string {
   }
   return lines.join('\n');
 }
-export class TSPluginPathsProvider {
+export class TsPluginPathsProvider {
   public constructor(private configuration: TSServiceConfig) {}
   public updateConfig(configuration: TSServiceConfig): void {
     this.configuration = configuration;
