@@ -1,6 +1,6 @@
-import { ClientCap, ServiceClient } from '../service';
-import { condRegistration, requireSomeCap } from '../registration';
-import * as qu from '../utils';
+import { ClientCap, ServiceClient } from '../server/service';
+import { requireSomeCap } from '../server/base';
+import * as qu from '../utils/base';
 import * as qv from 'vscode';
 import { getFileInfo } from '../analyzer/analyzerNodeInfo';
 import { DeclarationType, isFunctionDeclaration } from '../analyzer/declaration';
@@ -79,13 +79,13 @@ class Implementation extends TsBase implements qv.ImplementationProvider {
 }
 export function register(s: qu.DocumentSelector, c: ServiceClient) {
   return [
-    condRegistration([requireSomeCap(c, ClientCap.EnhancedSyntax, ClientCap.Semantic)], () => {
+    qu.condRegistration([requireSomeCap(c, ClientCap.EnhancedSyntax, ClientCap.Semantic)], () => {
       return qv.languages.registerDefinitionProvider(s.syntax, new TsDefinition(c));
     }),
-    condRegistration([requireSomeCap(c, ClientCap.EnhancedSyntax, ClientCap.Semantic)], () => {
+    qu.condRegistration([requireSomeCap(c, ClientCap.EnhancedSyntax, ClientCap.Semantic)], () => {
       return qv.languages.registerTypeDefinitionProvider(s.syntax, new TypeDefinition(c));
     }),
-    condRegistration([requireSomeCap(c, ClientCap.Semantic)], () => {
+    qu.condRegistration([requireSomeCap(c, ClientCap.Semantic)], () => {
       return qv.languages.registerImplementationProvider(s.semantic, new Implementation(c));
     }),
   ];

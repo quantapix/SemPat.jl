@@ -1,7 +1,7 @@
 import { CachedResponse } from '../../old/ts/tsServer/cachedResponse';
-import { ServiceClient } from '../service';
+import { ServiceClient } from '../server/service';
 import * as qk from '../utils/key';
-import * as qu from '../utils';
+import * as qu from '../utils/base';
 import * as qv from 'vscode';
 import type * as qp from '../server/proto';
 import cp = require('child_process');

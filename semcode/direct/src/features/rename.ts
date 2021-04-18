@@ -1,11 +1,11 @@
-import { ClientCap, ServiceClient, ServerResponse } from '../service';
-import { condRegistration, requireSomeCap } from '../registration';
+import { ClientCap, ServiceClient, ServerResponse } from '../server/service';
+import { requireSomeCap } from '../server/base';
 import * as path from 'path';
-import * as qu from '../utils';
+import * as qu from '../utils/base';
 import * as qv from 'vscode';
-import API from '../../old/ts/utils/api';
+import API from '../utils/env';
 import FileConfigMgr from '../../old/ts/languageFeatures/fileConfigMgr';
-import type * as qp from '../protocol';
+import type * as qp from '../server/proto';
 import cp = require('child_process');
 import { getGoConfig } from './config';
 import { Edit, FilePatch, getEditsFromUnifiedDiffStr, isDiffToolAvailable } from './diffUtils';
@@ -128,7 +128,7 @@ class TsRename implements qv.RenameProvider {
   }
 }
 export function register(s: qu.DocumentSelector, c: ServiceClient, fileConfigMgr: FileConfigMgr) {
-  return condRegistration([requireSomeCap(c, ClientCap.Semantic)], () => {
+  return qu.condRegistration([requireSomeCap(c, ClientCap.Semantic)], () => {
     return qv.languages.registerRenameProvider(s.semantic, new TsRename(c, fileConfigMgr));
   });
 }

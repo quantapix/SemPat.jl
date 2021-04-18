@@ -1,7 +1,7 @@
 import * as qv from 'vscode';
-import type * as qp from '../protocol';
-import { ServiceClient, ClientCap } from '../service';
-import API from '../utils/api';
+import type * as qp from '../server/proto';
+import { ServiceClient, ClientCap } from '../server/service';
+import API from '../utils/env';
 import * as languageModeIds from '../utils/lang';
 import * as qu from '../utils/base';
 const enum BufferKind {

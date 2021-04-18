@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { Readable } from 'stream';
 import * as qv from 'vscode';
-import type * as qp from '../protocol';
+import type * as qp from '../server/proto';
 import { TSServiceConfig } from '../utils/configuration';
 import { Disposable } from '../utils';
 import { TsServerProc, TsServerProcKind } from './server';

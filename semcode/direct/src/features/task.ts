@@ -2,7 +2,7 @@ import * as jsonc from 'jsonc-parser';
 import * as path from 'path';
 import * as qv from 'vscode';
 import { wait } from '../test/testUtils';
-import { ServiceClient, ServerResponse } from '../service';
+import { ServiceClient, ServerResponse } from '../server/service';
 import { coalesce, flatten } from '../utils/arrays';
 import { Disposable } from '../utils';
 import { exists } from '../utils/fs';

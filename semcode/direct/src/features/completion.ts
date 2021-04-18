@@ -2,7 +2,7 @@ import * as qv from 'vscode';
 import { Command, CommandMgr } from '../commands/commandMgr';
 import type * as qp from '../server/proto';
 import * as qk from '../utils/key';
-import { ClientCap, ServiceClient, ServerResponse } from '../service';
+import { ClientCap, ServiceClient, ServerResponse } from '../server/service';
 import API from '../utils/env';
 import { nulToken } from '../utils/cancellation';
 import { applyCodeAction } from '../utils/codeAction';
@@ -626,7 +626,7 @@ export function register(
   telemetryReporter: TelemetryReporter,
   onCompletionAccepted: (i: qv.CompletionItem) => void
 ) {
-  return conditionalRegistration([requireConfig(modeId, 'suggest.enabled'), requireSomeCap(c, ClientCap.EnhancedSyntax, ClientCap.Semantic)], () => {
+  return conditionalRegistration([requireConfig(modeId, 'suggest.enabled'), qu.requireSomeCap(c, ClientCap.EnhancedSyntax, ClientCap.Semantic)], () => {
     return qv.languages.registerCompletionItemProvider(
       s.syntax,
       new TypeScriptCompletionItemProvider(c, modeId, typingsStatus, fileConfigMgr, commandMgr, telemetryReporter, onCompletionAccepted),

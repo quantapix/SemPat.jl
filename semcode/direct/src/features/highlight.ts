@@ -1,7 +1,7 @@
-import { ServiceClient } from '../service';
-import * as qu from '../utils';
+import { ServiceClient } from '../server/service';
+import * as qu from '../utils/base';
 import * as qv from 'vscode';
-import type * as qp from '../protocol';
+import type * as qp from '../server/proto';
 import { DocumentHighlight, DocumentHighlightKind } from 'vscode-languageserver';
 import { isCodeUnreachable } from '../analyzer/analyzerNodeInfo';
 import { Declaration } from '../analyzer/declaration';

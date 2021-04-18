@@ -3,7 +3,7 @@ import * as qp from './proto';
 import BufferSyncSupport from '../old/ts/tsServer/bufferSyncSupport';
 import { ExecTarget } from '../old/ts/tsServer/server';
 import { TsVersion } from '../old/ts/tsServer/versionProvider';
-import API from '../old/ts/utils/api';
+import API from '../utils/env';
 import { TSServiceConfig } from '../old/ts/utils/configuration';
 import { PluginMgr } from '../old/ts/utils/plugins';
 import { TelemetryReporter } from '../old/ts/utils/telemetry';

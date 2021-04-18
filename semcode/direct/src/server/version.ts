@@ -1,4 +1,4 @@
-import API from '../utils/api';
+import API from '../utils/env';
 import { TSServiceConfig } from '../utils/configuration';
 import * as fs from 'fs';
 import * as path from 'path';

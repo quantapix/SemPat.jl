@@ -1,8 +1,8 @@
 import { createDeferred } from './common/deferred';
 import { LangServerBase, WorkspaceServiceInstance } from './base';
 import * as qv from 'vscode';
-import { ServerResponse } from '../service';
-import type * as qp from '../protocol';
+import { ServerResponse } from '../server/service';
+import type * as qp from '../server/proto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { memoize } from '../utils';

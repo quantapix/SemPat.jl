@@ -1,5 +1,5 @@
 import * as qv from 'vscode';
-import type * as qp from '../protocol';
+import type * as qp from '../server/proto';
 import * as qk from './key';
 
 export function snippetForFunctionCall(

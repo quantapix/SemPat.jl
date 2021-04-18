@@ -2,7 +2,7 @@ import * as qv from 'vscode';
 import { Disposable } from './dispose';
 import { isJsConfigOrTsConfigFileName } from './lang';
 import { isSupportedLangMode } from './lang';
-import { ServiceClient } from '../service';
+import { ServiceClient } from '../server/service';
 import { TelemetryReporter } from './telemetry';
 import { isImplicitProjectConfigFile, openOrCreateConfig, ProjectType } from './tsconfig';
 export class ActiveJsTsEditorTracker extends Disposable {

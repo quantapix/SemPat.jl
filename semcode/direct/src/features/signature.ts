@@ -1,9 +1,9 @@
-import { ClientCap, ServiceClient } from '../service';
-import { condRegistration, requireSomeCap } from '../registration';
+import { ClientCap, ServiceClient } from '../server/service';
+import { requireSomeCap} from '../server/base';
 import * as Previewer from '../../old/ts/utils/previewer';
-import * as qu from '../utils';
+import * as qu from '../utils/base';
 import * as qv from 'vscode';
-import type * as qp from '../protocol';
+import type * as qp from '../server/proto';
 import { HoverRequest, LangClient } from 'vscode-languageclient';
 import { MarkupContent, MarkupKind } from 'vscode-languageserver';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
@@ -178,7 +178,7 @@ function toTsTriggerReason(context: qv.SignatureHelpContext): qp.SignatureHelpTr
   }
 }
 export function register(s: qu.DocumentSelector, c: ServiceClient) {
-  return condRegistration([requireSomeCap(c, ClientCap.EnhancedSyntax, ClientCap.Semantic)], () => {
+  return qu.condRegistration([requireSomeCap(c, ClientCap.EnhancedSyntax, ClientCap.Semantic)], () => {
     return qv.languages.registerSignatureHelpProvider(s.syntax, new TsSignatureHelp(c), {
       triggerCharacters: TsSignatureHelp.triggerCharacters,
       retriggerCharacters: TsSignatureHelp.retriggerCharacters,

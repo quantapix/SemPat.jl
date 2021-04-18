@@ -4,7 +4,7 @@ import { CommandMgr } from '../../old/ts/commands/commandMgr';
 import { DiagKind } from '../../old/ts/languageFeatures/diagnostics';
 import { LangDescription } from '../../old/ts/utils/languageDescription';
 import { TelemetryReporter } from '../../old/ts/utils/telemetry';
-import * as qu from '../utils';
+import * as qu from '../utils/base';
 import * as qv from 'vscode';
 import FileConfigMgr from '../../old/ts/languageFeatures/fileConfigMgr';
 import TypeScriptServiceClient from '../client';

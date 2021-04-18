@@ -1,4 +1,4 @@
-import { ServiceClient } from '../service';
+import { ServiceClient } from '../server/service';
 import { uuid } from 'uuidv4';
 import * as fs from 'fs';
 import * as os from 'os';

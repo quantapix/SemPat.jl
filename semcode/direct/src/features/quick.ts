@@ -1,13 +1,13 @@
-import { ClientCap, ServiceClient } from '../service';
+import { ClientCap, ServiceClient } from '../server/service';
 import { Command, CommandMgr } from '../../old/ts/commands/commandMgr';
-import { condRegistration, requireSomeCap } from '../registration';
+import { requireSomeCap } from '../server/base';
 import { DiagsMgr } from '../../old/ts/languageFeatures/diagnostics';
 import { TelemetryReporter } from '../../old/ts/utils/telemetry';
-import * as qu from '../utils';
+import * as qu from '../utils/base';
 import * as qv from 'vscode';
-import API from '../../old/ts/utils/api';
+import API from '../utils/env';
 import FileConfigMgr from '../../old/ts/languageFeatures/fileConfigMgr';
-import type * as qp from '../protocol';
+import type * as qp from '../server/proto';
 import { CancellationToken } from 'vscode-languageserver';
 import { getTextEditsForAutoImportInsertion, getTextEditsForAutoImportSymbolAddition, getTopLevelImports, ImportGroup } from '../analyzer/importStatementUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
@@ -264,7 +264,7 @@ function isPreferredFix(action: VsCodeCodeAction, allActions: readonly VsCodeCod
   });
 }
 export function register(s: qu.DocumentSelector, c: ServiceClient, fileConfigMgr: FileConfigMgr, commandMgr: CommandMgr, diagnosticsMgr: DiagsMgr, telemetryReporter: TelemetryReporter) {
-  return condRegistration([requireSomeCap(c, ClientCap.Semantic)], () => {
+  return qu.condRegistration([requireSomeCap(c, ClientCap.Semantic)], () => {
     return qv.languages.registerCodeActionsProvider(s.semantic, new QuickFix(c, fileConfigMgr, commandMgr, diagnosticsMgr, telemetryReporter), QuickFix.metadata);
   });
 }

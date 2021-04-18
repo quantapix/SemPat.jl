@@ -1,8 +1,8 @@
 import * as path from 'path';
 import * as qv from 'vscode';
-import type * as qp from '../protocol';
-import { ClientCap, ServiceClient } from '../service';
-import API from '../utils/api';
+import type * as qp from '../server/proto';
+import { ClientCap, ServiceClient } from '../server/service';
+import API from '../utils/env';
 import { Delayer } from '../utils/async';
 import { nulToken } from '../utils/cancellation';
 import { conditionalRegistration, requireSomeCap, requireMinVersion } from '../../../src/registration';
@@ -195,7 +195,7 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
   }
 }
 export function register(c: ServiceClient, m: FileConfigMgr, handles: (r: qv.Uri) => Promise<boolean>) {
-  return conditionalRegistration([requireMinVersion(c, UpdateImportsOnFileRenameHandler.minVersion), requireSomeCap(c, ClientCap.Semantic)], () => {
+  return conditionalRegistration([requireMinVersion(c, UpdateImportsOnFileRenameHandler.minVersion), qu.requireSomeCap(c, ClientCap.Semantic)], () => {
     return new UpdateImportsOnFileRenameHandler(c, m, handles);
   });
 }

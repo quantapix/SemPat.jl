@@ -1,11 +1,11 @@
-import { ClientCap, ServiceClient } from '../service';
-import { condRegistration, requireSomeCap, requireMinVer } from '../registration';
+import { ClientCap, ServiceClient } from '../server/service';
+import { requireSomeCap, requireMinVer } from '../server/base';
 import { DiagsMgr } from '../../old/ts/languageFeatures/diagnostics';
-import * as qu from '../utils';
+import * as qu from '../utils/base';
 import * as qv from 'vscode';
-import API from '../../old/ts/utils/api';
+import API from '../utils/env';
 import FileConfigMgr from '../../old/ts/languageFeatures/fileConfigMgr';
-import type * as qp from '../protocol';
+import type * as qp from '../server/proto';
 interface AutoFix {
   readonly codes: Set<number>;
   readonly fixName: string;
@@ -141,7 +141,7 @@ class TsAutoFix implements qv.CodeActionProvider {
   }
 }
 export function register(selector: qu.DocumentSelector, client: ServiceClient, fileConfigMgr: FileConfigMgr, diagnosticsMgr: DiagsMgr) {
-  return condRegistration([requireMinVer(client, API.v300), requireSomeCap(client, ClientCap.Semantic)], () => {
+  return qu.condRegistration([requireMinVer(client, API.v300), requireSomeCap(client, ClientCap.Semantic)], () => {
     const provider = new TsAutoFix(client, fileConfigMgr, diagnosticsMgr);
     return qv.languages.registerCodeActionsProvider(selector.semantic, provider, provider.metadata);
   });

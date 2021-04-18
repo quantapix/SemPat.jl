@@ -1,13 +1,13 @@
-import { ClientCap, ServiceClient } from '../service';
+import { ClientCap, ServiceClient } from '../server/service';
 import { Command, CommandMgr } from '../../old/ts/commands/commandMgr';
-import { condRegistration, requireMinVer, requireSomeCap } from '../registration';
+import { requireMinVer, requireSomeCap } from '../server/base';
 import { LearnMoreAboutRefactoringsCommand } from '../../old/ts/commands/learnMoreAboutRefactorings';
 import { TelemetryReporter } from '../../old/ts/utils/telemetry';
-import * as qu from '../utils';
+import * as qu from '../utils/base';
 import * as qv from 'vscode';
-import API from '../../old/ts/utils/api';
+import API from '../utils/env';
 import FormattingOptionsMgr from '../../old/ts/languageFeatures/fileConfigMgr';
-import type * as qp from '../protocol';
+import type * as qp from '../server/proto';
 interface DidApplyRefactoringCommand_Args {
   readonly codeAction: InlinedCodeAction;
 }
@@ -69,43 +69,43 @@ interface CodeActionKind {
 }
 const Extract_Function = Object.freeze<CodeActionKind>({
   kind: qv.CodeActionKind.RefactorExtract.append('function'),
-  matches: (refactor) => refactor.name.startsWith('function_'),
+  matches: (r) => r.name.startsWith('function_'),
 });
 const Extract_Constant = Object.freeze<CodeActionKind>({
   kind: qv.CodeActionKind.RefactorExtract.append('constant'),
-  matches: (refactor) => refactor.name.startsWith('constant_'),
+  matches: (r) => r.name.startsWith('constant_'),
 });
 const Extract_Type = Object.freeze<CodeActionKind>({
   kind: qv.CodeActionKind.RefactorExtract.append('type'),
-  matches: (refactor) => refactor.name.startsWith('Extract to type alias'),
+  matches: (r) => r.name.startsWith('Extract to type alias'),
 });
 const Extract_Interface = Object.freeze<CodeActionKind>({
   kind: qv.CodeActionKind.RefactorExtract.append('interface'),
-  matches: (refactor) => refactor.name.startsWith('Extract to interface'),
+  matches: (r) => r.name.startsWith('Extract to interface'),
 });
 const Move_NewFile = Object.freeze<CodeActionKind>({
   kind: qv.CodeActionKind.Refactor.append('move').append('newFile'),
-  matches: (refactor) => refactor.name.startsWith('Move to a new file'),
+  matches: (r) => r.name.startsWith('Move to a new file'),
 });
 const Rewrite_Import = Object.freeze<CodeActionKind>({
   kind: qv.CodeActionKind.RefactorRewrite.append('import'),
-  matches: (refactor) => refactor.name.startsWith('Convert namespace import') || refactor.name.startsWith('Convert named imports'),
+  matches: (r) => r.name.startsWith('Convert namespace import') || r.name.startsWith('Convert named imports'),
 });
 const Rewrite_Export = Object.freeze<CodeActionKind>({
   kind: qv.CodeActionKind.RefactorRewrite.append('export'),
-  matches: (refactor) => refactor.name.startsWith('Convert default export') || refactor.name.startsWith('Convert named export'),
+  matches: (r) => r.name.startsWith('Convert default export') || r.name.startsWith('Convert named export'),
 });
 const Rewrite_Arrow_Braces = Object.freeze<CodeActionKind>({
   kind: qv.CodeActionKind.RefactorRewrite.append('arrow').append('braces'),
-  matches: (refactor) => refactor.name.startsWith('Convert default export') || refactor.name.startsWith('Convert named export'),
+  matches: (r) => r.name.startsWith('Convert default export') || r.name.startsWith('Convert named export'),
 });
 const Rewrite_Parameters_ToDestructured = Object.freeze<CodeActionKind>({
   kind: qv.CodeActionKind.RefactorRewrite.append('parameters').append('toDestructured'),
-  matches: (refactor) => refactor.name.startsWith('Convert parameters to destructured object'),
+  matches: (r) => r.name.startsWith('Convert parameters to destructured object'),
 });
 const Rewrite_Property_GenerateAccessors = Object.freeze<CodeActionKind>({
   kind: qv.CodeActionKind.RefactorRewrite.append('property').append('generateAccessors'),
-  matches: (refactor) => refactor.name.startsWith("Generate 'get' and 'set' accessors"),
+  matches: (r) => r.name.startsWith("Generate 'get' and 'set' accessors"),
 });
 const allKnownCodeActionKinds = [
   Extract_Function,
@@ -244,29 +244,29 @@ class TsRefactor implements qv.CodeActionProvider<TsCodeAction> {
     if (c.only && !qv.CodeActionKind.Refactor.contains(c.only)) return false;
     return c.triggerKind === qv.CodeActionTriggerKind.Invoke;
   }
-  private static getKind(refactor: qp.RefactorActionInfo) {
-    if ((refactor as qp.RefactorActionInfo & { kind?: string }).kind) {
-      return qv.CodeActionKind.Empty.append((refactor as qp.RefactorActionInfo & { kind?: string }).kind!);
+  private static getKind(r: qp.RefactorActionInfo) {
+    if ((r as qp.RefactorActionInfo & { kind?: string }).kind) {
+      return qv.CodeActionKind.Empty.append((r as qp.RefactorActionInfo & { kind?: string }).kind!);
     }
-    const match = allKnownCodeActionKinds.find((kind) => kind.matches(refactor));
-    return match ? match.kind : qv.CodeActionKind.Refactor;
+    const m = allKnownCodeActionKinds.find((kind) => kind.matches(r));
+    return m ? m.kind : qv.CodeActionKind.Refactor;
   }
-  private static isPreferred(action: qp.RefactorActionInfo, allActions: readonly qp.RefactorActionInfo[]): boolean {
-    if (Extract_Constant.matches(action)) {
+  private static isPreferred(r: qp.RefactorActionInfo, rs: readonly qp.RefactorActionInfo[]): boolean {
+    if (Extract_Constant.matches(r)) {
       const getScope = (name: string) => {
         const scope = name.match(/scope_(\d)/)?.[1];
         return scope ? +scope : undefined;
       };
-      const scope = getScope(action.name);
+      const scope = getScope(r.name);
       if (typeof scope !== 'number') return false;
-      return allActions
-        .filter((otherAtion) => otherAtion !== action && Extract_Constant.matches(otherAtion))
+      return rs
+        .filter((otherAtion) => otherAtion !== r && Extract_Constant.matches(otherAtion))
         .every((otherAction) => {
           const otherScope = getScope(otherAction.name);
           return typeof otherScope === 'number' ? scope < otherScope : true;
         });
     }
-    if (Extract_Type.matches(action) || Extract_Interface.matches(action)) return true;
+    if (Extract_Type.matches(r) || Extract_Interface.matches(r)) return true;
     return false;
   }
   private appendInvalidActions(actions: qv.CodeAction[]): qv.CodeAction[] {
@@ -308,7 +308,7 @@ class TsRefactor implements qv.CodeActionProvider<TsCodeAction> {
   }
 }
 export function register(s: qu.DocumentSelector, c: ServiceClient, formattingOptionsMgr: FormattingOptionsMgr, commandMgr: CommandMgr, telemetryReporter: TelemetryReporter) {
-  return condRegistration([requireMinVer(c, TsRefactor.minVersion), requireSomeCap(c, ClientCap.Semantic)], () => {
+  return qu.condRegistration([requireMinVer(c, TsRefactor.minVersion), requireSomeCap(c, ClientCap.Semantic)], () => {
     return qv.languages.registerCodeActionsProvider(s.semantic, new TsRefactor(c, formattingOptionsMgr, commandMgr, telemetryReporter), TsRefactor.metadata);
   });
 }

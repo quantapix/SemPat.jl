@@ -3,8 +3,8 @@ import type * as qp from '../../protocol';
 import { escapeRegExp } from '../../utils/regexp';
 import * as qk from '../utils/key';
 import { CachedResponse } from '../../old/ts/tsServer/cachedResponse';
-import { ClientCap, ServiceClient } from '../service';
-import { conditionalRegistration, requireSomeCap, requireConfig } from '../registration';
+import { ClientCap, ServiceClient } from '../server/service';
+import { conditionalRegistration, requireSomeCap, requireConfig } from '../server/base';
 import * as qu from '../utils/base';
 import { getSymbolRange } from './lens';
 import { ExecTarget } from '../../old/ts/tsServer/server';
@@ -148,7 +148,7 @@ export default class TsImplsLens extends TsBaseLens {
   }
 }
 export function register(s: qu.DocumentSelector, mode: string, c: ServiceClient, r: CachedResponse<qp.NavTreeResponse>) {
-  return conditionalRegistration([requireConfig(mode, 'implementationsCodeLens.enabled'), requireSomeCap(c, ClientCap.Semantic)], () => {
+  return conditionalRegistration([requireConfig(mode, 'implementationsCodeLens.enabled'), qu.requireSomeCap(c, ClientCap.Semantic)], () => {
     return qv.languages.registerCodeLensProvider(s.semantic, new TsImplsLens(c, r));
   });
 }
@@ -218,7 +218,7 @@ export class TsRefsLens extends TsBaseLens {
   }
 }
 export function register(s: qu.DocumentSelector, mode: string, c: ServiceClient, r: CachedResponse<qp.NavTreeResponse>) {
-  return conditionalRegistration([requireConfig(mode, 'referencesCodeLens.enabled'), requireSomeCap(c, ClientCap.Semantic)], () => {
+  return conditionalRegistration([requireConfig(mode, 'referencesCodeLens.enabled'), qu.requireSomeCap(c, ClientCap.Semantic)], () => {
     return qv.languages.registerCodeLensProvider(s.semantic, new TsRefsLens(c, r, mode));
   });
 }

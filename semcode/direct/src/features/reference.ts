@@ -1,6 +1,6 @@
-import { ClientCap, ServiceClient } from '../service';
-import { condRegistration, requireSomeCap } from '../registration';
-import * as qu from '../utils';
+import { ClientCap, ServiceClient } from '../server/service';
+import { requireSomeCap } from '../server/base';
+import * as qu from '../utils/base';
 import * as qv from 'vscode';
 import cp = require('child_process');
 import * as path from 'path';
@@ -50,7 +50,6 @@ export class GoReference implements qv.ReferenceProvider {
             return reject('Cannot find tool "guru" to find references.');
           }
           if (err && (<any>err).killed !== true) return reject(`Error running guru: ${err.message || stderr}`);
-
           const lines = stdout.toString().split('\n');
           const results: qv.Location[] = [];
           for (const line of lines) {
@@ -93,7 +92,7 @@ class TsReference implements qv.ReferenceProvider {
   }
 }
 export function register(s: qu.DocumentSelector, c: ServiceClient) {
-  return condRegistration([requireSomeCap(c, ClientCap.EnhancedSyntax, ClientCap.Semantic)], () => {
+  return qu.condRegistration([requireSomeCap(c, ClientCap.EnhancedSyntax, ClientCap.Semantic)], () => {
     return qv.languages.registerReferenceProvider(s.syntax, new TsReference(c));
   });
 }

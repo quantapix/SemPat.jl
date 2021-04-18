@@ -1,8 +1,8 @@
 import * as path from 'path';
 import * as qv from 'vscode';
 import { OngoingRequestCancelFact } from '../tsServer/cancellation';
-import { ClientCaps, ClientCap, ServerType } from '../service';
-import API from '../utils/api';
+import { ClientCaps, ClientCap, ServerType } from '../server/service';
+import API from '../utils/env';
 import { SeparateSyntaxServerConfig, TsServerLogLevel, TSServiceConfig } from '../utils/configuration';
 import { Logger } from '../utils/logger';
 import { isWeb } from '../utils/platform';

@@ -1,9 +1,9 @@
-import { ClientCap, ServiceClient, ServerType } from '../service';
-import { condRegistration, requireSomeCap } from '../registration';
+import { ClientCap, ServiceClient, ServerType } from '../server/service';
+import { requireSomeCap } from '../server/base';
 import { markdownDocumentation } from '../../old/ts/utils/previewer';
-import * as qu from '../utils';
+import * as qu from '../utils/base';
 import * as qv from 'vscode';
-import type * as qp from '../protocol';
+import type * as qp from '../server/proto';
 import { getGoConfig } from '../../../../old/go/config';
 import { definitionLocation } from './definition';
 import { CancellationToken, Hover, MarkupKind } from 'vscode-languageserver';
@@ -46,7 +46,7 @@ class TsHover implements qv.HoverProvider {
   }
 }
 export function register(s: qu.DocumentSelector, c: ServiceClient): qv.Disposable {
-  return condRegistration([requireSomeCap(c, ClientCap.EnhancedSyntax, ClientCap.Semantic)], () => {
+  return qu.condRegistration([requireSomeCap(c, ClientCap.EnhancedSyntax, ClientCap.Semantic)], () => {
     return qv.languages.registerHoverProvider(s.syntax, new TsHover(c));
   });
 }

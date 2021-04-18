@@ -1,5 +1,5 @@
 import { ClientCap, ExecConfig, ServiceClient, ServerResponse } from '../server/service';
-import { condRegistration, requireSomeCap, requireMinVer } from '../registration';
+import { requireSomeCap, requireMinVer } from '../server/base';
 import * as qp from '../server/proto';
 import * as qv from 'vscode';
 import * as qu from '../utils/base';
@@ -8,7 +8,7 @@ import API from '../utils/env';
 const minTsVersion = API.fromVersionString(`${VersionRequirement.major}.${VersionRequirement.minor}`);
 const CONTENT_LENGTH_LIMIT = 100000;
 export function register(s: qu.DocumentSelector, c: ServiceClient) {
-  return condRegistration([requireMinVer(c, minTsVersion), requireSomeCap(c, ClientCap.Semantic)], () => {
+  return qu.condRegistration([requireMinVer(c, minTsVersion), requireSomeCap(c, ClientCap.Semantic)], () => {
     const p = new SemanticTokens(c);
     return qv.Disposable.from(qv.languages.registerDocumentRangeSemanticTokensProvider(s.semantic, p, p.getLegend()));
   });

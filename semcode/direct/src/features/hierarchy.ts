@@ -1,10 +1,10 @@
-import { ClientCap, ServiceClient } from '../service';
-import { condRegistration, requireSomeCap, requireMinVer } from '../registration';
+import { ClientCap, ServiceClient } from '../server/service';
+import { requireSomeCap, requireMinVer } from '../server/base';
 import * as path from 'path';
 import * as qk from '../utils/key';
-import * as qu from '../utils';
+import * as qu from '../utils/base';
 import * as qv from 'vscode';
-import API from '../../old/ts/utils/api';
+import API from '../utils/env';
 import type * as qp from '../server/proto';
 import { CancellationToken, SymbolKind } from 'vscode-languageserver';
 import { CallHierarchyIncomingCall, CallHierarchyItem, CallHierarchyOutgoingCall, Range } from 'vscode-languageserver-types';
@@ -76,7 +76,7 @@ function fromProtocolCallHierarchyOutgoingCall(c: qp.CallHierarchyOutgoingCall):
   return new qv.CallHierarchyOutgoingCall(fromProtocolCallHierarchyItem(c.to), c.fromSpans.map(qu.Range.fromTextSpan));
 }
 export function register(s: qu.DocumentSelector, c: ServiceClient) {
-  return condRegistration([requireMinVer(c, TsCallHierarchy.minVersion), requireSomeCap(c, ClientCap.Semantic)], () => {
+  return qu.condRegistration([requireMinVer(c, TsCallHierarchy.minVersion), requireSomeCap(c, ClientCap.Semantic)], () => {
     return qv.languages.registerCallHierarchyProvider(s.semantic, new TsCallHierarchy(c));
   });
 }

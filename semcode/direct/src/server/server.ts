@@ -4,7 +4,7 @@ import { EventName } from '../utils/key';
 import { CallbackMap } from './callback';
 import { RequestItem, RequestQueue, RequestQueueType } from './request';
 import { TsServerError } from './error';
-import { ServerResponse, ServerType, TSRequests } from '../service';
+import { ServerResponse, ServerType, TSRequests } from '../server/service';
 import { TSServiceConfig } from '../utils/config';
 import { Disposable } from '../utils/base';
 import { TelemetryReporter } from '../utils/telemetry';

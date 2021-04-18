@@ -1,9 +1,9 @@
-import { condRegistration, requireConfig } from '../registration';
-import { ServiceClient } from '../service';
-import * as qu from '../utils';
+import { requireConfig } from '../server/base';
+import { ServiceClient } from '../server/service';
+import * as qu from '../utils/base';
 import * as qv from 'vscode';
 import FileConfigMgr from './fileConfigMgr';
-import type * as qp from '../protocol';
+import type * as qp from '../server/proto';
 import cp = require('child_process');
 import * as path from 'path';
 import { getGoConfig } from '../../../../old/go/config';
@@ -46,7 +46,7 @@ class TsFormatting implements qv.DocumentRangeFormattingEditProvider, qv.OnTypeF
   }
 }
 export function register(s: qu.DocumentSelector, modeId: string, c: ServiceClient, m: FileConfigMgr) {
-  return condRegistration([requireConfig(modeId, 'format.enable')], () => {
+  return qu.condRegistration([requireConfig(modeId, 'format.enable')], () => {
     const p = new TsFormatting(c, m);
     return qv.Disposable.from(qv.languages.registerOnTypeFormattingEditProvider(s.syntax, p, ';', '}', '\n'), qv.languages.registerDocumentRangeFormattingEditProvider(s.syntax, p));
   });

@@ -1,7 +1,7 @@
 import * as qv from 'vscode';
 import { Command, CommandMgr } from '../commands/commandMgr';
-import { ServiceClient } from '../service';
-import API from '../utils/api';
+import { ServiceClient } from '../server/service';
+import API from '../utils/env';
 import { isSupportedLangMode } from '../utils/languageModeIds';
 import * as qu from '../utils/qu';
 class FileReferencesCommand implements Command {

@@ -1,9 +1,9 @@
-import { condRegistration, requireMinVer } from '../registration';
-import { ServiceClient } from '../service';
-import * as qu from '../utils';
+import { requireMinVer } from '../server/base';
+import { ServiceClient } from '../server/service';
+import * as qu from '../utils/base';
 import * as qv from 'vscode';
-import API from '../../old/ts/utils/api';
-import type * as qp from '../protocol';
+import API from '../utils/env';
+import type * as qp from '../server/proto';
 class Folding implements qv.FoldingRangeProvider {
   public static readonly minVer = API.v280;
   public constructor(private readonly client: ServiceClient) {}
@@ -48,7 +48,7 @@ class Folding implements qv.FoldingRangeProvider {
   }
 }
 export function register(s: qu.DocumentSelector, c: ServiceClient): qv.Disposable {
-  return condRegistration([requireMinVer(c, Folding.minVer)], () => {
+  return qu.condRegistration([requireMinVer(c, Folding.minVer)], () => {
     return qv.languages.registerFoldingRangeProvider(s.syntax, new Folding(c));
   });
 }

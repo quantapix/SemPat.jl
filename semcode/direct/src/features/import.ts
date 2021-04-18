@@ -1,12 +1,12 @@
-import { ClientCap, ServiceClient } from '../service';
+import { ClientCap, ServiceClient } from '../server/service';
 import { Command, CommandMgr } from '../../old/ts/commands/commandMgr';
-import { condRegistration, requireMinVer, requireSomeCap } from '../registration';
+import { requireMinVer, requireSomeCap } from '../server/base';
 import { TelemetryReporter } from '../../old/ts/utils/telemetry';
-import * as qu from '../utils';
+import * as qu from '../utils/base';
 import * as qv from 'vscode';
-import API from '../../old/ts/utils/api';
+import API from '../utils/env';
 import FileConfigMgr from '../../old/ts/languageFeatures/fileConfigMgr';
-import type * as qp from '../protocol';
+import type * as qp from '../server/proto';
 import { compareImportStatements, getImportGroup, getTopLevelImports, ImportStatement } from '../analyzer/importStatementUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { TextEditAction } from '../common/editAction';
@@ -78,7 +78,7 @@ export class TsImportSorter implements qv.CodeActionProvider {
   }
 }
 export function register(selector: qu.DocumentSelector, client: ServiceClient, commandMgr: CommandMgr, fileConfigMgr: FileConfigMgr, telemetryReporter: TelemetryReporter) {
-  return condRegistration([requireMinVer(client, TsImportSorter.minVersion), requireSomeCap(client, ClientCap.Semantic)], () => {
+  return qu.condRegistration([requireMinVer(client, TsImportSorter.minVersion), requireSomeCap(client, ClientCap.Semantic)], () => {
     const organizeImportsProvider = new TsImportSorter(client, commandMgr, fileConfigMgr, telemetryReporter);
     return qv.languages.registerCodeActionsProvider(selector.semantic, organizeImportsProvider, organizeImportsProvider.metadata);
   });
