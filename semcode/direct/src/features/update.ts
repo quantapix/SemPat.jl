@@ -157,25 +157,15 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
   private async getJsTsFileBeingMoved(resource: qv.Uri): Promise<qv.Uri | undefined> {
     if (resource.scheme !== fileSchemes.file) return undefined;
     if (await isDir(resource)) {
-      const files = await qv.workspace.findFiles(
-        {
-          base: resource.fsPath,
-          pattern: '**/*.{ts,tsx,js,jsx}',
-        },
-        '**/node_modules/**',
-        1
-      );
+      const files = await qv.workspace.findFiles({ base: resource.fsPath, pattern: '**/*.{ts,tsx,js,jsx}' }, '**/node_modules/**', 1);
       return files[0];
     }
     return (await this._handles(resource)) ? resource : undefined;
   }
-  private async withEditsForFileRename(edits: qv.WorkspaceEdit, document: qv.TextDocument, oldFilePath: string, newFilePath: string): Promise<boolean> {
+  private async withEditsForFileRename(edits: qv.WorkspaceEdit, d: qv.TextDocument, oldFilePath: string, newFilePath: string): Promise<boolean> {
     const response = await this.client.interruptGetErr(() => {
-      this.fileConfigMgr.setGlobalConfigFromDocument(document, nulToken);
-      const args: qp.GetEditsForFileRenameRequestArgs = {
-        oldFilePath,
-        newFilePath,
-      };
+      this.fileConfigMgr.setGlobalConfigFromDocument(d, nulToken);
+      const args: qp.GetEditsForFileRenameRequestArgs = { oldFilePath, newFilePath };
       return this.client.execute('getEditsForFileRename', args, nulToken);
     });
     if (response.type !== 'response' || !response.body.length) return false;
@@ -187,7 +177,6 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
     for (const rename of renames) {
       const key = `${this.client.getWorkspaceRootForResource(rename.jsTsFileThatIsBeingMoved)}@@@${doesResourceLookLikeATypeScriptFile(rename.jsTsFileThatIsBeingMoved)}`;
       if (!groups.has(key)) groups.set(key, new Set());
-
       groups.get(key)!.add(rename);
     }
     return groups.values();
@@ -205,8 +194,8 @@ class UpdateImportsOnFileRenameHandler extends Disposable {
     return paths.join('\n');
   }
 }
-export function register(client: ServiceClient, fileConfigMgr: FileConfigMgr, handles: (uri: qv.Uri) => Promise<boolean>) {
-  return conditionalRegistration([requireMinVersion(client, UpdateImportsOnFileRenameHandler.minVersion), requireSomeCap(client, ClientCap.Semantic)], () => {
-    return new UpdateImportsOnFileRenameHandler(client, fileConfigMgr, handles);
+export function register(c: ServiceClient, m: FileConfigMgr, handles: (r: qv.Uri) => Promise<boolean>) {
+  return conditionalRegistration([requireMinVersion(c, UpdateImportsOnFileRenameHandler.minVersion), requireSomeCap(c, ClientCap.Semantic)], () => {
+    return new UpdateImportsOnFileRenameHandler(c, m, handles);
   });
 }

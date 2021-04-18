@@ -23,17 +23,17 @@ export function activate(ctx: qv.ExtensionContext) {
 export class Emojizer implements qv.CodeActionProvider {
   public static readonly providedCodeActionKinds = [qv.CodeActionKind.QuickFix];
 
-  public provideCodeActions(document: qv.TextDocument, range: qv.Range): qv.CodeAction[] | undefined {
-    if (!this.isAtStartOfSmiley(document, range)) {
+  public provideCodeActions(d: qv.TextDocument, range: qv.Range): qv.CodeAction[] | undefined {
+    if (!this.isAtStartOfSmiley(d, range)) {
       return;
     }
 
-    const replaceWithSmileyCatFix = this.createFix(document, range, '😺');
+    const replaceWithSmileyCatFix = this.createFix(d, range, '😺');
 
-    const replaceWithSmileyFix = this.createFix(document, range, '😀');
+    const replaceWithSmileyFix = this.createFix(d, range, '😀');
     replaceWithSmileyFix.isPreferred = true;
 
-    const replaceWithSmileyHankyFix = this.createFix(document, range, '💩');
+    const replaceWithSmileyHankyFix = this.createFix(d, range, '💩');
 
     const commandAction = this.createCommand();
 

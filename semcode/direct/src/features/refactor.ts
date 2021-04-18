@@ -24,24 +24,22 @@ class DidApplyRefactoringCommand implements Command {
 				]
 			}
 		*/
-    this.telemetryReporter.logTelemetry('refactor.execute', {
-      action: args.codeAction.action,
-    });
+    this.telemetryReporter.logTelemetry('refactor.execute', { action: args.codeAction.action });
     if (!args.codeAction.edit?.size) {
       qv.window.showErrorMessage('refactoringFailed');
       return;
     }
     const renameLocation = args.codeAction.renameLocation;
     if (renameLocation) {
-      if (args.codeAction.document.uri.scheme !== qu.walkThroughSnippet) {
-        await qv.commands.executeCommand('editor.action.rename', [args.codeAction.document.uri, qu.Position.fromLocation(renameLocation)]);
+      if (args.codeAction.doc.uri.scheme !== qu.walkThroughSnippet) {
+        await qv.commands.executeCommand('editor.action.rename', [args.codeAction.doc.uri, qu.Position.fromLocation(renameLocation)]);
       }
     }
   }
 }
 interface SelectRefactorCommand_Args {
   readonly action: qv.CodeAction;
-  readonly document: qv.TextDocument;
+  readonly doc: qv.TextDocument;
   readonly info: qp.ApplicableRefactorInfo;
   readonly rangeOrSelection: qv.Range | qv.Selection;
 }
@@ -50,18 +48,11 @@ class SelectRefactorCommand implements Command {
   public readonly id = SelectRefactorCommand.ID;
   constructor(private readonly client: ServiceClient, private readonly didApplyCommand: DidApplyRefactoringCommand) {}
   public async execute(args: SelectRefactorCommand_Args): Promise<void> {
-    const file = this.client.toOpenedFilePath(args.document);
+    const file = this.client.toOpenedFilePath(args.doc);
     if (!file) return;
-    const selected = await qv.window.showQuickPick(
-      args.info.actions.map(
-        (action): qv.QuickPickItem => ({
-          label: action.name,
-          description: action.description,
-        })
-      )
-    );
+    const selected = await qv.window.showQuickPick(args.info.actions.map((action): qv.QuickPickItem => ({ label: action.name, description: action.description })));
     if (!selected) return;
-    const tsAction = new InlinedCodeAction(this.client, args.action.title, args.action.kind, args.document, args.info.name, selected.label, args.rangeOrSelection);
+    const tsAction = new InlinedCodeAction(this.client, args.action.title, args.action.kind, args.doc, args.info.name, selected.label, args.rangeOrSelection);
     await tsAction.resolve(qu.nulToken);
     if (tsAction.edit) {
       if (!(await qv.workspace.applyEdit(tsAction.edit))) {
@@ -133,7 +124,7 @@ class InlinedCodeAction extends qv.CodeAction {
     public readonly client: ServiceClient,
     title: string,
     kind: qv.CodeActionKind | undefined,
-    public readonly document: qv.TextDocument,
+    public readonly doc: qv.TextDocument,
     public readonly refactor: string,
     public readonly action: string,
     public readonly range: qv.Range
@@ -141,15 +132,15 @@ class InlinedCodeAction extends qv.CodeAction {
     super(title, kind);
   }
   public renameLocation?: qp.Location;
-  public async resolve(token: qv.CancellationToken): Promise<undefined> {
-    const file = this.client.toOpenedFilePath(this.document);
+  public async resolve(t: qv.CancellationToken): Promise<undefined> {
+    const file = this.client.toOpenedFilePath(this.doc);
     if (!file) return;
     const args: qp.GetEditsForRefactorRequestArgs = {
       ...qu.Range.toFileRangeRequestArgs(file, this.range),
       refactor: this.refactor,
       action: this.action,
     };
-    const response = await this.client.execute('getEditsForRefactor', args, token);
+    const response = await this.client.execute('getEditsForRefactor', args, t);
     if (response.type !== 'response' || !response.body) return;
     this.edit = InlinedCodeAction.getWorkspaceEditForRefactoring(this.client, response.body);
     this.renameLocation = response.body.renameLocation;
@@ -166,12 +157,12 @@ class InlinedCodeAction extends qv.CodeAction {
   }
 }
 class SelectCodeAction extends qv.CodeAction {
-  constructor(info: qp.ApplicableRefactorInfo, document: qv.TextDocument, rangeOrSelection: qv.Range | qv.Selection) {
+  constructor(info: qp.ApplicableRefactorInfo, d: qv.TextDocument, rangeOrSelection: qv.Range | qv.Selection) {
     super(info.description, qv.CodeActionKind.Refactor);
     this.command = {
       title: info.description,
       command: SelectRefactorCommand.ID,
-      arguments: [<SelectRefactorCommand_Args>{ action: this, document, info, rangeOrSelection }],
+      arguments: [<SelectRefactorCommand_Args>{ action: this, doc: d, info, rangeOrSelection }],
     };
   }
 }
@@ -187,39 +178,31 @@ class TsRefactor implements qv.CodeActionProvider<TsCodeAction> {
     documentation: [
       {
         kind: qv.CodeActionKind.Refactor,
-        command: {
-          command: LearnMoreAboutRefactoringsCommand.id,
-          title: 'refactor.documentation.title',
-        },
+        command: { command: LearnMoreAboutRefactoringsCommand.id, title: 'refactor.documentation.title' },
       },
     ],
   };
-  public async provideCodeActions(
-    document: qv.TextDocument,
-    rangeOrSelection: qv.Range | qv.Selection,
-    context: qv.CodeActionContext,
-    token: qv.CancellationToken
-  ): Promise<TsCodeAction[] | undefined> {
-    if (!this.shouldTrigger(context)) return undefined;
-    if (!this.client.toOpenedFilePath(document)) return undefined;
+  public async provideCodeActions(d: qv.TextDocument, rangeOrSelection: qv.Range | qv.Selection, c: qv.CodeActionContext, t: qv.CancellationToken): Promise<TsCodeAction[] | undefined> {
+    if (!this.shouldTrigger(c)) return undefined;
+    if (!this.client.toOpenedFilePath(d)) return undefined;
     const response = await this.client.interruptGetErr(() => {
-      const file = this.client.toOpenedFilePath(document);
+      const file = this.client.toOpenedFilePath(d);
       if (!file) return undefined;
-      this.formattingOptionsMgr.ensureConfigForDocument(document, token);
+      this.formattingOptionsMgr.ensureConfigForDocument(d, t);
       const args: qp.GetApplicableRefactorsRequestArgs & { kind?: string } = {
         ...qu.Range.toFileRangeRequestArgs(file, rangeOrSelection),
-        triggerReason: this.toTsTriggerReason(context),
-        kind: context.only?.value,
+        triggerReason: this.toTsTriggerReason(c),
+        kind: c.only?.value,
       };
-      return this.client.execute('getApplicableRefactors', args, token);
+      return this.client.execute('getApplicableRefactors', args, t);
     });
     if (response?.type !== 'response' || !response.body) return undefined;
-    const actions = this.convertApplicableRefactors(response.body, document, rangeOrSelection).filter((action) => {
-      if (!context.only && action.kind?.value === 'refactor.rewrite.function.returnType') return false;
+    const actions = this.convertApplicableRefactors(response.body, d, rangeOrSelection).filter((action) => {
+      if (!c.only && action.kind?.value === 'refactor.rewrite.function.returnType') return false;
       return true;
     });
-    if (!context.only) return actions;
-    return this.pruneInvalidActions(this.appendInvalidActions(actions), context.only, /* numberOfInvalid = */ 5);
+    if (!c.only) return actions;
+    return this.pruneInvalidActions(this.appendInvalidActions(actions), c.only, /* numberOfInvalid = */ 5);
   }
   public async resolveCodeAction(codeAction: TsCodeAction, token: qv.CancellationToken): Promise<TsCodeAction> {
     if (codeAction instanceof InlinedCodeAction) await codeAction.resolve(token);
@@ -229,15 +212,15 @@ class TsRefactor implements qv.CodeActionProvider<TsCodeAction> {
     if (context.triggerKind === qv.CodeActionTriggerKind.Invoke) return 'invoked';
     return undefined;
   }
-  private convertApplicableRefactors(body: qp.ApplicableRefactorInfo[], document: qv.TextDocument, rangeOrSelection: qv.Range | qv.Selection): TsCodeAction[] {
+  private convertApplicableRefactors(body: qp.ApplicableRefactorInfo[], d: qv.TextDocument, rangeOrSelection: qv.Range | qv.Selection): TsCodeAction[] {
     const actions: TsCodeAction[] = [];
     for (const info of body) {
       if (info.inlineable === false) {
-        const codeAction = new SelectCodeAction(info, document, rangeOrSelection);
+        const codeAction = new SelectCodeAction(info, d, rangeOrSelection);
         actions.push(codeAction);
       } else {
         for (const action of info.actions) {
-          actions.push(this.refactorActionToCodeAction(action, document, info, rangeOrSelection, info.actions));
+          actions.push(this.refactorActionToCodeAction(action, d, info, rangeOrSelection, info.actions));
         }
       }
     }
@@ -245,21 +228,21 @@ class TsRefactor implements qv.CodeActionProvider<TsCodeAction> {
   }
   private refactorActionToCodeAction(
     action: qp.RefactorActionInfo,
-    document: qv.TextDocument,
+    d: qv.TextDocument,
     info: qp.ApplicableRefactorInfo,
     rangeOrSelection: qv.Range | qv.Selection,
     allActions: readonly qp.RefactorActionInfo[]
   ): InlinedCodeAction {
-    const codeAction = new InlinedCodeAction(this.client, action.description, TsRefactor.getKind(action), document, info.name, action.name, rangeOrSelection);
+    const codeAction = new InlinedCodeAction(this.client, action.description, TsRefactor.getKind(action), d, info.name, action.name, rangeOrSelection);
     if (action.notApplicableReason) codeAction.disabled = { reason: action.notApplicableReason };
     else codeAction.command = { title: action.description, command: DidApplyRefactoringCommand.ID, arguments: [<DidApplyRefactoringCommand_Args>{ codeAction }] };
 
     codeAction.isPreferred = TsRefactor.isPreferred(action, allActions);
     return codeAction;
   }
-  private shouldTrigger(context: qv.CodeActionContext) {
-    if (context.only && !qv.CodeActionKind.Refactor.contains(context.only)) return false;
-    return context.triggerKind === qv.CodeActionTriggerKind.Invoke;
+  private shouldTrigger(c: qv.CodeActionContext) {
+    if (c.only && !qv.CodeActionKind.Refactor.contains(c.only)) return false;
+    return c.triggerKind === qv.CodeActionTriggerKind.Invoke;
   }
   private static getKind(refactor: qp.RefactorActionInfo) {
     if ((refactor as qp.RefactorActionInfo & { kind?: string }).kind) {
@@ -290,17 +273,13 @@ class TsRefactor implements qv.CodeActionProvider<TsCodeAction> {
     if (this.client.apiVersion.gte(API.v400)) return actions;
     if (!actions.some((action) => action.kind && Extract_Constant.kind.contains(action.kind))) {
       const disabledAction = new qv.CodeAction('extractConstant.disabled.title', Extract_Constant.kind);
-      disabledAction.disabled = {
-        reason: 'extractConstant.disabled.reason',
-      };
+      disabledAction.disabled = { reason: 'extractConstant.disabled.reason' };
       disabledAction.isPreferred = true;
       actions.push(disabledAction);
     }
     if (!actions.some((action) => action.kind && Extract_Function.kind.contains(action.kind))) {
       const disabledAction = new qv.CodeAction('extractFunction.disabled.title', Extract_Function.kind);
-      disabledAction.disabled = {
-        reason: 'extractFunction.disabled.reason',
-      };
+      disabledAction.disabled = { reason: 'extractFunction.disabled.reason' };
       actions.push(disabledAction);
     }
     return actions;
@@ -335,18 +314,12 @@ export function register(s: qu.DocumentSelector, c: ServiceClient, formattingOpt
 }
 
 export class GoRefactor implements qv.CodeActionProvider {
-  public provideCodeActions(document: qv.TextDocument, range: qv.Range, context: qv.CodeActionContext, token: qv.CancellationToken): qv.ProviderResult<qv.CodeAction[]> {
-    if (range.isEmpty) return [];
+  public provideCodeActions(d: qv.TextDocument, r: qv.Range, c: qv.CodeActionContext, t: qv.CancellationToken): qv.ProviderResult<qv.CodeAction[]> {
+    if (r.isEmpty) return [];
     const extractFunction = new qv.CodeAction('Extract to function in package scope', qv.CodeActionKind.RefactorExtract);
     const extractVar = new qv.CodeAction('Extract to variable in local scope', qv.CodeActionKind.RefactorExtract);
-    extractFunction.command = {
-      title: 'Extract to function in package scope',
-      command: 'go.godoctor.extract',
-    };
-    extractVar.command = {
-      title: 'Extract to variable in local scope',
-      command: 'go.godoctor.var',
-    };
+    extractFunction.command = { title: 'Extract to function in package scope', command: 'go.godoctor.extract' };
+    extractVar.command = { title: 'Extract to variable in local scope', command: 'go.godoctor.var' };
     return [extractFunction, extractVar];
   }
 }

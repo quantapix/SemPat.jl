@@ -490,14 +490,14 @@ export default class TypeScriptServiceClient extends qu.Disposable implements Se
   public toPath(resource: qv.Uri): string | undefined {
     return this.normalizedPath(resource);
   }
-  public toOpenedFilePath(document: qv.TextDocument, options: { suppressAlertOnFailure?: boolean } = {}): string | undefined {
-    if (!this.bufferSyncSupport.ensureHasBuffer(document.uri)) {
-      if (!options.suppressAlertOnFailure && !fileSchemes.disabledSchemes.has(document.uri.scheme)) {
-        console.error(`Unexpected resource ${document.uri}`);
+  public toOpenedFilePath(d: qv.TextDocument, opts: { suppressAlertOnFailure?: boolean } = {}): string | undefined {
+    if (!this.bufferSyncSupport.ensureHasBuffer(d.uri)) {
+      if (!opts.suppressAlertOnFailure && !fileSchemes.disabledSchemes.has(d.uri.scheme)) {
+        console.error(`Unexpected resource ${d.uri}`);
       }
       return undefined;
     }
-    return this.toPath(document.uri);
+    return this.toPath(d.uri);
   }
   public hasCapabilityForResource(resource: qv.Uri, capability: ClientCap): boolean {
     switch (capability) {

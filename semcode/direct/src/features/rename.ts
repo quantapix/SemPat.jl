@@ -15,26 +15,26 @@ import { outputChannel } from './goStatus';
 import { byteOffsetAt, canonicalizeGOPATHPrefix, getBinPath } from './util';
 import { killProcTree } from './utils/processUtils';
 export class GoRename implements qv.RenameProvider {
-  public provideRenameEdits(document: qv.TextDocument, position: qv.Position, newName: string, token: qv.CancellationToken): Thenable<qv.WorkspaceEdit> {
+  public provideRenameEdits(d: qv.TextDocument, p: qv.Position, newName: string, t: qv.CancellationToken): Thenable<qv.WorkspaceEdit> {
     return qv.workspace.saveAll(false).then(() => {
-      return this.doRename(document, position, newName, token);
+      return this.doRename(d, p, newName, t);
     });
   }
-  private doRename(document: qv.TextDocument, position: qv.Position, newName: string, token: qv.CancellationToken): Thenable<qv.WorkspaceEdit> {
+  private doRename(d: qv.TextDocument, p: qv.Position, newName: string, t: qv.CancellationToken): Thenable<qv.WorkspaceEdit> {
     return new Promise<qv.WorkspaceEdit>((resolve, reject) => {
-      const filename = canonicalizeGOPATHPrefix(document.fileName);
-      const range = document.getWordRangeAtPosition(position);
-      const pos = range ? range.start : position;
-      const offset = byteOffsetAt(document, pos);
+      const filename = canonicalizeGOPATHPrefix(d.fileName);
+      const range = d.getWordRangeAtPosition(p);
+      const pos = range ? range.start : p;
+      const offset = byteOffsetAt(d, pos);
       const env = toolExecutionEnvironment();
       const gorename = getBinPath('gorename');
-      const buildTags = getGoConfig(document.uri)['buildTags'];
+      const buildTags = getGoConfig(d.uri)['buildTags'];
       const gorenameArgs = ['-offset', filename + ':#' + offset, '-to', newName];
       if (buildTags) gorenameArgs.push('-tags', buildTags);
       const canRenameToolUseDiff = isDiffToolAvailable();
       if (canRenameToolUseDiff) gorenameArgs.push('-d');
       let p: cp.ChildProc;
-      if (token) token.onCancellationRequested(() => killProcTree(p));
+      if (t) t.onCancellationRequested(() => killProcTree(p));
       p = cp.execFile(gorename, gorenameArgs, { env }, (err, stdout, stderr) => {
         try {
           if (err && (<any>err).code === 'ENOENT') {
@@ -68,37 +68,37 @@ export class GoRename implements qv.RenameProvider {
 }
 class TsRename implements qv.RenameProvider {
   public constructor(private readonly client: ServiceClient, private readonly fileConfigMgr: FileConfigMgr) {}
-  public async prepareRename(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): Promise<qv.Range | null> {
+  public async prepareRename(d: qv.TextDocument, p: qv.Position, t: qv.CancellationToken): Promise<qv.Range | null> {
     if (this.client.apiVersion.lt(API.v310)) return null;
-    const response = await this.execRename(document, position, token);
+    const response = await this.execRename(d, p, t);
     if (response?.type !== 'response' || !response.body) return null;
     const renameInfo = response.body.info;
     if (!renameInfo.canRename) return Promise.reject<qv.Range>(renameInfo.localizedErrorMessage);
     return qu.Range.fromTextSpan(renameInfo.triggerSpan);
   }
-  public async provideRenameEdits(document: qv.TextDocument, position: qv.Position, newName: string, token: qv.CancellationToken): Promise<qv.WorkspaceEdit | null> {
-    const response = await this.execRename(document, position, token);
+  public async provideRenameEdits(d: qv.TextDocument, p: qv.Position, newName: string, t: qv.CancellationToken): Promise<qv.WorkspaceEdit | null> {
+    const response = await this.execRename(d, p, t);
     if (!response || response.type !== 'response' || !response.body) return null;
     const renameInfo = response.body.info;
     if (!renameInfo.canRename) return Promise.reject<qv.WorkspaceEdit>(renameInfo.localizedErrorMessage);
     if (renameInfo.fileToRename) {
-      const edits = await this.renameFile(renameInfo.fileToRename, newName, token);
+      const edits = await this.renameFile(renameInfo.fileToRename, newName, t);
       if (edits) return edits;
       else return Promise.reject<qv.WorkspaceEdit>('fileRenameFail');
     }
     return this.updateLocs(response.body.locs, newName);
   }
-  public async execRename(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): Promise<ServerResponse.Response<qp.RenameResponse> | undefined> {
-    const file = this.client.toOpenedFilePath(document);
+  public async execRename(d: qv.TextDocument, p: qv.Position, t: qv.CancellationToken): Promise<ServerResponse.Response<qp.RenameResponse> | undefined> {
+    const file = this.client.toOpenedFilePath(d);
     if (!file) return undefined;
     const args: qp.RenameRequestArgs = {
-      ...qu.Position.toFileLocationRequestArgs(file, position),
+      ...qu.Position.toFileLocationRequestArgs(file, p),
       findInStrings: false,
       findInComments: false,
     };
     return this.client.interruptGetErr(() => {
-      this.fileConfigMgr.ensureConfigForDocument(document, token);
-      return this.client.execute('rename', args, token);
+      this.fileConfigMgr.ensureConfigForDocument(d, t);
+      return this.client.execute('rename', args, t);
     });
   }
   private updateLocs(locations: ReadonlyArray<qp.SpanGroup>, newName: string) {

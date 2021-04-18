@@ -35,13 +35,13 @@ export function createClient(serverPath: string, cwd: string): lc.LangClient {
     initializationOptions: qv.workspace.getConfig('rust-analyzer'),
     traceOutputChannel,
     middleware: {
-      async provideDocumentSemanticTokens(document: qv.TextDocument, token: qv.CancellationToken, next: DocumentSemanticsTokensSignature) {
-        const res = await next(document, token);
+      async provideDocumentSemanticTokens(d: qv.TextDocument, t: qv.CancellationToken, next: DocumentSemanticsTokensSignature) {
+        const res = await next(d, t);
         if (res === undefined) throw new Error('busy');
         return res;
       },
-      async provideHover(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken, _next: lc.ProvideHoverSignature) {
-        return client.sendRequest(lc.HoverRequest.type, client.code2ProtocolConverter.asTextDocumentPositionParams(document, position), token).then(
+      async provideHover(d: qv.TextDocument, p: qv.Position, t: qv.CancellationToken, _next: lc.ProvideHoverSignature) {
+        return client.sendRequest(lc.HoverRequest.type, client.code2ProtocolConverter.asTextDocumentPositionParams(d, p), t).then(
           (result) => {
             const hover = client.protocol2CodeConverter.asHover(result);
             if (hover) {
@@ -59,13 +59,13 @@ export function createClient(serverPath: string, cwd: string): lc.LangClient {
         );
       },
 
-      async provideCodeActions(document: qv.TextDocument, range: qv.Range, context: qv.CodeActionContext, token: qv.CancellationToken, _next: lc.ProvideCodeActionsSignature) {
+      async provideCodeActions(d: qv.TextDocument, r: qv.Range, c: qv.CodeActionContext, t: qv.CancellationToken, _next: lc.ProvideCodeActionsSignature) {
         const params: lc.CodeActionParams = {
-          textDocument: client.code2ProtocolConverter.asTextDocumentIdentifier(document),
-          range: client.code2ProtocolConverter.asRange(range),
-          context: client.code2ProtocolConverter.asCodeActionContext(context),
+          textDocument: client.code2ProtocolConverter.asTextDocumentIdentifier(d),
+          range: client.code2ProtocolConverter.asRange(r),
+          context: client.code2ProtocolConverter.asCodeActionContext(c),
         };
-        return client.sendRequest(lc.CodeActionRequest.type, params, token).then(
+        return client.sendRequest(lc.CodeActionRequest.type, params, t).then(
           (values) => {
             if (values === null) return undefined;
             const result: (qv.CodeAction | qv.Command)[] = [];

@@ -55,16 +55,16 @@ function cancelCurrentGetModuleRequest() {
     g_currentGetModuleRequestCancelTokenSource = undefined;
   }
 }
-export async function getModuleForEditor(document: qv.TextDocument, position: qv.Position, token?: qv.CancellationToken) {
-  const manuallySetModule = manuallySetDocuments[document.fileName];
+export async function getModuleForEditor(d: qv.TextDocument, position: qv.Position, token?: qv.CancellationToken) {
+  const manuallySetModule = manuallySetDocuments[d.fileName];
   if (manuallySetModule) return manuallySetModule;
   const languageClient = g_languageClient;
   if (!languageClient) return 'Main';
   await languageClient.onReady();
   try {
     const params: VersionedTextDocumentPositionParams = {
-      textDocument: vslc.TextDocumentIdentifier.create(document.uri.toString()),
-      version: document.version,
+      textDocument: vslc.TextDocumentIdentifier.create(d.uri.toString()),
+      version: d.version,
       position: position,
     };
     for (let i = 0; i < 3; i++) {

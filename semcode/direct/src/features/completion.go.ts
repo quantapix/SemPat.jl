@@ -20,7 +20,7 @@ import {
   parseFilePrelude,
   runGodoc,
 } from '../../../old/go/util';
-import { getCurrentGoWorkspaceFromGOPATH } from './utils/pathUtils';
+import { getCurrentGoWorkspaceFromGOPATH } from './utils/path';
 function vscodeKindFromGoCodeClass(kind: string, type: string): qv.CompletionItemKind {
   switch (kind) {
     case 'const':
@@ -72,8 +72,8 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
   constructor(globalState?: qv.Memento) {
     this.globalState = globalState;
   }
-  public provideCompletionItems(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): Thenable<qv.CompletionList> {
-    return this.provideCompletionItemsInternal(document, position, token, getGoConfig(document.uri)).then((result) => {
+  public provideCompletionItems(d: qv.TextDocument, p: qv.Position, t: qv.CancellationToken): Thenable<qv.CompletionList> {
+    return this.provideCompletionItemsInternal(d, p, t, getGoConfig(d.uri)).then((result) => {
       if (!result) return new qv.CompletionList([], false);
       if (Array.isArray(result)) {
         return new qv.CompletionList(result, false);
@@ -98,52 +98,52 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
       });
   }
   public async provideCompletionItemsInternal(
-    document: qv.TextDocument,
-    position: qv.Position,
-    token: qv.CancellationToken,
+    d: qv.TextDocument,
+    p: qv.Position,
+    _: qv.CancellationToken,
     config: qv.WorkspaceConfiguration
   ): Promise<qv.CompletionItem[] | qv.CompletionList> {
-    const pkgStatementCompletions = await getPackageStatementCompletions(document);
+    const pkgStatementCompletions = await getPackageStatementCompletions(d);
     if (pkgStatementCompletions && pkgStatementCompletions.length) return pkgStatementCompletions;
     this.excludeDocs = false;
     this.gocodeFlags = ['-f=json'];
     if (Array.isArray(config['gocodeFlags'])) {
       this.gocodeFlags.push(...config['gocodeFlags']);
     }
-    return this.ensureGoCodeConfigured(document.uri, config).then(() => {
+    return this.ensureGoCodeConfigured(d.uri, config).then(() => {
       return new Promise<qv.CompletionItem[] | qv.CompletionList>((resolve, reject) => {
-        const filename = document.fileName;
-        const lineText = document.lineAt(position.line).text;
-        const lineTillCurrentPosition = lineText.substr(0, position.character);
+        const filename = d.fileName;
+        const lineText = d.lineAt(p.line).text;
+        const lineTillCurrentPosition = lineText.substr(0, p.character);
         const autocompleteUnimportedPackages = config['autocompleteUnimportedPackages'] === true && !lineText.match(/^(\s)*(import|package)(\s)+/);
-        const commentCompletion = getCommentCompletion(document, position);
+        const commentCompletion = getCommentCompletion(d, p);
         if (commentCompletion) return resolve([commentCompletion]);
-        if (isPositionInComment(document, position)) {
+        if (isPositionInComment(d, p)) {
           return resolve([]);
         }
-        const inString = isPositionInString(document, position);
+        const inString = isPositionInString(d, p);
         if (!inString && lineTillCurrentPosition.endsWith('"')) {
           return resolve([]);
         }
-        const currentWord = getCurrentWord(document, position);
+        const currentWord = getCurrentWord(d, p);
         if (currentWord.match(/^\d+$/)) {
           return resolve([]);
         }
-        let offset = byteOffsetAt(document, position);
-        let inputText = document.getText();
+        let offset = byteOffsetAt(d, p);
+        let inputText = d.getText();
         const includeUnimportedPkgs = autocompleteUnimportedPackages && !inString && currentWord.length > 0;
-        return this.runGoCode(document, filename, inputText, offset, inString, position, lineText, currentWord, includeUnimportedPkgs, config).then((suggestions) => {
+        return this.runGoCode(d, filename, inputText, offset, inString, p, lineText, currentWord, includeUnimportedPkgs, config).then((suggestions) => {
           suggestions.push(...getKeywordCompletions(currentWord));
           if ((!suggestions || suggestions.length === 0) && lineTillCurrentPosition.endsWith('.')) {
             const pkgPath = this.getPackagePathFromLine(lineTillCurrentPosition);
             if (pkgPath.length === 1) {
               const v = parseFilePrelude(qv.window.activeTextEditor.document.getText());
               const pkg = v.pkg;
-              const posToAddImport = document.offsetAt(new qv.Position(pkg.start + 1, 0));
+              const posToAddImport = d.offsetAt(new qv.Position(pkg.start + 1, 0));
               const textToAdd = `import "${pkgPath[0]}"\n`;
               inputText = inputText.substr(0, posToAddImport) + textToAdd + inputText.substr(posToAddImport);
               offset += textToAdd.length;
-              return this.runGoCode(document, filename, inputText, offset, inString, position, lineText, currentWord, false, config).then((newsuggestions) => {
+              return this.runGoCode(d, filename, inputText, offset, inString, p, lineText, currentWord, false, config).then((newsuggestions) => {
                 newsuggestions.forEach((item) => {
                   item.additionalTextEdits = getTextEditForAddImport(pkgPath[0]);
                 });
@@ -178,12 +178,12 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
     }
   }
   private runGoCode(
-    document: qv.TextDocument,
+    d: qv.TextDocument,
     filename: string,
     inputText: string,
     offset: number,
     inString: boolean,
-    position: qv.Position,
+    p: qv.Position,
     lineText: string,
     currentWord: string,
     includeUnimportedPkgs: boolean,
@@ -233,7 +233,7 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
           const results = <[number, GoCodeSuggestion[]]>JSON.parse(stdout.toString());
           let suggestions: qv.CompletionItem[] = [];
           const packageSuggestions: string[] = [];
-          const wordAtPosition = document.getWordRangeAtPosition(position);
+          const wordAtPosition = d.getWordRangeAtPosition(p);
           let areCompletionsForPackageSymbols = false;
           if (results && results[1]) {
             for (const suggest of results[1]) {
@@ -243,7 +243,7 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
               item.kind = vscodeKindFromGoCodeClass(suggest.class, suggest.type);
               item.package = suggest.package;
               item.receiver = suggest.receiver;
-              item.fileName = document.fileName;
+              item.fileName = d.fileName;
               item.detail = suggest.type;
               if (!areCompletionsForPackageSymbols && item.package && item.package !== 'builtin') areCompletionsForPackageSymbols = true;
               if (suggest.class === 'package') {
@@ -252,14 +252,14 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
                 packageSuggestions.push(suggest.name);
               }
               if (inString && suggest.class === 'import')
-                item.textEdit = new qv.TextEdit(new qv.Range(position.line, lineText.substring(0, position.character).lastIndexOf('"') + 1, position.line, position.character), suggest.name);
+                item.textEdit = new qv.TextEdit(new qv.Range(p.line, lineText.substring(0, p.character).lastIndexOf('"') + 1, p.line, p.character), suggest.name);
               if (
                 (config['useCodeSnippetsOnFunctionSuggest'] || config['useCodeSnippetsOnFunctionSuggestWithoutType']) &&
-                ((suggest.class === 'func' && lineText.substr(position.character, 2) !== '()') || // Avoids met() -> method()()
+                ((suggest.class === 'func' && lineText.substr(p.character, 2) !== '()') || // Avoids met() -> method()()
                   (suggest.class === 'var' &&
                     suggest.type.startsWith('func(') &&
-                    lineText.substr(position.character, 1) !== ')' && // Avoids snippets when typing params in a func call
-                    lineText.substr(position.character, 1) !== ',')) // Avoids snippets when typing params in a func call
+                    lineText.substr(p.character, 1) !== ')' && // Avoids snippets when typing params in a func call
+                    lineText.substr(p.character, 1) !== ',')) // Avoids snippets when typing params in a func call
               ) {
                 const got = getParametersAndReturnType(suggest.type.substring(4));
                 const params = got.params;
@@ -308,7 +308,7 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
             }
           }
           if (includeUnimportedPkgs && !this.isGoMod && !areCompletionsForPackageSymbols)
-            suggestions = suggestions.concat(getPackageCompletions(document, currentWord, this.pkgsList, packageSuggestions));
+            suggestions = suggestions.concat(getPackageCompletions(d, currentWord, this.pkgsList, packageSuggestions));
           resolve(suggestions);
         } catch (e) {
           reject(e);
@@ -385,23 +385,23 @@ export class GoCompletionItemProvider implements qv.CompletionItemProvider, qv.D
     return matchingPackages;
   }
 }
-function getCommentCompletion(document: qv.TextDocument, position: qv.Position): qv.CompletionItem {
-  const lineText = document.lineAt(position.line).text;
-  const lineTillCurrentPosition = lineText.substr(0, position.character);
-  if (lineCommentFirstWordRegex.test(lineTillCurrentPosition) && position.line + 1 < document.lineCount) {
-    const nextLine = document.lineAt(position.line + 1).text.trim();
+function getCommentCompletion(d: qv.TextDocument, p: qv.Position): qv.CompletionItem {
+  const lineText = d.lineAt(p.line).text;
+  const lineTillCurrentPosition = lineText.substr(0, p.character);
+  if (lineCommentFirstWordRegex.test(lineTillCurrentPosition) && p.line + 1 < d.lineCount) {
+    const nextLine = d.lineAt(p.line + 1).text.trim();
     const memberType = nextLine.match(exportedMemberRegex);
     let suggestionItem: qv.CompletionItem;
     if (memberType && memberType.length === 4) suggestionItem = new qv.CompletionItem(memberType[3], vscodeKindFromGoCodeClass(memberType[1], ''));
     return suggestionItem;
   }
 }
-function getCurrentWord(document: qv.TextDocument, position: qv.Position): string {
-  const wordAtPosition = document.getWordRangeAtPosition(position);
+function getCurrentWord(d: qv.TextDocument, p: qv.Position): string {
+  const wordAtPosition = d.getWordRangeAtPosition(p);
   let currentWord = '';
-  if (wordAtPosition && wordAtPosition.start.character < position.character) {
-    const word = document.getText(wordAtPosition);
-    currentWord = word.substr(0, position.character - wordAtPosition.start.character);
+  if (wordAtPosition && wordAtPosition.start.character < p.character) {
+    const word = d.getText(wordAtPosition);
+    currentWord = word.substr(0, p.character - wordAtPosition.start.character);
   }
   return currentWord;
 }
@@ -415,10 +415,10 @@ function getKeywordCompletions(currentWord: string): qv.CompletionItem[] {
   });
   return completionItems;
 }
-function getPackageCompletions(document: qv.TextDocument, currentWord: string, allPkgMap: Map<string, PackageInfo>, importedPackages: string[] = []): qv.CompletionItem[] {
-  const cwd = path.dirname(document.fileName);
+function getPackageCompletions(d: qv.TextDocument, currentWord: string, allPkgMap: Map<string, PackageInfo>, importedPackages: string[] = []): qv.CompletionItem[] {
+  const cwd = path.dirname(d.fileName);
   const goWorkSpace = getCurrentGoWorkspaceFromGOPATH(getCurrentGoPath(), cwd);
-  const workSpaceFolder = qv.workspace.getWorkspaceFolder(document.uri);
+  const workSpaceFolder = qv.workspace.getWorkspaceFolder(d.uri);
   const currentPkgRootPath = (workSpaceFolder ? workSpaceFolder.uri.path : cwd).slice(goWorkSpace.length + 1);
   const completionItems: any[] = [];
   allPkgMap.forEach((info: PackageInfo, pkgPath: string) => {
@@ -441,12 +441,11 @@ function getPackageCompletions(document: qv.TextDocument, currentWord: string, a
   });
   return completionItems;
 }
-async function getPackageStatementCompletions(document: qv.TextDocument): Promise<qv.CompletionItem[]> {
-  const inputText = document.getText();
-  if (inputText.match(/package\s+(\w+)/)) {
+async function getPackageStatementCompletions(d: qv.TextDocument): Promise<qv.CompletionItem[]> {
+  const inputText = d.getText();
+  if (inputText.match(/package\s+(\w+)/)) 
     return [];
-  }
-  const pkgNames = await guessPackageNameFromFile(document.fileName);
+  const pkgNames = await guessPackageNameFromFile(d.fileName);
   const suggestions = pkgNames.map((pkgName) => {
     const packageItem = new qv.CompletionItem('package ' + pkgName);
     packageItem.kind = qv.CompletionItemKind.Snippet;

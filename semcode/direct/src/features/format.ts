@@ -53,20 +53,20 @@ export function register(s: qu.DocumentSelector, modeId: string, c: ServiceClien
 }
 
 export class GoFormatting implements qv.DocumentFormattingEditProvider {
-  public provideDocumentFormattingEdits(document: qv.TextDocument, options: qv.FormattingOptions, token: qv.CancellationToken): qv.ProviderResult<qv.TextEdit[]> {
-    if (qv.window.visibleTextEditors.every((e) => e.document.fileName !== document.fileName)) {
+  public provideDocumentFormattingEdits(d: qv.TextDocument, opts: qv.FormattingOptions, token: qv.CancellationToken): qv.ProviderResult<qv.TextEdit[]> {
+    if (qv.window.visibleTextEditors.every((e) => e.document.fileName !== d.fileName)) {
       return [];
     }
-    const filename = document.fileName;
-    const goConfig = getGoConfig(document.uri);
+    const filename = d.fileName;
+    const goConfig = getGoConfig(d.uri);
     const formatFlags = goConfig['formatFlags'].slice() || [];
     if (formatFlags.indexOf('-w') > -1) {
       formatFlags.splice(formatFlags.indexOf('-w'), 1);
     }
     const formatTool = getFormatTool(goConfig);
     if (formatTool === 'goimports' || formatTool === 'goreturns' || formatTool === 'gofumports') formatFlags.push('-srcdir', filename);
-    if (formatTool === 'goformat' && formatFlags.length === 0 && options.insertSpaces) formatFlags.push('-style=indent=' + options.tabSize);
-    return this.runFormatter(formatTool, formatFlags, document, token).then(
+    if (formatTool === 'goformat' && formatFlags.length === 0 && opts.insertSpaces) formatFlags.push('-style=indent=' + opts.tabSize);
+    return this.runFormatter(formatTool, formatFlags, d, token).then(
       (edits) => edits,
       (err) => {
         if (typeof err === 'string' && err.startsWith('flag provided but not defined: -srcdir')) {
@@ -80,7 +80,7 @@ export class GoFormatting implements qv.DocumentFormattingEditProvider {
       }
     );
   }
-  private runFormatter(formatTool: string, formatFlags: string[], document: qv.TextDocument, token: qv.CancellationToken): Thenable<qv.TextEdit[]> {
+  private runFormatter(formatTool: string, formatFlags: string[], d: qv.TextDocument, t: qv.CancellationToken): Thenable<qv.TextEdit[]> {
     const formatCommandBinPath = getBinPath(formatTool);
     return new Promise<qv.TextEdit[]>((resolve, reject) => {
       if (!path.isAbsolute(formatCommandBinPath)) {
@@ -88,11 +88,11 @@ export class GoFormatting implements qv.DocumentFormattingEditProvider {
         return reject();
       }
       const env = toolExecutionEnvironment();
-      const cwd = path.dirname(document.fileName);
+      const cwd = path.dirname(d.fileName);
       let stdout = '';
       let stderr = '';
       const p = cp.spawn(formatCommandBinPath, formatFlags, { env, cwd });
-      token.onCancellationRequested(() => !p.killed && killProcTree(p));
+      t.onCancellationRequested(() => !p.killed && killProcTree(p));
       p.stdout.setEncoding('utf8');
       p.stdout.on('data', (data) => (stdout += data));
       p.stderr.on('data', (data) => (stderr += data));
@@ -105,11 +105,11 @@ export class GoFormatting implements qv.DocumentFormattingEditProvider {
       p.on('close', (code) => {
         if (code !== 0) return reject(stderr);
         const fileStart = new qv.Position(0, 0);
-        const fileEnd = document.lineAt(document.lineCount - 1).range.end;
+        const fileEnd = d.lineAt(d.lineCount - 1).range.end;
         const textEdits: qv.TextEdit[] = [new qv.TextEdit(new qv.Range(fileStart, fileEnd), stdout)];
         return resolve(textEdits);
       });
-      if (p.pid) p.stdin.end(document.getText());
+      if (p.pid) p.stdin.end(d.getText());
     });
   }
 }

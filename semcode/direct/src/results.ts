@@ -20,7 +20,7 @@ interface ResultContent {
   type: ResultType;
 }
 export class Result {
-  document: qv.TextDocument;
+  d: qv.TextDocument;
   text: string;
   range: qv.Range;
   content: ResultContent;
@@ -30,7 +30,7 @@ export class Result {
   onDidRemove: qv.Event<undefined>;
   constructor(editor: qv.TextEditor, range: qv.Range, content: ResultContent) {
     this.range = range;
-    this.document = editor.document;
+    this.d = editor.document;
     this.text = editor.document.getText(this.range);
     this.destroyed = false;
     this.removeEmitter = new qv.EventEmitter();
@@ -48,7 +48,7 @@ export class Result {
     }
     this.decoration = qv.window.createTextEditorDecorationType(decoration);
     for (const ed of qv.window.visibleTextEditors) {
-      if (ed.document === this.document) ed.setDecorations(this.decoration, [{ hoverMessage: this.content.hoverContent, range: this.decorationRange }]);
+      if (ed.document === this.d) ed.setDecorations(this.decoration, [{ hoverMessage: this.content.hoverContent, range: this.decorationRange }]);
     }
   }
   createDecoration(): qv.DecorationRenderOptions {
@@ -113,7 +113,7 @@ export class Result {
     this.setContent(this.content);
   }
   validate(e: qv.TextDocumentChangeEvent) {
-    if (this.document !== e.document) return true;
+    if (this.d !== e.document) return true;
     for (const change of e.contentChanges) {
       const intersect = change.range.intersection(this.range);
       if (intersect !== undefined && !(intersect.isEmpty && change.text === '\n')) {
@@ -126,7 +126,7 @@ export class Result {
         this.range = new qv.Range(this.range.start.translate(lineOffset, charOffset), this.range.end.translate(lineOffset, charOffset));
       }
     }
-    if (this.document.getText(this.range) !== this.text) {
+    if (this.d.getText(this.range) !== this.text) {
       return false;
     }
     return true;
@@ -177,7 +177,7 @@ function updateResultContextKey(changeEvent: qv.TextEditorSelectionChangeEvent) 
 }
 export function deactivate() {}
 export function addResult(editor: qv.TextEditor, range: qv.Range, content: string, hoverContent: string) {
-  results.filter((result) => result.document === editor.document && result.range.intersection(range) !== undefined).forEach(removeResult);
+  results.filter((result) => result.d === editor.document && result.range.intersection(range) !== undefined).forEach(removeResult);
   const result = new Result(editor, range, resultContent(content, hoverContent));
   results.push(result);
   return result;
@@ -267,7 +267,7 @@ function attachGotoFrameCommandLinks(transformed: string, frame: Frame) {
 export function refreshResults(editors: qv.TextEditor[]) {
   results.forEach((result) => {
     editors.forEach((editor) => {
-      if (result.document === editor.document) result.draw();
+      if (result.d === editor.document) result.draw();
     });
   });
   stackFrameHighlights.highlights.forEach((highlight) => {
@@ -291,7 +291,7 @@ export function removeResult(target: Result) {
   return results.splice(results.indexOf(target), 1);
 }
 export function removeAll(editor: undefined | qv.TextEditor = undefined) {
-  const isvalid = (result: Result) => !editor || result.document === editor.document;
+  const isvalid = (result: Result) => !editor || result.d === editor.document;
   results.filter(isvalid).forEach(removeResult);
 }
 export function removeCurrent(editor: qv.TextEditor) {
@@ -301,7 +301,7 @@ export function removeCurrent(editor: qv.TextEditor) {
   setContext('juliaHasInlineResult', false);
 }
 function isResultInLineRange(editor: qv.TextEditor, result: Result, range: qv.Selection | qv.Range) {
-  if (result.document !== editor.document) return false;
+  if (result.d !== editor.document) return false;
   const intersect = range.intersection(result.range);
   const lineRange = new qv.Range(range.start.with(undefined, 0), editor.document.validatePosition(range.start.with(undefined, LINE_INF)));
   const lineIntersect = lineRange.intersection(result.range);

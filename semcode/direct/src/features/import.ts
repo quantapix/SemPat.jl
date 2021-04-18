@@ -30,7 +30,6 @@ import { Duration } from '../common/timing';
 import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { IndexAliasData, IndexResults } from './documentSymbolProvider';
-
 class OrganizeImportsCommand implements Command {
   public static readonly Id = '_typescript.organizeImports';
   public readonly id = OrganizeImportsCommand.Id;
@@ -68,15 +67,11 @@ export class TsImportSorter implements qv.CodeActionProvider {
   public readonly metadata: qv.CodeActionProviderMetadata = {
     providedCodeActionKinds: [qv.CodeActionKind.SourceOrganizeImports],
   };
-  public provideCodeActions(document: qv.TextDocument, _range: qv.Range, context: qv.CodeActionContext, token: qv.CancellationToken): qv.CodeAction[] {
-    const file = this.client.toOpenedFilePath(document);
-    if (!file) {
-      return [];
-    }
-    if (!context.only || !context.only.contains(qv.CodeActionKind.SourceOrganizeImports)) {
-      return [];
-    }
-    this.fileConfigMgr.ensureConfigForDocument(document, token);
+  public provideCodeActions(d: qv.TextDocument, _: qv.Range, c: qv.CodeActionContext, t: qv.CancellationToken): qv.CodeAction[] {
+    const file = this.client.toOpenedFilePath(d);
+    if (!file) return [];
+    if (!c.only || !c.only.contains(qv.CodeActionKind.SourceOrganizeImports)) return [];
+    this.fileConfigMgr.ensureConfigForDocument(d, t);
     const action = new qv.CodeAction('organizeImportsAction.title', qv.CodeActionKind.SourceOrganizeImports);
     action.command = { title: '', command: OrganizeImportsCommand.Id, arguments: [file] };
     return [action];
@@ -201,7 +196,6 @@ export class PyImportSorter {
     return a.name.value < b.name.value ? -1 : 1;
   }
 }
-
 export interface AutoImportSymbol {
   readonly importAlias?: IndexAliasData;
   readonly symbol?: Symbol;

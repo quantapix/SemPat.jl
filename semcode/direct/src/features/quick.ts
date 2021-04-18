@@ -153,16 +153,16 @@ class QuickFix implements qv.CodeActionProvider<VsCodeCodeAction> {
     commandMgr.register(new ApplyFixAllCodeAction(client, telemetryReporter));
     this.supportedCodeActionProvider = new SupportedCodeActionProvider(client);
   }
-  public async provideCodeActions(document: qv.TextDocument, _range: qv.Range, context: qv.CodeActionContext, token: qv.CancellationToken): Promise<VsCodeCodeAction[]> {
-    const file = this.client.toOpenedFilePath(document);
+  public async provideCodeActions(d: qv.TextDocument, _: qv.Range, c: qv.CodeActionContext, token: qv.CancellationToken): Promise<VsCodeCodeAction[]> {
+    const file = this.client.toOpenedFilePath(d);
     if (!file) return [];
-    const fixableDiags = await this.supportedCodeActionProvider.getFixableDiagsForContext(context);
+    const fixableDiags = await this.supportedCodeActionProvider.getFixableDiagsForContext(c);
     if (!fixableDiags.size) return [];
-    if (this.client.bufferSyncSupport.hasPendingDiags(document.uri)) return [];
-    await this.formattingConfigMgr.ensureConfigForDocument(document, token);
+    if (this.client.bufferSyncSupport.hasPendingDiags(d.uri)) return [];
+    await this.formattingConfigMgr.ensureConfigForDocument(d, token);
     const results = new CodeActionSet();
     for (const diagnostic of fixableDiags.values) {
-      await this.getFixesForDiag(document, file, diagnostic, results, token);
+      await this.getFixesForDiag(d, file, diagnostic, results, token);
     }
     const allActions = Array.from(results.values);
     for (const action of allActions) {
@@ -186,21 +186,21 @@ class QuickFix implements qv.CodeActionProvider<VsCodeCodeAction> {
     }
     return codeAction;
   }
-  private async getFixesForDiag(document: qv.TextDocument, file: string, diagnostic: qv.Diag, results: CodeActionSet, token: qv.CancellationToken): Promise<CodeActionSet> {
+  private async getFixesForDiag(d: qv.TextDocument, file: string, diagnostic: qv.Diag, results: CodeActionSet, t: qv.CancellationToken): Promise<CodeActionSet> {
     const args: qp.CodeFixRequestArgs = {
       ...qu.Range.toFileRangeRequestArgs(file, diagnostic.range),
       errorCodes: [+diagnostic.code!],
     };
-    const response = await this.client.execute('getCodeFixes', args, token);
+    const response = await this.client.execute('getCodeFixes', args, t);
     if (response.type !== 'response' || !response.body) return results;
     for (const tsCodeFix of response.body) {
-      this.addAllFixesForTsCodeAction(results, document, file, diagnostic, tsCodeFix as qp.CodeFixAction);
+      this.addAllFixesForTsCodeAction(results, d, file, diagnostic, tsCodeFix as qp.CodeFixAction);
     }
     return results;
   }
-  private addAllFixesForTsCodeAction(results: CodeActionSet, document: qv.TextDocument, file: string, diagnostic: qv.Diag, tsAction: qp.CodeFixAction): CodeActionSet {
+  private addAllFixesForTsCodeAction(results: CodeActionSet, d: qv.TextDocument, file: string, diagnostic: qv.Diag, tsAction: qp.CodeFixAction): CodeActionSet {
     results.addAction(this.getSingleFixForTsCodeAction(diagnostic, tsAction));
-    this.addFixAllForTsCodeAction(results, document, file, diagnostic, tsAction as qp.CodeFixAction);
+    this.addFixAllForTsCodeAction(results, d, file, diagnostic, tsAction as qp.CodeFixAction);
     return results;
   }
   private getSingleFixForTsCodeAction(diagnostic: qv.Diag, tsAction: qp.CodeFixAction): VsCodeCodeAction {
@@ -214,10 +214,10 @@ class QuickFix implements qv.CodeActionProvider<VsCodeCodeAction> {
     };
     return codeAction;
   }
-  private addFixAllForTsCodeAction(results: CodeActionSet, document: qv.TextDocument, file: string, diagnostic: qv.Diag, tsAction: qp.CodeFixAction): CodeActionSet {
+  private addFixAllForTsCodeAction(results: CodeActionSet, d: qv.TextDocument, file: string, diagnostic: qv.Diag, tsAction: qp.CodeFixAction): CodeActionSet {
     if (!tsAction.fixId || this.client.apiVersion.lt(API.v270) || results.hasFixAllAction(tsAction.fixId)) return results;
     if (
-      !this.diagnosticsMgr.getDiags(document.uri).some((x) => {
+      !this.diagnosticsMgr.getDiags(d.uri).some((x) => {
         if (x === diagnostic) return false;
         return x.code === diagnostic.code || (fixAllErrorCodes.has(x.code as number) && fixAllErrorCodes.get(x.code as number) === fixAllErrorCodes.get(diagnostic.code as number));
       })
@@ -226,11 +226,7 @@ class QuickFix implements qv.CodeActionProvider<VsCodeCodeAction> {
     }
     const action = new VsCodeFixAllCodeAction(tsAction, file, tsAction.fixAllDescription || 'fixAllInFileLabel', qv.CodeActionKind.QuickFix);
     action.diagnostics = [diagnostic];
-    action.command = {
-      command: ApplyFixAllCodeAction.ID,
-      arguments: [<ApplyFixAllCodeAction_args>{ action }],
-      title: '',
-    };
+    action.command = { command: ApplyFixAllCodeAction.ID, arguments: [<ApplyFixAllCodeAction_args>{ action }], title: '' };
     results.addFixAllAction(tsAction.fixId, action);
     return results;
   }

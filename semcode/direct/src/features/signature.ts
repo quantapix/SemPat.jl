@@ -22,14 +22,14 @@ import { getParametersAndReturnType, isPositionInComment, isPositionInString } f
 
 export class GoSignatureHelp implements qv.SignatureHelpProvider {
   constructor(private goConfig?: qv.WorkspaceConfiguration) {}
-  public async provideSignatureHelp(document: qv.TextDocument, position: Position, token: qv.CancellationToken): Promise<qv.SignatureHelp> {
-    let goConfig = this.goConfig || getGoConfig(document.uri);
-    const theCall = this.walkBackwardsToBeginningOfCall(document, position);
+  public async provideSignatureHelp(d: qv.TextDocument, p: Position, t: qv.CancellationToken): Promise<qv.SignatureHelp> {
+    let goConfig = this.goConfig || getGoConfig(d.uri);
+    const theCall = this.walkBackwardsToBeginningOfCall(d, p);
     if (theCall == null) return Promise.resolve(null);
-    const callerPos = this.previousTokenPosition(document, theCall.openParen);
+    const callerPos = this.previousTokenPosition(d, theCall.openParen);
     if (goConfig['docsTool'] === 'guru') goConfig = Object.assign({}, goConfig, { docsTool: 'godoc' });
     try {
-      const res = await definitionLocation(document, callerPos, goConfig, true, token);
+      const res = await definitionLocation(d, callerPos, goConfig, true, t);
       if (!res) return null;
       if (res.line === callerPos.line) return null;
       let declarationText: string = (res.declarationlines || []).join(' ').trim();
@@ -59,31 +59,30 @@ export class GoSignatureHelp implements qv.SignatureHelpProvider {
       return null;
     }
   }
-  private previousTokenPosition(document: qv.TextDocument, position: Position): Position {
-    while (position.character > 0) {
-      const word = document.getWordRangeAtPosition(position);
+  private previousTokenPosition(d: qv.TextDocument, p: Position): Position {
+    while (p.character > 0) {
+      const word = d.getWordRangeAtPosition(p);
       if (word) return word.start;
-      position = position.translate(0, -1);
+      p = p.translate(0, -1);
     }
     return null;
   }
-  private walkBackwardsToBeginningOfCall(document: qv.TextDocument, position: Position): { openParen: Position; commas: Position[] } | null {
+  private walkBackwardsToBeginningOfCall(d: qv.TextDocument, p: Position): { openParen: Position; commas: Position[] } | null {
     let parenBalance = 0;
     let maxLookupLines = 30;
     const commas = [];
-    for (let lineNr = position.line; lineNr >= 0 && maxLookupLines >= 0; lineNr--, maxLookupLines--) {
-      const line = document.lineAt(lineNr);
-      if (isPositionInComment(document, position)) {
+    for (let lineNr = p.line; lineNr >= 0 && maxLookupLines >= 0; lineNr--, maxLookupLines--) {
+      const line = d.lineAt(lineNr);
+      if (isPositionInComment(d, p)) 
         return null;
-      }
-      const [currentLine, characterPosition] = lineNr === position.line ? [line.text.substring(0, position.character), position.character] : [line.text, line.text.length - 1];
+      
+      const [currentLine, characterPosition] = lineNr === p.line ? [line.text.substring(0, p.character), p.character] : [line.text, line.text.length - 1];
       for (let char = characterPosition; char >= 0; char--) {
         switch (currentLine[char]) {
           case '(':
             parenBalance--;
             if (parenBalance < 0) {
-              return {
-                openParen: new Position(lineNr, char),
+              return {                openParen: new Position(lineNr, char),
                 commas,
               };
             }
@@ -94,9 +93,9 @@ export class GoSignatureHelp implements qv.SignatureHelpProvider {
           case ',':
             {
               const commaPos = new Position(lineNr, char);
-              if (parenBalance === 0 && !isPositionInString(document, commaPos)) {
+              if (parenBalance === 0 && !isPositionInString(d, commaPos)) 
                 commas.push(commaPos);
-              }
+              
             }
             break;
         }
@@ -110,19 +109,19 @@ class TsSignatureHelp implements qv.SignatureHelpProvider {
   public static readonly triggerCharacters = ['(', ',', '<'];
   public static readonly retriggerCharacters = [')'];
   public constructor(private readonly client: ServiceClient) {}
-  public async provideSignatureHelp(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken, context: qv.SignatureHelpContext): Promise<qv.SignatureHelp | undefined> {
-    const filepath = this.client.toOpenedFilePath(document);
+  public async provideSignatureHelp(d: qv.TextDocument, p: qv.Position, t: qv.CancellationToken, c: qv.SignatureHelpContext): Promise<qv.SignatureHelp | undefined> {
+    const filepath = this.client.toOpenedFilePath(d);
     if (!filepath) return undefined;
     const args: qp.SignatureHelpRequestArgs = {
-      ...qu.Position.toFileLocationRequestArgs(filepath, position),
-      triggerReason: toTsTriggerReason(context),
+      ...qu.Position.toFileLocationRequestArgs(filepath, p),
+      triggerReason: toTsTriggerReason(c),
     };
-    const response = await this.client.interruptGetErr(() => this.client.execute('signatureHelp', args, token));
+    const response = await this.client.interruptGetErr(() => this.client.execute('signatureHelp', args, t));
     if (response.type !== 'response' || !response.body) return undefined;
     const info = response.body;
     const result = new qv.SignatureHelp();
     result.signatures = info.items.map((signature) => this.convertSignature(signature));
-    result.activeSignature = this.getActiveSignature(context, info, result.signatures);
+    result.activeSignature = this.getActiveSignature(c, info, result.signatures);
     result.activeParameter = this.getActiveParameter(info);
     return result;
   }
@@ -193,13 +192,13 @@ export class RsSignatureHelp implements qv.SignatureHelpProvider {
   constructor(lc: LangClient) {
     this.languageClient = lc;
   }
-  public provideSignatureHelp(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken, context: qv.SignatureHelpContext): qv.ProviderResult<qv.SignatureHelp> {
+  public provideSignatureHelp(d: qv.TextDocument, p: qv.Position, t: qv.CancellationToken, context: qv.SignatureHelpContext): qv.ProviderResult<qv.SignatureHelp> {
     if (context.triggerCharacter === '(') {
-      this.previousFunctionPosition = position;
-      return this.provideHover(this.languageClient, document, position, token).then((hover) => this.hoverToSignatureHelp(hover, position, document));
+      this.previousFunctionPosition = p;
+      return this.provideHover(this.languageClient, d, p, t).then((hover) => this.hoverToSignatureHelp(hover, p, d));
     } else if (context.triggerCharacter === ',') {
-      if (this.previousFunctionPosition && position.line === this.previousFunctionPosition.line) {
-        return this.provideHover(this.languageClient, document, this.previousFunctionPosition, token).then((hover) => this.hoverToSignatureHelp(hover, position, document));
+      if (this.previousFunctionPosition && p.line === this.previousFunctionPosition.line) {
+        return this.provideHover(this.languageClient, d, this.previousFunctionPosition, t).then((hover) => this.hoverToSignatureHelp(hover, p, d));
       } else {
         return null;
       }
@@ -208,15 +207,15 @@ export class RsSignatureHelp implements qv.SignatureHelpProvider {
       return null;
     }
   }
-  private provideHover(lc: LangClient, document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): Promise<qv.Hover> {
+  private provideHover(lc: LangClient, d: qv.TextDocument, p: qv.Position, t: qv.CancellationToken): Promise<qv.Hover> {
     return new Promise((resolve, reject) => {
-      lc.sendRequest(HoverRequest.type, lc.code2ProtocolConverter.asTextDocumentPositionParams(document, position.translate(0, -1)), token).then(
+      lc.sendRequest(HoverRequest.type, lc.code2ProtocolConverter.asTextDocumentPositionParams(d, p.translate(0, -1)), t).then(
         (data) => resolve(lc.protocol2CodeConverter.asHover(data)),
         (error) => reject(error)
       );
     });
   }
-  private hoverToSignatureHelp(hover: qv.Hover, position: qv.Position, document: qv.TextDocument): qv.SignatureHelp | undefined {
+  private hoverToSignatureHelp(hover: qv.Hover, p: qv.Position, d: qv.TextDocument): qv.SignatureHelp | undefined {
     /*
     The contents of a hover result has the following structure:
     contents:Array[2]
@@ -252,7 +251,7 @@ export class RsSignatureHelp implements qv.SignatureHelpProvider {
     See https://github.com/rust-lang/rls/blob/master/rls/src/actions/hover.rs#L487-L508.
     */
     const label = (hover.contents[0] as qv.MarkdownString).value.replace('```rust', '').replace('```', '');
-    if (!label.includes('fn') || document.lineAt(position.line).text.includes('fn ')) {
+    if (!label.includes('fn') || d.lineAt(p.line).text.includes('fn ')) {
       return undefined;
     }
     const doc = hover.contents.length > 1 ? (hover.contents.slice(-1)[0] as qv.MarkdownString) : undefined;

@@ -5,8 +5,7 @@ import * as qk from '../utils/key';
 import { CachedResponse } from '../../old/ts/tsServer/cachedResponse';
 import { ClientCap, ServiceClient } from '../service';
 import { conditionalRegistration, requireSomeCap, requireConfig } from '../registration';
-import { DocumentSelector } from '../../utils/documentSelector';
-import * as qu from '../utils';
+import * as qu from '../utils/base';
 import { getSymbolRange } from './lens';
 import { ExecTarget } from '../../old/ts/tsServer/server';
 import { isAbsolute } from 'path';
@@ -16,7 +15,6 @@ import { GoReferenceProvider } from './reference';
 import { getBinPath } from './util';
 import { CodeLens } from 'vscode';
 import { getBenchmarkFunctions, getTestFunctions } from './testUtils';
-
 export class TsCodeLens implements qv.CodeLensProvider {
   private codeLenses: qv.CodeLens[] = [];
   private regex: RegExp;
@@ -64,55 +62,42 @@ export class RefsCodeLens extends qv.CodeLens {
   }
 }
 export abstract class TsBaseLens implements qv.CodeLensProvider<RefsCodeLens> {
-  public static readonly cancelledCommand: qv.Command = {
-    title: '',
-    command: '',
-  };
-  public static readonly errorCommand: qv.Command = {
-    title: 'referenceErrorLabel',
-    command: '',
-  };
+  public static readonly cancelledCommand: qv.Command = { title: '', command: '' };
+  public static readonly errorCommand: qv.Command = { title: 'referenceErrorLabel', command: '' };
   private onDidChangeCodeLensesEmitter = new qv.EventEmitter<void>();
   public constructor(protected client: ServiceClient, private cachedResponse: CachedResponse<qp.NavTreeResponse>) {}
   public get onDidChangeCodeLenses(): qv.Event<void> {
     return this.onDidChangeCodeLensesEmitter.event;
   }
-  async provideCodeLenses(document: qv.TextDocument, token: qv.CancellationToken): Promise<RefsCodeLens[]> {
-    const filepath = this.client.toOpenedFilePath(document);
+  async provideCodeLenses(d: qv.TextDocument, token: qv.CancellationToken): Promise<RefsCodeLens[]> {
+    const filepath = this.client.toOpenedFilePath(d);
     if (!filepath) return [];
-
-    const response = await this.cachedResponse.execute(document, () => this.client.execute('navtree', { file: filepath }, token));
+    const response = await this.cachedResponse.execute(d, () => this.client.execute('navtree', { file: filepath }, token));
     if (response.type !== 'response') return [];
-
     const tree = response.body;
     const referenceableSpans: qv.Range[] = [];
-    if (tree && tree.childItems) tree.childItems.forEach((item) => this.walkNavTree(document, item, null, referenceableSpans));
-
-    return referenceableSpans.map((span) => new RefsCodeLens(document.uri, filepath, span));
+    if (tree && tree.childItems) tree.childItems.forEach((item) => this.walkNavTree(d, item, null, referenceableSpans));
+    return referenceableSpans.map((span) => new RefsCodeLens(d.uri, filepath, span));
   }
-  protected abstract extractSymbol(document: qv.TextDocument, item: qp.NavigationTree, parent: qp.NavigationTree | null): qv.Range | null;
-  private walkNavTree(document: qv.TextDocument, item: qp.NavigationTree, parent: qp.NavigationTree | null, results: qv.Range[]): void {
+  protected abstract extractSymbol(d: qv.TextDocument, item: qp.NavigationTree, parent: qp.NavigationTree | null): qv.Range | null;
+  private walkNavTree(d: qv.TextDocument, item: qp.NavigationTree, parent: qp.NavigationTree | null, results: qv.Range[]): void {
     if (!item) return;
-
-    const range = this.extractSymbol(document, item, parent);
+    const range = this.extractSymbol(d, item, parent);
     if (range) results.push(range);
-
-    (item.childItems || []).forEach((child) => this.walkNavTree(document, child, item, results));
+    (item.childItems || []).forEach((child) => this.walkNavTree(d, child, item, results));
   }
 }
-export function getSymbolRange(document: qv.TextDocument, item: qp.NavigationTree): qv.Range | null {
+export function getSymbolRange(d: qv.TextDocument, item: qp.NavigationTree): qv.Range | null {
   if (item.nameSpan) return qu.Range.fromTextSpan(item.nameSpan);
-
   const span = item.spans && item.spans[0];
   if (!span) return null;
-
   const range = qu.Range.fromTextSpan(span);
-  const text = document.getText(range);
+  const text = d.getText(range);
   const identifierMatch = new RegExp(`^(.*?(\\b|\\W))${escapeRegExp(item.text || '')}(\\b|\\W)`, 'gm');
   const match = identifierMatch.exec(text);
   const prefixLength = match ? match.index + match[1].length : 0;
-  const startOffset = document.offsetAt(new qv.Position(range.start.line, range.start.character)) + prefixLength;
-  return new qv.Range(document.positionAt(startOffset), document.positionAt(startOffset + item.text.length));
+  const startOffset = d.offsetAt(new qv.Position(range.start.line, range.start.character)) + prefixLength;
+  return new qv.Range(d.positionAt(startOffset), d.positionAt(startOffset + item.text.length));
 }
 export default class TsImplsLens extends TsBaseLens {
   public async resolveCodeLens(codeLens: RefsCodeLens, token: qv.CancellationToken): Promise<qv.CodeLens> {
@@ -147,25 +132,24 @@ export default class TsImplsLens extends TsBaseLens {
   private getTitle(locations: qv.Location[]): string {
     return locations.length === 1 ? 'oneImplementationLabel' : 'manyImplementationLabel';
   }
-  protected extractSymbol(document: qv.TextDocument, item: qp.NavigationTree, _parent: qp.NavigationTree | null): qv.Range | null {
+  protected extractSymbol(d: qv.TextDocument, item: qp.NavigationTree, _: qp.NavigationTree | null): qv.Range | null {
     switch (item.kind) {
       case qk.Kind.interface:
-        return getSymbolRange(document, item);
+        return getSymbolRange(d, item);
       case qk.Kind.class:
       case qk.Kind.method:
       case qk.Kind.memberVariable:
       case qk.Kind.memberGetAccessor:
       case qk.Kind.memberSetAccessor:
-        if (item.kindModifiers.match(/\babstract\b/g)) return getSymbolRange(document, item);
-
+        if (item.kindModifiers.match(/\babstract\b/g)) return getSymbolRange(d, item);
         break;
     }
     return null;
   }
 }
-export function register(selector: DocumentSelector, modeId: string, client: ServiceClient, cachedResponse: CachedResponse<qp.NavTreeResponse>) {
-  return conditionalRegistration([requireConfig(modeId, 'implementationsCodeLens.enabled'), requireSomeCap(client, ClientCap.Semantic)], () => {
-    return qv.languages.registerCodeLensProvider(selector.semantic, new TsImplsLens(client, cachedResponse));
+export function register(s: qu.DocumentSelector, mode: string, c: ServiceClient, r: CachedResponse<qp.NavTreeResponse>) {
+  return conditionalRegistration([requireConfig(mode, 'implementationsCodeLens.enabled'), requireSomeCap(c, ClientCap.Semantic)], () => {
+    return qv.languages.registerCodeLensProvider(s.semantic, new TsImplsLens(c, r));
   });
 }
 export class TsRefsLens extends TsBaseLens {
@@ -194,28 +178,26 @@ export class TsRefsLens extends TsBaseLens {
   private getCodeLensLabel(locations: ReadonlyArray<qv.Location>): string {
     return locations.length === 1 ? 'oneReferenceLabel' : 'manyReferenceLabel';
   }
-  protected extractSymbol(document: qv.TextDocument, item: qp.NavigationTree, parent: qp.NavigationTree | null): qv.Range | null {
-    if (parent && parent.kind === qk.Kind.enum) return getSymbolRange(document, item);
-
+  protected extractSymbol(d: qv.TextDocument, item: qp.NavigationTree, parent: qp.NavigationTree | null): qv.Range | null {
+    if (parent && parent.kind === qk.Kind.enum) return getSymbolRange(d, item);
     switch (item.kind) {
       case qk.Kind.function:
         const showOnAllFunctions = qv.workspace.getConfig(this.modeId).get<boolean>('referencesCodeLens.showOnAllFunctions');
-        if (showOnAllFunctions) return getSymbolRange(document, item);
-
+        if (showOnAllFunctions) return getSymbolRange(d, item);
       case qk.Kind.const:
       case qk.Kind.let:
       case qk.Kind.variable:
         if (/\bexport\b/.test(item.kindModifiers)) {
-          return getSymbolRange(document, item);
+          return getSymbolRange(d, item);
         }
         break;
       case qk.Kind.class:
         if (item.text === '<class>') break;
-        return getSymbolRange(document, item);
+        return getSymbolRange(d, item);
       case qk.Kind.interface:
       case qk.Kind.type:
       case qk.Kind.enum:
-        return getSymbolRange(document, item);
+        return getSymbolRange(d, item);
       case qk.Kind.method:
       case qk.Kind.memberGetAccessor:
       case qk.Kind.memberSetAccessor:
@@ -228,16 +210,16 @@ export class TsRefsLens extends TsBaseLens {
           case qk.Kind.class:
           case qk.Kind.interface:
           case qk.Kind.type:
-            return getSymbolRange(document, item);
+            return getSymbolRange(d, item);
         }
         break;
     }
     return null;
   }
 }
-export function register(selector: DocumentSelector, modeId: string, client: ServiceClient, cachedResponse: CachedResponse<qp.NavTreeResponse>) {
-  return conditionalRegistration([requireConfig(modeId, 'referencesCodeLens.enabled'), requireSomeCap(client, ClientCap.Semantic)], () => {
-    return qv.languages.registerCodeLensProvider(selector.semantic, new TsRefsLens(client, cachedResponse, modeId));
+export function register(s: qu.DocumentSelector, mode: string, c: ServiceClient, r: CachedResponse<qp.NavTreeResponse>) {
+  return conditionalRegistration([requireConfig(mode, 'referencesCodeLens.enabled'), requireSomeCap(c, ClientCap.Semantic)], () => {
+    return qv.languages.registerCodeLensProvider(s.semantic, new TsRefsLens(c, r, mode));
   });
 }
 export abstract class GoBaseLens implements qv.CodeLensProvider {
@@ -252,74 +234,67 @@ export abstract class GoBaseLens implements qv.CodeLensProvider {
       this.onDidChangeCodeLensesEmitter.fire();
     }
   }
-  public provideCodeLenses(document: qv.TextDocument, token: qv.CancellationToken): qv.ProviderResult<qv.CodeLens[]> {
+  public provideCodeLenses(d: qv.TextDocument, t: qv.CancellationToken): qv.ProviderResult<qv.CodeLens[]> {
     return [];
   }
 }
 const methodRegex = /^func\s+\(\s*\w+\s+\*?\w+\s*\)\s+/;
 class RefsLens extends qv.CodeLens {
-  constructor(public document: qv.TextDocument, range: qv.Range) {
-    super(range);
+  constructor(public doc: qv.TextDocument, r: qv.Range) {
+    super(r);
   }
 }
 export class GoRefsLens extends GoBaseLens {
-  public provideCodeLenses(document: qv.TextDocument, token: qv.CancellationToken): qv.CodeLens[] | Thenable<CodeLens[]> {
+  public provideCodeLenses(d: qv.TextDocument, t: qv.CancellationToken): qv.CodeLens[] | Thenable<CodeLens[]> {
     if (!this.enabled) return [];
-    const codeLensConfig = getGoConfig(document.uri).get<{ [key: string]: any }>('enableCodeLens');
+    const codeLensConfig = getGoConfig(d.uri).get<{ [key: string]: any }>('enableCodeLens');
     const codelensEnabled = codeLensConfig ? codeLensConfig['references'] : false;
     if (!codelensEnabled) return Promise.resolve([]);
     const goGuru = getBinPath('guru');
     if (!isAbsolute(goGuru)) {
       return Promise.resolve([]);
     }
-    return this.provideDocumentSymbols(document, token).then((symbols) => {
+    return this.provideDocumentSymbols(d, t).then((symbols) => {
       return symbols.map((symbol) => {
         let position = symbol.range.start;
         if (symbol.kind === qv.SymbolKind.Function) {
-          const funcDecl = document.lineAt(position.line).text.substr(position.character);
+          const funcDecl = d.lineAt(position.line).text.substr(position.character);
           const match = methodRegex.exec(funcDecl);
           position = position.translate(0, match ? match[0].length : 5);
         }
-        return new RefsLens(document, new qv.Range(position, position));
+        return new RefsLens(d, new qv.Range(position, position));
       });
     });
   }
   public resolveCodeLens?(inputCodeLens: qv.CodeLens, token: qv.CancellationToken): qv.CodeLens | Thenable<CodeLens> {
     const codeLens = inputCodeLens as RefsLens;
     if (token.isCancellationRequested) return Promise.resolve(codeLens);
-    const options = {
-      includeDeclaration: false,
-    };
+    const options = { includeDeclaration: false };
     const referenceProvider = new GoReferenceProvider();
-    return referenceProvider.provideReferences(codeLens.document, codeLens.range.start, options, token).then(
+    return referenceProvider.provideReferences(codeLens.doc, codeLens.range.start, options, token).then(
       (references) => {
         codeLens.command = {
           title: references.length === 1 ? '1 reference' : references.length + ' references',
           command: 'editor.action.showReferences',
-          arguments: [codeLens.document.uri, codeLens.range.start, references],
+          arguments: [codeLens.doc.uri, codeLens.range.start, references],
         };
         return codeLens;
       },
       (err) => {
         console.log(err);
-        codeLens.command = {
-          title: 'Error finding references',
-          command: '',
-        };
+        codeLens.command = { title: 'Error finding references', command: '' };
         return codeLens;
       }
     );
   }
-  private async provideDocumentSymbols(document: qv.TextDocument, token: qv.CancellationToken): Promise<qv.DocumentSymbol[]> {
+  private async provideDocumentSymbols(d: qv.TextDocument, t: qv.CancellationToken): Promise<qv.DocumentSymbol[]> {
     const symbolProvider = new GoSymbol();
-    const isTestFile = document.fileName.endsWith('_test.go');
-    const symbols = await symbolProvider.provideDocumentSymbols(document, token);
+    const isTestFile = d.fileName.endsWith('_test.go');
+    const symbols = await symbolProvider.provideDocumentSymbols(d, t);
     return symbols[0].children.filter((symbol) => {
       if (symbol.kind === qv.SymbolKind.Interface) return true;
       if (symbol.kind === qv.SymbolKind.Function) {
-        if (isTestFile && (symbol.name.startsWith('Test') || symbol.name.startsWith('Example') || symbol.name.startsWith('Benchmark'))) {
-          return false;
-        }
+        if (isTestFile && (symbol.name.startsWith('Test') || symbol.name.startsWith('Example') || symbol.name.startsWith('Benchmark'))) return false;
         return true;
       }
       return false;
@@ -328,51 +303,34 @@ export class GoRefsLens extends GoBaseLens {
 }
 export class GoRunTestLens extends GoBaseLens {
   private readonly benchmarkRegex = /^Benchmark.+/;
-  public async provideCodeLenses(document: qv.TextDocument, token: qv.CancellationToken): Promise<CodeLens[]> {
+  public async provideCodeLenses(d: qv.TextDocument, t: qv.CancellationToken): Promise<CodeLens[]> {
     if (!this.enabled) return [];
-    const config = getGoConfig(document.uri);
+    const config = getGoConfig(d.uri);
     const codeLensConfig = config.get<{ [key: string]: any }>('enableCodeLens');
     const codelensEnabled = codeLensConfig ? codeLensConfig['runtest'] : false;
-    if (!codelensEnabled || !document.fileName.endsWith('_test.go')) {
-      return [];
-    }
-    const codelenses = await Promise.all([this.getCodeLensForPackage(document, token), this.getCodeLensForFunctions(document, token)]);
+    if (!codelensEnabled || !d.fileName.endsWith('_test.go')) return [];
+    const codelenses = await Promise.all([this.getCodeLensForPackage(d, t), this.getCodeLensForFunctions(d, t)]);
     return ([] as qv.CodeLens[]).concat(...codelenses);
   }
-  private async getCodeLensForPackage(document: qv.TextDocument, token: qv.CancellationToken): Promise<CodeLens[]> {
+  private async getCodeLensForPackage(d: qv.TextDocument, t: qv.CancellationToken): Promise<CodeLens[]> {
     const documentSymbolProvider = new GoSymbol();
-    const symbols = await documentSymbolProvider.provideDocumentSymbols(document, token);
+    const symbols = await documentSymbolProvider.provideDocumentSymbols(d, t);
     if (!symbols || symbols.length === 0) return [];
     const pkg = symbols[0];
     if (!pkg) return [];
     const range = pkg.range;
-    const packageCodeLens = [
-      new qv.CodeLens(range, {
-        title: 'run package tests',
-        command: 'go.test.package',
-      }),
-      new qv.CodeLens(range, {
-        title: 'run file tests',
-        command: 'go.test.file',
-      }),
-    ];
+    const packageCodeLens = [new qv.CodeLens(range, { title: 'run package tests', command: 'go.test.package' }), new qv.CodeLens(range, { title: 'run file tests', command: 'go.test.file' })];
     if (pkg.children.some((sym) => sym.kind === qv.SymbolKind.Function && this.benchmarkRegex.test(sym.name))) {
       packageCodeLens.push(
-        new qv.CodeLens(range, {
-          title: 'run package benchmarks',
-          command: 'go.benchmark.package',
-        }),
-        new qv.CodeLens(range, {
-          title: 'run file benchmarks',
-          command: 'go.benchmark.file',
-        })
+        new qv.CodeLens(range, { title: 'run package benchmarks', command: 'go.benchmark.package' }),
+        new qv.CodeLens(range, { title: 'run file benchmarks', command: 'go.benchmark.file' })
       );
     }
     return packageCodeLens;
   }
-  private async getCodeLensForFunctions(document: qv.TextDocument, token: qv.CancellationToken): Promise<CodeLens[]> {
+  private async getCodeLensForFunctions(d: qv.TextDocument, t: qv.CancellationToken): Promise<CodeLens[]> {
     const testPromise = async (): Promise<qv.CodeLens[]> => {
-      const testFunctions = await getTestFunctions(document, token);
+      const testFunctions = await getTestFunctions(d, t);
       if (!testFunctions) return [];
       const codelens: qv.CodeLens[] = [];
       for (const f of testFunctions) {
@@ -394,7 +352,7 @@ export class GoRunTestLens extends GoBaseLens {
       return codelens;
     };
     const benchmarkPromise = async (): Promise<qv.CodeLens[]> => {
-      const benchmarkFunctions = await getBenchmarkFunctions(document, token);
+      const benchmarkFunctions = await getBenchmarkFunctions(d, t);
       if (!benchmarkFunctions) return [];
       const codelens: qv.CodeLens[] = [];
       for (const f of benchmarkFunctions) {

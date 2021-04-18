@@ -25,8 +25,8 @@ interface GuruImplementsOutput {
   fromptr: GuruImplementsRef[];
 }
 export class GoImplementationProvider implements qv.ImplementationProvider {
-  public provideImplementation(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): Thenable<qv.Definition> {
-    const root = getWorkspaceFolderPath(document.uri);
+  public provideImplementation(d: qv.TextDocument, p: qv.Position, t: qv.CancellationToken): Thenable<qv.Definition> {
+    const root = getWorkspaceFolderPath(d.uri);
     if (!root) {
       qv.window.showInformationMessage('Cannot find implementations when there is no workspace open.');
       return;
@@ -37,33 +37,25 @@ export class GoImplementationProvider implements qv.ImplementationProvider {
       return;
     }
     return new Promise<qv.Definition>((resolve, reject) => {
-      if (token.isCancellationRequested) {
-        return resolve(null);
-      }
+      if (t.isCancellationRequested) return resolve(null);
       const env = toolExecutionEnvironment();
       const listProc = cp.execFile(goRuntimePath, ['list', '-e', '-json'], { cwd: root, env }, (err, stdout) => {
-        if (err) {
-          return reject(err);
-        }
+        if (err) return reject(err);
         const listOutput = <GoListOutput>JSON.parse(stdout.toString());
-        const filename = canonicalizeGOPATHPrefix(document.fileName);
+        const filename = canonicalizeGOPATHPrefix(d.fileName);
         const cwd = path.dirname(filename);
-        const offset = byteOffsetAt(document, position);
+        const offset = byteOffsetAt(d, p);
         const goGuru = getBinPath('guru');
-        const buildTags = getGoConfig(document.uri)['buildTags'];
+        const buildTags = getGoConfig(d.uri)['buildTags'];
         const args = buildTags ? ['-tags', buildTags] : [];
-        if (listOutput.Root && listOutput.ImportPath) {
-          args.push('-scope', `${listOutput.ImportPath}/...`);
-        }
+        if (listOutput.Root && listOutput.ImportPath) args.push('-scope', `${listOutput.ImportPath}/...`);
         args.push('-json', 'implements', `${filename}:#${offset.toString()}`);
         const guruProc = cp.execFile(goGuru, args, { env }, (guruErr, guruStdOut) => {
           if (guruErr && (<any>guruErr).code === 'ENOENT') {
             promptForMissingTool('guru');
             return resolve(null);
           }
-          if (guruErr) {
-            return reject(guruErr);
-          }
+          if (guruErr) return reject(guruErr);
           const guruOutput = <GuruImplementsOutput>JSON.parse(guruStdOut.toString());
           const results: qv.Location[] = [];
           const addResults = (list: GuruImplementsRef[]) => {
@@ -87,9 +79,9 @@ export class GoImplementationProvider implements qv.ImplementationProvider {
           }
           return resolve(results);
         });
-        token.onCancellationRequested(() => killProcTree(guruProc));
+        t.onCancellationRequested(() => killProcTree(guruProc));
       });
-      token.onCancellationRequested(() => killProcTree(listProc));
+      t.onCancellationRequested(() => killProcTree(listProc));
     });
   }
 }

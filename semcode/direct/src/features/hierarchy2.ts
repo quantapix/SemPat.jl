@@ -1,13 +1,11 @@
 import * as qv from 'vscode';
 export class FoodPyramidHierarchy implements qv.CallHierarchyProvider {
-  prepareCallHierarchy(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): qv.CallHierarchyItem | undefined {
-    const range = document.getWordRangeAtPosition(position);
+  prepareCallHierarchy(d: qv.TextDocument, p: qv.Position, _: qv.CancellationToken): qv.CallHierarchyItem | undefined {
+    const range = d.getWordRangeAtPosition(p);
     if (range) {
-      const word = document.getText(range);
-      return this.createCallHierarchyItem(word, '', document, range);
-    } else {
-      return undefined;
-    }
+      const word = d.getText(range);
+      return this.createCallHierarchyItem(word, '', d, range);
+    } else return undefined;
   }
   async provideCallHierarchyOutgoingCalls(item: qv.CallHierarchyItem, token: qv.CancellationToken): Promise<qv.CallHierarchyOutgoingCall[] | undefined> {
     const document = await qv.workspace.openTextDocument(item.uri);
@@ -61,8 +59,8 @@ export class FoodPyramidHierarchy implements qv.CallHierarchyProvider {
     }
     return outgoingCallItems;
   }
-  private createCallHierarchyItem(word: string, type: string, document: qv.TextDocument, range: qv.Range): qv.CallHierarchyItem {
-    return new qv.CallHierarchyItem(qv.SymbolKind.Object, word, `(${type})`, document.uri, range, range);
+  private createCallHierarchyItem(word: string, type: string, d: qv.TextDocument, r: qv.Range): qv.CallHierarchyItem {
+    return new qv.CallHierarchyItem(qv.SymbolKind.Object, word, `(${type})`, d.uri, r, r);
   }
 }
 class FoodPyramidParser {

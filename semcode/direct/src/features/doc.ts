@@ -1,51 +1,46 @@
 import * as qv from 'vscode';
-import { ServiceClient } from '../service';
+import { ServiceClient } from '../server/service';
 import { conditionalRegistration, requireConfig } from '../../../src/registration';
-import { DocumentSelector } from '../utils/documentSelector';
-import * as qu from '../utils/qu';
+import * as qu from '../utils/base';
 import FileConfigMgr from './fileConfigMgr';
+
 const defaultJsDoc = new qv.SnippetString(`/**\n * $0\n */`);
 class JsDocCompletionItem extends qv.CompletionItem {
-  constructor(public readonly document: qv.TextDocument, public readonly position: qv.Position) {
+  constructor(public readonly doc: qv.TextDocument, public readonly pos: qv.Position) {
     super('/** */', qv.CompletionItemKind.Text);
     this.detail = 'typescript.jsDocCompletionItem.documentation';
     this.sortText = '\0';
-    const line = document.lineAt(position.line).text;
-    const prefix = line.slice(0, position.character).match(/\/\**\s*$/);
-    const suffix = line.slice(position.character).match(/^\s*\**\//);
-    const start = position.translate(0, prefix ? -prefix[0].length : 0);
-    const range = new qv.Range(start, position.translate(0, suffix ? suffix[0].length : 0));
-    this.range = { inserting: range, replacing: range };
+    const l = doc.lineAt(pos.line).text;
+    const pre = l.slice(0, pos.character).match(/\/\**\s*$/);
+    const suf = l.slice(pos.character).match(/^\s*\**\//);
+    const start = pos.translate(0, pre ? -pre[0].length : 0);
+    const r = new qv.Range(start, pos.translate(0, suf ? suf[0].length : 0));
+    this.range = { inserting: r, replacing: r };
   }
 }
 class JsDocCompletionProvider implements qv.CompletionItemProvider {
-  constructor(private readonly client: ServiceClient, private readonly fileConfigMgr: FileConfigMgr) {}
-  public async provideCompletionItems(document: qv.TextDocument, position: qv.Position, token: qv.CancellationToken): Promise<qv.CompletionItem[] | undefined> {
-    const file = this.client.toOpenedFilePath(document);
-    if (!file) return undefined;
-    if (!this.isPotentiallyValidDocCompletionPosition(document, position)) {
-      return undefined;
-    }
-    const response = await this.client.interruptGetErr(async () => {
-      await this.fileConfigMgr.ensureConfigForDocument(document, token);
-      const args = qu.Position.toFileLocationRequestArgs(file, position);
-      return this.client.execute('docCommentTemplate', args, token);
+  constructor(private readonly client: ServiceClient, private readonly mgr: FileConfigMgr) {}
+  public async provideCompletionItems(d: qv.TextDocument, p: qv.Position, t: qv.CancellationToken): Promise<qv.CompletionItem[] | undefined> {
+    const f = this.client.toOpenedFilePath(d);
+    if (!f) return undefined;
+    if (!this.isPotentiallyValidDocCompletionPosition(d, p)) return undefined;
+    const x = await this.client.interruptGetErr(async () => {
+      await this.mgr.ensureConfigForDocument(d, t);
+      const xs = qu.Position.toFileLocationRequestArgs(f, p);
+      return this.client.execute('docCommentTemplate', xs, t);
     });
-    if (response.type !== 'response' || !response.body) return undefined;
-    const item = new JsDocCompletionItem(document, position);
-    if (response.body.newText === '/** */') item.insertText = defaultJsDoc;
-    else item.insertText = templateToSnippet(response.body.newText);
-
-    return [item];
+    if (x.type !== 'response' || !x.body) return undefined;
+    const i = new JsDocCompletionItem(d, p);
+    if (x.body.newText === '/** */') i.insertText = defaultJsDoc;
+    else i.insertText = templateToSnippet(x.body.newText);
+    return [i];
   }
-  private isPotentiallyValidDocCompletionPosition(document: qv.TextDocument, position: qv.Position): boolean {
-    const line = document.lineAt(position.line).text;
-    const prefix = line.slice(0, position.character);
-    if (!/^\s*$|\/\*\*\s*$|^\s*\/\*\*+\s*$/.test(prefix)) {
-      return false;
-    }
-    const suffix = line.slice(position.character);
-    return /^\s*(\*+\/)?\s*$/.test(suffix);
+  private isPotentiallyValidDocCompletionPosition(d: qv.TextDocument, p: qv.Position): boolean {
+    const l = d.lineAt(p.line).text;
+    const pre = l.slice(0, p.character);
+    if (!/^\s*$|\/\*\*\s*$|^\s*\/\*\*+\s*$/.test(pre)) return false;
+    const suf = l.slice(p.character);
+    return /^\s*(\*+\/)?\s*$/.test(suf);
   }
 }
 export function templateToSnippet(template: string): qv.SnippetString {
@@ -63,8 +58,8 @@ export function templateToSnippet(template: string): qv.SnippetString {
   template = template.replace(/\* @returns[ \t]*$/gm, `* @returns \${${snippetIndex++}}`);
   return new qv.SnippetString(template);
 }
-export function register(selector: DocumentSelector, modeId: string, client: ServiceClient, fileConfigMgr: FileConfigMgr): qv.Disposable {
-  return conditionalRegistration([requireConfig(modeId, 'suggest.completeJSDocs')], () => {
-    return qv.languages.registerCompletionItemProvider(selector.syntax, new JsDocCompletionProvider(client, fileConfigMgr), '*');
+export function register(s: qu.DocumentSelector, mode: string, c: ServiceClient, m: FileConfigMgr): qv.Disposable {
+  return conditionalRegistration([requireConfig(mode, 'suggest.completeJSDocs')], () => {
+    return qv.languages.registerCompletionItemProvider(s.syntax, new JsDocCompletionProvider(c, m), '*');
   });
 }

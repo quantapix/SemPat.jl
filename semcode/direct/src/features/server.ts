@@ -365,9 +365,9 @@ export async function buildLangClient(cfg: BuildLangClientOption): Promise<LangC
             }
           }, []);
         },
-        provideDocumentFormattingEdits: async (document: qv.TextDocument, options: qv.FormattingOptions, token: qv.CancellationToken, next: ProvideDocumentFormattingEditsSignature) => {
-          if (cfg.features.formatter) return cfg.features.formatter.provideDocumentFormattingEdits(document, options, token);
-          return next(document, options, token);
+        provideDocumentFormattingEdits: async (d: qv.TextDocument, opts: qv.FormattingOptions, token: qv.CancellationToken, next: ProvideDocumentFormattingEditsSignature) => {
+          if (cfg.features.formatter) return cfg.features.formatter.provideDocumentFormattingEdits(d, opts, token);
+          return next(d, opts, token);
         },
         handleDiags: (uri: qv.Uri, diagnostics: qv.Diag[], next: HandleDiagsSignature) => {
           if (!cfg.features.diagnostics) return null;
@@ -376,8 +376,8 @@ export async function buildLangClient(cfg: BuildLangClientOption): Promise<LangC
           removeDuplicateDiags(lintDiagCollection, uri, diagnostics);
           return next(uri, diagnostics);
         },
-        provideCompletionItem: async (document: qv.TextDocument, position: qv.Position, context: qv.CompletionContext, token: qv.CancellationToken, next: ProvideCompletionItemsSignature) => {
-          const list = await next(document, position, context, token);
+        provideCompletionItem: async (d: qv.TextDocument, p: qv.Position, c: qv.CompletionContext, t: qv.CancellationToken, next: ProvideCompletionItemsSignature) => {
+          const list = await next(d, p, c, t);
           if (!list) return list;
           const items = Array.isArray(list) ? list : list.items;
           if (!Array.isArray(list) && list.isIncomplete && list.items.length > 1) {
@@ -387,8 +387,8 @@ export async function buildLangClient(cfg: BuildLangClientOption): Promise<LangC
               item.filterText = hardcodedFilterText;
             }
           }
-          const editorParamHintsEnabled = qv.workspace.getConfig('editor.parameterHints', document.uri)['enabled'];
-          const goParamHintsEnabled = qv.workspace.getConfig('[go]', document.uri)['editor.parameterHints.enabled'];
+          const editorParamHintsEnabled = qv.workspace.getConfig('editor.parameterHints', d.uri)['enabled'];
+          const goParamHintsEnabled = qv.workspace.getConfig('[go]', d.uri)['editor.parameterHints.enabled'];
           let paramHintsEnabled = false;
           if (typeof goParamHintsEnabled === 'undefined') paramHintsEnabled = editorParamHintsEnabled;
           else paramHintsEnabled = goParamHintsEnabled;

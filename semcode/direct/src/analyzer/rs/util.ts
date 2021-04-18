@@ -89,8 +89,8 @@ export function sleep(ms: number) {
 export type RustDocument = qv.TextDocument & { languageId: 'rust' };
 export type RustEditor = qv.TextEditor & { document: RustDocument };
 
-export function isRustDocument(document: qv.TextDocument): document is RustDocument {
-  return document.languageId === 'rust' && document.uri.scheme === 'file';
+export function isRustDocument(d: qv.TextDocument): d is RustDocument {
+  return d.languageId === 'rust' && d.uri.scheme === 'file';
 }
 
 export function isRustEditor(editor: qv.TextEditor): editor is RustEditor {

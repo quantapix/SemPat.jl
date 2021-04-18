@@ -128,17 +128,17 @@ function convertToCodeSymbols(d: qv.TextDocument, decls: GoOutlineDeclaration[],
 }
 export class GoSymbol implements qv.DocumentSymbolProvider {
   constructor(private includeImports?: boolean) {}
-  public provideDocumentSymbols(document: qv.TextDocument, token: qv.CancellationToken): Thenable<qv.DocumentSymbol[]> {
+  public provideDocumentSymbols(d: qv.TextDocument, t: qv.CancellationToken): Thenable<qv.DocumentSymbol[]> {
     if (typeof this.includeImports !== 'boolean') {
-      const gotoSymbolConfig = getGoConfig(document.uri)['gotoSymbol'];
+      const gotoSymbolConfig = getGoConfig(d.uri)['gotoSymbol'];
       this.includeImports = gotoSymbolConfig ? gotoSymbolConfig['includeImports'] : false;
     }
     const options: GoOutlineOptions = {
-      fileName: document.fileName,
-      document,
+      fileName: d.fileName,
+      document: d,
       importsOption: this.includeImports ? GoOutlineImportsOptions.Include : GoOutlineImportsOptions.Exclude,
     };
-    return documentSymbols(options, token);
+    return documentSymbols(options, t);
   }
 }
 

@@ -59,10 +59,6 @@ export function stopSpinner(m?: string) {
 export function parseKindModifier(ms: string): Set<string> {
   return new Set(ms.split(/,|\s+/g));
 }
-export interface DocumentSelector {
-  readonly syntax: readonly qv.DocumentFilter[];
-  readonly semantic: readonly qv.DocumentFilter[];
-}
 export function nearestParentWorkspace(curWorkspace: qv.WorkspaceFolder, filePath: string): qv.WorkspaceFolder {
   const root = curWorkspace.uri.fsPath;
   const rootManifest = path.join(root, 'Cargo.toml');
@@ -291,61 +287,6 @@ export class RelativeWorkspacePathResolver {
       }
     }
     return undefined;
-  }
-}
-export class ResourceMap<T> {
-  private static readonly defaultPathNormalizer = (r: qv.Uri): string => {
-    if (r.scheme === file) return r.fsPath;
-    return r.toString(true);
-  };
-  private readonly _map = new Map<string, { readonly resource: qv.Uri; value: T }>();
-  constructor(
-    protected readonly _normalizePath: (r: qv.Uri) => string | undefined = ResourceMap.defaultPathNormalizer,
-    protected readonly config: {
-      readonly onCaseInsenitiveFileSystem: boolean;
-    }
-  ) {}
-  public get size() {
-    return this._map.size;
-  }
-  public has(r: qv.Uri): boolean {
-    const f = this.toKey(r);
-    return !!f && this._map.has(f);
-  }
-  public get(r: qv.Uri): T | undefined {
-    const f = this.toKey(r);
-    if (!f) return undefined;
-    const e = this._map.get(f);
-    return e ? e.value : undefined;
-  }
-  public set(r: qv.Uri, v: T) {
-    const f = this.toKey(r);
-    if (!f) return;
-    const e = this._map.get(f);
-    if (e) e.value = v;
-    else this._map.set(f, { resource: r, value: v });
-  }
-  public delete(r: qv.Uri): void {
-    const f = this.toKey(r);
-    if (f) this._map.delete(f);
-  }
-  public clear(): void {
-    this._map.clear();
-  }
-  public get values(): Iterable<T> {
-    return Array.from(this._map.values()).map((x) => x.value);
-  }
-  public get entries(): Iterable<{ resource: qv.Uri; value: T }> {
-    return this._map.values();
-  }
-  private toKey(r: qv.Uri): string | undefined {
-    const k = this._normalizePath(r);
-    if (!k) return k;
-    return this.isCaseInsensitivePath(k) ? k.toLowerCase() : k;
-  }
-  private isCaseInsensitivePath(p: string) {
-    if (isWindowsPath(p)) return true;
-    return p[0] === '/' && this.config.onCaseInsenitiveFileSystem;
   }
 }
 function isWindowsPath(p: string): boolean {

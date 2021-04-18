@@ -24,23 +24,23 @@ import { ModuleNameNode, NameNode, ParseNode, ParseNodeType } from '../parser/pa
 import { ParseResults } from '../parser/parser';
 
 export class GoReference implements qv.ReferenceProvider {
-  public provideReferences(document: qv.TextDocument, position: qv.Position, options: { includeDeclaration: boolean }, token: qv.CancellationToken): Thenable<qv.Location[]> {
-    return this.doFindReferences(document, position, options, token);
+  public provideReferences(d: qv.TextDocument, p: qv.Position, opts: { includeDeclaration: boolean }, token: qv.CancellationToken): Thenable<qv.Location[]> {
+    return this.doFindReferences(d, p, opts, token);
   }
-  private doFindReferences(document: qv.TextDocument, position: qv.Position, options: { includeDeclaration: boolean }, token: qv.CancellationToken): Thenable<qv.Location[]> {
+  private doFindReferences(d: qv.TextDocument, p: qv.Position, opts: { includeDeclaration: boolean }, token: qv.CancellationToken): Thenable<qv.Location[]> {
     return new Promise<qv.Location[]>((resolve, reject) => {
-      const wordRange = document.getWordRangeAtPosition(position);
+      const wordRange = d.getWordRangeAtPosition(p);
       if (!wordRange) return resolve([]);
       const goGuru = getBinPath('guru');
       if (!path.isAbsolute(goGuru)) {
         promptForMissingTool('guru');
         return reject('Cannot find tool "guru" to find references.');
       }
-      const filename = canonicalizeGOPATHPrefix(document.fileName);
+      const filename = canonicalizeGOPATHPrefix(d.fileName);
       const cwd = path.dirname(filename);
-      const offset = byteOffsetAt(document, wordRange.start);
+      const offset = byteOffsetAt(d, wordRange.start);
       const env = toolExecutionEnvironment();
-      const buildTags = getGoConfig(document.uri)['buildTags'];
+      const buildTags = getGoConfig(d.uri)['buildTags'];
       const args = buildTags ? ['-tags', buildTags] : [];
       args.push('-modified', 'referrers', `${filename}:#${offset.toString()}`);
       const process = cp.execFile(goGuru, args, { env }, (err, stdout, stderr) => {
@@ -49,9 +49,8 @@ export class GoReference implements qv.ReferenceProvider {
             promptForMissingTool('guru');
             return reject('Cannot find tool "guru" to find references.');
           }
-          if (err && (<any>err).killed !== true) {
-            return reject(`Error running guru: ${err.message || stderr}`);
-          }
+          if (err && (<any>err).killed !== true) return reject(`Error running guru: ${err.message || stderr}`);
+
           const lines = stdout.toString().split('\n');
           const results: qv.Location[] = [];
           for (const line of lines) {
@@ -59,10 +58,8 @@ export class GoReference implements qv.ReferenceProvider {
             if (!match) continue;
             const [, file, lineStartStr, colStartStr, lineEndStr, colEndStr] = match;
             const referenceResource = qv.Uri.file(path.resolve(cwd, file));
-            if (!options.includeDeclaration) {
-              if (document.uri.fsPath === referenceResource.fsPath && position.line === Number(lineStartStr) - 1) {
-                continue;
-              }
+            if (!opts.includeDeclaration) {
+              if (d.uri.fsPath === referenceResource.fsPath && p.line === Number(lineStartStr) - 1) continue;
             }
             const range = new qv.Range(+lineStartStr - 1, +colStartStr - 1, +lineEndStr - 1, +colEndStr);
             results.push(new qv.Location(referenceResource, range));
@@ -72,7 +69,7 @@ export class GoReference implements qv.ReferenceProvider {
           reject(e);
         }
       });
-      if (process.pid) process.stdin.end(getFileArchive(document));
+      if (process.pid) process.stdin.end(getFileArchive(d));
       token.onCancellationRequested(() => killProcTree(process));
     });
   }
@@ -137,9 +134,7 @@ export class FindReferencesTreeWalker extends ParseTreeWalker {
     return this._locationsFound;
   }
   walk(node: ParseNode) {
-    if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
-      super.walk(node);
-    }
+    if (!AnalyzerNodeInfo.isCodeUnreachable(node)) super.walk(node);
   }
   visitModuleName(node: ModuleNameNode): boolean {
     return false;

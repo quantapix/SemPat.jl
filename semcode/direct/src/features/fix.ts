@@ -123,19 +123,15 @@ class TsAutoFix implements qv.CodeActionProvider {
       providedCodeActionKinds: TsAutoFix.kindProviders.map((x) => x.kind),
     };
   }
-  public async provideCodeActions(document: qv.TextDocument, _range: qv.Range, context: qv.CodeActionContext, token: qv.CancellationToken): Promise<qv.CodeAction[] | undefined> {
-    if (!context.only || !qv.CodeActionKind.Source.intersects(context.only)) {
-      return undefined;
-    }
-    const file = this.client.toOpenedFilePath(document);
+  public async provideCodeActions(d: qv.TextDocument, _: qv.Range, c: qv.CodeActionContext, token: qv.CancellationToken): Promise<qv.CodeAction[] | undefined> {
+    if (!c.only || !qv.CodeActionKind.Source.intersects(c.only)) return undefined;
+    const file = this.client.toOpenedFilePath(d);
     if (!file) return undefined;
-    const actions = this.getFixAllActions(context.only);
-    if (this.client.bufferSyncSupport.hasPendingDiags(document.uri)) {
-      return actions;
-    }
-    const diagnostics = this.diagnosticsMgr.getDiags(document.uri);
+    const actions = this.getFixAllActions(c.only);
+    if (this.client.bufferSyncSupport.hasPendingDiags(d.uri)) return actions;
+    const diagnostics = this.diagnosticsMgr.getDiags(d.uri);
     if (!diagnostics.length) return actions;
-    await this.fileConfigMgr.ensureConfigForDocument(document, token);
+    await this.fileConfigMgr.ensureConfigForDocument(d, token);
     if (token.isCancellationRequested) return undefined;
     await Promise.all(actions.map((action) => action.build(this.client, file, diagnostics, token)));
     return actions;

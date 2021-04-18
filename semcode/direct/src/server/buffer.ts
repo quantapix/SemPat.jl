@@ -147,30 +147,30 @@ class BufferSynchronizer {
 }
 class SyncBuffer {
   private state = BufferState.Initial;
-  constructor(private readonly document: qv.TextDocument, public readonly filepath: string, private readonly client: ServiceClient, private readonly synchronizer: BufferSynchronizer) {}
+  constructor(private readonly doc: qv.TextDocument, public readonly filepath: string, private readonly client: ServiceClient, private readonly synchronizer: BufferSynchronizer) {}
   public open(): void {
     const args: qp.OpenRequestArgs = {
       file: this.filepath,
-      fileContent: this.document.getText(),
-      projectRootPath: this.client.getWorkspaceRootForResource(this.document.uri),
+      fileContent: this.doc.getText(),
+      projectRootPath: this.client.getWorkspaceRootForResource(this.doc.uri),
     };
-    const scriptKind = mode2ScriptKind(this.document.languageId);
+    const scriptKind = mode2ScriptKind(this.doc.languageId);
     if (scriptKind) args.scriptKindName = scriptKind;
     if (this.client.apiVersion.gte(API.v240)) {
-      const tsPluginsForDocument = this.client.pluginMgr.plugins.filter((x) => x.languages.indexOf(this.document.languageId) >= 0);
+      const tsPluginsForDocument = this.client.pluginMgr.plugins.filter((x) => x.languages.indexOf(this.doc.languageId) >= 0);
       if (tsPluginsForDocument.length) (args as any).plugins = tsPluginsForDocument.map((plugin) => plugin.name);
     }
     this.synchronizer.open(this.resource, args);
     this.state = BufferState.Open;
   }
   public get resource(): qv.Uri {
-    return this.document.uri;
+    return this.doc.uri;
   }
   public get lineCount(): number {
-    return this.document.lineCount;
+    return this.doc.lineCount;
   }
   public get kind(): BufferKind {
-    switch (this.document.languageId) {
+    switch (this.doc.languageId) {
       case languageModeIds.javascript:
       case languageModeIds.javascriptreact:
         return BufferKind.JavaScript;
